@@ -37,8 +37,8 @@ jobs:
         uses: Azure/static-web-apps-deploy@v1
         with:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_APP_DEPLOY_KEY }}
-          repo_token:                ${{ secrets.PERSONAL_TOKEN }}
-          action:                    upload
-          app_location:              apps/admin-web
-          api_location:              ''
-          app_artifact_location:     dist
+          repo_token:                          ${{ secrets.PERSONAL_TOKEN }}
+          action:                              upload
+          app_location:                        apps/admin-web
+          api_location:                        ''
+          output_location:                     dist
