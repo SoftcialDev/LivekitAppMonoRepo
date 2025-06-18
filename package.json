@@ -1,0 +1,21 @@
+{
+  "name": "livekit-app-mono-repo",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "format": "turbo run format",
+    "test": "turbo run test"
+  },
+  "devDependencies": {
+    "turbo": "^1.9.4",
+    "typescript": "^5.1.6",
+    "eslint": "^8.35.0",
+    "prettier": "^2.8.8"
+  }
+}

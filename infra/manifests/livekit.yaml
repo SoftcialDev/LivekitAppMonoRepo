@@ -1,0 +1,184 @@
+---
+# 1) Secret de Redis externo
+# Crear previamente con:
+#   REDIS_HOST="$(terraform output -raw redis_hostname):6379"
+#   REDIS_KEY="$(terraform output -raw redis_primary_key)"
+#   kubectl create secret generic redis-secret \
+#     --from-literal=REDIS_HOST="$REDIS_HOST" \
+#     --from-literal=REDIS_KEY="$REDIS_KEY"
+apiVersion: v1
+kind: Secret
+metadata:
+  name: redis-secret
+type: Opaque
+stringData:
+  REDIS_HOST: ""   # Rellenar al crear el Secret con kubectl
+  REDIS_KEY: ""    # Rellenar al crear el Secret con kubectl
+
+---
+# 2) ConfigMap de LiveKit con placeholders para Redis
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: livekit-server-config
+data:
+  config.yaml: |
+    keys:
+      access_token: secret
+    log_level: debug
+    port: 7880
+    redis:
+      address: "${REDIS_HOST}"
+      password: "${REDIS_KEY}"
+    rtc:
+      port_range_end: 60000
+      port_range_start: 50000
+      tcp_port: 7801
+      turn_servers:
+      - credential: pass-1
+        host: 134.33.230.77
+        port: 3478
+        protocol: udp
+        username: user-1
+      use_external_ip: false
+    turn:
+      enabled: false
+
+---
+# 3) Service para LiveKit
+apiVersion: v1
+kind: Service
+metadata:
+  name: livekit-server
+  labels:
+    app.kubernetes.io/name: livekit-server
+    app.kubernetes.io/instance: livekit
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 443
+      targetPort: 7880
+      protocol: TCP
+    - name: rtc-tcp
+      port: 7801
+      targetPort: 7801
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: livekit-server
+    app.kubernetes.io/instance: livekit
+
+---
+# 4) Deployment de LiveKit
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: livekit-server
+  labels:
+    app.kubernetes.io/name: livekit-server
+    app.kubernetes.io/instance: livekit
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: livekit-server
+      app.kubernetes.io/instance: livekit
+  template:
+    metadata:
+      annotations:
+        linkerd.io/inject: disabled
+        sidecar.istio.io/inject: "false"
+      labels:
+        app.kubernetes.io/name: livekit-server
+        app.kubernetes.io/instance: livekit
+    spec:
+      terminationGracePeriodSeconds: 18000  # 5 horas
+      containers:
+        - name: livekit-server
+          image: "livekit/livekit-server:v1.8.2"
+          imagePullPolicy: IfNotPresent
+          # Si la imagen soporta envsubst, se podría usar un comando para reemplazar:
+          # command:
+          #   - sh
+          #   - -c
+          #   - |
+          #       envsubst < /etc/livekit/config.yaml > /etc/livekit/config_gen.yaml
+          #       exec livekit-server --config /etc/livekit/config_gen.yaml
+          # Si no, se asume que ConfigMap ya contiene valores literales tras preprocesar localmente.
+          env:
+            - name: REDIS_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: redis-secret
+                  key: REDIS_HOST
+            - name: REDIS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: redis-secret
+                  key: REDIS_KEY
+            - name: LIVEKIT_CONFIG
+              valueFrom:
+                configMapKeyRef:
+                  name: livekit-server-config
+                  key: config.yaml
+          ports:
+            - name: http
+              containerPort: 7880
+              protocol: TCP
+            - name: rtc-tcp
+              containerPort: 7801
+              protocol: TCP
+          volumeMounts:
+            # Montamos ConfigMap solo si se usa reemplazo en contenedor; si no, LIVEKIT_CONFIG usa configMap
+            # - name: config-tpl
+            #   mountPath: /etc/livekit
+      # Volúmenes para envsubst (descomentar si se usa reemplazo en contenedor)
+      # volumes:
+      #   - name: config-tpl
+      #     configMap:
+      #       name: livekit-server-config
+      #       items:
+      #         - key: config.yaml
+      #           path: config.yaml
+
+---
+# 5) Ingress para LiveKit
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: livekit-ingress
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - livekit.xyzhub.pw
+      secretName: livekit-tls
+  rules:
+    - host: livekit.xyzhub.pw
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: livekit-server
+                port:
+                  number: 443
+
+---
+# 6) UDPRoute para STUNner
+apiVersion: stunner.l7mp.io/v1
+kind: UDPRoute
+metadata:
+  name: livekit-agent
+  namespace: stunner
+spec:
+  parentRefs:
+    - name: webrtc-gateway
+  rules:
+    - backendRefs:
+        - name: livekit-server
+          namespace: default
