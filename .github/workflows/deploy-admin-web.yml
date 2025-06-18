@@ -1,3 +1,4 @@
+# .github/workflows/deploy-admin-web.yml
 name: Deploy Admin-Web to Azure Static Web Apps
 
 on:
@@ -40,4 +41,4 @@ jobs:
           action:                    upload
           app_location:              apps/admin-web
           api_location:              ''
-          output_location:           apps/admin-web/dist
+          app_artifact_location:     dist
