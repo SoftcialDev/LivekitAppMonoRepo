@@ -15,17 +15,12 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          submodules: true
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '18.x'
           cache: npm
-
-      - name: Install root dependencies
-        run: npm ci
 
       - name: Build admin-web
         working-directory: apps/admin-web
@@ -37,8 +32,8 @@ jobs:
         uses: Azure/static-web-apps-deploy@v1
         with:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_APP_DEPLOY_KEY }}
-          repo_token:                        ${{ secrets.PERSONAL_TOKEN }}
-          action:                            upload
-          app_location:                      apps/admin-web
-          api_location:                      ''
-          app_artifact_location:             dist
+          repo_token:                ${{ secrets.PERSONAL_TOKEN }}
+          action:                    upload
+          app_location:              apps/admin-web
+          api_location:              ''
+          app_artifact_location:     dist
