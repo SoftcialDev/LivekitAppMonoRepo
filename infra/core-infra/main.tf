@@ -46,17 +46,13 @@ module "redis" {
   egress_public_ip = module.pip_egress.public_ip_address
 }
 
-module "aad_app" {
-  source = "./modules/aad-app"
-
-  app_name               = var.aad_app_name
-  redirect_uris          = var.aad_redirect_uris
-  logout_uris            = var.aad_logout_uris
-  redirect_url           = var.redirect_url_for_invited_users
-  admins_group_members   = var.aad_admins_group_members
-  employees_group_members = var.aad_employees_group_members
-  invite_emails          = var.aad_invite_emails
-  enable_directory_role_assignment = var.aad_enable_directory_role_assignment
+module "aad_spa" {
+  source                = "./modules/aad-spa"
+  aad_app_name          = var.aad_app_name
+  aad_redirect_uris     = var.aad_redirect_uris
+  aad_logout_uris       = var.aad_logout_uris
+  aad_api_redirect_uris = var.aad_redirect_uris
+  aad_admins_group_members    = var.aad_admins_group_members
 }
 
 # 3. Invocar módulo AKS
