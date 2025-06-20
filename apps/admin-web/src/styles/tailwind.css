@@ -1,1 +1,17 @@
 ﻿@import "tailwindcss";
+
+:root {
+  --color-primary:        #764E9F;
+  --color-primary-dark:   #542187;
+  --color-secondary:      #ABDE80;
+  --color-secondary-hover: rgba(171, 222, 128, 0.9);
+  --color-tertiary:      #BBA6CF;
+  --color-white:         #FFFFFF;
+}
+
+.montserrat-bold {
+  font-family: "Montserrat", sans-serif;
+  font-optical-sizing: auto;
+  font-weight: 700;
+  font-style: normal;
+}

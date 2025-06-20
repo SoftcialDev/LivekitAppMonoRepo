@@ -1,12 +1,26 @@
-output "server_fqdn" {
-  description = "Fully qualified domain name of PostgreSQL server"
-  value       = azurerm_postgresql_flexible_server.this.fqdn
+output "postgres_server_fqdn" {
+  description = "Fully qualified domain name of the PostgreSQL Flexible Server."
+  value       = azurerm_postgresql_flexible_server.postgres_server.fqdn
 }
-output "database_name" {
-  description = "Default database name"
-  value       = azurerm_postgresql_flexible_database.default_db.name
+
+output "postgres_server_admin_username" {
+  description = "Administrator username for PostgreSQL Flexible Server."
+  value       = azurerm_postgresql_flexible_server.postgres_server.administrator_login
 }
-output "admin_username" {
-  description = "Admin username"
-  value       = azurerm_postgresql_flexible_server.this.administrator_login
+
+output "postgres_database_name" {
+  description = "Name of the default database created."
+  value       = azurerm_postgresql_flexible_server_database.postgres_database.name
+}
+
+output "postgres_server_id" {
+  description = "Resource ID of the PostgreSQL Flexible Server."
+  value       = azurerm_postgresql_flexible_server.postgres_server.id
+}
+
+
+output "postgres_server_password" {
+  description = "Resource ID of the PostgreSQL Flexible Server."
+  value       = azurerm_postgresql_flexible_server.postgres_server.administrator_password
+  sensitive = true
 }

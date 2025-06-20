@@ -1,11 +1,22 @@
-
 data "azuread_client_config" "current" {}
 
-resource "azurerm_function_app" "this" {
-  name                       = var.function_app_name
+resource "azurerm_app_service_plan" "function_plan" {
+  name                = "${var.name_prefix}-func-plan"
+  location            = var.location
+  resource_group_name = var.resource_group_name
+  kind                = "FunctionApp"
+
+  sku {
+    tier = var.function_plan_sku_tier
+    size = var.function_plan_sku_size
+  }
+}
+
+resource "azurerm_function_app" "function_app" {
+  name                       = "${var.name_prefix}-func"
   location                   = var.location
   resource_group_name        = var.resource_group_name
-  app_service_plan_id        = var.app_service_plan_id
+  app_service_plan_id        = azurerm_app_service_plan.function_plan.id
   storage_account_name       = var.storage_account_name
   storage_account_access_key = var.storage_account_access_key
   version                    = "~4"
@@ -14,17 +25,51 @@ resource "azurerm_function_app" "this" {
     type = "SystemAssigned"
   }
 
-
-  app_settings = {
-    FUNCTIONS_WORKER_RUNTIME = "node"
-    AzureWebJobsStorage      = "DefaultEndpointsProtocol=https;AccountName=${var.storage_account_name};AccountKey=${var.storage_account_access_key};EndpointSuffix=core.windows.net"
-    WEBSITE_RUN_FROM_PACKAGE = "1"
-  }
-
   auth_settings {
     enabled                       = true
     default_provider              = "AzureActiveDirectory"
     issuer                        = "https://login.microsoftonline.com/${data.azuread_client_config.current.tenant_id}/v2.0"
     unauthenticated_client_action = "RedirectToLoginPage"
+
+    active_directory {
+      client_id = var.aad_app_client_id
+    }
   }
+
+  app_settings = {
+    FUNCTIONS_WORKER_RUNTIME    = "node"
+    WEBSITE_RUN_FROM_PACKAGE    = "1"
+    AzureWebJobsStorage         = var.storage_account_connection_string
+
+    # Plain (non-sensitive)
+    AZURE_TENANT_ID             = var.azure_tenant_id
+    AZURE_CLIENT_ID             = var.azure_client_id
+    LIVEKIT_API_URL             = var.livekit_api_url
+    WEBPUBSUB_ENDPOINT          = var.webpubsub_endpoint
+    SERVICE_BUS_TOPIC_NAME      = var.service_bus_topic_name
+    WEBPUBSUB_NAME              = var.webpubsub_hub_name
+    NODE_ENV                    = var.node_env
+
+    # Desde Key Vault usando el mapa secret_uris
+    LIVEKIT_API_KEY        = "@Microsoft.KeyVault(SecretUri=${var.secret_uris["livekit_api_key"]})"
+    LIVEKIT_API_SECRET     = "@Microsoft.KeyVault(SecretUri=${var.secret_uris["livekit_api_secret"]})"
+    AZURE_CLIENT_SECRET    = "@Microsoft.KeyVault(SecretUri=${var.secret_uris["azure_client_secret"]})"
+    SERVICE_BUS_CONNECTION = "@Microsoft.KeyVault(SecretUri=${var.secret_uris["service_bus_connection"]})"
+    WEBPUBSUB_KEY          = "@Microsoft.KeyVault(SecretUri=${var.secret_uris["webpubsub_key"]})"
+
+    # Si manejas DATABASE_URL en Key Vault:
+    DATABASE_URL           = "@Microsoft.KeyVault(SecretUri=${var.secret_uris["database_url"]})"
+  }
+}
+
+resource "azurerm_key_vault_access_policy" "func" {
+  key_vault_id = var.key_vault_id
+  tenant_id    = data.azuread_client_config.current.tenant_id
+  object_id = azurerm_function_app.function_app.identity[0].principal_id
+
+  secret_permissions = [
+    "Get",
+    "List",
+    "Set"
+  ]
 }

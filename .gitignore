@@ -21,7 +21,7 @@ terraform.rc
 # Ignore any .env files that might contain secrets
 *.env
 .env*
-
+local.settings.json
 # Local development files
 .idea/
 .vscode/

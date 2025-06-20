@@ -13,9 +13,17 @@
     "resolveJsonModule": true,
     "forceConsistentCasingInFileNames": true,
     "esModuleInterop": true,
-    "types": ["vite/client"]
-    
+    "baseUrl": ".",                
+    "paths": {
+      "@/*": ["src/*"],           
+      "@assets/*": ["src/assets/*"],
+      "@components/*": ["src/components/*"]
+    },
+    "types": [
+      "vite/client",
+      "node"
+    ]
   },
-  "include": ["src","src/**/*.d.ts"],
+  "include": ["src", "src/**/*.d.ts"],
   "exclude": ["node_modules", "dist"]
 }

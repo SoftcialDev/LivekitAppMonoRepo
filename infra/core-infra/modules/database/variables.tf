@@ -1,51 +1,61 @@
+variable "name_prefix" {
+  description = "Prefix for naming resources (for example, 'myapp'). Used to form server and database names. Must comply with Azure naming rules."
+  type        = string
+}
+
 variable "resource_group_name" {
+  description = "Name of the existing Resource Group where PostgreSQL Flexible Server will be deployed."
   type        = string
-  description = "Resource group name"
 }
+
 variable "location" {
+  description = "Azure region for PostgreSQL Flexible Server, for example 'eastus'."
   type        = string
-  description = "Azure region"
 }
-variable "server_name" {
-  type        = string
-  description = "PostgreSQL Flexible Server name"
-}
-variable "sku_name" {
-  type        = string
-  description = "SKU name, e.g., Standard_D2s_v3"
-  default     = "Standard_D2s_v3"
-}
-variable "storage_mb" {
-  type        = number
-  description = "Storage in MB"
-  default     = 32768
-}
-variable "version" {
-  type        = string
-  description = "PostgreSQL version, e.g., '13'"
-  default     = "13"
-}
+
 variable "admin_username" {
+  description = "Administrator username for PostgreSQL Flexible Server."
   type        = string
-  description = "Admin username for PostgreSQL"
 }
+
 variable "admin_password" {
+  description = "Administrator password for PostgreSQL Flexible Server."
   type        = string
-  description = "Admin password for PostgreSQL"
   sensitive   = true
 }
-variable "vnet_subnet_id" {
+
+variable "postgres_version" {
+  description = "PostgreSQL major version, for example '13' or '14'."
   type        = string
-  description = "Subnet resource ID for private access (optional). If empty, server is public."
+  default     = "13"
+}
+
+variable "sku_name" {
+  description = "SKU name for PostgreSQL Flexible Server, for example 'Standard_D2s_v3'."
+  type        = string
+  default     = "Standard_D2s_v3"
+}
+
+variable "storage_mb" {
+  description = "Storage size in MB for PostgreSQL Flexible Server."
+  type        = number
+  default     = 32768
+}
+
+variable "vnet_subnet_id" {
+  description = "Resource ID of a subnet delegated to Microsoft.DBforPostgreSQL/flexibleServers for private access. If empty, server will allow public access according to public_network_access."
+  type        = string
   default     = ""
 }
+
 variable "public_network_access" {
+  description = "Whether to allow public network access: set to 'Enabled' or 'Disabled'."
   type        = string
-  description = "Allow public access? 'Enabled' or 'Disabled'"
   default     = "Enabled"
 }
+
 variable "allowed_ips" {
-  type        = list(string)
-  description = "List of IPs to allow when public_network_access = 'Enabled'"
-  default     = []
+  description = "List of client IP addresses or CIDRs to allow when public_network_access is 'Enabled', for example ['203.0.113.5/32']. If empty list, no firewall rules are created and no public IP is allowed."
+  type    = list(string)
+  default = []
 }

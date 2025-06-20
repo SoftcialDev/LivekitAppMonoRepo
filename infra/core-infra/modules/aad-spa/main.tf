@@ -22,10 +22,6 @@ resource "azuread_application" "api_app" {
     "api://${data.azuread_client_config.current.tenant_id}/${var.aad_app_name}-API"
   ]
 
-  web {
-    redirect_uris = var.aad_api_redirect_uris
-    logout_url    = length(var.aad_logout_uris) > 0 ? var.aad_logout_uris[0] : null
-  }
 
   api {
     oauth2_permission_scope {
@@ -57,10 +53,6 @@ resource "azuread_application" "spa_app" {
   sign_in_audience = "AzureADMyOrg"
 
 
-  web {
-    redirect_uris = var.aad_redirect_uris
-    logout_url    = length(var.aad_logout_uris) > 0 ? var.aad_logout_uris[0] : null
-  }
 
   # App Role: Admin
   app_role {
@@ -89,6 +81,10 @@ resource "azuread_application" "spa_app" {
       type = "Scope"
     }
   }
+
+    single_page_application  {
+    redirect_uris = var.aad_redirect_uris
+  }
 }
 
 # Service Principal for SPA App
@@ -110,10 +106,17 @@ resource "azuread_group" "employees_group" {
   mail_enabled     = false
 }
 
+resource "azuread_group" "superadmins_group" {
+  display_name     = "SuperAdmins"
+  security_enabled = true
+  mail_enabled = false
+}
+
+
 ########################################
 # 5) Assign existing Azure AD users to groups
 #
-# This logic assumes all users already exist in Azure AD.
+# This logic assumes all users already exist in Azure AD.Q
 # - Users explicitly listed in var.aad_admins_group_members go to the Admins group.
 # - All other users found in Azure AD are assigned to the Employees group,
 #   except those already in the Admin list.
@@ -159,6 +162,18 @@ resource "azuread_group_member" "employees_members" {
 }
 
 
+data "azuread_user" "superadmins" {
+  for_each           = toset(var.aad_superadmins_group_members)
+  user_principal_name = each.value
+}
+
+resource "azuread_group_member" "superadmins_members" {
+  for_each         = toset(var.aad_superadmins_group_members)
+  group_object_id  = azuread_group.superadmins_group.id
+  member_object_id = data.azuread_user.superadmins[each.key].id
+}
+
+
 ########################################
 # 6) Assign App Roles to the Security Groups
 ########################################
@@ -177,3 +192,8 @@ resource "azuread_app_role_assignment" "employees_assignment" {
 
 
 
+resource "azuread_application_password" "api_app_secret" {
+  application_id = azuread_application.api_app.application_id
+  display_name   = "client-secret-for-Graph-calls"
+
+}
