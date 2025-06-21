@@ -33,7 +33,7 @@ resource "azurerm_postgresql_flexible_server" "postgres_server" {
 }
 
 # Firewall rules for public access, only when public_network_access is 'Enabled'
-/*
+
 resource "azurerm_postgresql_flexible_server_firewall_rule" "postgres_firewall" {
   count = var.public_network_access == "Enabled" ? length(var.allowed_ips) : 0
 
@@ -43,7 +43,7 @@ resource "azurerm_postgresql_flexible_server_firewall_rule" "postgres_firewall" 
 
   start_ip_address = var.allowed_ips[count.index]
   end_ip_address   = var.allowed_ips[count.index]
-}*/
+}
 
 # Default database creation; optional
 resource "azurerm_postgresql_flexible_server_database" "postgres_database" {

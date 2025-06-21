@@ -186,7 +186,6 @@ variable "swa_repository_token" {
 variable "swa_sku_tier" {
   description = "SKU tier for the Static Web App, e.g., 'Free' or 'Standard'."
   type        = string
-  default     = "Free"
 }
 
 

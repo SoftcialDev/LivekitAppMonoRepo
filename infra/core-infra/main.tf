@@ -35,12 +35,17 @@ module "static_web_app" {
   # Optional SKU tier, default could be “Free”
   sku_tier            = var.swa_sku_tier            
   # Repo details for deployment
-  repository_url      = var.swa_repository_url      
-  repository_branch   = var.swa_repository_branch   
-  repository_token    = var.swa_repository_token    
+  env_vars = {
+    VITE_AZURE_AD_CLIENT_ID     = module.aad_spa.spa_app_client_id
+    VITE_AZURE_AD_TENANT_ID     = data.azuread_client_config.current.tenant_id
+    VITE_AZURE_AD_API_CLIENT_ID = module.aad_spa.api_application_client_id
+    VITE_AZURE_AD_API_SCOPE_URI = module.aad_spa.api_scope_uri
+    VITE_API_URL                = module.function_app.function_app_url
+  }
   # Tags map for resource tagging
   tags                = var.tags                    
 }
+
 
 # 4. Public IP for egress traffic (used by NAT gateway, Redis egress, etc.)
 module "pip_egress" {
@@ -151,7 +156,11 @@ module "function_app" {
   function_plan_sku_tier      = "Dynamic"
   function_plan_sku_size      = "Y1"
   node_env                    = var.node_env
+
+  depends_on = [ module.keyvault ]
 }
+
+
 
 
 # 11. PostgreSQL database module
@@ -205,5 +214,6 @@ module "keyvault" {
   service_bus_connection= module.service_bus.connection_string
   webpubsub_key         = module.web_pubsub.primary_key
   key_vault_sku_name = var.key_vault_sku_name 
-  depends_on = [ module.aad_spa ]
+  postgres_database_url = module.postgres.database_url
+  depends_on = [ module.aad_spa , module.postgres]
 }

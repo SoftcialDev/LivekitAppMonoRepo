@@ -14,3 +14,9 @@ output "function_principal_id" {
   description = "Principal ID of the System-assigned Managed Identity"
   value       = azurerm_function_app.function_app.identity
 }
+
+
+output "function_app_url" {
+  description = "URL base de la Function App para invocar la API"
+  value       = "https://${azurerm_function_app.function_app.default_hostname}/api"
+}

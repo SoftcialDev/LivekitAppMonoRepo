@@ -49,3 +49,8 @@ variable "webpubsub_key" {
   sensitive   = true
 }
 
+
+variable "postgres_database_url" {
+    type = string
+    sensitive = true
+}

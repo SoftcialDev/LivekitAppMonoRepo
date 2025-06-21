@@ -72,7 +72,11 @@ output "api_scope_uuid" {
   value       = random_uuid.api_scope_id.result
 }
 
-output azure_client_secret_api_app {
+output "azure_client_secret_api_app" {
   description = "Azure api app secret password"
-  value = azuread_application_password.api_app_secret
+  value = azuread_application_password.api_app_secret.value
+}
+
+output "spa_app_client_id" {
+value = azuread_service_principal.spa_sp.client_id
 }

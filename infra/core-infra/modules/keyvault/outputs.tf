@@ -11,6 +11,7 @@ output "secret_uris" {
     azure_client_secret = azurerm_key_vault_secret.azure_client_secret.id
     service_bus_connection = azurerm_key_vault_secret.service_bus_connection.id
     webpubsub_key       = azurerm_key_vault_secret.webpubsub_key.id
+    postgres_connection = azurerm_key_vault_secret.postgres_connection.id
   }
 }
 

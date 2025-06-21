@@ -21,3 +21,9 @@ output "static_web_app_deployment_token" {
   value       = data.azurerm_static_web_app.app.api_key
   sensitive   = true
 }
+
+
+output "name" {
+  description = "Static web app name"
+  value = azurerm_static_web_app.static_web_app.name
+}

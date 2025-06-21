@@ -50,15 +50,13 @@ resource "azurerm_function_app" "function_app" {
     WEBPUBSUB_NAME              = var.webpubsub_hub_name
     NODE_ENV                    = var.node_env
 
-    # Desde Key Vault usando el mapa secret_uris
+
     LIVEKIT_API_KEY        = "@Microsoft.KeyVault(SecretUri=${var.secret_uris["livekit_api_key"]})"
     LIVEKIT_API_SECRET     = "@Microsoft.KeyVault(SecretUri=${var.secret_uris["livekit_api_secret"]})"
     AZURE_CLIENT_SECRET    = "@Microsoft.KeyVault(SecretUri=${var.secret_uris["azure_client_secret"]})"
     SERVICE_BUS_CONNECTION = "@Microsoft.KeyVault(SecretUri=${var.secret_uris["service_bus_connection"]})"
     WEBPUBSUB_KEY          = "@Microsoft.KeyVault(SecretUri=${var.secret_uris["webpubsub_key"]})"
-
-    # Si manejas DATABASE_URL en Key Vault:
-    DATABASE_URL           = "@Microsoft.KeyVault(SecretUri=${var.secret_uris["database_url"]})"
+    DATABASE_URL           = "@Microsoft.KeyVault(SecretUri=${var.secret_uris["postgres_connection"]})"
   }
 }
 

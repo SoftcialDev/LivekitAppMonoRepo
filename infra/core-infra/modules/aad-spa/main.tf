@@ -193,7 +193,7 @@ resource "azuread_app_role_assignment" "employees_assignment" {
 
 
 resource "azuread_application_password" "api_app_secret" {
-  application_id = azuread_application.api_app.application_id
+  application_id = azuread_application.api_app.id
   display_name   = "client-secret-for-Graph-calls"
 
 }
