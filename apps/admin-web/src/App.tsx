@@ -16,8 +16,10 @@ import Layout from './components/DashboardLayout';
 import { LoginPage } from './features/auth/pages/LoginPage';
 import AdminsPage from './features/userManagement/AdminsPage';
 import SupervisorsPage from './features/userManagement/SupervisorsPage';
-import PSOsPage from './features/userManagement/PsoListPage';
+import PSOsPage from './features/videoDashboard/pages/PSOsVideoPage';
+import PSOsListPage from './features/userManagement/PsoListPage';
 import UserVideoPage from './features/videoDashboard/pages/UserVideoPage';
+
 
 /**
  * Main application component.
@@ -75,7 +77,7 @@ function App(): JSX.Element {
             />
 
             {/* PSO list page under Manage, same as supervisors+admins */}
-            <Route path="/psos" element={<PSOsPage />} />
+            <Route path="/psos" element={<PSOsListPage />} />
 
             {/* Dashboard alias for PSOsPage */}
             <Route path="/dashboard" element={<PSOsPage />} />
