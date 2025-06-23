@@ -5,7 +5,7 @@
   "scripts": {
     "prebuild": "rimraf dist",
     "build": "npm run prebuild && tsc",
-    "postbuild": "cpx \"src/**/*.json\" dist && cpx \"host.json\" dist && cpx \"local.settings.json\" dist",
+    "postbuild": "cpx \"src/**/*.json\" dist && cpx \"host.json\" dist && cpx \"local.settings.json\" dist && cpx \"package.json\" dist ",
     "start": "npm run build && func start --script-root dist",
     "prisma:generate": "prisma generate",
     "prisma:migrate:dev": "prisma migrate dev --name init",

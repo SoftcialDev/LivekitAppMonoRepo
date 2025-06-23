@@ -39,7 +39,7 @@ jobs:
 
       - name: Build API Functions (TypeScript)
         working-directory: apps/api-functions
-        run: npm run build
+        run: npm run build && npm run postbuild
 
       - name: Deploy API Functions to Azure
         uses: Azure/functions-action@v1
