@@ -11,7 +11,7 @@ import React from 'react';
  * This component renders a rounded "pill" button styled for signing in.
  * - The `onClick` handler is called when the button is pressed.
  * - When `isLoading` is `true`, the button shows a loading state, is disabled,
- *   and its label changes to indicate progress.
+ *   and its label changes to indicate progress
  *
  * @public
  */
