@@ -1,9 +1,5 @@
-# .github/workflows/deploy-admin-web.yml
-# Name of the workflow
 name: Deploy Admin-Web to Azure Static Web Apps
 
-# Trigger on push to main when files under apps/admin-web change,
-# and also when this workflow file itself is modified.
 on:
   push:
     branches:
@@ -12,20 +8,16 @@ on:
       - 'apps/admin-web/**'
       - '.github/workflows/deploy-admin-web.yml'
 
-# Permissions: id-token write is only needed if you perform OIDC login.
-# For Azure Static Web Apps deploy via its action, you typically only need the deploy token.
 permissions:
   id-token: write
   contents: read
 
 jobs:
   deploy_admin_web:
-    # Runner OS
     runs-on: ubuntu-latest
 
-    # Environment variables passed to steps (for Vite build)
     env:
-      # Azure AD settings for your app at build time (injected by Vite)
+      # Variables para Vite build
       VITE_AZURE_AD_CLIENT_ID:               ${{ secrets.VITE_AZURE_AD_CLIENT_ID }}
       VITE_AZURE_AD_TENANT_ID:               ${{ secrets.AZURE_TENANT_ID }}
       VITE_AZURE_AD_REDIRECT_URI:            ${{ secrets.VITE_AZURE_AD_REDIRECT_URI }}
@@ -33,37 +25,49 @@ jobs:
       VITE_AZURE_AD_API_CLIENT_ID:           ${{ secrets.VITE_AZURE_AD_API_CLIENT_ID }}
       VITE_AZURE_AD_API_SCOPE_URI:           ${{ secrets.VITE_AZURE_AD_API_SCOPE_URI }}
       VITE_API_URL:                          ${{ secrets.VITE_API_URL }}
-      # If you use OIDC login for other tasks, also include:
       AZURE_CLIENT_ID:        ${{ secrets.VITE_AZURE_AD_CLIENT_ID }}
       AZURE_TENANT_ID:        ${{ secrets.AZURE_TENANT_ID }}
       AZURE_SUBSCRIPTION_ID:  ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
     steps:
-      # 1) Checkout repository
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 2) Setup Node.js and cache npm modules
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '18.x'
           cache: npm
 
-      # 3) Install dependencies and build the Vite app
-      - name: Install dependencies & build
+      - name: Install dependencies
         working-directory: apps/admin-web
-        run: |
-          npm ci
-          npm run build
+        run: npm ci
 
-      # 4) Deploy to Azure Static Web Apps
+      - name: Run Prisma Migrations (SQL Admin)
+        working-directory: apps/admin-web
+        env:
+          PGHOST: livekit-agent-azure-postgres-server-flexible.postgres.database.azure.com
+          PGUSER: livekitadmin
+          PGPASSWORD: ${{ secrets.POSTGRES_ADMIN_PASSWORD }}
+          PGDATABASE: postgres
+          PGPORT: 5432
+          PGSSLMODE: require
+          DATABASE_URL: >-
+            postgresql://livekitadmin:ADcc2024.@livekit-agent-azure-postgres-server-flexible.postgres.database.azure.com:5432/postgres?schema=public&sslmode=require
+        run: |
+          # Verificar conexión e introspección
+          npx prisma db pull
+          # Aplicar migraciones pendientes
+          npx prisma migrate deploy
+
+      - name: Build the Vite app
+        working-directory: apps/admin-web
+        run: npm run build
+
       - name: Deploy to Azure Static Web Apps
         uses: Azure/static-web-apps-deploy@v1
         with:
-          # A deployment token for your Static Web App, stored as a GitHub secret
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_APP_DEPLOY_KEY }}
-          # GitHub token for PR comments/status updates
           repo_token:                     ${{ secrets.PERSONAL_TOKEN }}
           action:                         upload
           app_location:                   apps/admin-web
