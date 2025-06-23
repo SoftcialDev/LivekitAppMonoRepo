@@ -1,4 +1,4 @@
-// src/services/apiClient.ts
+/*
 import axios from 'axios';
 
 const apiClient = axios.create({
@@ -20,3 +20,4 @@ apiClient.interceptors.request.use((config) => {
 });
 
 export default apiClient;
+*/
