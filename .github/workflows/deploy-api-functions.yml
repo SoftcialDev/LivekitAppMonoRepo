@@ -26,12 +26,6 @@ jobs:
           node-version: '18.x'
           cache: 'npm'
 
-      # Si necesitas Azure CLI para otros fines, puedes hacer login; no es obligatorio para deploy con publish-profile.
-      - name: Azure Login (opcional)
-        uses: azure/login@v1
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
-
       - name: Install dependencies for API Functions
         working-directory: apps/api-functions
         run: npm ci

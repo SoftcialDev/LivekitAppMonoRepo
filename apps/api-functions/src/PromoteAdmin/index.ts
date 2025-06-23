@@ -10,7 +10,7 @@ import { config } from "../shared/config/index";
 import { JwtPayload } from "jsonwebtoken";
 
 /**
- * Zod schema for PromoteAdmin request..
+ * Zod schema for PromoteAdmin request.
  *
  * @remarks
  * Body must be `{ employeeEmail: string }`, where employeeEmail is a valid email.
