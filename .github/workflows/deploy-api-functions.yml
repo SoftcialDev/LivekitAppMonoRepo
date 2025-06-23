@@ -23,7 +23,7 @@ jobs:
         working-directory: apps/api-functions
         env:
           PGHOST: livekit-agent-azure-postgres-server-flexible.postgres.database.azure.com
-          PGUSER: livekitadmin
+          PGUSER: livekitadmin@livekit-agent-azure-postgres-server-flexible
           PGPASSWORD: ${{ secrets.POSTGRES_ADMIN_PASSWORD }}
           PGDATABASE: postgres
           PGPORT: 5432
