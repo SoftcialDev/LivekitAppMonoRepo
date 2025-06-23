@@ -70,7 +70,7 @@ const OfflineUserItem: React.FC<OfflineUserItemProps> = ({ user, onPlay }) => {
           cursor-pointer transition-colors
         "
       >
-        {/* SVG Play icon */}
+        {/* SVG Play icons */}
         <span className="w-6 h-6 flex-shrink-0">
           <svg
             viewBox="0 0 24 24"
