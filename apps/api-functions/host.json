@@ -3,6 +3,6 @@
   "extensionBundle": {
     "id": "Microsoft.Azure.Functions.ExtensionBundle",
     "version": "[2.*, 3.0.0)",
-    "FUNCTIONS_WORKER_RUNTIME": "Node"
+    "FUNCTIONS_WORKER_RUNTIME": "node"
   }
 }
