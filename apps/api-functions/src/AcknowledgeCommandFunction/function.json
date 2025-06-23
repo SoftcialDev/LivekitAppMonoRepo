@@ -6,7 +6,7 @@
       "direction": "in",
       "name": "req",
       "methods": ["post"],
-      "route": "PresenceUpdate"
+      "route": "AcknowledgeCommand"
     },
     {
       "type": "http",
@@ -14,4 +14,6 @@
       "name": "res"
     }
   ]
+  ,
+  "scriptFile": "index.js"
 }

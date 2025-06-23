@@ -94,3 +94,25 @@ variable "node_env" {
   type        = string
   default     = "production"
 }
+
+
+variable "cors_allowed_origins" {
+  description = "Allowed origins for our API"
+  type        = list(string)
+  default     = []  
+}
+
+variable "admins_group_id" {
+  description = "Azure AD object ID of the Admins group"
+  type        = string
+}
+
+variable "employees_group_id" {
+  description = "Azure AD object ID of the Employees group"
+  type        = string
+}
+
+variable "supervisors_group_id" {
+  description = "Azure AD object ID of the Supervisors group"
+  type        = string
+}

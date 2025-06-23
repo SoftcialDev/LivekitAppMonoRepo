@@ -1,6 +1,6 @@
 ﻿import { Context } from "@azure/functions";
-import prisma from "../../services/prismaClienService";
-import { createPendingCommand, tryDeliverCommand } from "../../services/pendingCommandService";
+import prisma from "../shared/services/prismaClienService";
+import { createPendingCommand, tryDeliverCommand } from "../shared/services/pendingCommandService";
 
 /**
  * Payload for the Service Bus message consumed by the ProcessCommand function.

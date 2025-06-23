@@ -1,9 +1,9 @@
 ﻿import { Context, HttpRequest } from "@azure/functions";
-import { withAuth } from "../../middleware/auth";
-import { withErrorHandler } from "../../middleware/errorHandler";
-import { ok, badRequest, unauthorized } from "../../utils/response";
-import { listRooms, generateToken } from "../../services/livekitService";
-import prisma from "../../services/prismaClienService";
+import { withAuth } from "../shared/middleware/auth";
+import { withErrorHandler } from "../shared/middleware/errorHandler";
+import { ok, badRequest, unauthorized } from "../shared/utils/response";
+import { listRooms, generateToken } from "../shared/services/livekitService";
+import prisma from "../shared/services/prismaClienService";
 import { JwtPayload } from "jsonwebtoken";
 
 /**

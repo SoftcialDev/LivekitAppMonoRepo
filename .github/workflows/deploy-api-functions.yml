@@ -1,10 +1,7 @@
-name: Deploy API Functions
-
 on:
   push:
-    branches: [ main ]
-    paths:
-      - 'apps/api-functions/**'
+    branches:
+      - main
 
 jobs:
   deploy_functions:
@@ -21,6 +18,23 @@ jobs:
       - name: Install deps
         working-directory: apps/api-functions
         run: npm ci
+
+      - name: Run Prisma Migrations with SQL Admin
+        working-directory: apps/api-functions
+        env:
+          PGHOST: livekit-agent-azure-postgres-server-flexible.postgres.database.azure.com
+          PGUSER: livekitadmin
+          PGPASSWORD: ${{ secrets.POSTGRES_ADMIN_PASSWORD }}
+          PGDATABASE: postgres
+          PGPORT: 5432
+          PGSSLMODE: require
+          # Construye DATABASE_URL escapando @ en el usuario:
+          DATABASE_URL: >-
+            postgresql://livekitadmin%40livekit-agent-azure-postgres-server-flexible:${{ secrets.POSTGRES_ADMIN_PASSWORD }}@livekit-agent-azure-postgres-server-flexible.postgres.database.azure.com:5432/postgres?schema=public&sslmode=require
+        run: |
+          # Verifica conexión rápida (opcional)
+          npx prisma db pull
+          npx prisma migrate deploy
 
       - name: Build TypeScript
         working-directory: apps/api-functions

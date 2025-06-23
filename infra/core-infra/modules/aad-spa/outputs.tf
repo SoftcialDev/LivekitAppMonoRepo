@@ -1,7 +1,7 @@
 # Client ID of the API App Registration
 output "api_application_id" {
   description = "Client ID of the API App Registration"
-  value       = azuread_application.api_app.application_id
+  value       = azuread_application.api_app.id
 }
 
 output "api_application_client_id" {
@@ -18,7 +18,7 @@ output "api_scope_id" {
 # Client ID of the SPA App Registration
 output "spa_application_id" {
   description = "Client ID of the SPA App Registration"
-  value       = azuread_application.spa_app.application_id
+  value       = azuread_application.spa_app.id
 }
 
 
@@ -52,7 +52,11 @@ output "employees_group_id" {
   value       = azuread_group.employees_group.id
 }
 
-
+# Object ID of Supervisor group
+output "supervisors_groups_id" {
+  description = "Object ID of the Employees security group"
+  value       = azuread_group.supervisors_group.id
+}
 
 # Service Principal object ID for the API app
 output "api_sp_object_id" {

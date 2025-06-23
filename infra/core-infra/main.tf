@@ -40,7 +40,8 @@ module "static_web_app" {
     VITE_AZURE_AD_TENANT_ID     = data.azuread_client_config.current.tenant_id
     VITE_AZURE_AD_API_CLIENT_ID = module.aad_spa.api_application_client_id
     VITE_AZURE_AD_API_SCOPE_URI = module.aad_spa.api_scope_uri
-    VITE_API_URL                = module.function_app.function_app_url
+    VITE_API_URL                = "https://livekit-agent-azure-func.azurewebsites.net"
+
   }
   # Tags map for resource tagging
   tags                = var.tags                    
@@ -148,11 +149,17 @@ module "function_app" {
   azure_tenant_id             = data.azuread_client_config.current.tenant_id
   azure_client_id             = module.aad_spa.api_application_client_id
 
+  admins_group_id             = module.aad_spa.admins_group_id
+  employees_group_id          = module.aad_spa.employees_group_id
+  supervisors_group_id        = module.aad_spa.supervisors_groups_id
   livekit_api_url             = var.livekit_url
   webpubsub_endpoint          = module.web_pubsub.host
   webpubsub_hub_name          = module.web_pubsub.webpubsub_hub_name
   service_bus_topic_name      = var.servicebus_topic_name
-
+  cors_allowed_origins        =  [
+    "https://${module.static_web_app.default_hostname}",
+    "http://localhost:5173"
+  ]
   function_plan_sku_tier      = "Dynamic"
   function_plan_sku_size      = "Y1"
   node_env                    = var.node_env

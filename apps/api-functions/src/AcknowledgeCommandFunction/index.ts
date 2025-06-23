@@ -1,11 +1,11 @@
 import { Context, HttpRequest } from "@azure/functions";
 import { z } from "zod";
-import { withAuth } from "../../middleware/auth";
-import { withErrorHandler } from "../../middleware/errorHandler";
-import { withBodyValidation } from "../../middleware/validate";
-import { ok, unauthorized, badRequest } from "../../utils/response";
-import { markCommandsDelivered } from "../../services/pendingCommandService";
-import prisma from "../../services/prismaClienService";
+import { withAuth } from "../shared/middleware/auth";
+import { withErrorHandler } from "../shared/middleware/errorHandler";
+import { withBodyValidation } from "../shared/middleware/validate";
+import { ok, unauthorized, badRequest } from "../shared/utils/response";
+import { markCommandsDelivered } from "../shared/services/pendingCommandService";
+import prisma from "../shared/services/prismaClienService";
 import { JwtPayload } from "jsonwebtoken";
 
 /**

@@ -1,11 +1,11 @@
 ﻿import { Context } from "@azure/functions";
 import { z } from "zod";
-import { withAuth } from "../../middleware/auth";
-import { withErrorHandler } from "../../middleware/errorHandler";
-import { withBodyValidation } from "../../middleware/validate";
-import { ok, badRequest, unauthorized } from "../../utils/response";
-import { sendAdminCommand } from "../../services/busService";
-import prisma from "../../services/prismaClienService";
+import { withAuth } from "../shared/middleware/auth";
+import { withErrorHandler } from "../shared/middleware/errorHandler";
+import { withBodyValidation } from "../shared/middleware/validate";
+import { ok, badRequest, unauthorized } from "../shared/utils/response";
+import { sendAdminCommand } from "../shared/services/busService";
+import prisma from "../shared/services/prismaClienService";
 import { JwtPayload } from "jsonwebtoken";
 
 const schema = z.object({

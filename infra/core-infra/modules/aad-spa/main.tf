@@ -85,7 +85,7 @@ resource "azuread_application" "spa_app" {
 
   # Declare that this SPA requires the API scope from the API App
   required_resource_access {
-    resource_app_id = azuread_application.api_app.id
+    resource_app_id = azuread_application.api_app.object_id
     resource_access {
       id   = random_uuid.api_scope_id.result
       type = "Scope"
@@ -148,8 +148,8 @@ data "azuread_user" "admins" {
 }
 resource "azuread_group_member" "admins_members" {
   for_each         = data.azuread_user.admins
-  group_object_id  = azuread_group.admins_group.id
-  member_object_id = each.value.id
+  group_object_id  = azuread_group.admins_group.object_id
+  member_object_id = each.value.object_id
 }
 
 # Supervisor users lookup
@@ -159,8 +159,8 @@ data "azuread_user" "supervisors" {
 }
 resource "azuread_group_member" "supervisors_members" {
   for_each         = data.azuread_user.supervisors
-  group_object_id  = azuread_group.supervisors_group.id
-  member_object_id = each.value.id
+  group_object_id  = azuread_group.supervisors_group.object_id
+  member_object_id = each.value.object_id
 }
 
 # Remaining employees lookup
@@ -170,29 +170,29 @@ data "azuread_user" "employees" {
 }
 resource "azuread_group_member" "employees_members" {
   for_each         = data.azuread_user.employees
-  group_object_id  = azuread_group.employees_group.id
-  member_object_id = each.value.id
+  group_object_id  = azuread_group.employees_group.object_id
+  member_object_id = each.value.object_id
 }
 
 ########################################
 # 6) Assign App Roles to the Security Groups
 ########################################
 resource "azuread_app_role_assignment" "admins_assignment" {
-  principal_object_id = azuread_group.admins_group.id
+  principal_object_id = azuread_group.admins_group.object_id
   app_role_id         = azuread_application.spa_app.app_role_ids["Admin"]
-  resource_object_id  = azuread_service_principal.spa_sp.id
+  resource_object_id  = azuread_service_principal.spa_sp.object_id
 }
 
 resource "azuread_app_role_assignment" "supervisors_assignment" {
-  principal_object_id = azuread_group.supervisors_group.id
+  principal_object_id = azuread_group.supervisors_group.object_id
   app_role_id         = azuread_application.spa_app.app_role_ids["Supervisor"]
-  resource_object_id  = azuread_service_principal.spa_sp.id
+  resource_object_id  = azuread_service_principal.spa_sp.object_id
 }
 
 resource "azuread_app_role_assignment" "employees_assignment" {
-  principal_object_id = azuread_group.employees_group.id
+  principal_object_id = azuread_group.employees_group.object_id
   app_role_id         = azuread_application.spa_app.app_role_ids["Employee"]
-  resource_object_id  = azuread_service_principal.spa_sp.id
+  resource_object_id  = azuread_service_principal.spa_sp.object_id
 }
 
 ########################################

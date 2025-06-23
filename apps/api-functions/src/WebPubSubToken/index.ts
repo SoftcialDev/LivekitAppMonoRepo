@@ -1,10 +1,10 @@
 import { Context, HttpRequest } from "@azure/functions";
-import { withAuth } from "../../middleware/auth";
-import { withErrorHandler } from "../../middleware/errorHandler";
-import { ok, unauthorized } from "../../utils/response";
-import { generateWebPubSubToken } from "../../services/webPubSubService"
+import { withAuth } from "../shared/middleware/auth";
+import { withErrorHandler } from "../shared/middleware/errorHandler";
+import { ok, unauthorized } from "../shared/utils/response";
+import { generateWebPubSubToken } from "../shared/services/webPubSubService"
 import { JwtPayload } from "jsonwebtoken";
-import { config } from "../../config";
+import { config } from "../shared/config/index";
 
 /**
  * WebPubSubToken Function

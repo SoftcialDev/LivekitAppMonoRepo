@@ -56,11 +56,21 @@ output "employees_group_id" {
   value       = module.aad_spa.employees_group_id
 }
 
+output "supervisors_groups_id" {
+  description = "Object ID of the Supervisors group created in aad-spa module"
+  value       = module.aad_spa.supervisors_groups_id
+}
 
 output "aks_kubeconfig" {
   description = "Raw kubeconfig content for the AKS cluster. Marked sensitive."
   value       = module.aks.kubeconfig
   sensitive   = true
+}
+
+output azure_client_secret {
+  description = "Azure client secret value"
+  value = module.aad_spa.azure_client_secret_api_app
+  sensitive = true
 }
 
 ########################################

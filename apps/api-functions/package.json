@@ -3,10 +3,10 @@
   "version": "1.0.0",
   "main": "dist/index.js",
   "scripts": {
-    "build": "rimraf dist && tsc && npm run copy:static",
-    "copy:static": "copyfiles -u 1 \"src/**/*.json\" dist && copyfiles \"host.json\" dist",
+    "prebuild": "rimraf dist",
+    "build": "npm run prebuild && tsc",
+    "postbuild": "cpx \"src/**/*.json\" dist && cpx \"host.json\" dist && cpx \"local.settings.json\" dist",
     "start": "npm run build && func start --script-root dist",
-    "dev": "npm run start",
     "prisma:generate": "prisma generate",
     "prisma:migrate:dev": "prisma migrate dev --name init",
     "prisma:deploy": "prisma migrate deploy && prisma generate"
@@ -18,14 +18,25 @@
     "@prisma/client": "^6.10.1",
     "axios": "^1.0.0",
     "jsonwebtoken": "^8.5.1",
+    "jwks-rsa": "^3.2.0",
     "livekit-server-sdk": "^2.13.0",
+    "module-alias": "^2.2.3",
+    "qs": "^6.14.0",
     "zod": "^3.25.67"
   },
   "devDependencies": {
     "@types/jsonwebtoken": "^9.0.10",
+    "@types/qs": "^6.14.0",
     "copyfiles": "^2.4.1",
+    "cpx": "^1.5.0",
     "prisma": "^6.10.1",
     "rimraf": "^3.0.2",
     "typescript": "^5.1.0"
+  },
+  "_moduleAliases": {
+    "@config": "dist/config",
+    "@middleware": "dist/middleware",
+    "@services": "dist/services",
+    "@utils": "dist/utils"
   }
 }

@@ -1,9 +1,9 @@
 import { Context, HttpRequest } from "@azure/functions";
-import { withAuth } from "../../middleware/auth";
-import { withErrorHandler } from "../../middleware/errorHandler";
-import { ok, unauthorized, badRequest } from "../../utils/response";
-import prisma from "../../services/prismaClienService";
-import { getPresenceStatus } from "../../services/presenceService";
+import { withAuth } from "../shared/middleware/auth";
+import { withErrorHandler } from "../shared/middleware/errorHandler";
+import { ok, unauthorized, badRequest } from "../shared/utils/response";
+import prisma from "../shared/services/prismaClienService";
+import { getPresenceStatus } from "../shared/services/presenceService";
 import { JwtPayload } from "jsonwebtoken";
 
  /**

@@ -1,35 +1,35 @@
 import { Context, HttpRequest } from "@azure/functions";
 import { z } from "zod";
-import { withAuth } from "../../middleware/auth";
-import { withErrorHandler } from "../../middleware/errorHandler";
-import { withBodyValidation } from "../../middleware/validate";
-import { ok, unauthorized, badRequest } from "../../utils/response";
-import prisma from "../../services/prismaClienService";
-import { removeUserFromGroup } from "../../services/graphService";
-import { config } from "../../config";
+import { withAuth } from "../shared/middleware/auth";
+import { withErrorHandler } from "../shared/middleware/errorHandler";
+import { withBodyValidation } from "../shared/middleware/validate";
+import { ok, unauthorized, badRequest } from "../shared/utils/response";
+import prisma from "../shared/services/prismaClienService";
+import { addUserToGroup } from "../shared/services/graphService";
+import { config } from "../shared/config/index";
 import { JwtPayload } from "jsonwebtoken";
 
 /**
- * Zod schema for DemoteAdmin request.
+ * Zod schema for PromoteAdmin request.
  *
  * @remarks
- * Body must be `{ adminEmail: string }`, where adminEmail is a valid email.
+ * Body must be `{ employeeEmail: string }`, where employeeEmail is a valid email.
  */
 const schema = z.object({
-  adminEmail: z.string().email()
+  employeeEmail: z.string().email()
 });
 
 /**
- * DemoteAdminFunction
+ * PromoteAdminFunction
  *
- * HTTP POST /api/DemoteAdmin
+ * HTTP POST /api/PromoteAdmin
  *
  * Authenticates via Azure AD JWT.
  * Only a user with role "SuperAdmin" may call.
- * Body: `{ adminEmail }`.
+ * Body: `{ employeeEmail }`.
  * - Finds the target user in the database by email.
- * - Calls Graph API to remove the target from the Admins group.
- * - Updates the target user record: sets role="Employee", roleChangedAt to now, and adminId=null.
+ * - Calls Graph API to add the target to the Admins group.
+ * - Updates the target user record: sets role="Admin", roleChangedAt to now, and adminId=null.
  *
  * Success: responds 200 OK with `{ message: string }`.
  * Errors:
@@ -43,6 +43,7 @@ const schema = z.object({
 export default withErrorHandler(async (ctx: Context) => {
   const req: HttpRequest = ctx.req!;
   await withAuth(ctx, async () => {
+    // Validate caller identity
     const claims = (ctx as any).bindings.user as JwtPayload;
     const azureAdId = (claims.oid || claims.sub) as string;
     if (!azureAdId) {
@@ -57,41 +58,41 @@ export default withErrorHandler(async (ctx: Context) => {
       return;
     }
     if (caller.role !== "SuperAdmin") {
-      unauthorized(ctx, "Only SuperAdmin can demote");
+      unauthorized(ctx, "Only SuperAdmin can promote");
       return;
     }
 
+    // Validate request body
     await withBodyValidation(schema)(ctx, async () => {
-      const { adminEmail } = (ctx as any).bindings.validatedBody as { adminEmail: string };
+      const { employeeEmail } = (ctx as any).bindings.validatedBody as { employeeEmail: string };
       try {
+        // Find target user record
         const target = await prisma.user.findUnique({
-          where: { email: adminEmail }
+          where: { email: employeeEmail }
         });
         if (!target || target.deletedAt) {
           badRequest(ctx, "Target user not found or deleted");
-          return;
-        }
-        if (target.role !== "Admin") {
-          badRequest(ctx, "Target is not an Admin");
           return;
         }
         if (!target.azureAdObjectId) {
           badRequest(ctx, "Target user missing Azure AD object ID");
           return;
         }
-        await removeUserFromGroup(target.azureAdObjectId, config.adminsGroupId);
+        // Call Graph API to add to Admin group
+        await addUserToGroup(target.azureAdObjectId, config.adminsGroupId);
+        // Update the user role in the database
         await prisma.user.update({
           where: { id: target.id },
           data: {
-            role: "Employee",
+            role: "Admin",
             roleChangedAt: new Date(),
             adminId: null
           }
         });
-        ok(ctx, { message: `${adminEmail} demoted to Employee` });
+        ok(ctx, { message: `${employeeEmail} promoted to Admin` });
       } catch (err: any) {
-        ctx.log.error("DemoteAdmin error:", err);
-        badRequest(ctx, `Failed to demote: ${err.message}`);
+        ctx.log.error("PromoteAdmin error:", err);
+        badRequest(ctx, `Failed to promote: ${err.message}`);
       }
     });
   });

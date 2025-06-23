@@ -1,12 +1,19 @@
 ﻿{
   "compilerOptions": {
     "target": "ES2020",
-    "module": "CommonJS",
-    "outDir": "dist",
+    "module": "commonjs",
     "rootDir": "src",
+    "outDir": "dist",
+    "baseUrl": "src",
+    "paths": {
+      "@config/*": ["config/*"],
+      "@middleware/*": ["middleware/*"],
+      "@services/*": ["services/*"],
+      "@utils/*": ["utils/*"]
+    },
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true
   },
-  "include": ["src"]
+  "include": ["src/**/*.ts"]
 }

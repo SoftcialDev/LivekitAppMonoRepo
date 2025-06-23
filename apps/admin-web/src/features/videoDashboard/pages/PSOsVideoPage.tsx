@@ -47,6 +47,12 @@ const PSOsPage: React.FC = () => {
     { email: 'johann.granados@softcial.onmicrosoft.com', name: 'Johann Granados', isOnline: false },
     { email: 'johann.granados@softcial.onmicrosoft.com', name: 'Johann Granados', isOnline: false },
         { email: 'johann.granados@softcial.onmicrosoft.com', name: 'Johann Granados', isOnline: false },
+              { email: 'johann.granados@softcial.onmicrosoft.com', name: 'Johann Granados', isOnline: false },
+                  { email: 'johann.granados@softcial.onmicrosoft.com', name: 'Johann Granados', isOnline: false },
+                      { email: 'johann.granados@softcial.onmicrosoft.com', name: 'Johann Granados', isOnline: false },
+                          { email: 'johann.granados@softcial.onmicrosoft.com', name: 'Johann Granados', isOnline: false },
+                              { email: 'johann.granados@softcial.onmicrosoft.com', name: 'Johann Granados', isOnline: false },
+                                  { email: 'johann.granados@softcial.onmicrosoft.com', name: 'Johann Granados', isOnline: false },
   ];
 
   /**

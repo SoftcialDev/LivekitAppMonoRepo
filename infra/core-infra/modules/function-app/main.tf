@@ -36,6 +36,12 @@ resource "azurerm_function_app" "function_app" {
     }
   }
 
+    site_config {
+    cors {
+      allowed_origins = var.cors_allowed_origins
+    }
+  }
+
   app_settings = {
     FUNCTIONS_WORKER_RUNTIME    = "node"
     WEBSITE_RUN_FROM_PACKAGE    = "1"
@@ -49,6 +55,9 @@ resource "azurerm_function_app" "function_app" {
     SERVICE_BUS_TOPIC_NAME      = var.service_bus_topic_name
     WEBPUBSUB_NAME              = var.webpubsub_hub_name
     NODE_ENV                    = var.node_env
+   ADMINS_GROUP_ID              = var.admins_group_id
+    EMPLOYEES_GROUP_ID          = var.employees_group_id
+    SUPERVISORS_GROUP_ID        = var.supervisors_group_id
 
 
     LIVEKIT_API_KEY        = "@Microsoft.KeyVault(SecretUri=${var.secret_uris["livekit_api_key"]})"

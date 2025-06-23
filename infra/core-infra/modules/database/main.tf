@@ -14,7 +14,7 @@ resource "azurerm_postgresql_flexible_server" "postgres_server" {
 
   # If a vnet_subnet_id is provided (non-empty), deploy in that subnet for private access.
   # Otherwise, allow public access according to public_network_access setting.
-  delegated_subnet_id           = var.vnet_subnet_id != "" ? var.vnet_subnet_id : null
+
   public_network_access_enabled = var.public_network_access == "Enabled"
 
   # Backup retention in days; adjust as needed
