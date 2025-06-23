@@ -1,48 +1,73 @@
+name: Deploy Admin-Web to Azure Static Web Apps
+
 on:
   push:
     branches:
       - main
+    paths:
+      - 'apps/admin-web/**'
+      - '.github/workflows/deploy-admin-web.yml'
+
+permissions:
+  id-token: write
+  contents: read
 
 jobs:
-  deploy_functions:
+  deploy_admin_web:
     runs-on: ubuntu-latest
+
+    env:
+      # Variables para Vite build
+      VITE_AZURE_AD_CLIENT_ID:               ${{ secrets.VITE_AZURE_AD_CLIENT_ID }}
+      VITE_AZURE_AD_TENANT_ID:               ${{ secrets.AZURE_TENANT_ID }}
+      VITE_AZURE_AD_REDIRECT_URI:            ${{ secrets.VITE_AZURE_AD_REDIRECT_URI }}
+      VITE_AZURE_AD_POST_LOGOUT_REDIRECT_URI: ${{ secrets.VITE_AZURE_AD_POST_LOGOUT_REDIRECT_URI }}
+      VITE_AZURE_AD_API_CLIENT_ID:           ${{ secrets.VITE_AZURE_AD_API_CLIENT_ID }}
+      VITE_AZURE_AD_API_SCOPE_URI:           ${{ secrets.VITE_AZURE_AD_API_SCOPE_URI }}
+      VITE_API_URL:                          ${{ secrets.VITE_API_URL }}
+      AZURE_CLIENT_ID:        ${{ secrets.VITE_AZURE_AD_CLIENT_ID }}
+      AZURE_TENANT_ID:        ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID:  ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '18.x'
+          cache: npm
 
-      - name: Install deps
-        working-directory: apps/api-functions
+      - name: Install dependencies
+        working-directory: apps/admin-web
         run: npm ci
 
-      - name: Run Prisma Migrations with SQL Admin
-        working-directory: apps/api-functions
+      - name: Run Prisma Migrations (SQL Admin, prueba con contraseña hardcoded)
+        working-directory: apps/admin-web
         env:
           PGHOST: livekit-agent-azure-postgres-server-flexible.postgres.database.azure.com
-          PGUSER: livekitadmin@livekit-agent-azure-postgres-server-flexible
-          PGPASSWORD: ${{ secrets.POSTGRES_ADMIN_PASSWORD }}
+          PGUSER: livekitadmin
+          PGPASSWORD: ADcc2024.
           PGDATABASE: postgres
           PGPORT: 5432
           PGSSLMODE: require
-          # Construye DATABASE_URL escapando @ en el usuario:
           DATABASE_URL: >-
-            postgresql://livekitadmin%40livekit-agent-azure-postgres-server-flexible:${{ secrets.POSTGRES_ADMIN_PASSWORD }}@livekit-agent-azure-postgres-server-flexible.postgres.database.azure.com:5432/postgres?schema=public&sslmode=require
+            postgresql://livekitadmin:ADcc2024.@livekit-agent-azure-postgres-server-flexible.postgres.database.azure.com:5432/postgres?schema=public&sslmode=require
         run: |
-          # Verifica conexión rápida (opcional)
           npx prisma db pull
           npx prisma migrate deploy
 
-      - name: Build TypeScript
-        working-directory: apps/api-functions
+      - name: Build the Vite app
+        working-directory: apps/admin-web
         run: npm run build
 
-      - name: Deploy to Azure Functions
-        uses: Azure/functions-action@v1
+      - name: Deploy to Azure Static Web Apps
+        uses: Azure/static-web-apps-deploy@v1
         with:
-          app-name:        ${{ secrets.AZURE_FUNCTIONAPP_NAME }}
-          publish-profile: ${{ secrets.AZURE_FUNCTIONAPP_PUBLISH_PROFILE }}
-          package:         apps/api-functions
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_APP_DEPLOY_KEY }}
+          repo_token:                     ${{ secrets.PERSONAL_TOKEN }}
+          action:                         upload
+          app_location:                   apps/admin-web
+          api_location:                   ''
+          app_artifact_location:          dist
