@@ -25,6 +25,7 @@
     "@types/jsonwebtoken": "^9.0.10",
     "copyfiles": "^2.4.1",
     "prisma": "^6.10.1",
+    "rimraf": "^3.0.2",
     "typescript": "^5.1.0"
   }
 }
