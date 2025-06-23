@@ -32,10 +32,7 @@ jobs:
       - name: Push Prisma schema and create tables
         working-directory: apps/api-functions
         env:
-          DATABASE_URL: >-
-            postgresql://livekitadmin:${{ secrets.POSTGRES_ADMIN_PASSWORD }}@
-            livekit-agent-azure-postgres-server-flexible.postgres.database.azure.com:
-            5432/livekit-agent-azure-db?schema=public&sslmode=require
+          DATABASE_URL: "postgresql://livekitadmin:${{ secrets.POSTGRES_ADMIN_PASSWORD }}@livekit-agent-azure-postgres-server-flexible.postgres.database.azure.com:5432/livekit-agent-azure-db?schema=public&sslmode=require"
         run: |
           echo "✨ Pushing Prisma schema to livekit-agent-azure-db…"
           npx prisma db push
