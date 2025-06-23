@@ -16,7 +16,7 @@ jobs:
       # ——————————————————————————————————————————————
       # Azure OIDC authentication (no client secret stored in repo)
       # ——————————————————————————————————————————————
-      AZURE_CLIENT_ID:        ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_CLIENT_ID:        ${{ secrets.VITE_AZURE_AD_CLIENT_ID }}
       AZURE_TENANT_ID:        ${{ secrets.AZURE_TENANT_ID }}
       AZURE_SUBSCRIPTION_ID:  ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
@@ -24,7 +24,7 @@ jobs:
       # Application settings injected at Vite build time
       # ——————————————————————————————————————————————
       VITE_AZURE_AD_CLIENT_ID:               ${{ secrets.VITE_AZURE_AD_CLIENT_ID }}
-      VITE_AZURE_AD_TENANT_ID:               ${{ secrets.VITE_AZURE_AD_TENANT_ID }}
+      VITE_AZURE_AD_TENANT_ID:               ${{ secrets.AZURE_TENANT_ID }}
       VITE_AZURE_AD_REDIRECT_URI:            ${{ secrets.VITE_AZURE_AD_REDIRECT_URI }}
       VITE_AZURE_AD_POST_LOGOUT_REDIRECT_URI: ${{ secrets.VITE_AZURE_AD_POST_LOGOUT_REDIRECT_URI }}
       VITE_AZURE_AD_API_CLIENT_ID:           ${{ secrets.VITE_AZURE_AD_API_CLIENT_ID }}
@@ -40,7 +40,7 @@ jobs:
       - name: Azure Login via OIDC
         uses: azure/login@v1
         with:
-          client-id:       ${{ env.AZURE_CLIENT_ID }}
+          client-id:       ${{ env.VITE_AZURE_AD_CLIENT_ID }}
           tenant-id:       ${{ env.AZURE_TENANT_ID }}
           subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
           enable-AzPSSession: true
