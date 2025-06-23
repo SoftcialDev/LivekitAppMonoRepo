@@ -3,9 +3,15 @@ name: Deploy Admin-Web to Azure Static Web Apps
 # Trigger on any change under apps/admin-web on main branch
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
     paths:
       - 'apps/admin-web/**'
+
+# Grant the Azure/login action permission to request an id-token
+permissions:
+  id-token: write
+  contents: read
 
 jobs:
   deploy_admin_web:
@@ -24,7 +30,7 @@ jobs:
       # Application settings injected at Vite build time
       # ——————————————————————————————————————————————
       VITE_AZURE_AD_CLIENT_ID:               ${{ secrets.VITE_AZURE_AD_CLIENT_ID }}
-      VITE_AZURE_AD_TENANT_ID:               ${{ secrets.AZURE_TENANT_ID }}
+      VITE_AZURE_AD_TENANT_ID:               ${{ secrets.VITE_AZURE_AD_TENANT_ID }}
       VITE_AZURE_AD_REDIRECT_URI:            ${{ secrets.VITE_AZURE_AD_REDIRECT_URI }}
       VITE_AZURE_AD_POST_LOGOUT_REDIRECT_URI: ${{ secrets.VITE_AZURE_AD_POST_LOGOUT_REDIRECT_URI }}
       VITE_AZURE_AD_API_CLIENT_ID:           ${{ secrets.VITE_AZURE_AD_API_CLIENT_ID }}
@@ -40,9 +46,9 @@ jobs:
       - name: Azure Login via OIDC
         uses: azure/login@v1
         with:
-          client-id:       ${{ env.VITE_AZURE_AD_CLIENT_ID }}
-          tenant-id:       ${{ env.AZURE_TENANT_ID }}
-          subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
+          client-id:        ${{ env.VITE_AZURE_AD_CLIENT_ID }}
+          tenant-id:        ${{ env.AZURE_TENANT_ID }}
+          subscription-id:  ${{ env.AZURE_SUBSCRIPTION_ID }}
           enable-AzPSSession: true
 
       # 3) Install Node.js (and cache npm modules)
@@ -58,7 +64,6 @@ jobs:
         run: |
           npm ci
           npm run build
-        # VITE_… env vars are inherited from job-level env
 
       # 5) Deploy the static assets to Azure Static Web Apps
       - name: Deploy to Azure Static Web Apps
