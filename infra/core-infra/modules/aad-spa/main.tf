@@ -37,7 +37,7 @@ resource "azuread_application" "api_app" {
 
 # Service Principal for API App
 resource "azuread_service_principal" "api_sp" {
-  client_id = azuread_application.api_app.application_id
+  client_id = azuread_application.api_app.client_id
 }
 
 ########################################
@@ -85,7 +85,7 @@ resource "azuread_application" "spa_app" {
 
   # Declare that this SPA requires the API scope from the API App
   required_resource_access {
-    resource_app_id = azuread_application.api_app.application_id
+    resource_app_id = azuread_application.api_app.id
     resource_access {
       id   = random_uuid.api_scope_id.result
       type = "Scope"
@@ -95,8 +95,10 @@ resource "azuread_application" "spa_app" {
 
 # Service Principal for SPA App
 resource "azuread_service_principal" "spa_sp" {
-  client_id = azuread_application.spa_app.application_id
+  client_id = azuread_application.spa_app.client_id
 }
+
+
 
 ########################################
 # 4) Create Security Groups for RBAC

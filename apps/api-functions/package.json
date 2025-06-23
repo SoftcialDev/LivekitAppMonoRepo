@@ -3,9 +3,10 @@
   "version": "1.0.0",
   "main": "dist/index.js",
   "scripts": {
-    "build": "tsc",
-    "start": "func start",
-    "dev": "func start",
+    "build": "rimraf dist && tsc && npm run copy:static",
+    "copy:static": "copyfiles -u 1 \"src/**/*.json\" dist && copyfiles \"host.json\" dist",
+    "start": "npm run build && func start --script-root dist",
+    "dev": "npm run start",
     "prisma:generate": "prisma generate",
     "prisma:migrate:dev": "prisma migrate dev --name init",
     "prisma:deploy": "prisma migrate deploy && prisma generate"
@@ -22,6 +23,7 @@
   },
   "devDependencies": {
     "@types/jsonwebtoken": "^9.0.10",
+    "copyfiles": "^2.4.1",
     "prisma": "^6.10.1",
     "typescript": "^5.1.0"
   }
