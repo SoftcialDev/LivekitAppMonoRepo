@@ -6,7 +6,7 @@ import { PublicClientApplication, Configuration } from '@azure/msal-browser';
  * This object configures authentication and cache behavior for MSAL in a SPA.
  *
  * Environment variables (via Vite) must be defined as:
- * - VITE_AZURE_AD_CLIENT_ID: the Azure AD App (client) ID (GUID).
+ * - VITE_AZURE_AD_CLIENT_ID: the Azure AD App (client) ID (GUID)..
  * - VITE_AZURE_AD_TENANT_ID: the Azure AD Tenant ID (GUID).
  * - VITE_AZURE_AD_REDIRECT_URI: the exact redirect URI registered in Azure AD (including protocol, host, port, and path if applicable).
  *

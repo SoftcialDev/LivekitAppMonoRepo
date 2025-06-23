@@ -1,77 +1,69 @@
+# .github/workflows/deploy-admin-web.yml
+# Name of the workflow
 name: Deploy Admin-Web to Azure Static Web Apps
 
-# Trigger on any change under apps/admin-web on main branch
+# Trigger on push to main when files under apps/admin-web change,
+# and also when this workflow file itself is modified.
 on:
   push:
     branches:
       - main
     paths:
       - 'apps/admin-web/**'
+      - '.github/workflows/deploy-admin-web.yml'
 
-# Grant the Azure/login action permission to request an id-token
+# Permissions: id-token write is only needed if you perform OIDC login.
+# For Azure Static Web Apps deploy via its action, you typically only need the deploy token.
 permissions:
   id-token: write
   contents: read
 
 jobs:
   deploy_admin_web:
+    # Runner OS
     runs-on: ubuntu-latest
 
-    # Pull in all Azure- and VITE_… secrets for use in every step
+    # Environment variables passed to steps (for Vite build)
     env:
-      # ——————————————————————————————————————————————
-      # Azure OIDC authentication (no client secret stored in repo)
-      # ——————————————————————————————————————————————
-      AZURE_CLIENT_ID:        ${{ secrets.VITE_AZURE_AD_CLIENT_ID }}
-      AZURE_TENANT_ID:        ${{ secrets.AZURE_TENANT_ID }}
-      AZURE_SUBSCRIPTION_ID:  ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-
-      # ——————————————————————————————————————————————
-      # Application settings injected at Vite build time
-      # ——————————————————————————————————————————————
+      # Azure AD settings for your app at build time (injected by Vite)
       VITE_AZURE_AD_CLIENT_ID:               ${{ secrets.VITE_AZURE_AD_CLIENT_ID }}
-      VITE_AZURE_AD_TENANT_ID:               ${{ secrets.VITE_AZURE_AD_TENANT_ID }}
+      VITE_AZURE_AD_TENANT_ID:               ${{ secrets.AZURE_TENANT_ID }}
       VITE_AZURE_AD_REDIRECT_URI:            ${{ secrets.VITE_AZURE_AD_REDIRECT_URI }}
       VITE_AZURE_AD_POST_LOGOUT_REDIRECT_URI: ${{ secrets.VITE_AZURE_AD_POST_LOGOUT_REDIRECT_URI }}
       VITE_AZURE_AD_API_CLIENT_ID:           ${{ secrets.VITE_AZURE_AD_API_CLIENT_ID }}
       VITE_AZURE_AD_API_SCOPE_URI:           ${{ secrets.VITE_AZURE_AD_API_SCOPE_URI }}
       VITE_API_URL:                          ${{ secrets.VITE_API_URL }}
+      # If you use OIDC login for other tasks, also include:
+      AZURE_CLIENT_ID:        ${{ secrets.VITE_AZURE_AD_CLIENT_ID }}
+      AZURE_TENANT_ID:        ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID:  ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
     steps:
-      # 1) Checkout your code
-      - name: Checkout repository
+      # 1) Checkout repository
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      # 2) Login to Azure via OIDC (no long-lived credentials needed)
-      - name: Azure Login via OIDC
-        uses: azure/login@v1
-        with:
-          client-id:        ${{ env.VITE_AZURE_AD_CLIENT_ID }}
-          tenant-id:        ${{ env.AZURE_TENANT_ID }}
-          subscription-id:  ${{ env.AZURE_SUBSCRIPTION_ID }}
-          enable-AzPSSession: true
-
-      # 3) Install Node.js (and cache npm modules)
+      # 2) Setup Node.js and cache npm modules
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '18.x'
           cache: npm
 
-      # 4) Install deps & build your Vite app
+      # 3) Install dependencies and build the Vite app
       - name: Install dependencies & build
         working-directory: apps/admin-web
         run: |
           npm ci
           npm run build
 
-      # 5) Deploy the static assets to Azure Static Web Apps
+      # 4) Deploy to Azure Static Web Apps
       - name: Deploy to Azure Static Web Apps
         uses: Azure/static-web-apps-deploy@v1
         with:
-          # Token for your Static Web App (stored in GH Secrets)
+          # A deployment token for your Static Web App, stored as a GitHub secret
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_APP_DEPLOY_KEY }}
-          # A GitHub token for updating the PR status, etc.
+          # GitHub token for PR comments/status updates
           repo_token:                     ${{ secrets.PERSONAL_TOKEN }}
           action:                         upload
           app_location:                   apps/admin-web
