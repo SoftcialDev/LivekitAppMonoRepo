@@ -1,3 +1,6 @@
 {
-
+  "IsEncrypted": false,
+  "Values": {
+    "NODE_ENV": "production"
+  }
 }

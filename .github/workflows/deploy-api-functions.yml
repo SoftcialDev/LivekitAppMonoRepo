@@ -26,8 +26,7 @@ jobs:
           node-version: '18.x'
           cache: 'npm'
 
-      - name: Install dependencies for API Functions
-        working-directory: apps/api-functions
+      - name: Install dependencies (root)
         run: npm ci
 
       - name: Run Prisma Migrations
