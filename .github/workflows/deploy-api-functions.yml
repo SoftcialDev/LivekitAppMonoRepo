@@ -9,21 +9,12 @@ on:
       - '.github/workflows/deploy-api-functions.yml'
 
 permissions:
-  id-token: write
   contents: read
+  id-token: write
 
 jobs:
   deploy_api_functions:
     runs-on: ubuntu-latest
-
-    env:
-      # Si tus funciones necesitan variables de entorno comunes, agrégalas aquí.
-      # Por ejemplo:
-      # FUNCTION_ENV_VAR: ${{ secrets.SOME_SECRET }}
-      # Para Azure login:
-      AZURE_CLIENT_ID:        ${{ secrets.VITE_AZURE_AD_CLIENT_ID }}
-      AZURE_TENANT_ID:        ${{ secrets.AZURE_TENANT_ID }}
-      AZURE_SUBSCRIPTION_ID:  ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
     steps:
       - name: Checkout code
@@ -35,43 +26,42 @@ jobs:
           node-version: '18.x'
           cache: 'npm'
 
-      - name: Azure Login
+      # Si necesitas Azure CLI para otros fines, puedes hacer login; no es obligatorio para deploy con publish-profile.
+      - name: Azure Login (opcional)
         uses: azure/login@v1
         with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }} # JSON del Service Principal con permisos para desplegar
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Install dependencies for API Functions
         working-directory: apps/api-functions
         run: npm ci
 
-      - name: Run Prisma Migrations (SQL Admin)
+      - name: Run Prisma Migrations
         working-directory: apps/api-functions
         env:
           PGHOST: livekit-agent-azure-postgres-server-flexible.postgres.database.azure.com
           PGUSER: livekitadmin
-          PGPASSWORD: ADcc2024.    # Para prueba; lo ideal es: ${{ secrets.POSTGRES_ADMIN_PASSWORD }}
+          PGPASSWORD: ${{ secrets.POSTGRES_ADMIN_PASSWORD }}
           PGDATABASE: postgres
           PGPORT: 5432
           PGSSLMODE: require
           DATABASE_URL: >-
-            postgresql://livekitadmin:ADcc2024.@livekit-agent-azure-postgres-server-flexible.postgres.database.azure.com:5432/postgres?schema=public&sslmode=require
+            postgresql://livekitadmin:${{ secrets.POSTGRES_ADMIN_PASSWORD }}@livekit-agent-azure-postgres-server-flexible.postgres.database.azure.com:5432/postgres?schema=public&sslmode=require
         run: |
-          # Verificar que Prisma encuentra el schema en prisma/schema.prisma
-          ls prisma/schema.prisma
-          # Introspección para confirmar conexión
+          if [ ! -f prisma/schema.prisma ]; then
+            echo "Error: prisma/schema.prisma no encontrado"
+            exit 1
+          fi
           npx prisma db pull
-          # Aplicar migraciones pendientes
           npx prisma migrate deploy
 
       - name: Build API Functions (TypeScript)
         working-directory: apps/api-functions
         run: npm run build
-        # Asegúrate de que tu package.json tenga un script "build" que compile TS a dist/
 
       - name: Deploy API Functions to Azure
         uses: Azure/functions-action@v1
         with:
-          app-name:        ${{ secrets.AZURE_FUNCTIONAPP_NAME }}   # nombre de tu Function App en Azure
+          app-name:        ${{ secrets.AZURE_FUNCTIONAPP_NAME }}
           publish-profile: ${{ secrets.AZURE_FUNCTIONAPP_PUBLISH_PROFILE }}
           package:         apps/api-functions
-
