@@ -1,4 +1,4 @@
-name: Deploy API Functions with Prisma Migrations
+name: Deploy API Functions with Prisma Schema
 
 on:
   push:
@@ -29,25 +29,16 @@ jobs:
       - name: Install dependencies (root)
         run: npm ci
 
-      - name: Run or Push Prisma Schema
+      - name: Push Prisma schema and create tables
         working-directory: apps/api-functions
         env:
-          PGHOST: livekit-agent-azure-postgres-server-flexible.postgres.database.azure.com
-          PGUSER: livekitadmin
-          PGPASSWORD: ${{ secrets.POSTGRES_ADMIN_PASSWORD }}
-          PGDATABASE: postgres
-          PGPORT: 5432
-          PGSSLMODE: require
           DATABASE_URL: >-
-            postgresql://livekitadmin:${{ secrets.POSTGRES_ADMIN_PASSWORD }}@livekit-agent-azure-postgres-server-flexible.postgres.database.azure.com:5432/postgres?schema=public&sslmode=require
+            postgresql://livekitadmin:${{ secrets.POSTGRES_ADMIN_PASSWORD }}@
+            livekit-agent-azure-postgres-server-flexible.postgres.database.azure.com:
+            5432/livekit-agent-azure-db?schema=public&sslmode=require
         run: |
-          if [ -d prisma/migrations ] && [ "$(ls -A prisma/migrations)" ]; then
-            echo "🔄 Migraciones encontradas, ejecutando prisma migrate deploy"
-            npx prisma migrate deploy
-          else
-            echo "✨ No hay migraciones, haciendo prisma db push para crear tablas"
-            npx prisma db push
-          fi
+          echo "✨ Pushing Prisma schema to livekit-agent-azure-db…"
+          npx prisma db push
 
       - name: Build API Functions (TypeScript)
         working-directory: apps/api-functions
