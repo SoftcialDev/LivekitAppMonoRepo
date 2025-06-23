@@ -1,9 +1,7 @@
-// schema.prisma
-
 // 1. Datasource & Generator
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL") // e.g. postgresql://USER:PASSWORD@HOST:PORT/DATABASE?schema=public
+  url      = env("DATABASE_URL") // e.g. postgresql://USER:PASSWORD@HOST:PORT/DATABASE?schema=publi
 }
 
 generator client {

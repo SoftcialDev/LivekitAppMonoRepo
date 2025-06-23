@@ -29,7 +29,7 @@ jobs:
       - name: Install dependencies (root)
         run: npm ci
 
-      - name: Run Prisma Migrations
+      - name: Run or Push Prisma Schema
         working-directory: apps/api-functions
         env:
           PGHOST: livekit-agent-azure-postgres-server-flexible.postgres.database.azure.com
@@ -41,12 +41,13 @@ jobs:
           DATABASE_URL: >-
             postgresql://livekitadmin:${{ secrets.POSTGRES_ADMIN_PASSWORD }}@livekit-agent-azure-postgres-server-flexible.postgres.database.azure.com:5432/postgres?schema=public&sslmode=require
         run: |
-          if [ ! -f prisma/schema.prisma ]; then
-            echo "Error: prisma/schema.prisma no encontrado"
-            exit 1
+          if [ -d prisma/migrations ] && [ "$(ls -A prisma/migrations)" ]; then
+            echo "🔄 Migraciones encontradas, ejecutando prisma migrate deploy"
+            npx prisma migrate deploy
+          else
+            echo "✨ No hay migraciones, haciendo prisma db push para crear tablas"
+            npx prisma db push
           fi
-          npx prisma db pull
-          npx prisma migrate deploy
 
       - name: Build API Functions (TypeScript)
         working-directory: apps/api-functions
