@@ -1,17 +1,17 @@
-// src/features/auth/pages/LoginPage.tsx
 import React, { useState, useEffect } from 'react'
-import { useAuth } from '../auth/hooks/useAuth'
+import { useAuth } from '../hooks/useAuth'
 import { useNavigate } from 'react-router-dom'
 import logoSrc from '@assets/ColletteHealth_logo.png'
 import camaraLogo from '@assets/InContact_logo.png'
-import { SignInButton } from './components/SignInButton'
+import { SignInButton } from '../components/SignInButton'
+import IconWithLabel from '../../../components/IconWithLabel'
 
 /**
  * LoginPage component.
  *
  * - Renders the Collette Health logo at the top.
  * - Below the logo, shows an "In Contact" label with the camera icon,
- *   styled in Montserrat Bold and in white.
+ *   styled in Montserrat Bold and in white via IconWithLabel.
  * - Displays the SignInButton.
  * - Handles MSAL initialization, redirect if already signed in, loading state,
  *   and error messages.
@@ -23,6 +23,7 @@ import { SignInButton } from './components/SignInButton'
  * @component
  * @returns {JSX.Element} The login page UI or a loading indicator.
  */
+
 export const LoginPage: React.FC = () => {
   const { account, initialized, login } = useAuth()
   const navigate = useNavigate()
@@ -74,20 +75,16 @@ export const LoginPage: React.FC = () => {
         className="h-16 sm:h-20 md:h-24 mb-12"
       />
 
-      {/* 2. Camera icon + "In Contact" */}
-      <div className="flex items-center mb-6 mt-8">
-        <img
-          src={camaraLogo}
-          alt="Camera Icon"
-         className="h-8 sm:h-10 md:h-12 mr-3"
-        />
-         <span className="montserrat-bold text-white text-xl sm:text-2xl md:text-3xl">
-          In Contact
-        </span>
-      </div>
+      {/* 2. Camera icon + "In Contact" via IconWithLabel */}
+      <IconWithLabel
+        src={camaraLogo}
+        alt="Camera Icon"
+      >
+        In Contact
+      </IconWithLabel>
 
       {/* 3. Sign In button */}
-      <SignInButton onClick={handleLogin} />
+      <SignInButton onClick={handleLogin} isLoading={isLoading} />
 
       {/* 4. Error message */}
       {errorMessage && (

@@ -84,7 +84,7 @@ module "aad_spa" {
   # Group-of-admins Object IDs allowed to manage or administer the app
   aad_admins_group_members = var.aad_admins_group_members
 
-  aad_superadmins_group_members = var.aad_superadmins_group_members
+  aad_supervisors_group_members = var.aad_admins_group_members
 }
 
 # 7. AKS cluster module

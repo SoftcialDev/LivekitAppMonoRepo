@@ -1,58 +1,94 @@
-﻿import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+﻿/**
+ * @file Entry point of the React application.
+ * Sets up authentication, layout, and all routes with role-based access control.
+ */
+
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+} from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
-import { LoginPage } from './features/auth/LoginPage';
-import { ProtectedRoute } from './components/ProtectedRoute';
-import { VideoDashboard } from './features/videoDashboard/VideoGrid';
+import { ProtectedRoute } from './features/auth/components/ProtectedRoute';
+import ForbiddenPage from './features/auth/pages/ForbiddenPage';
+import Layout from './components/DashboardLayout';
+import { LoginPage } from './features/auth/pages/LoginPage';
+import AdminsPage from './features/userManagement/AdminsPage';
+import SupervisorsPage from './features/userManagement/SupervisorsPage';
+import PSOsPage from './features/userManagement/PsoListPage';
+import UserVideoPage from './features/videoDashboard/pages/UserVideoPage';
 
 /**
- * App component.
+ * Main application component.
  *
- * Wraps the application in authentication context and defines client-side routes.
+ * Wraps all routes in AuthProvider and configures:
+ *  - Public routes: /login, /forbidden
+ *  - Protected routes under Layout, accessible only to admin & supervisor
+ *  - /admins further restricted to admin only
+ *  - /supervisors, /psos, /dashboard, /videos/:username accessible to admin & supervisor
+ *  - All others redirect to /dashboard
  *
- * - Wraps children with AuthProvider so that authentication state and actions
- *   (login, logout, token acquisition) are available via context.
- * - Uses BrowserRouter to enable navigation via HTML5 history API.
- * - Defines a public route for '/login'.
- * - Defines a protected route for '/dashboard' that requires an authenticated session.
- * - Redirects '/' and any unmatched path to '/dashboard', where ProtectedRoute
- *   verifies authentication and either shows VideoDashboard or redirects to '/login'.
- *
- * @returns {JSX.Element} The application with routing and authentication context.
+ * @returns {JSX.Element} The router configuration.
  */
 function App(): JSX.Element {
   return (
     <AuthProvider>
       <BrowserRouter>
         <Routes>
-          {/* Public route: renders LoginPage when URL is '/login' */}
+          {/* Public: login page */}
           <Route path="/login" element={<LoginPage />} />
 
+          {/* Public: forbidden page for unauthorized access */}
+          <Route path="/forbidden" element={<ForbiddenPage />} />
+
           {/*
-            Protected route: renders VideoDashboard only if the user is authenticated.
-            ProtectedRoute checks authentication state from context and either renders
-            the child component or redirects to '/login'.
+            Protected area:
+            - Only 'admin' and 'supervisor' roles may enter any of these routes.
+            - Employees and unauthenticated users will be redirected to /login or /forbidden.
           */}
           <Route
-            path="/dashboard"
             element={
-              <ProtectedRoute>
-                <VideoDashboard />
+              <ProtectedRoute allowedRoles={['Admin','Supervisor']}>
+                <Layout />
               </ProtectedRoute>
             }
-          />
+          >
+            {/*
+              Admins page:
+              - Only 'admin' role may view /admins.
+              - 'supervisor' will hit /forbidden.
+            */}
+            <Route
+              path="/admins"
+              element={
+                <ProtectedRoute allowedRoles={['Admin']}>
+                  <AdminsPage />
+                </ProtectedRoute>
+              }
+            />
 
-          {/*
-            Redirect root path '/' to '/dashboard'.
-            When navigating to '/', user is sent to '/dashboard'.
-            ProtectedRoute then enforces authentication.
-          */}
+            {/* Supervisors page, accessible to both 'admin' and 'supervisor' */}
+            <Route
+              path="/supervisors"
+              element={<SupervisorsPage/>}
+            />
+
+            {/* PSO list page under Manage, same as supervisors+admins */}
+            <Route path="/psos" element={<PSOsPage />} />
+
+            {/* Dashboard alias for PSOsPage */}
+            <Route path="/dashboard" element={<PSOsPage />} />
+
+            {/* Individual user video, admin & supervisor only */}
+            <Route
+              path="/videos/:username"
+              element={<UserVideoPage />}
+            />
+          </Route>
+
+          {/* Catch-all redirects to dashboard */}
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
-
-          {/*
-            Catch-all route: any unmatched URL redirects to '/dashboard'.
-            This ensures deep links or typos resolve to the dashboard route,
-            where authentication is checked.
-          */}
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </BrowserRouter>

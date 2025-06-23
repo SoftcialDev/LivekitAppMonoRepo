@@ -1,21 +1,79 @@
-// src/features/auth/components/SignInButton.tsx
-import React from 'react'
+import React from 'react';
 
-interface SignInButtonProps {
-  onClick: () => void
+///////////////////////////////////////////////////////////////////////////////
+// Props
+///////////////////////////////////////////////////////////////////////////////
+
+/**
+ * Props for the SignInButton component.
+ *
+ * @remarks
+ * This component renders a rounded "pill" button styled for signing in.
+ * - The `onClick` handler is called when the button is pressed.
+ * - When `isLoading` is `true`, the button shows a loading state, is disabled,
+ *   and its label changes to indicate progress.
+ *
+ * @public
+ */
+export interface SignInButtonProps {
+  /**
+   * Function to call when the button is clicked.
+   */
+  onClick: () => void;
+
+  /**
+   * Whether the button is in a loading state.
+   * @defaultValue `false`
+   */
+  isLoading?: boolean;
 }
+
+///////////////////////////////////////////////////////////////////////////////
+// Component
+///////////////////////////////////////////////////////////////////////////////
 
 /**
  * A pill-shaped "Sign In" button with:
- * - green background (secondary)
- * - darker green on hover
- * - violet text & icon (primary-dark)
- * - fully rounded corners
+ * - Green background (`--color-secondary`) that darkens on hover
+ * - Violet text and icon (`--color-primary-dark`)
+ * - Fully rounded corners, smooth transitions, and accessible loading state
+ *
+ * @param props.onClick – Callback fired on click.
+ * @param props.isLoading – Disables the button and shows a loading label when `true`.
+ *
+ * @returns A styled `<button>` element ready for sign-in actions.
+ *
+ * @example
+ * ```tsx
+ * function App() {
+ *   const [loading, setLoading] = useState(false);
+ *
+ *   const handleSignIn = async () => {
+ *     setLoading(true);
+ *     await auth.signIn();
+ *     setLoading(false);
+ *   };
+ *
+ *   return (
+ *     <SignInButton
+ *       onClick={handleSignIn}
+ *       isLoading={loading}
+ *     />
+ *   );
+ * }
+ * ```
+ *
+ * @public
  */
-export const SignInButton: React.FC<SignInButtonProps> = ({ onClick }) => (
+export const SignInButton: React.FC<SignInButtonProps> = ({
+  onClick,
+  isLoading = false,
+}) => (
   <button
     type="button"
     onClick={onClick}
+    disabled={isLoading}
+    aria-busy={isLoading}
     className="
       flex items-center justify-center
       rounded-full px-6 py-2
@@ -24,9 +82,10 @@ export const SignInButton: React.FC<SignInButtonProps> = ({ onClick }) => (
       text-[var(--color-primary-dark)]
       transition duration-150 ease-in-out
       focus:outline-none
+      disabled:opacity-50 disabled:cursor-not-allowed
     "
   >
-    {/* Inline SVG using currentColor for fill */}
+    {/* Icon uses currentColor for easy theming */}
     <svg
       className="h-5 w-5 mr-2"
       viewBox="0 0 24 24"
@@ -42,8 +101,9 @@ export const SignInButton: React.FC<SignInButtonProps> = ({ onClick }) => (
         <path d="M100 145 l-24 -26 27 -26 c27 -28 50 -26 27 2 -11 13 -7 15 29 15 22 0 41 5 41 10 0 6 -19 10 -42 10 -33 0 -39 3 -30 12 7 7 12 16 12 20 0 15 -17 8 -40 -17z"/>
       </g>
     </svg>
+
     <span className="uppercase font-semibold">
-      Sign In
+      {isLoading ? 'Signing In…' : 'Sign In'}
     </span>
   </button>
-)
+);

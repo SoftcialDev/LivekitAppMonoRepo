@@ -139,6 +139,11 @@ variable "aad_employees_group_members" {
   type        = list(string)
 }
 
+variable "aad_supervisors_group_members" {
+  description = "List of user principal names (UPNs) to add to the Supervisors group."
+  type        = list(string)
+}
+
 variable "aad_invite_emails" {
   description = "List of email addresses to invite into the Azure AD tenant."
   type        = list(string)
@@ -153,12 +158,6 @@ variable "aad_enable_directory_role_assignment" {
 variable "redirect_url_for_invited_users" {
   description = "Redirect URL used for invited users after sign-in."
   type        = string
-}
-
-variable "aad_superadmins_group_members" {
-    description = "List of user object IDs (GUIDs) for initial SuperAdmins"
-  type = list(string)
-  default = []
 }
 
 

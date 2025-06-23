@@ -32,7 +32,7 @@ variable "aad_admins_group_members" {
 
 
 
-variable "aad_superadmins_group_members" {
+variable "aad_supervisors_group_members" {
     description = "List of user object IDs (GUIDs) for initial SuperAdmins"
   type = list(string)
   default = []
