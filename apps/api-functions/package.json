@@ -1,12 +1,13 @@
 {
   "name": "api-function",
   "version": "1.0.0",
-  "main": "dist/index.js",
+  "main": "index.js",
   "scripts": {
-    "prebuild": "rimraf dist",
-    "build": "npm run prebuild && tsc",
-    "postbuild": "cpx \"src/**/*.json\" dist && cpx \"host.json\" dist && cpx \"local.settings.json\" dist && cpx \"package.json\" dist ",
-    "start": "npm run build && func start --script-root dist",
+    "clean":         "rimraf dist",
+    "build":          "npm run clean && tsc",
+    "prepare-dist":   "cpx \"src/*/function.json\" dist && cpx \"host.json\" dist && cpx \"local.settings.json\" dist && cpx \"../../node_modules/**/*\" dist/node_modules",
+    "prepare-dist:prod":"cpx \"src/*/function.json\" dist && cpx \"host.json\" dist && cpx \"../../node_modules/**/*\" dist/node_modules",
+    "dev":            "npm install && npm run build && npm run prepare-dist && func start --script-root dist",
     "prisma:generate": "prisma generate",
     "prisma:migrate:dev": "prisma migrate dev --name init",
     "prisma:deploy": "prisma migrate deploy && prisma generate"

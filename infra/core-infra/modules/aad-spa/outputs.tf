@@ -43,19 +43,19 @@ output "api_scope_uri" {
 # Object ID of Admins group
 output "admins_group_id" {
   description = "Object ID of the Admins security group"
-  value       = azuread_group.admins_group.id
+  value       = azuread_group.admins_group.object_id
 }
 
 # Object ID of Employees group
 output "employees_group_id" {
   description = "Object ID of the Employees security group"
-  value       = azuread_group.employees_group.id
+  value       = azuread_group.employees_group.object_id
 }
 
 # Object ID of Supervisor group
 output "supervisors_groups_id" {
   description = "Object ID of the Employees security group"
-  value       = azuread_group.supervisors_group.id
+  value       = azuread_group.supervisors_group.object_id
 }
 
 # Service Principal object ID for the API app
