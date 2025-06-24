@@ -37,7 +37,6 @@ const PSOsPage: React.FC = () => {
   useHeader({ title: 'PSOs', iconSrc: monitorIcon, iconAlt: 'PSOs' });
 
   const { account } = useAuth();
-  console.log(account)
   const currentUser = account?.username ?? '';
   const { onlineUsers, loading, error } = usePresence(currentUser);
   const { handlePlay, handleStop, handleChat } = useVideoActions();

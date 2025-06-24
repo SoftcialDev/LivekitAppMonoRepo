@@ -4,7 +4,7 @@ import jwt, { JwtHeader, JwtPayload, VerifyErrors } from "jsonwebtoken";
 import { config } from "../config";
 
 /**
- * JWKS client configured to fetch public keys from Azure AD.
+ * JWKS client to fetch Azure AD signing keys.
  * Caches keys in memory and rate-limits requests.
  */
 const client = jwksClient({
@@ -14,10 +14,10 @@ const client = jwksClient({
 });
 
 /**
- * Retrieves the signing key corresponding to the JWT header’s `kid`.
+ * Looks up the signing key based on the `kid` in JWT header.
  *
- * @param header   The parsed JWT header containing the `kid`.
- * @param callback Callback to receive either an Error or the public key (string or Buffer).
+ * @param header - JWT header containing `kid`.
+ * @param callback - Callback to return error or the PEM public key.
  */
 function getKey(
   header: JwtHeader,
@@ -25,76 +25,95 @@ function getKey(
 ): void {
   const kid = header.kid;
   if (!kid) {
-    return callback(new Error("Missing `kid` in JWT header"));
+    callback(new Error("JWT header is missing 'kid'"));
+    return;
   }
 
   client.getSigningKey(kid, (err, key) => {
     if (err) {
-      return callback(err);
+      callback(err);
+      return;
     }
-    // getPublicKey() returns the PEM-encoded public key
     const publicKey = key.getPublicKey();
     callback(null, publicKey);
   });
 }
 
 /**
- * Middleware that enforces JWT authentication against Azure AD.
- * 
- * 1. Extracts the `Authorization` header from `ctx.req`.
- * 2. Verifies the token’s signature, issuer, and audience.
- * 3. On success, stores the decoded payload in `ctx.bindings.user`.
- * 4. On failure, returns 401 Unauthorized.
+ * Middleware to enforce JWT authentication with Azure AD.
  *
- * @param ctx   Azure Functions execution context, with `ctx.req` expected for HTTP triggers.
- * @param next  Function to invoke the next middleware or handler.
- * @returns     Resolves when request is authorized and downstream processing completes.
+ * Steps:
+ * 1. Read the Authorization header from ctx.req.
+ * 2. Verify signature, issuer, and audience.
+ * 3. If valid, attach decoded payload to ctx.bindings.user.
+ * 4. If invalid, return 401 Unauthorized.
+ *
+ * @param ctx - Azure Functions execution context (expects HTTP trigger).
+ * @param next - Next function in the pipeline.
  */
 export async function withAuth(
   ctx: Context,
   next: () => Promise<void>
 ): Promise<void> {
-  // Ensure we have an HTTP request
   const req: HttpRequest = ctx.req!;
-  const authHeader = req.headers["authorization"] || req.headers["Authorization"];
+  const authHeader =
+    req.headers["authorization"] || req.headers["Authorization"];
   if (!authHeader?.startsWith("Bearer ")) {
-    ctx.res = { status: 401, body: "Missing or invalid Authorization header" };
+    ctx.res = {
+      status: 401,
+      body: "Missing or invalid Authorization header",
+    };
     return;
   }
 
   const token = (authHeader as string).slice(7); // remove "Bearer "
 
   try {
-    const issuer = `https://login.microsoftonline.com/${config.azureTenantId}/v2.0`;
-    const audience = config.azureClientId;
+    const tenantId = config.azureTenantId;
+    const clientId = config.azureClientId;
 
-    // Verify JWT asynchronously using our getKey function
+    // Valid issuers: v2.0 and, if you need to accept older tokens, the v1 STS issuer.
+    // Typed as a tuple [string, string] so it satisfies VerifyOptions issuer overload.
+    const validIssuers: [string, string] = [
+      `https://login.microsoftonline.com/${tenantId}/v2.0`,
+      `https://sts.windows.net/${tenantId}/`,
+    ];
+
+    // Audience: use the Application (client) ID. If you need multiple accepted audiences,
+    // you can supply a tuple like [clientId, otherValue].
+    // Here, use a single string since only one is needed.
+    const validAudience: string = clientId;
+
     const decoded = await new Promise<JwtPayload>((resolve, reject) => {
       jwt.verify(
         token,
         getKey,
         {
-          issuer,
-          audience,
+          issuer: validIssuers,
+          audience: validAudience,
           algorithms: ["RS256"],
         },
         (err: VerifyErrors | null, payload?: JwtPayload | string) => {
-          if (err) return reject(err);
+          if (err) {
+            reject(err);
+            return;
+          }
           if (!payload || typeof payload === "string") {
-            return reject(new Error("Invalid token payload"));
+            reject(new Error("Unexpected token payload"));
+            return;
           }
           resolve(payload);
         }
       );
     });
 
-    // Attach the decoded claims for downstream use
+    // Attach decoded claims for downstream handlers
     (ctx as any).bindings = (ctx as any).bindings || {};
     (ctx as any).bindings.user = decoded;
 
     await next();
   } catch (err) {
-    ctx.log.error("Authentication failure:", err);
+    ctx.log.error("Authentication failed:", err);
     ctx.res = { status: 401, body: "Unauthorized" };
   }
 }

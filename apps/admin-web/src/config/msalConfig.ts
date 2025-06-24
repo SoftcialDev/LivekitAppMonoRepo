@@ -25,7 +25,7 @@ const msalConfig: Configuration = {
      * Should point to your tenant in Azure AD.
      * Format: 'https://login.microsoftonline.com/{tenantId}'.
      */
-    authority: `https://login.microsoftonline.com/${import.meta.env.VITE_AZURE_AD_TENANT_ID}`,
+     authority: `https://login.microsoftonline.com/${import.meta.env.VITE_AZURE_AD_TENANT_ID}/v2.0`,
 
     /**
      * The URI where Azure AD will redirect the browser after sign-in.

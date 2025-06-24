@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useHeader } from '../../context/HeaderContext';
 import { TableComponent, Column } from '../../components/TableComponent';
 import AddButton from '../../components/Buttons/AddButton';
 import TrashButton from '../../components/Buttons/TrashButton';
 import managementIcon from '@assets/monitor-icon.png';
 import AddModal from '@/components/ModalComponent';
+import { useAuth } from '../auth/hooks/useAuth';
 
 /**
  * Represents a single administrator.
@@ -20,6 +21,7 @@ interface Admin {
   role: string;
 }
 
+
 /**
  * Renders the Admins management page.
  *
@@ -34,12 +36,34 @@ interface Admin {
 const AdminsPage: React.FC = () => {
   const [isModalOpen, setModalOpen] = useState(false);
   const [selectedEmails, setSelectedEmails] = useState<string[]>([]);
+  const { getApiToken, account, initialized, login } = useAuth();
 
   useHeader({
     title: 'Admins',
     iconSrc: managementIcon,
     iconAlt: 'Admins',
   });
+
+  useEffect(() => {
+
+    if (!initialized) return;
+    if (!account) {
+
+      console.log('No hay cuenta; debe iniciar sesión antes de pedir token');
+      return;
+    }
+
+    getApiToken()
+      .then(token => {
+        console.log('Access token obtenido:', token);
+      })
+      .catch(err => {
+        console.error('Error al obtener token de API:', err);
+      });
+  }, [initialized, account, getApiToken, login]);
+
+
+
 
   const data: Admin[] = [
     { email: 'alice@foo.com', firstName: 'Alice',  lastName: 'Anderson',   role: 'Manager'     },

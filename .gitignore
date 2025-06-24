@@ -45,4 +45,3 @@ kubeconfig.yaml
 dist/
 node_modules/
 apps/api-functions/local.settings.json
-apps/api-functions/local.settings.json
