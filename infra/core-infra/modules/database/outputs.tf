@@ -27,6 +27,6 @@ output "postgres_server_password" {
 
 output "database_url" {
   description = "URL de conexión a la base de datos PostgreSQL"
-  value = "postgresql://${azurerm_postgresql_flexible_server.postgres_server.administrator_login}:${azurerm_postgresql_flexible_server.postgres_server.administrator_password}@${azurerm_postgresql_flexible_server.postgres_server.fqdn}:5432/${azurerm_postgresql_flexible_server_database.postgres_database.name}?sslmode=require"
+  value = "postgresql://${azurerm_postgresql_flexible_server.postgres_server.administrator_login}:${azurerm_postgresql_flexible_server.postgres_server.administrator_password}@${azurerm_postgresql_flexible_server.postgres_server.fqdn}:5432/${azurerm_postgresql_flexible_server_database.postgres_database.name}?schema=public&sslmode=require"
   sensitive = true
 }

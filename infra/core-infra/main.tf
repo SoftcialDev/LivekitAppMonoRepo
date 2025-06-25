@@ -154,6 +154,8 @@ module "function_app" {
   supervisors_group_id        = module.aad_spa.supervisors_groups_id
   livekit_api_url             = var.livekit_url
   webpubsub_endpoint          = module.web_pubsub.host
+  AZURE_AD_API_IDENTIFIER_URI = module.aad_spa.api_identifier_uri
+  SERVICE_PRINCIPAL_OBJECT_ID = module.aad_spa.api_sp_object_id
   webpubsub_hub_name          = module.web_pubsub.webpubsub_hub_name
   service_bus_topic_name      = var.servicebus_topic_name
   cors_allowed_origins        =  [

@@ -5,14 +5,13 @@
       "type": "httpTrigger",
       "direction": "in",
       "name": "req",
-      "methods": ["post"],
-      "route": "PromoteAdmin"
+      "methods": ["get"],
+      "route": "GetTenantUsers"
     },
     {
       "type": "http",
       "direction": "out",
       "name": "res"
     }
-  ],
-  "scriptFile": "index.js"
+  ]
 }

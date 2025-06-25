@@ -4,7 +4,7 @@ import jwt, { JwtHeader, JwtPayload, VerifyErrors } from "jsonwebtoken";
 import { config } from "../config";
 
 /**
- * JWKS client to fetch Azure AD signing keys.
+ * JWKS client configured to fetch Azure AD signing keys.
  * Caches keys in memory and rate-limits requests.
  */
 const client = jwksClient({
@@ -45,8 +45,8 @@ function getKey(
  * Steps:
  * 1. Read the Authorization header from ctx.req.
  * 2. Verify signature, issuer, and audience.
- * 3. If valid, attach decoded payload to ctx.bindings.user.
- * 4. If invalid, return 401 Unauthorized.
+ * 3. If valid, attach decoded payload to ctx.bindings.user and proceed.
+ * 4. If invalid, set ctx.res to 401 Unauthorized and stop execution.
  *
  * @param ctx - Azure Functions execution context (expects HTTP trigger).
  * @param next - Next function in the pipeline.
@@ -57,33 +57,44 @@ export async function withAuth(
 ): Promise<void> {
   const req: HttpRequest = ctx.req!;
   const authHeader =
-    req.headers["authorization"] || req.headers["Authorization"];
+    (req.headers["authorization"] || req.headers["Authorization"]) as string | undefined;
+
+  // 1. Check for Bearer token
   if (!authHeader?.startsWith("Bearer ")) {
+    ctx.log.warn("[withAuth] Missing or invalid Authorization header"); 
     ctx.res = {
       status: 401,
-      body: "Missing or invalid Authorization header",
+      headers: { "Content-Type": "application/json" },
+      body: { error: "Missing or invalid Authorization header" },
     };
     return;
   }
 
-  const token = (authHeader as string).slice(7); // remove "Bearer "
+  const token = authHeader.slice(7); // remove "Bearer "
 
   try {
     const tenantId = config.azureTenantId;
     const clientId = config.azureClientId;
+    if (!tenantId || !clientId) {
+      ctx.log.error("[withAuth] Azure AD configuration missing (tenantId or clientId)");
+      ctx.res = {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+        body: { error: "Server configuration error" },
+      };
+      return;
+    }
 
-    // Valid issuers: v2.0 and, if you need to accept older tokens, the v1 STS issuer.
-    // Typed as a tuple [string, string] so it satisfies VerifyOptions issuer overload.
+    // Valid issuers: v2.0 endpoint and optionally v1.0 STS
     const validIssuers: [string, string] = [
       `https://login.microsoftonline.com/${tenantId}/v2.0`,
       `https://sts.windows.net/${tenantId}/`,
     ];
 
-    // Audience: use the Application (client) ID. If you need multiple accepted audiences,
-    // you can supply a tuple like [clientId, otherValue].
-    // Here, use a single string since only one is needed.
+    // Audience: the Application (client) ID
     const validAudience: string = clientId;
 
+    // 2. Verify JWT asynchronously using jwks-rsa getKey
     const decoded = await new Promise<JwtPayload>((resolve, reject) => {
       jwt.verify(
         token,
@@ -95,25 +106,30 @@ export async function withAuth(
         },
         (err: VerifyErrors | null, payload?: JwtPayload | string) => {
           if (err) {
-            reject(err);
-            return;
+            return reject(err);
           }
           if (!payload || typeof payload === "string") {
-            reject(new Error("Unexpected token payload"));
-            return;
+            return reject(new Error("Unexpected token payload"));
           }
           resolve(payload);
         }
       );
     });
 
-    // Attach decoded claims for downstream handlers
+    // 3. Attach decoded claims for downstream handlers
     (ctx as any).bindings = (ctx as any).bindings || {};
     (ctx as any).bindings.user = decoded;
+    ctx.log.info("[withAuth] Authentication succeeded", { oid: decoded.oid || decoded.sub });
 
+    // 4. Proceed to next middleware/handler
     await next();
-  } catch (err) {
-    ctx.log.error("Authentication failed:", err);
-    ctx.res = { status: 401, body: "Unauthorized" };
+  } catch (err: any) {
+    ctx.log.warn("[withAuth] Token verification failed or error occurred", { error: err.message });
+    ctx.res = {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+      body: { error: "Unauthorized" },
+    };
+    return;
   }
 }

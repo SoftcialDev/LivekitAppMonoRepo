@@ -84,3 +84,13 @@ output "azure_client_secret_api_app" {
 output "spa_app_client_id" {
 value = azuread_service_principal.spa_sp.client_id
 }
+
+output "SERVICE_PRINCIPAL_OBJECT_ID" {
+  value       = azuread_service_principal.api_sp.object_id
+  description = "Object ID of the Service Principal used in Graph API operations"
+}
+
+output "AZURE_AD_API_IDENTIFIER_URI" {
+  value       = azuread_application.api_app.identifier_uris
+  description = "The identifier URI(s) of the API app"
+}

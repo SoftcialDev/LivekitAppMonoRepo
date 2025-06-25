@@ -55,17 +55,19 @@ resource "azurerm_function_app" "function_app" {
     SERVICE_BUS_TOPIC_NAME      = var.service_bus_topic_name
     WEBPUBSUB_NAME              = var.webpubsub_hub_name
     NODE_ENV                    = var.node_env
-   ADMINS_GROUP_ID              = var.admins_group_id
+    ADMINS_GROUP_ID              = var.admins_group_id
     EMPLOYEES_GROUP_ID          = var.employees_group_id
     SUPERVISORS_GROUP_ID        = var.supervisors_group_id
-
-
+    FUNCTIONS_EXTENSION_VERSION = "~4"
+    WEBSITE_NODE_DEFAULT_VERSION = "~20"
     LIVEKIT_API_KEY        = "@Microsoft.KeyVault(SecretUri=${var.secret_uris["livekit_api_key"]})"
     LIVEKIT_API_SECRET     = "@Microsoft.KeyVault(SecretUri=${var.secret_uris["livekit_api_secret"]})"
     AZURE_CLIENT_SECRET    = "@Microsoft.KeyVault(SecretUri=${var.secret_uris["azure_client_secret"]})"
     SERVICE_BUS_CONNECTION = "@Microsoft.KeyVault(SecretUri=${var.secret_uris["service_bus_connection"]})"
     WEBPUBSUB_KEY          = "@Microsoft.KeyVault(SecretUri=${var.secret_uris["webpubsub_key"]})"
     DATABASE_URL           = "@Microsoft.KeyVault(SecretUri=${var.secret_uris["postgres_connection"]})"
+    AZURE_AD_API_IDENTIFIER_URI = var.AZURE_AD_API_IDENTIFIER_URI
+    SERVICE_PRINCIPAL_OBJECT_ID = var.SERVICE_PRINCIPAL_OBJECT_ID
   }
 }
 

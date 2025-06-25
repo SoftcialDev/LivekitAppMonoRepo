@@ -5,14 +5,13 @@
       "type": "httpTrigger",
       "direction": "in",
       "name": "req",
-      "methods": ["GET"],
-      "route": "GetEmployees"
+      "methods": [ "post" ],
+      "route": "ChangeSupervisor"
     },
     {
       "type": "http",
       "direction": "out",
       "name": "res"
     }
-  ],
-  "scriptFile": "index.js"
+  ]
 }

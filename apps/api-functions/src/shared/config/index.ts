@@ -15,7 +15,10 @@ export const config = {
   serviceBusTopicName : process.env.SERVICE_BUS_TOPIC_NAME!,
   node_env : process.env.NODE_ENV!,
   adminsGroupId : process.env.ADMINS_GROUP_ID!,
-  azureAdApiIdentifierUri : process.env.AZURE_AD_API_IDENTIFIER_URI!
+  supervisorsGroupId : process.env.SUPERVISORS_GROUP_ID!,
+  employeesGroupId : process.env.EMPLOYEES_GROUP_ID!,
+  azureAdApiIdentifierUri : process.env.AZURE_AD_API_IDENTIFIER_URI!,
+  servicePrincipalObjectId : process.env.SERVICE_PRINCIPAL_OBJECT_ID!
 };
 
 if (!config.databaseUrl) throw new Error("DATABASE_URL is required");
@@ -33,3 +36,6 @@ if (!config.webPubSubHubName) throw new Error("WEBPUBSUB_NAME is required");
 if (!config.node_env) throw new Error("NODE_ENV is required");
 if (!config.adminsGroupId) throw new Error("ADMINS_GROUP_ID is required");
 if (!config.azureAdApiIdentifierUri) throw new Error("AZURE_AD_API_IDENTIFIER_URI is required");
+if (!config.servicePrincipalObjectId) throw new Error("SERVICE_PRINCIPAL_OBJECT_ID is required");
+if (!config.supervisorsGroupId) throw new Error("SUPERVISORS_GROUP_ID is required");
+if (!config.employeesGroupId) throw new Error("EMPLOYEES_GROUP_ID is required");

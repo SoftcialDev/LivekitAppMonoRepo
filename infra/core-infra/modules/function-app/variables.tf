@@ -42,6 +42,16 @@ variable "storage_account_connection_string" {
   sensitive   = true
 }
 
+variable SERVICE_PRINCIPAL_OBJECT_ID {
+  description = "Object ID of the service principal for the Function App"
+  type        = string
+}
+
+variable AZURE_AD_API_IDENTIFIER_URI {
+  description = "Identifier URI for the Azure AD API app registration"
+  type        = string
+}
+
 variable "aad_app_client_id" {
   description = "Client ID of an existing Azure AD App Registration used for Function App auth"
   type        = string

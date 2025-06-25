@@ -2,7 +2,19 @@
   "version": "2.0",
   "extensionBundle": {
     "id": "Microsoft.Azure.Functions.ExtensionBundle",
-    "version": "[2.*, 3.0.0)",
-    "FUNCTIONS_WORKER_RUNTIME": "node"
+    "version": "[2.*, 3.0.0)"
+  },
+  "logging": {
+    "applicationInsights": {
+      "samplingSettings": {
+        "isEnabled": false
+      }
+    },
+    "logLevel": {
+      "default": "Information",
+      "Host.Results": "Trace",
+      "Host.Aggregator": "Trace",
+      "Function.*": "Trace"
+    }
   }
 }

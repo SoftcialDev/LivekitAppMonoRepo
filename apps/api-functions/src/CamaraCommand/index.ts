@@ -39,7 +39,7 @@ export default withErrorHandler(async (ctx: Context) => {
       return;
     }
     const role = user.role;
-    const isAdmin = role === "Admin" || role === "SuperAdmin";
+    const isAdmin = role === "Admin" || role === "Supervisor";
     if (!isAdmin) {
       unauthorized(ctx, "Insufficient privileges");
       return;
