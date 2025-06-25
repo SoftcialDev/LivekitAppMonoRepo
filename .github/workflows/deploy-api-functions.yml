@@ -37,7 +37,7 @@ jobs:
             postgresql://livekitadmin:${{ secrets.POSTGRES_ADMIN_PASSWORD }}@livekit-agent-azure-postgres-server-flexible.postgres.database.azure.com:5432/livekit-agent-azure-db?schema=public&sslmode=require
         run: |
           echo "✨ Pushing Prisma schema to livekit-agent-azure-db…"
-          npx prisma db push
+          npx prisma db push --accept-data-loss
 
       - name: Build & prepare dist
         working-directory: apps/api-functions
