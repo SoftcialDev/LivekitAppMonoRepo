@@ -91,6 +91,6 @@ output "SERVICE_PRINCIPAL_OBJECT_ID" {
 }
 
 output "AZURE_AD_API_IDENTIFIER_URI" {
-  value       = azuread_application.api_app.identifier_uris
-  description = "The identifier URI(s) of the API app"
+  value       = tolist(azuread_application.api_app.identifier_uris)[0]
+  description = "The identifier URI of the registered API app (used as audience in JWT)"
 }

@@ -75,12 +75,12 @@ output azure_client_secret {
 
 output SERVICE_PRINCIPAL_OBJECT_ID {
   description = "Object ID of the Service Principal for the API App"
-  value       = module.aad_spa.api_service_principal_object_id
+  value       = module.aad_spa.SERVICE_PRINCIPAL_OBJECT_ID
 }
 
 output AZURE_AD_API_IDENTIFIER_URI {
   description = "Identifier URI for the API App"
-  value       = module.aad_spa.api_identifier_uri
+  value       = module.aad_spa.AZURE_AD_API_IDENTIFIER_URI
 }
 ########################################
 # PostgreSQL Module Outputs in Root
