@@ -1,22 +1,14 @@
 import { AzureFunction, Context, HttpRequest } from "@azure/functions";
 import { withAuth } from "../shared/middleware/auth";
 import { withErrorHandler } from "../shared/middleware/errorHandler";
-import { getGraphToken, fetchAllUsers, fetchAppRoleMemberIds } from "../shared/services/graphService";
+import {
+  getGraphToken,
+  fetchAllUsers,
+  fetchAppRoleMemberIds,
+} from "../shared/services/graphService";
 
 /**
  * Minimal representation of an Azure AD user as returned by Microsoft Graph.
- *
- * @interface GraphUser
- * @property {string} id
- *   The Azure AD object ID of the user.
- * @property {string} [displayName]
- *   The user's display name.
- * @property {string} [mail]
- *   The user's email address, if set.
- * @property {string} [userPrincipalName]
- *   Fallback UPN/email if `mail` is not present.
- * @property {boolean} [accountEnabled]
- *   Whether the user account is enabled.
  */
 interface GraphUser {
   id: string;
@@ -27,52 +19,38 @@ interface GraphUser {
 }
 
 /**
- * Representation of a tenant user who has no App Role assigned.
- *
- * @interface TenantUserNoRole
- * @property {string} azureAdObjectId
- *   The Azure AD object ID of the user.
- * @property {string} email
- *   The user's email or UPN.
- * @property {string} fullName
- *   The user's display name.
+ * Representation of a tenant user who has no App Role assigned,
+ * with first and last name split out.
  */
-interface TenantUserNoRole {
+interface TenantUser {
   azureAdObjectId: string;
   email: string;
-  fullName: string;
+  firstName: string;
+  lastName: string;
+}
+
+/**
+ * Splits a full display name into firstName and lastName.
+ *
+ * - firstName: the first word of the fullName
+ * - lastName: the remainder (joined by spaces), or empty string
+ */
+function splitName(fullName: string): { firstName: string; lastName: string } {
+  const parts = fullName.trim().split(/\s+/);
+  return {
+    firstName: parts.shift() || "",
+    lastName: parts.join(" "),
+  };
 }
 
 /**
  * Handles an HTTP request to list all tenant users without any of the
  * Supervisor, Admin, or Employee App Roles assigned.
- *
- * @async
- * @function getTenantUsersHandler
- * @param {Context} ctx
- *   The Azure Functions execution context. Used for logging and setting `ctx.res`.
- * @param {HttpRequest} req
- *   The incoming HTTP request (unused in this handler).
- * @returns {Promise<void>}
- *   Resolves once `ctx.res` has been populated with the appropriate status
- *   and body.
- *
- * @remarks
- * Steps performed by this handler:
- * 1. Acquire a Microsoft Graph access token via client credentials.  
- * 2. Read the Supervisor, Admin, and Employee App Role IDs and the
- *    Service Principal ID from environment variables.  
- * 3. Fetch the member IDs of each App Role from Graph.  
- * 4. Fetch all users in the tenant from Graph.  
- * 5. Exclude disabled accounts, users missing an email/UPN, and any user
- *    already assigned one of the three roles.  
- * 6. If no unassigned users remain, return HTTP 204 No Content; otherwise
- *    return HTTP 200 OK with `{ count, users }`.
- *
- * @throws Never throws uncaught — all errors are caught and returned as HTTP
- *   4xx or 5xx responses.
  */
-async function getTenantUsersHandler(ctx: Context, req: HttpRequest): Promise<void> {
+async function getTenantUsersHandler(
+  ctx: Context,
+  req: HttpRequest
+): Promise<void> {
   ctx.log.info("[GetTenantUsers] Entry — listing unassigned users");
 
   // 1. Acquire Graph token
@@ -90,9 +68,9 @@ async function getTenantUsersHandler(ctx: Context, req: HttpRequest): Promise<vo
   }
 
   // 2. Read App Role and SP IDs from environment
-  const supRoleId          = process.env.SUPERVISORS_GROUP_ID!;
-  const adminRoleId        = process.env.ADMINS_GROUP_ID!;
-  const empRoleId          = process.env.EMPLOYEES_GROUP_ID!;
+  const supRoleId = process.env.SUPERVISORS_GROUP_ID!;
+  const adminRoleId = process.env.ADMINS_GROUP_ID!;
+  const empRoleId = process.env.EMPLOYEES_GROUP_ID!;
   const servicePrincipalId = process.env.SERVICE_PRINCIPAL_OBJECT_ID!;
   if (!supRoleId || !adminRoleId || !empRoleId || !servicePrincipalId) {
     ctx.log.error("[GetTenantUsers] Missing role or SP ID in environment");
@@ -106,9 +84,17 @@ async function getTenantUsersHandler(ctx: Context, req: HttpRequest): Promise<vo
   // 3. Fetch App Role member IDs
   let supIds: Set<string>, adminIds: Set<string>, empIds: Set<string>;
   try {
-    supIds   = await fetchAppRoleMemberIds(token, servicePrincipalId, supRoleId);
-    adminIds = await fetchAppRoleMemberIds(token, servicePrincipalId, adminRoleId);
-    empIds   = await fetchAppRoleMemberIds(token, servicePrincipalId, empRoleId);
+    supIds = await fetchAppRoleMemberIds(token, servicePrincipalId, supRoleId);
+    adminIds = await fetchAppRoleMemberIds(
+      token,
+      servicePrincipalId,
+      adminRoleId
+    );
+    empIds = await fetchAppRoleMemberIds(
+      token,
+      servicePrincipalId,
+      empRoleId
+    );
   } catch (err: any) {
     ctx.log.error("[GetTenantUsers] Error fetching App Role members", err);
     ctx.res = {
@@ -134,25 +120,23 @@ async function getTenantUsersHandler(ctx: Context, req: HttpRequest): Promise<vo
   }
 
   // 5. Filter out users who have any of the roles or are disabled/no-email
-  const unassigned: TenantUserNoRole[] = [];
+  const unassigned: TenantUser[] = [];
   for (const u of allUsers) {
-    if (u.accountEnabled === false) {
-      continue; // skip disabled accounts
-    }
+    if (u.accountEnabled === false) continue;
     const id = u.id;
-    if (supIds.has(id) || adminIds.has(id) || empIds.has(id)) {
-      continue; // skip users already assigned a role
-    }
+    if (supIds.has(id) || adminIds.has(id) || empIds.has(id)) continue;
+
     const email = u.mail || u.userPrincipalName || "";
     if (!email) {
       ctx.log.warn(`[GetTenantUsers] Skipping ${id}: no mail or UPN`);
       continue;
     }
-    unassigned.push({
-      azureAdObjectId: id,
-      email,
-      fullName: u.displayName || "",
-    });
+
+    // split the display name into first/last
+    const displayName = u.displayName || "";
+    const { firstName, lastName } = splitName(displayName);
+
+    unassigned.push({ azureAdObjectId: id, email, firstName, lastName });
   }
 
   // 6. Return results
@@ -171,18 +155,10 @@ async function getTenantUsersHandler(ctx: Context, req: HttpRequest): Promise<vo
  * Azure Function: GetTenantUsers
  *
  * Entry point for listing tenant users without any App Roles.
- *  
- * @constant
- * @type {AzureFunction}
- * @remarks
- * - Wrapped with `withAuth` to enforce JWT-based authentication.
- * - Wrapped with `withErrorHandler` to catch uncaught exceptions
- *   and return HTTP 500 with a generic message.
  */
 const getTenantUsers: AzureFunction = withErrorHandler(
   async (ctx: Context, req: HttpRequest) => {
     await withAuth(ctx, async () => {
-      // If earlier middleware set an error response, skip handler
       if (ctx.res && typeof (ctx.res as any).status === "number" && ctx.res.status >= 400) {
         return;
       }

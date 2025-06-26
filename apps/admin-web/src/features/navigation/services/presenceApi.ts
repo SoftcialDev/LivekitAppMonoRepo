@@ -1,28 +1,76 @@
+// src/features/presence/services/presenceApi.ts
 import apiClient from '../../../services/apiClient'
 import type { UserStatus } from '../types/types'
 
-/**
- * Response shape for presence endpoint.
- */
-interface PresenceResponse {
-  online: UserStatus[]
-  offline: UserStatus[]
+/** Individual presence record returned by the paged API */
+interface PresenceItem {
+  email:      string
+  fullName:   string
+  status:     'online' | 'offline'
+  lastSeenAt: string
+}
+
+/** Shape of the paged presence response */
+interface PagedPresenceResponse {
+  total:    number
+  page:     number
+  pageSize: number
+  items:    PresenceItem[]
 }
 
 /**
- * Fetches presence data (online and offline users) from the backend.
+ * Fetches presence data from the backend and splits it into online/offline lists.
  *
- * Assumes GET /presence returns JSON:
- *   { online: UserStatus[], offline: UserStatus[] }
- * Adjust if your API differs.
+ * GET `/api/GetPresenceStatus` returns:
+ * ```json
+ * {
+ *   "total": number,
+ *   "page": number,
+ *   "pageSize": number,
+ *   "items": [
+ *     { "email": string, "fullName": string, "status": "online"|"offline", "lastSeenAt": string },
+ *     …
+ *   ]
+ * }
+ * ```
  *
- * @returns A promise resolving to an object with `online` and `offline` arrays.
- * @throws If the request fails.
+ * @returns Promise resolving to:
+ * ```ts
+ * {
+ *   online:  UserStatus[]
+ *   offline: UserStatus[]
+ * }
+ * ```
+ * where each `UserStatus` has `email`, `fullName`, `status`, and `lastSeenAt`.
+ *
+ * @throws If the HTTP request fails or returns unexpected data.
  */
-export async function fetchPresence(): Promise<PresenceResponse> {
-  const resp = await apiClient.get<PresenceResponse>('/presence')
-  return {
-    online: resp.data.online ?? [],
-    offline: resp.data.offline ?? [],
-  }
+export async function fetchPresence(): Promise<{
+  online:  UserStatus[]
+  offline: UserStatus[]
+}> {
+  const resp = await apiClient.get<PagedPresenceResponse>('/api/GetPresenceStatus')
+  const items = resp.data.items ?? []
+
+  const online = items
+    .filter(u => u.status === 'online')
+    .map<UserStatus>(u => ({
+      email:      u.email,
+      fullName:   u.fullName,
+      status:     u.status,
+      lastSeenAt: u.lastSeenAt,
+      name:       u.fullName, 
+    }))
+
+  const offline = items
+    .filter(u => u.status === 'offline')
+    .map<UserStatus>(u => ({
+      email:      u.email,
+      fullName:   u.fullName,
+      status:     u.status,
+      lastSeenAt: u.lastSeenAt,
+      name:       u.fullName, 
+    }))
+
+  return { online, offline }
 }

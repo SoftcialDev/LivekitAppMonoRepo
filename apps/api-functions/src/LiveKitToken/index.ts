@@ -1,105 +1,104 @@
-﻿import { Context, HttpRequest } from "@azure/functions";
-import { withAuth } from "../shared/middleware/auth";
-import { withErrorHandler } from "../shared/middleware/errorHandler";
-import { ok, badRequest, unauthorized } from "../shared/utils/response";
-import { listRooms, generateToken } from "../shared/services/livekitService";
-import prisma from "../shared/services/prismaClienService";
-import { JwtPayload } from "jsonwebtoken";
+﻿// src/functions/LiveKitTokenFunction.ts
+
+import { Context, HttpRequest } from '@azure/functions';
+import { withAuth } from '../shared/middleware/auth';
+import { withErrorHandler } from '../shared/middleware/errorHandler';
+import { ok, badRequest, unauthorized } from '../shared/utils/response';
+import {
+  listRooms,
+  ensureRoom,
+  generateToken,
+} from '../shared/services/livekitService';
+import prisma from '../shared/services/prismaClienService';
+import { JwtPayload } from 'jsonwebtoken';
 
 /**
- * LiveKitToken
+ * LiveKitTokenFunction
  *
- * Azure Function to issue LiveKit access tokens based on the caller's role.
+ * - Si llamas como Admin o Supervisor, devuelve:
+ *    • rooms: lista de salas permitidas
+ *    • accessToken: tu token con roomAdmin=true
+ *    • employeeToken: token para el empleado scerdasb@ucenfotec.ac.cr
+ *    • employeeRoom: nombre de la sala de ese empleado
  *
- * ### HTTP Endpoint
- * `GET /api/LiveKitToken?room={roomId}`
- *
- * ### Authentication
- * Requires an Azure AD JWT. The caller must exist in the database.
- *
- * ### Role-based Behavior
- * - **Admin / Supervisor**:
- *   - Lists all current LiveKit rooms.
- *   - Fetches their direct reports (`Employee` users).
- *   - Filters rooms to those matching report emails.
- *   - Issues a token with `roomAdmin` privileges.
- *
- * - **Employee**:
- *   - Token is scoped to their own room (user’s Azure AD ID).
- *   - Optionally, they may join a specific room via `?room=xyz`.
- *   - Issues a token with `roomJoin` privileges.
- *
- * ### Query Parameters
- * @param room Optional room name override (Employee only).
- *
- * ### Success Response – 200 OK
- * ```json
- * {
- *   "rooms": ["room1", "room2"],
- *   "accessToken": "..."  // JWT from LiveKit
- * }
- * ```
- *
- * ### Error Responses
- * - `400 Bad Request`: Missing or invalid token claims.
- * - `401 Unauthorized`: Caller not found or deleted.
- * - `500 Internal`: Token generation or service failure.
- *
- * @param ctx - Azure Functions context object
- * @returns 200 OK with access token and room list, or relevant error response.
+ * - Si llamas como Employee, solo te devuelve tu sala y tu token.
  */
 export default withErrorHandler(async (ctx: Context) => {
-  const req: HttpRequest = ctx.req!;
-
+  const req = ctx.req!;
   await withAuth(ctx, async () => {
-    const claims = (ctx as any).bindings.user as JwtPayload;
+    const claims    = (ctx as any).bindings.user as JwtPayload;
     const azureAdId = (claims.oid || claims.sub) as string;
     if (!azureAdId) {
-      badRequest(ctx, "Unable to determine user identity from token");
-      return;
+      return badRequest(ctx, 'Unable to determine caller identity');
     }
 
-    // 1) Fetch caller from database
     const caller = await prisma.user.findUnique({
       where: { azureAdObjectId: azureAdId },
     });
     if (!caller || caller.deletedAt) {
-      unauthorized(ctx, "User not found or deleted");
-      return;
+      return unauthorized(ctx, 'Caller not found or deleted');
     }
 
-    const isAdmin = caller.role === "Admin" || caller.role === "Supervisor";
+    const isAdminOrSup = caller.role === 'Admin' || caller.role === 'Supervisor';
+    let rooms: string[];
+    let accessToken: string;
 
-    try {
-      if (isAdmin) {
-        // 2a) Admin/Supervisor: list only rooms matching their employees' emails
-        const allRooms = await listRooms();
-
-        // fetch direct-report emails
+    if (isAdminOrSup) {
+      // 1) Filtrar salas según rol
+      const allRooms = await listRooms();
+      if (caller.role === 'Supervisor') {
         const reports = await prisma.user.findMany({
-          where: { supervisorId: caller.id, deletedAt: null, role: "Employee" },
-          select: { email: true }
+          where: {
+            supervisorId: caller.id,
+            deletedAt:    null,
+            role:         'Employee',
+          },
+          select: { email: true },
         });
-        const reportEmails = new Set(reports.map(r => r.email.toLowerCase()));
-
-        // filter rooms by email match (case-insensitive)
-        const rooms = allRooms.filter(r =>
-          reportEmails.has(r.toLowerCase())
-        );
-
-        const token = await generateToken(azureAdId, true);
-        ok(ctx, { rooms, accessToken: token });
-
+        const allowed = new Set(reports.map(r => r.email.toLowerCase()));
+        rooms = allRooms.filter(r => allowed.has(r.toLowerCase()));
       } else {
-        // 2b) Employee: join own room or specified override
-        const roomQuery = req.query.room as string | undefined;
-        const room = roomQuery || azureAdId;
-        const token = await generateToken(azureAdId, false, room);
-        ok(ctx, { rooms: [room], accessToken: token });
+        rooms = allRooms;
       }
-    } catch (err: any) {
-      ctx.log.error("LiveKitToken error:", err);
-      unauthorized(ctx, "Failed to generate LiveKit token or list rooms");
+
+      // 2) Token del Admin/Supervisor
+      accessToken = await generateToken(azureAdId, true);
+
+      // 3) Además, generar token para scerdasb@ucenfotec.ac.cr
+      const employeeEmail = 'scerdasb@ucenfotec.ac.cr';
+      const employee = await prisma.user.findUnique({
+        where: { email: employeeEmail },
+      });
+      if (!employee || employee.deletedAt) {
+        return badRequest(ctx, `Employee ${employeeEmail} not found`);
+      }
+      const employeeRoom = employee.azureAdObjectId;
+      // Asegurarnos de que existe la sala del empleado
+      await ensureRoom(employeeRoom);
+      const employeeToken = await generateToken(
+        employee.azureAdObjectId,
+        false,
+        employeeRoom
+      );
+
+      return ok(ctx, {
+        rooms,
+        accessToken,
+        employeeRoom,
+        employeeToken,
+      });
+
+    } else {
+      // Employee normal: solo su propia sala
+      const roomName    = azureAdId;
+      await ensureRoom(roomName);
+      accessToken = await generateToken(azureAdId, false, roomName);
+      rooms       = [roomName];
+
+      return ok(ctx, {
+        rooms,
+        accessToken,
+      });
     }
   });
 });

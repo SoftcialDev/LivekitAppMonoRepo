@@ -1,31 +1,26 @@
-########################################
+###########################################################
 # 0) Prerequisites
-#
-# - Make sure your AzureAD provider is configured (version >= 2.x).
-# - You have the appropriate privileges to register applications and grant admin consent.
-########################################
-
-########################################
-# 1) Generate stable UUIDs for your custom App Roles and API scope
-########################################
+# - Ensure you have privileges to register AAD apps and grant admin consent.
+###########################################################
+# Generate stable UUIDs for custom App Roles and the API scope
 resource "random_uuid" "app_role_admin"      {}
 resource "random_uuid" "app_role_supervisor" {}
 resource "random_uuid" "app_role_employee"   {}
 resource "random_uuid" "api_scope_id"        {}
 
-########################################
-# 2) Get tenant info (used for identifier_uris)
-########################################
+###########################################################
+# 1) Get the current tenant info (used for building identifier_uris)
+###########################################################
 data "azuread_client_config" "current" {}
 
-########################################
-# 3) Static maps for Microsoft Graph permissions
-########################################
+###########################################################
+# 2) Define static mappings for Microsoft Graph permissions
+###########################################################
 locals {
-  # Client ID of Microsoft Graph (static, well-known)
+  # Well-known client ID for the Microsoft Graph API
   graph_client_id = "00000003-0000-0000-c000-000000000000"
 
-  # Permisos de aplicación (app-only) para backend API
+  # Application-only permissions your backend API will request
   required_graph_app_permissions = [
     "Group.Read.All",
     "Group.ReadWrite.All",
@@ -34,14 +29,16 @@ locals {
     "Directory.Read.All",
     "Directory.ReadWrite.All",
   ]
+  # Map each permission name to its role-ID GUID
   graph_app_role_map = {
-    "Group.Read.All"         = "7ab1d382-f21e-4acd-a863-ba3e13f7da61"
-    "Group.ReadWrite.All"    = "62a82d76-70ea-41e2-9197-370581804d09"
-    "User.Read.All"          = "df021288-bdef-4463-88db-98f22de89214"
-    "User.ReadWrite.All"     = "741f803b-c850-494e-b5df-cde7c675a1ca"
-    "Directory.Read.All"     = "7ab1d382-f21e-4acd-a863-ba3e13f7da61"
-    "Directory.ReadWrite.All"= "19dbc75e-c2e2-444c-a770-ec69d8559fc7"
+    "Group.Read.All"          = "7ab1d382-f21e-4acd-a863-ba3e13f7da61"
+    "Group.ReadWrite.All"     = "62a82d76-70ea-41e2-9197-370581804d09"
+    "User.Read.All"           = "df021288-bdef-4463-88db-98f22de89214"
+    "User.ReadWrite.All"      = "741f803b-c850-494e-b5df-cde7c675a1ca"
+    "Directory.Read.All"      = "7ab1d382-f21e-4acd-a863-ba3e13f7da61"
+    "Directory.ReadWrite.All" = "19dbc75e-c2e2-444c-a770-ec69d8559fc7"
   }
+  # Build a list of GUIDs for the app-only permissions
   graph_app_role_ids = [
     for perm_name in local.required_graph_app_permissions : (
       contains(keys(local.graph_app_role_map), perm_name)
@@ -50,18 +47,19 @@ locals {
     )
   ]
 
-  # Permisos delegados para SPA
+  # Delegated permissions your SPA will request from Graph
   required_graph_delegated_scopes = [
     "User.Read.All",
     "User.ReadWrite.All",
     "Group.Read.All",
   ]
   graph_delegated_scope_map = {
-    "Group.Read.All"         = "7ab1d382-f21e-4acd-a863-ba3e13f7da61"
-    "Group.ReadWrite.All"    = "62a82d76-70ea-41e2-9197-370581804d09"
-    "User.Read.All"          = "df021288-bdef-4463-88db-98f22de89214"
-    "User.ReadWrite.All"     = "741f803b-c850-494e-b5df-cde7c675a1ca"
+    "Group.Read.All"      = "7ab1d382-f21e-4acd-a863-ba3e13f7da61"
+    "Group.ReadWrite.All" = "62a82d76-70ea-41e2-9197-370581804d09"
+    "User.Read.All"       = "df021288-bdef-4463-88db-98f22de89214"
+    "User.ReadWrite.All"  = "741f803b-c850-494e-b5df-cde7c675a1ca"
   }
+  # Build a list of GUIDs for the delegated scopes
   graph_delegated_scope_ids = [
     for scope_name in local.required_graph_delegated_scopes : (
       contains(keys(local.graph_delegated_scope_map), scope_name)
@@ -69,18 +67,18 @@ locals {
         : format("ERROR: Missing GUID for Graph delegated scope '%s'", scope_name)
     )
   ]
-  
 }
 
-########################################
-# 4) Create API App Registration (backend)
-#    - Exposes OAuth2 permission scope "access_as_user" for SPA
-#    - Declares required_resource_access for Graph application permissions (app-only)
-########################################
+###########################################################
+# 3) Create API App Registration (backend service)
+#    - Defines an OAuth2 permission scope for the SPA
+#    - Requests Graph application permissions (app-only)
+###########################################################
 resource "azuread_application" "api_app" {
   display_name     = "${var.aad_app_name}-API"
   sign_in_audience = "AzureADMyOrg"
 
+  # Build the identifier URI using tenant ID and app name
   identifier_uris = [
     "api://${data.azuread_client_config.current.tenant_id}/${var.aad_app_name}-API"
   ]
@@ -98,7 +96,7 @@ resource "azuread_application" "api_app" {
     }
   }
 
-  # Assign Graph application permissions (app-only)
+  # Request application-only Graph permissions by role ID
   required_resource_access {
     resource_app_id = local.graph_client_id
     dynamic "resource_access" {
@@ -111,32 +109,26 @@ resource "azuread_application" "api_app" {
   }
 }
 
+# Create the service principal for the API app so it can be granted roles
 resource "azuread_service_principal" "api_sp" {
   client_id = azuread_application.api_app.client_id
 }
 
-resource "null_resource" "set_access_token_version" {
-  depends_on = [azuread_application.api_app]
-
-  provisioner "local-exec" {
-    command = "az rest --method PATCH --url https://graph.microsoft.com/v1.0/applications/${azuread_application.api_app.object_id} --headers Content-Type=application/json --body \"{\\\"api\\\":{\\\"requestedAccessTokenVersion\\\":2}}\""
-  }
-}
-
-########################################
-# 5) Create SPA App Registration (frontend)
-#    - Define App Roles
-#    - required_resource_access for backend API and Graph delegated permissions
-########################################
+###########################################################
+# 4) Create SPA App Registration (frontend)
+#    - Defines custom App Roles for RBAC
+#    - Requests access to backend API scope and delegated Graph scopes
+###########################################################
 resource "azuread_application" "spa_app" {
   display_name     = "${var.aad_app_name}-SPA"
   sign_in_audience = "AzureADMyOrg"
 
+  # Configure it as a single-page application
   single_page_application {
     redirect_uris = var.aad_redirect_uris
   }
 
-  # App Roles internos
+  # Define three custom App Roles for Admin, Supervisor, and Employee
   app_role {
     id                   = random_uuid.app_role_admin.result
     allowed_member_types = ["User"]
@@ -162,7 +154,7 @@ resource "azuread_application" "spa_app" {
     enabled              = true
   }
 
-  # SPA calls backend API
+  # Grant the SPA access to the backend API scope
   required_resource_access {
     resource_app_id = azuread_application.api_app.object_id
     resource_access {
@@ -171,7 +163,7 @@ resource "azuread_application" "spa_app" {
     }
   }
 
-  # SPA needs Graph delegated permissions
+  # Grant delegated Graph permissions for user and group reads/writes
   required_resource_access {
     resource_app_id = local.graph_client_id
     dynamic "resource_access" {
@@ -184,13 +176,14 @@ resource "azuread_application" "spa_app" {
   }
 }
 
+# Create the service principal for the SPA
 resource "azuread_service_principal" "spa_sp" {
   client_id = azuread_application.spa_app.client_id
 }
 
-########################################
-# 6) Create Security Groups for RBAC
-########################################
+###########################################################
+# 5) Create Security Groups to mirror App Roles
+###########################################################
 resource "azuread_group" "admins_group" {
   display_name     = "${var.aad_app_name}-Admins"
   security_enabled = true
@@ -209,9 +202,10 @@ resource "azuread_group" "employees_group" {
   mail_enabled     = false
 }
 
-########################################
-# 7) Assign existing Azure AD users to groups
-########################################
+###########################################################
+# 6) Assign existing users to the security groups
+###########################################################
+# Fetch all users in the tenant
 data "azuread_users" "all_users" {
   return_all = true
 }
@@ -222,6 +216,7 @@ locals {
   non_admins_supers = setsubtract(local.non_admins, var.aad_supervisors_group_members)
 }
 
+# Lookup each admin user by their principal name
 data "azuread_user" "admins" {
   for_each            = toset(var.aad_admins_group_members)
   user_principal_name = each.value
@@ -232,6 +227,7 @@ resource "azuread_group_member" "admins_members" {
   member_object_id = each.value.object_id
 }
 
+# Lookup each supervisor user
 data "azuread_user" "supervisors" {
   for_each            = toset(var.aad_supervisors_group_members)
   user_principal_name = each.value
@@ -242,11 +238,9 @@ resource "azuread_group_member" "supervisors_members" {
   member_object_id = each.value.object_id
 }
 
-
-
-########################################
-# 8) Assign App Roles to the Security Groups
-########################################
+###########################################################
+# 7) Assign App Roles to the security groups
+###########################################################
 resource "azuread_app_role_assignment" "admins_assignment" {
   principal_object_id = azuread_group.admins_group.object_id
   app_role_id         = azuread_application.spa_app.app_role_ids["Admin"]
@@ -265,9 +259,9 @@ resource "azuread_app_role_assignment" "employees_assignment" {
   resource_object_id  = azuread_service_principal.spa_sp.object_id
 }
 
-########################################
-# 9) Optional: client secret for API App
-########################################
+########################################################### 
+#Client secret for the API App
+###########################################################
 resource "azuread_application_password" "api_app_secret" {
   application_id = azuread_application.api_app.id
   display_name   = "client-secret-for-Graph-calls"

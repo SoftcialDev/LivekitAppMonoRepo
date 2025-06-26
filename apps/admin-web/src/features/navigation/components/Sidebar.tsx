@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import IconWithLabel from '../../../components/IconWithLabel';
@@ -9,40 +8,30 @@ import OfflineUserItem from '../../../features/auth/components/OfflineUserItem';
 import type { UserStatus } from '../types/types';
 
 /**
- * Props for the Sidebar component.
+ * SidebarProps
+ *
+ * @property onlineUsers  Array of users currently online.
+ * @property offlineUsers Array of users currently offline.
+ * @property onStop       Callback when stopping an online user's video.
+ * @property onPlay       Callback when starting an offline user's video.
  */
 interface SidebarProps {
-  /** Array of users currently online (may be empty). */
-  onlineUsers: UserStatus[];
-  /** Array of users currently offline (may be empty). */
+  onlineUsers:  UserStatus[];
   offlineUsers: UserStatus[];
-  /**
-   * Handler invoked when stopping an online user's video.
-   * @param email The user's email address.
-   */
-  onStop: (email: string) => void;
-  /**
-   * Handler invoked when starting an offline user's video.
-   * @param email The user's email address.
-   */
-  onPlay: (email: string) => void;
+  onStop:       (email: string) => void;
+  onPlay:       (email: string) => void;
 }
 
 /**
- * Sidebar component.
+ * Sidebar
  *
- * Renders:
- * 1. App header with logo + title.
- * 2. "Manage" section with links to Admins, Supervisors, and PSOs (list page).
- * 3. "Monitor" section with a link to the PSO dashboard.
- * 4. Lists of online and offline users.
+ * Renders the application sidebar with:
+ * 1. Header (logo + title).
+ * 2. "Manage" links (Admins, Supervisors, PSOs).
+ * 3. "Monitor" link (PSO dashboard).
+ * 4. Real-time lists of online and offline users.
  *
- * The active NavLink is styled with white text and semi-bold font.
- *
- * @param onlineUsers   Array of users currently online.
- * @param offlineUsers  Array of users currently offline.
- * @param onStop        Handler to stop an online user's video.
- * @param onPlay        Handler to start an offline user's video.
+ * Uses `NavLink` to highlight the active route.
  */
 const Sidebar: React.FC<SidebarProps> = ({
   onlineUsers,
@@ -50,28 +39,13 @@ const Sidebar: React.FC<SidebarProps> = ({
   onStop,
   onPlay,
 }) => {
-  // Fallback mock data
-  const mockOnline: UserStatus[] = [
-    { email: 'u1@example.com', name: 'Mock Person 1' },
-    { email: 'u2@example.com', name: 'Mock Person 2' },
-    { email: 'u3@example.com', name: 'Mock Person 3' },
-  ];
-  const mockOffline: UserStatus[] = [
-    { email: 'u4@example.com', name: 'Mock Person 4' },
-    { email: 'u5@example.com', name: 'Mock Person 5' },
-  ];
-
-  const displayOnline  = onlineUsers.length  > 0 ? onlineUsers  : mockOnline;
-  const displayOffline = offlineUsers.length > 0 ? offlineUsers : mockOffline;
-
-  // Base and active link classes
   const linkBase   =
     'block py-2 pl-14 pr-3 rounded-md text-gray-300 transition-colors hover:text-[var(--color-secondary-hover)]';
   const activeLink = 'text-white font-semibold';
 
   return (
     <aside className="flex flex-col bg-[var(--color-primary)] text-white border-r border-black">
-      {/* App header */}
+      {/* Header */}
       <div className="border-b border-black">
         <IconWithLabel
           src={camaraLogo}
@@ -85,7 +59,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       <nav className="flex-1 overflow-y-auto">
-        {/* Manage section */}
+        {/* Manage Section */}
         <div className="border-b border-black">
           <IconWithLabel
             src={monitorIcon}
@@ -125,7 +99,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           </NavLink>
         </div>
 
-        {/* Monitor section */}
+        {/* Monitor Section */}
         <div className="border-b border-black">
           <IconWithLabel
             src={monitorIcon}
@@ -147,15 +121,15 @@ const Sidebar: React.FC<SidebarProps> = ({
           </NavLink>
         </div>
 
-        {/* Online + Offline users */}
+        {/* Presence Lists */}
         <div className="px-6 py-4">
           <div className="text-xs font-semibold mb-2">Online</div>
-          {displayOnline.map(u => (
+          {onlineUsers.map(u => (
             <OnlineUserItem key={u.email} user={u} onStop={onStop} />
           ))}
 
           <div className="text-xs font-semibold mt-4 mb-2">Offline</div>
-          {displayOffline.map(u => (
+          {offlineUsers.map(u => (
             <OfflineUserItem key={u.email} user={u} onPlay={onPlay} />
           ))}
         </div>

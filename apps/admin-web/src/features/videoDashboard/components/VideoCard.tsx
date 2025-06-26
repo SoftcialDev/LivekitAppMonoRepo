@@ -1,41 +1,29 @@
 import React, { useRef, useEffect } from 'react';
 import UserIndicator from '../../../components/UserIndicator';
-
-export interface VideoCardProps {
-  /** Display name of the user. */
-  name: string;
-  /** User's email for callbacks. */
-  email: string;
-  /** Real MediaStream to render (if any). */
-  stream?: MediaStream;
-  /** Local video URL for testing or mock playback. */
-  videoSrc?: string;
-  /**
-   * Handler for Stop/Play button.
-   * @param email The user’s email address.
-   */
-  onStop: (email: string) => void;
-  onPlay: (email: string) => void;
-  /**
-   * Handler for Chat button.
-   * @param email The user’s email address.
-   */
-  onChat: (email: string) => void;
-  /** Hide the top header row (avatar + name) when false. Defaults to true. */
-  showHeader?: boolean;
-  /** Extra Tailwind CSS classes, e.g. "w-full h-full". */
-  className?: string;
-}
+import {
+  Room,
+  RoomEvent,
+  ParticipantEvent,
+  RemoteParticipant,
+  RemoteTrackPublication,
+  RemoteVideoTrack,
+} from 'livekit-client';
+import type { VideoCardProps } from '../types/VideoCardProps';
 
 /**
- * VideoCard component.
+ * VideoCard
  *
- * Renders:
- *  1. (Optional) Header row with a UserIndicator (avatar + name).
- *  2. Video or placeholder area.
- *  3. Action buttons row: Play/Stop & Chat.
+ * Renders a rounded card with:
+ * 1️⃣ Optional header row: `UserIndicator` showing avatar + name  
+ * 2️⃣ Video area:  
+ *    • If `stream` or `videoSrc` is provided, plays that media  
+ *    • Else if `accessToken`+`roomName` are provided, connects to LiveKit,
+ *      subscribes to the remote participant matching `email`, and attaches their
+ *      video track.  
+ *    • Otherwise shows “No Stream.”  
+ * 3️⃣ Action buttons: Play/Stop toggles video; Chat opens chat for that email.
  *
- * @param props.showHeader — if false, the avatar/name row is omitted.
+ * @param props.showHeader — when false, hides the avatar/name row.
  */
 const VideoCard: React.FC<VideoCardProps> = ({
   name,
@@ -47,24 +35,123 @@ const VideoCard: React.FC<VideoCardProps> = ({
   onChat,
   showHeader = true,
   className = '',
+  accessToken,
+  roomName,
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const roomRef = useRef<Room | null>(null);
 
+  // 1) Render either provided stream or videoSrc
   useEffect(() => {
     const vid = videoRef.current;
     if (!vid) return;
+
     if (stream) {
       vid.srcObject = stream;
+      vid.play().catch(() => {});
     } else if (videoSrc) {
       vid.srcObject = null;
       vid.src = videoSrc;
+      vid.play().catch(() => {});
     } else {
       vid.srcObject = null;
       vid.src = '';
     }
   }, [stream, videoSrc]);
 
-  const hasVideo = Boolean(stream || videoSrc);
+  // 2) If accessToken + roomName are set, connect & subscribe
+  useEffect(() => {
+    if (!accessToken || !roomName) return;
+    const vid = videoRef.current;
+    if (!vid) return;
+
+    let lkRoom: Room | null = null;
+    let canceled = false;
+
+    const subscribeTo = (participant: RemoteParticipant) => {
+      const publications = Array.from(participant.getTrackPublications().values())
+        .filter((pub): pub is RemoteTrackPublication => pub.track != null);
+      publications.forEach(pub => {
+        if (pub.kind === 'video' && pub.isSubscribed && pub.track) {
+          (pub.track as RemoteVideoTrack).attach(vid);
+        }
+      });
+      participant.on(
+        ParticipantEvent.TrackSubscribed,
+        (track) => {
+          if (track instanceof RemoteVideoTrack) {
+            track.attach(vid);
+          }
+        }
+      );
+    };
+
+    const connectAndSubscribe = async () => {
+      try {
+        const room = new Room();
+        const wsUrl = import.meta.env.VITE_LIVEKIT_WS_URL;
+        if (!wsUrl) {
+          console.warn('[VideoCard] VITE_LIVEKIT_WS_URL not defined');
+          return;
+        }
+        await room.connect(wsUrl, accessToken);
+        if (canceled) {
+          room.disconnect();
+          return;
+        }
+        lkRoom = room;
+        roomRef.current = room;
+
+        // subscribe to all existing remote participants
+        for (const participant of room.remoteParticipants.values()) {
+          if (
+            participant.identity.toLowerCase() === email.toLowerCase()
+          ) {
+            subscribeTo(participant);
+          }
+        }
+
+        // future joins
+        room.on(RoomEvent.ParticipantConnected, (participant: RemoteParticipant) => {
+          if (
+            participant.identity.toLowerCase() === email.toLowerCase()
+          ) {
+            subscribeTo(participant);
+          }
+        });
+
+        // handle disconnect
+        room.on(RoomEvent.ParticipantDisconnected, (participant: RemoteParticipant) => {
+          if (
+            participant.identity.toLowerCase() === email.toLowerCase()
+          ) {
+            if (videoRef.current) {
+              videoRef.current.srcObject = null;
+              videoRef.current.src = '';
+            }
+          }
+        });
+      } catch (err) {
+        console.error('[VideoCard] LiveKit connect error:', err);
+      }
+    };
+
+    connectAndSubscribe();
+
+    return () => {
+      canceled = true;
+      if (lkRoom) {
+        lkRoom.disconnect();
+      }
+      roomRef.current = null;
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
+        videoRef.current.src = '';
+      }
+    };
+  }, [accessToken, roomName, email]);
+
+  const hasVideo = Boolean(stream || videoSrc || accessToken);
 
   const StopIcon = (
     <svg viewBox="0 0 24 24" className="w-full h-full" fill="var(--color-primary-dark)">
@@ -81,14 +168,18 @@ const VideoCard: React.FC<VideoCardProps> = ({
     <div
       className={`
         flex flex-col h-full bg-[var(--color-primary-dark)]
-        rounded-xl overflow-hidden
-        ${className}
+        rounded-xl overflow-hidden ${className}
       `}
     >
       {showHeader && (
         <div className="flex items-center px-2 py-1">
           <UserIndicator
-            user={{ email, name }}
+            user={{
+              email,
+              name,
+              fullName: name, 
+              status: 'offline',
+            }}
             outerClass="w-5 h-5"
             innerClass="w-4 h-4"
             bgClass="bg-[var(--color-secondary)]"
@@ -102,10 +193,10 @@ const VideoCard: React.FC<VideoCardProps> = ({
         {hasVideo ? (
           <video
             ref={videoRef}
-            autoPlay={!!stream}
+            autoPlay={Boolean(accessToken || stream)}
             playsInline
-            muted={!!stream}
-            controls={!!videoSrc}
+            muted={Boolean(stream)}
+            controls={Boolean(videoSrc)}
             className="w-full h-full object-cover"
           />
         ) : (

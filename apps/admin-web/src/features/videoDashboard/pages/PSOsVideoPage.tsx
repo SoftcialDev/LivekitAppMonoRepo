@@ -1,78 +1,135 @@
-import React from 'react';
-import { useHeader } from '../../../context/HeaderContext';
-import monitorIcon from '@assets/monitor-icon.png';
-import { useAuth } from '../../auth/hooks/useAuth';
-import { usePresence } from '../../navigation/hooks/usePresence';
-import type { UserStatus } from 'src/features/navigation/types/types';
-import VideoCard from '../components/VideoCard';
-import { useVideoActions } from '../hooks/UseVideoAction';
+import React, { useEffect, useState } from 'react'
+import { useHeader } from '../../../context/HeaderContext'
+import monitorIcon from '@assets/monitor-icon.png'
+import { useAuth } from '../../auth/hooks/useAuth'
+import type { UserStatus } from 'src/features/navigation/types/types'
+import VideoCard from '../components/VideoCard'
+import { useVideoActions } from '../hooks/UseVideoAction'
+import { getLiveKitToken } from '../services/livekitClient'
+import apiClient from '../../../services/apiClient'
+
+////////////////////////////////////////////////////////////////////////////////
+// Types
+////////////////////////////////////////////////////////////////////////////////
 
 /**
- * Extends UserStatus with an `isOnline` flag so we can
- * decide when to render a live video vs. placeholder.
+ * Extends `UserStatus` with LiveKit connection details.
  */
-interface PSOWithStatus extends UserStatus {
-  /** true if we should show `/video.mp4`, false otherwise */
-  isOnline: boolean;
+export interface PSOWithStatus extends UserStatus {
+  /** Full name to display */
+  fullName: string
+  /** `true` if the user is currently online */
+  isOnline: boolean
+  /** LiveKit access token (only if `isOnline` and allowed) */
+  liveKitToken?: string
+  /** LiveKit room name (matches the user’s email) */
+  liveKitRoom?: string
 }
+
+////////////////////////////////////////////////////////////////////////////////
+// Component
+////////////////////////////////////////////////////////////////////////////////
 
 /**
  * PSOsPage component.
  *
- * - Sets the header title & icon via useHeader().
- * - Fetches live presence for the session user; if any PSOs are online,
- *   marks them as `isOnline` and shows them first.
- * - Falls back to a mock list of PSOs if none are online.
- * - Renders a responsive layout:
- *     • 1 PSO → full-screen card
- *     • 2 PSOs → two-column grid
- *     • 3 PSOs → two-plus-one layout
- *     • 4 PSOs → 2×2 grid
- *     • ≥5 PSOs → 3-column grid, centering the last row
- * - Delegates play/stop/chat handlers to useVideoActions().
+ * Responsibilities:
+ * 1. Set header (title “PSOs” + monitor icon).
+ * 2. Wait for auth initialization and account data.
+ * 3. Load data:
+ *    - Fetch presence status of visible PSOs via `/api/GetPresenceStatus`.
+ *    - Fetch LiveKit token and permitted room list.
+ *    - Build an array of `PSOWithStatus`, marking online/offline,
+ *      attaching token + room when online.
+ *    - Sort the array so online users appear first.
+ * 4. Render a responsive grid of `VideoCard` components:
+ *    - 1 user → full screen
+ *    - 2 users → two columns
+ *    - 3 users → two-plus-one layout
+ *    - 4 users → 2×2 grid
+ *    - 5+ users → three columns, centering items on the last row
  *
- * @returns The dashboard page showing PSO video cards.
+ * @returns JSX element for the PSOs page
  */
 const PSOsPage: React.FC = () => {
-  useHeader({ title: 'PSOs', iconSrc: monitorIcon, iconAlt: 'PSOs' });
+  useHeader({ title: 'PSOs', iconSrc: monitorIcon, iconAlt: 'PSOs' })
+  const { initialized, account } = useAuth()
+  const { handlePlay, handleStop, handleChat } = useVideoActions()
 
-  const { account } = useAuth();
-  const currentUser = account?.username ?? '';
-  const { onlineUsers, loading, error } = usePresence(currentUser);
-  const { handlePlay, handleStop, handleChat } = useVideoActions();
+  const [psos, setPsos] = useState<PSOWithStatus[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string>()
+  const [accessToken, setAccessToken] = useState<string>()
+  const [rooms, setRooms] = useState<string[]>([])
 
-  // Mock PSOs if none are live
-  const mockUsers: PSOWithStatus[] = [
-    { email: 'johann.granados@softcial.onmicrosoft.com', name: 'Johann Granados', isOnline: false },
-    { email: 'johann.granados@softcial.onmicrosoft.com', name: 'Johann Granados', isOnline: false },
-        { email: 'johann.granados@softcial.onmicrosoft.com', name: 'Johann Granados', isOnline: false },
-              { email: 'johann.granados@softcial.onmicrosoft.com', name: 'Johann Granados', isOnline: false },
-                  { email: 'johann.granados@softcial.onmicrosoft.com', name: 'Johann Granados', isOnline: false },
-                      { email: 'johann.granados@softcial.onmicrosoft.com', name: 'Johann Granados', isOnline: false },
-                          { email: 'johann.granados@softcial.onmicrosoft.com', name: 'Johann Granados', isOnline: false },
-                              { email: 'johann.granados@softcial.onmicrosoft.com', name: 'Johann Granados', isOnline: false },
-                                  { email: 'johann.granados@softcial.onmicrosoft.com', name: 'Johann Granados', isOnline: false },
-  ];
+  useEffect(() => {
+    if (!initialized || !account) return
+    let canceled = false
 
-  /**
-   * Build the list of PSOs to display:
-   * - If any real presence, show them first (isOnline=true),
-   *   then include remaining mocks as offline.
-   * - Otherwise, use all mocks.
-   */
-  const displayPSOs: PSOWithStatus[] = onlineUsers.length > 0
-    ? [
-        ...onlineUsers.map(u => ({ ...u, isOnline: true })),
-        ...mockUsers.filter(m => !onlineUsers.some(x => x.email === m.email))
-      ]
-    : mockUsers;
+    const loadData = async () => {
+      setLoading(true)
+      try {
+        // 1) Fetch presence status (ignoring pagination for now)
+        const presenceResponse = await apiClient.get<{
+          total: number
+          page: number
+          pageSize: number
+          items: UserStatus[]
+        }>('/api/GetPresenceStatus')
 
-  if (loading) return <div className="p-6 text-white">Loading...</div>;
-  if (error)   return <div className="p-6 text-red-500">Error: {error}</div>;
-  if (displayPSOs.length === 0)
-    return <div className="p-6 text-white">No PSOs to display</div>;
+        // 2) Fetch LiveKit token and allowed rooms
+        const liveKitInfo = await getLiveKitToken()
+        if (!canceled) {
+          setAccessToken(liveKitInfo.accessToken)
+          setRooms(liveKitInfo.rooms)
+        }
 
-  const count = displayPSOs.length;
+        // 3) Build PSOWithStatus list
+        const list = presenceResponse.data.items.map(user => {
+          const online = user.status === 'online'
+          const roomName = user.email
+          const token = online && liveKitInfo.rooms.includes(roomName)
+            ? liveKitInfo.accessToken
+            : undefined
+
+          return {
+            ...user,
+            fullName: user.fullName ?? user.name ?? '',
+            isOnline: online,
+            liveKitRoom: roomName,
+            liveKitToken: token,
+          }
+        })
+
+        // 4) Sort: online users first
+        list.sort((a, b) => Number(b.isOnline) - Number(a.isOnline))
+
+        if (!canceled) {
+          setPsos(list)
+        }
+      } catch (err: any) {
+        if (!canceled) {
+          setError(err.message || 'Failed to load PSOs')
+        }
+      } finally {
+        if (!canceled) {
+          setLoading(false)
+        }
+      }
+    }
+
+    loadData()
+    return () => {
+      canceled = true
+    }
+  }, [initialized, account])
+
+  if (loading) return <div className="p-6 text-white">Loading PSOs…</div>
+  if (error) return <div className="p-6 text-red-500">Error: {error}</div>
+  if (psos.length === 0)
+    return <div className="p-6 text-white">No PSOs to display</div>
+
+  const count = psos.length
 
   return (
     <div className="flex flex-col flex-1 h-full bg-[var(--color-primary-dark)] p-10">
@@ -82,9 +139,11 @@ const PSOsPage: React.FC = () => {
           <div className="flex flex-grow items-center justify-center p-4">
             <div className="w-11/12 h-full">
               <VideoCard
-                name={displayPSOs[0].name}
-                email={displayPSOs[0].email}
-                videoSrc="/video.mp4"
+                name={psos[0].fullName}
+                email={psos[0].email}
+                videoSrc={psos[0].isOnline ? '/video.mp4' : undefined}
+                accessToken={psos[0].liveKitToken}
+                roomName={psos[0].liveKitRoom}
                 onPlay={handlePlay}
                 onStop={handleStop}
                 onChat={handleChat}
@@ -105,12 +164,14 @@ const PSOsPage: React.FC = () => {
             height: '-webkit-fill-available',
           }}
         >
-          {displayPSOs.map((u, i) => (
+          {psos.map(u => (
             <div key={u.email} className="w-full h-full">
               <VideoCard
-                name={u.name}
+                name={u.fullName}
                 email={u.email}
-                videoSrc={i === 0 ? '/video.mp4' : undefined}
+                videoSrc={u.isOnline ? '/video.mp4' : undefined}
+                accessToken={u.liveKitToken}
+                roomName={u.liveKitRoom}
                 onPlay={handlePlay}
                 onStop={handleStop}
                 onChat={handleChat}
@@ -125,12 +186,14 @@ const PSOsPage: React.FC = () => {
       {count === 3 && (
         <div className="flex flex-col flex-1 min-h-0 p-2">
           <div className="flex flex-1 gap-2 min-h-0">
-            {displayPSOs.slice(0, 2).map(u => (
+            {psos.slice(0, 2).map(u => (
               <div key={u.email} className="w-1/2 flex flex-col h-full">
                 <VideoCard
-                  name={u.name}
+                  name={u.fullName}
                   email={u.email}
                   videoSrc={u.isOnline ? '/video.mp4' : undefined}
+                  accessToken={u.liveKitToken}
+                  roomName={u.liveKitRoom}
                   onPlay={handlePlay}
                   onStop={handleStop}
                   onChat={handleChat}
@@ -142,9 +205,11 @@ const PSOsPage: React.FC = () => {
           <div className="flex flex-1 justify-center mt-2 min-h-0">
             <div className="w-1/2 flex flex-col h-full">
               <VideoCard
-                name={displayPSOs[2].name}
-                email={displayPSOs[2].email}
-                videoSrc={displayPSOs[2].isOnline ? '/video.mp4' : undefined}
+                name={psos[2].fullName}
+                email={psos[2].email}
+                videoSrc={psos[2].isOnline ? '/video.mp4' : undefined}
+                accessToken={psos[2].liveKitToken}
+                roomName={psos[2].liveKitRoom}
                 onPlay={handlePlay}
                 onStop={handleStop}
                 onChat={handleChat}
@@ -164,12 +229,14 @@ const PSOsPage: React.FC = () => {
             gridTemplateRows: 'repeat(2, 1fr)',
           }}
         >
-          {displayPSOs.map((u, i) => (
+          {psos.map(u => (
             <div key={u.email} className="w-full h-full">
               <VideoCard
-                name={u.name}
+                name={u.fullName}
                 email={u.email}
-                videoSrc={i === 0 && u.isOnline ? '/video.mp4' : undefined}
+                videoSrc={u.isOnline ? '/video.mp4' : undefined}
+                accessToken={u.liveKitToken}
+                roomName={u.liveKitRoom}
                 onPlay={handlePlay}
                 onStop={handleStop}
                 onChat={handleChat}
@@ -189,33 +256,34 @@ const PSOsPage: React.FC = () => {
             gridAutoRows: '1fr',
           }}
         >
-          {displayPSOs.map((u, i) => {
-            const rows     = Math.ceil(count / 3);
-            const rowIdx   = Math.floor(i / 3);
-            const inLast   = rowIdx === rows - 1;
-            const itemsLast= count - 3 * (rows - 1);
-            const alignCls = inLast && itemsLast < 3
-              ? 'justify-self-center'
-              : 'justify-self-stretch';
+          {psos.map((u, i) => {
+            const rows = Math.ceil(count / 3)
+            const rowIndex = Math.floor(i / 3)
+            const inLastRow = rowIndex === rows - 1
+            const itemsInLast = count - 3 * (rows - 1)
+            const alignClass =
+              inLastRow && itemsInLast < 3 ? 'justify-self-center' : 'justify-self-stretch'
 
             return (
-              <div key={u.email} className={`w-full h-full ${alignCls}`}>
+              <div key={u.email} className={`w-full h-full ${alignClass}`}>
                 <VideoCard
-                  name={u.name}
+                  name={u.fullName}
                   email={u.email}
                   videoSrc={u.isOnline ? '/video.mp4' : undefined}
+                  accessToken={u.liveKitToken}
+                  roomName={u.liveKitRoom}
                   onPlay={handlePlay}
                   onStop={handleStop}
                   onChat={handleChat}
                   className="w-full h-full"
                 />
               </div>
-            );
+            )
           })}
         </div>
       )}
     </div>
-  );
-};
+  )
+}
 
-export default PSOsPage;
+export default PSOsPage

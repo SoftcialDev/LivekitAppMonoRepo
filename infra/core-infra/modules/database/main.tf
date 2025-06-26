@@ -1,25 +1,29 @@
-# Create PostgreSQL Flexible Server
+# Create a PostgreSQL Flexible Server instance
 resource "azurerm_postgresql_flexible_server" "postgres_server" {
-  # Name formed from prefix, for example "<prefix>-postgres-server"
+  # Constructed name using the prefix variable, e.g., "<prefix>-postgres-server-flexible"
   name                = "${var.name_prefix}-postgres-server-flexible"
+  # Azure region for the server
   location            = var.location
+  # Resource Group where the server will live
   resource_group_name = var.resource_group_name
+  # PostgreSQL major version (e.g., "13")
   version             = var.postgres_version
 
+  # Administrator credentials for the server
   administrator_login    = var.admin_username
   administrator_password = var.admin_password
 
-  sku_name   = var.sku_name
-  storage_mb = var.storage_mb
+  # Service tier and storage size
+  sku_name   = var.sku_name     # e.g., "GP_Standard_D2s_v3"
+  storage_mb = var.storage_mb   # total storage in megabytes
 
-  # If a vnet_subnet_id is provided (non-empty), deploy in that subnet for private access.
-  # Otherwise, allow public access according to public_network_access setting.
-
+  # Enable or disable public access based on input variable
   public_network_access_enabled = var.public_network_access == "Enabled"
 
-  # Backup retention in days; adjust as needed
+  # Keep backups for 7 days; adjust value as needed
   backup_retention_days = 7
 
+  # Ignore changes to availability zones and HA standby zone
   lifecycle {
     ignore_changes = [
       zone,
@@ -27,28 +31,34 @@ resource "azurerm_postgresql_flexible_server" "postgres_server" {
     ]
   }
 
+  # Apply a Name tag to the server resource
   tags = {
     Name = "${var.name_prefix}-postgres"
   }
 }
 
-# Firewall rules for public access, only when public_network_access is 'Enabled'
-
+# Define firewall rules to allow public access from specific IPs
 resource "azurerm_postgresql_flexible_server_firewall_rule" "postgres_firewall" {
+  # Only create rules when public access is enabled
   count = var.public_network_access == "Enabled" ? length(var.allowed_ips) : 0
 
-  # Name pattern: "<prefix>-fw-0", "<prefix>-fw-1", etc.
+  # Names follow the pattern "<prefix>-fw-0", "<prefix>-fw-1", etc.
   name      = "${var.name_prefix}-fw-${count.index}"
+  # Associate with the PostgreSQL server
   server_id = azurerm_postgresql_flexible_server.postgres_server.id
 
+  # Each rule opens a single IP (start == end)
   start_ip_address = var.allowed_ips[count.index]
   end_ip_address   = var.allowed_ips[count.index]
 }
 
-# Default database creation; optional
+# create a default database on the server
 resource "azurerm_postgresql_flexible_server_database" "postgres_database" {
+  # Database name using the naming prefix
   name      = "${var.name_prefix}-db"
+  # Link to the parent server
   server_id = azurerm_postgresql_flexible_server.postgres_server.id
+  # Character set and collation settings
   charset   = "UTF8"
-  collation           = "en_US.utf8"
+  collation = "en_US.utf8"
 }

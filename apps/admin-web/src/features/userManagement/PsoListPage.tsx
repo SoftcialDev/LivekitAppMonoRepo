@@ -1,30 +1,42 @@
-
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useHeader } from '../../context/HeaderContext';
 import { TableComponent, Column } from '@components/TableComponent';
 import AddButton from '@components/Buttons/AddButton';
-import monitorIcon from '@assets/icon-monitor.png';
-import AddModal from '@components/ModalComponent';
 import TrashButton from '@/components/Buttons/TrashButton';
+import AddModal from '@components/ModalComponent';
+import monitorIcon from '@assets/icon-monitor.png';
+import { getUsersByRole, changeUserRole } from '../../services/userClient';
+import { useAuth } from '../auth/hooks/useAuth';
 
 ////////////////////////////////////////////////////////////////////////////////
 // Types
 ////////////////////////////////////////////////////////////////////////////////
 
 /**
- * Shape of a single PSO record.
+ * Represents a user for PSO management.
+ *
+ * - `role === "Employee"` for current PSOs.
+ * - `role === null` for tenant-user candidates.
  */
-interface PSO {
-  /** PSO’s unique email address. */
+export interface CandidateUser {
+  /** Azure AD object ID */
+  azureAdObjectId: string;
+  /** User’s email or UPN */
   email: string;
-  /** PSO’s first name. */
+  /** First name parsed from display name */
   firstName: string;
-  /** PSO’s last name. */
+  /** Last name parsed from display name */
   lastName: string;
-  /** Assigned supervisor’s name. */
-  supervisor: string;
-  /** Role (always “PSO” here). */
-  role: string;
+  /**
+   * Current App Role for PSO context:
+   * - `"Employee"` for existing PSOs
+   * - `null` for tenant-user candidates
+   */
+  role: 'Employee' | null;
+  /** (Hidden) Azure AD object ID of assigned supervisor; only for employees */
+  supervisorAdId?: string;
+  /** (Displayed) Full name of assigned supervisor; only for employees */
+  supervisorName?: string;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -34,44 +46,165 @@ interface PSO {
 /**
  * PSOsListPage
  *
- * - Sets the header to “PSOs” with a monitor icon.
- * - Renders a paginated table of PSOs with columns:
- *   Email, First Name, Last Name, Supervisor, Role, Actions.
- * - “Add PSO” button in toolbar opens a modal.
- * - Modal shows a selectable list of candidates with Cancel/Add PSOs controls.
- *   The modal table does *not* include the Actions column.
+ * - Displays current PSOs (users with "Employee" role) in a paged table.
+ * - “Add PSO” opens a modal listing tenant-user candidates (no App Role).
+ * - Modal table shows only Select, Email, First Name, Last Name.
+ * - Confirming assigns the "Employee" role to selected users.
  *
- * @component
- * @returns The PSOs management interface.
+ * @returns PSO management UI.
  */
 const PSOsListPage: React.FC = () => {
-  const [isModalOpen, setModalOpen]         = useState(false);
+  const { initialized, account } = useAuth();
+  const currentEmail = account?.username ?? '';
+
+  // State for PSO list page
+  const [psos, setPsos]     = useState<CandidateUser[]>([]);
+  const [total, setTotal]   = useState(0);
+  const [page, setPage]     = useState(1);
+  const [pageSize]          = useState(8);
+
+  // State for candidate modal
+  const [candidates, setCandidates]     = useState<CandidateUser[]>([]);
+  const [isModalOpen, setModalOpen]     = useState(false);
   const [selectedEmails, setSelectedEmails] = useState<string[]>([]);
 
   useHeader({
-    title: 'PSOs',
+    title:   'PSOs',
     iconSrc: monitorIcon,
     iconAlt: 'PSOs',
   });
 
-  // Mock PSO data
-  const data: PSO[] = [
-    { email: 'alice.pso@collettehealth.com', firstName: 'Alice',  lastName: 'Anderson',   supervisor: 'John Doe',   role: 'PSO' },
-    { email: 'bob.pso@collettehealth.com',   firstName: 'Bob',    lastName: 'Brown',      supervisor: 'Mary Smith', role: 'PSO' },
-    { email: 'carol.pso@collettehealth.com', firstName: 'Carol',  lastName: 'Clark',      supervisor: 'John Doe',   role: 'PSO' },
-    { email: 'dave.pso@collettehealth.com',  firstName: 'Dave',   lastName: 'Davis',      supervisor: 'Mary Smith', role: 'PSO' },
-    { email: 'eva.pso@collettehealth.com',   firstName: 'Eva',    lastName: 'Evans',      supervisor: 'John Doe',   role: 'PSO' },
-    { email: 'frank.pso@collettehealth.com', firstName: 'Frank',  lastName: 'Ford',       supervisor: 'Mary Smith', role: 'PSO' },
-    { email: 'grace.pso@collettehealth.com', firstName: 'Grace',  lastName: 'Green',      supervisor: 'John Doe',   role: 'PSO' },
-    { email: 'heidi.pso@collettehealth.com', firstName: 'Heidi',  lastName: 'Hill',       supervisor: 'Mary Smith', role: 'PSO' },
-    { email: 'ivan.pso@collettehealth.com',  firstName: 'Ivan',   lastName: 'Iverson',    supervisor: 'John Doe',   role: 'PSO' },
-    { email: 'judy.pso@collettehealth.com',  firstName: 'Judy',   lastName: 'Jones',      supervisor: 'Mary Smith', role: 'PSO' },
-  ];
+  /**
+   * Fetches one page of PSOs (Employee role), including supervisor info.
+   *
+   * Calls GET /api/GetUsersByRole?role=Employee&page=<page>&pageSize=<pageSize>
+   * Expects response { total, page, pageSize, users: UserByRole[] }.
+   * Maps UserByRole → CandidateUser (role forced to "Employee").
+   */
+  const fetchPsos = async (pageNumber = 1): Promise<void> => {
+    try {
+      const res = await getUsersByRole('Employee', pageNumber, pageSize);
+      // Map API UserByRole → CandidateUser
+      const mapped: CandidateUser[] = res.users.map(u => ({
+        azureAdObjectId: u.azureAdObjectId,
+        email:           u.email,
+        firstName:       u.firstName,
+        lastName:        u.lastName,
+        role:            'Employee', 
+        supervisorAdId:  u.supervisorAdId,
+        supervisorName:  u.supervisorName,
+      }));
+      setPsos(mapped);
+      setTotal(res.total);
+      setPage(res.page);
+    } catch (err: any) {
+      console.error('Failed to load PSOs:', err);
+    }
+  };
 
-  // Full column definitions, including Select and Actions
-  const allColumns: Column<PSO>[] = [
+  /**
+   * Fetches all tenant-user candidates (no App Role).
+   *
+   * Calls GET /api/GetUsersByRole?role=Tenant
+   * Expects response { total, page, pageSize, users: UserByRole[] }.
+   * We ignore pagination here (assume all fit) or use default page/pageSize.
+   * Maps UserByRole → CandidateUser with role=null.
+   */
+  const fetchCandidates = async (): Promise<void> => {
+    try {
+      // fetch first page; if many candidates, consider pagination UI
+      const res = await getUsersByRole('Tenant', 1, 1000);
+      const mapped: CandidateUser[] = res.users.map(u => ({
+        azureAdObjectId: u.azureAdObjectId,
+        email:           u.email,
+        firstName:       u.firstName,
+        lastName:        u.lastName,
+        role:            null,
+      }));
+      setCandidates(mapped);
+    } catch (err: any) {
+      console.error('Failed to load candidates:', err);
+    }
+  };
+
+  // On mount (when auth ready), load first page
+  useEffect(() => {
+    if (!initialized || !account) return;
+    fetchPsos(1);
+  }, [initialized, account]);
+
+  /**
+   * Opens "Add PSO" modal, resets selection, and fetches candidates.
+   */
+  const handleOpenModal = (): void => {
+    setModalOpen(true);
+    setSelectedEmails([]);
+    fetchCandidates();
+  };
+
+  /**
+   * Assigns "Employee" role to selected users.
+   * Calls POST /api/ChangeUserRole for each email.
+   * Then refreshes current page.
+   */
+  const handleConfirmAdd = async (): Promise<void> => {
+    try {
+      await Promise.all(
+        selectedEmails.map(email =>
+          changeUserRole({ userEmail: email, newRole: 'Employee' })
+        )
+      );
+      setModalOpen(false);
+      fetchPsos(page);
+    } catch (err: any) {
+      console.error('Error adding PSOs:', err);
+    }
+  };
+
+  /**
+   * Removes the "Employee" role from a PSO.
+   * Prevents self-removal.
+   *
+   * Calls POST /api/ChangeUserRole with newRole=null, then refreshes.
+   */
+  const handleRemovePso = async (email: string): Promise<void> => {
+    if (email === currentEmail) {
+      console.warn("You cannot remove your own PSO role.");
+      return;
+    }
+    try {
+      await changeUserRole({ userEmail: email, newRole: null });
+      fetchPsos(page);
+    } catch (err: any) {
+      console.error('Error removing PSO:', err);
+    }
+  };
+
+  //
+  // Columns for main PSO table
+  //
+  const psoColumns: Column<CandidateUser>[] = [
+    { key: 'email',         header: 'Email'      },
+    { key: 'firstName',     header: 'First Name' },
+    { key: 'lastName',      header: 'Last Name'  },
+    { key: 'supervisorName', header: 'Supervisor' },
+    { key: 'role',          header: 'Role'       },
     {
       key: 'email',
+      header: 'Actions',
+      render: row =>
+        row.email === currentEmail ? null : (
+          <TrashButton onClick={() => handleRemovePso(row.email)} />
+        ),
+    },
+  ];
+
+  //
+  // Columns for Add PSO modal (only Select, Email, First Name, Last Name)
+  //
+  const candidateColumns: Column<CandidateUser>[] = [
+    {
+      key: 'azureAdObjectId',
       header: 'Select',
       render: row => (
         <input
@@ -85,60 +218,51 @@ const PSOsListPage: React.FC = () => {
             );
           }}
           className="
-            appearance-none w-5 h-5 rounded
-            border-2 border-[var(--color-primary)]
-            bg-[var(--color-primary-light)]
+            appearance-none w-5 h-5 rounded border-2
+            border-[var(--color-primary)] bg-[var(--color-primary-light)]
             checked:bg-[var(--color-secondary)]
             checked:border-[var(--color-secondary)]
-            focus:ring-0 focus:outline-none
-            cursor-pointer transition-colors
+            focus:ring-0 focus:outline-none cursor-pointer
+            transition-colors
           "
         />
       ),
     },
-    { key: 'email',      header: 'Email'      },
-    { key: 'firstName',  header: 'First Name' },
-    { key: 'lastName',   header: 'Last Name'  },
-    { key: 'supervisor', header: 'Supervisor' },
-    { key: 'role',       header: 'Role'       },
-    {
-      key: 'email',
-      header: 'Actions',
-      render: row => (
-        <TrashButton
-          onClick={() => console.log('Delete PSO:', row.email)}
-        />
-      ),
-    },
+    { key: 'email',     header: 'Email'      },
+    { key: 'firstName', header: 'First Name' },
+    { key: 'lastName',  header: 'Last Name'  },
   ];
-
-  /**
-   * Confirm adding the selected PSOs.
-   * Clears selection and closes modal.
-   */
-  const handleConfirmAdd = (): void => {
-    console.log('Adding PSOs:', selectedEmails);
-    // TODO: call API to add PSOs
-    setSelectedEmails([]);
-    setModalOpen(false);
-  };
 
   return (
     <div className="flex flex-col flex-1 min-h-0 bg-[var(--color-primary-dark)] p-4">
-      {/* Main table with Add PSO toolbar button */}
-      <TableComponent<PSO>
-        columns={allColumns.filter(c => c.header !== 'Select')}
-        data={data}
-        pageSize={8}
-        addButton={
-          <AddButton
-            label="Add PSO"
-            onClick={() => setModalOpen(true)}
-          />
-        }
+      {/* Main PSO table with server-side pagination */}
+      <TableComponent<CandidateUser>
+        columns={psoColumns}
+        data={psos}
+        pageSize={pageSize}
+        addButton={<AddButton label="Add PSO" onClick={handleOpenModal} />}
       />
 
-      {/* Modal for batch-adding PSOs */}
+      {/* External pagination controls */}
+      <div className="flex justify-between items-center mt-2 text-white">
+        <button
+          onClick={() => fetchPsos(page - 1)}
+          disabled={page <= 1}
+          className="px-3 py-1 bg-[var(--color-primary)] rounded disabled:opacity-50"
+        >
+          Previous
+        </button>
+        <span>Page {page} of {Math.ceil(total / pageSize)}</span>
+        <button
+          onClick={() => fetchPsos(page + 1)}
+          disabled={page * pageSize >= total}
+          className="px-3 py-1 bg-[var(--color-primary)] rounded disabled:opacity-50"
+        >
+          Next
+        </button>
+      </div>
+
+      {/* Modal for selecting new PSOs */}
       <AddModal
         open={isModalOpen}
         title="Add PSOs"
@@ -148,9 +272,9 @@ const PSOsListPage: React.FC = () => {
         onConfirm={handleConfirmAdd}
         confirmLabel="Add Selected"
       >
-        <TableComponent<PSO>
-          columns={allColumns.filter(c => c.header !== 'Actions')}
-          data={data}
+        <TableComponent<CandidateUser>
+          columns={candidateColumns}
+          data={candidates}
           pageSize={5}
           addButton={null}
           headerBg="bg-[var(--color-primary)]"

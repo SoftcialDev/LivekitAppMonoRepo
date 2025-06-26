@@ -34,7 +34,7 @@ export interface TableComponentProps<T> {
   /** Column definitions. */
   columns: Column<T>[];
   /** Array of row data. */
-  data: T[];
+  data?: T[]; // Made optional to allow default empty array
   /** Number of rows per page; defaults to 10. */
   pageSize?: number;
   /**
@@ -85,7 +85,7 @@ export interface TableComponentProps<T> {
  */
 export function TableComponent<T>({
   columns,
-  data,
+  data = [],                  // default to empty array
   pageSize = 10,
   addButton,
   addLabel = 'Add Admin',
@@ -103,16 +103,17 @@ export function TableComponent<T>({
   // Filter rows by search term across all non-rendered columns
   const filteredData = useMemo(
     () =>
-      data.filter(row =>
-        columns.some(col => {
-          if (col.render) return false;
-          const cell = row[col.key];
-          return (
-            cell != null &&
-            String(cell).toLowerCase().includes(searchTerm.toLowerCase())
-          );
-        })
-      ),
+      data
+        .filter(row =>
+          columns.some(col => {
+            if (col.render) return false;
+            const cell = row[col.key];
+            return (
+              cell != null &&
+              String(cell).toLowerCase().includes(searchTerm.toLowerCase())
+            );
+          })
+        ),
     [data, columns, searchTerm]
   );
 
@@ -132,7 +133,7 @@ export function TableComponent<T>({
   const goNext     = () => setCurrentPage(p => Math.min(totalPages, p + 1));
 
   return (
-    <div className={`flex flex-col  ${tablePadding}  pt-10 `}>
+    <div className={`flex flex-col ${tablePadding} pt-10`}>
       {/* Toolbar */}
       <div className="flex justify-between items-center mb-4">
         {addButton !== undefined
@@ -162,12 +163,12 @@ export function TableComponent<T>({
               return (
                 <th
                   key={String(col.key)}
-                  className={`
-                    px-6 py-3 text-left text-sm font-semibold
+                  className={
+                    `px-6 py-3 text-left text-sm font-semibold
                     ${headerBg} text-white
                     ${isFirst ? 'rounded-tl-lg rounded-bl-lg' : ''}
-                    ${isLast  ? 'rounded-tr-lg rounded-br-lg' : ''}
-                  `}
+                    ${isLast  ? 'rounded-tr-lg rounded-br-lg' : ''}`
+                  }
                 >
                   {col.header}
                 </th>

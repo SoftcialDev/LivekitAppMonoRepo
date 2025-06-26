@@ -3,87 +3,153 @@ import { useHeader } from '../../context/HeaderContext';
 import { TableComponent, Column } from '../../components/TableComponent';
 import AddButton from '../../components/Buttons/AddButton';
 import TrashButton from '../../components/Buttons/TrashButton';
-import managementIcon from '@assets/monitor-icon.png';
 import AddModal from '@/components/ModalComponent';
+import managementIcon from '@assets/monitor-icon.png';
+import { getUsersByRole, changeUserRole } from '../../services/userClient';
 import { useAuth } from '../auth/hooks/useAuth';
 
+////////////////////////////////////////////////////////////////////////////////
+// Types
+////////////////////////////////////////////////////////////////////////////////
+
 /**
- * Represents a single administrator.
+ * Represents a user in AdminsPage context.
+ *
+ * Matches the API’s UserByRole shape.
  */
-interface Admin {
-  /** Unique email address of the admin. */
-  email: string;
-  /** First name of the admin. */
-  firstName: string;
-  /** Last name of the admin. */
-  lastName: string;
-  /** Role assigned to the admin. */
-  role: string;
+interface CandidateUser {
+  azureAdObjectId: string;
+  email:           string;
+  firstName:       string;
+  lastName:        string;
+  /**
+   * Current App Role or null for tenant users.
+   * One of "Admin" | "Supervisor" | "Employee" | null
+   */
+  role: 'Admin' | 'Supervisor' | 'Employee' | null;
+  supervisorAdId?: string;
+  supervisorName?: string;
 }
 
+////////////////////////////////////////////////////////////////////////////////
+// Component
+////////////////////////////////////////////////////////////////////////////////
 
 /**
- * Renders the Admins management page.
+ * AdminsPage
  *
- * - Sets the header to “Admins” with its icon.
- * - Shows a paginated table of existing admins.
- * - Provides an “Add Admin” button that opens a modal.
- * - Modal contains a selectable list of candidates with confirm/cancel actions.
- *
- * @component
- * @returns The Admins management interface.
+ * - Displays current Admins (role="Admin") in a table.
+ * - “Add Admin” modal shows candidates: Supervisor, Employee, Tenant users.
+ * - Prevents self-removal.
  */
 const AdminsPage: React.FC = () => {
+  const { initialized, account } = useAuth();
+  const currentEmail = account?.username ?? '';
+
+  const [admins, setAdmins] = useState<CandidateUser[]>([]);
+  const [candidates, setCandidates] = useState<CandidateUser[]>([]);
   const [isModalOpen, setModalOpen] = useState(false);
   const [selectedEmails, setSelectedEmails] = useState<string[]>([]);
-  const { getApiToken, account, initialized, login } = useAuth();
 
   useHeader({
-    title: 'Admins',
+    title:   'Admins',
     iconSrc: managementIcon,
     iconAlt: 'Admins',
   });
 
-  useEffect(() => {
-
-    if (!initialized) return;
-    if (!account) {
-
-      console.log('No hay cuenta; debe iniciar sesión antes de pedir token');
-      return;
+  /**
+   * Load current Admins from API with paging=1,pageSize large enough.
+   * Calls GET /api/GetUsersByRole?role=Admin&page=1&pageSize=...
+   * Extracts `.users` before setState.
+   */
+  const fetchAdmins = async (): Promise<void> => {
+    try {
+      const res = await getUsersByRole('Admin', 1, 1000);
+      // res.users is UserByRole[]
+      setAdmins(res.users);
+    } catch (err: any) {
+      console.error('Failed to load admins:', err);
     }
-
-    getApiToken()
-      .then(token => {
-        console.log('Access token obtenido:', token);
-      })
-      .catch(err => {
-        console.error('Error al obtener token de API:', err);
-      });
-  }, [initialized, account, getApiToken, login]);
-
-
-
-
-  const data: Admin[] = [
-    { email: 'alice@foo.com', firstName: 'Alice',  lastName: 'Anderson',   role: 'Manager'     },
-    { email: 'bob@foo.com',   firstName: 'Bob',    lastName: 'Brown',      role: 'Supervisor'  },
-    { email: 'carol@foo.com', firstName: 'Carol',  lastName: 'Clark',      role: 'Coordinator' },
-    { email: 'dave@foo.com',  firstName: 'Dave',   lastName: 'Davis',      role: 'Analyst'     },
-    { email: 'eva@foo.com',   firstName: 'Eva',    lastName: 'Evans',      role: 'Manager'     },
-    { email: 'frank@foo.com', firstName: 'Frank',  lastName: 'Ford',       role: 'Supervisor'  },
-    { email: 'grace@foo.com', firstName: 'Grace',  lastName: 'Green',      role: 'Coordinator' },
-    { email: 'heidi@foo.com', firstName: 'Heidi',  lastName: 'Hill',       role: 'Analyst'     },
-    { email: 'ivan@foo.com',  firstName: 'Ivan',   lastName: 'Iverson',    role: 'Manager'     },
-    { email: 'judy@foo.com',  firstName: 'Judy',   lastName: 'Jones',      role: 'Supervisor'  },
-  ];
+  };
 
   /**
-   * Column definitions for the admin tables, including selection and delete actions.
+   * Load candidate users: everyone except Admins.
+   * Uses roleParam "Supervisor,Employee,Tenant".
    */
-  const columns: Column<Admin>[] = [
+  const fetchCandidates = async (): Promise<void> => {
+    try {
+      const res = await getUsersByRole('Supervisor,Employee,Tenant', 1, 1000);
+      setCandidates(res.users);
+    } catch (err: any) {
+      console.error('Failed to load candidates:', err);
+    }
+  };
+
+  useEffect(() => {
+    if (!initialized || !account) return;
+    fetchAdmins();
+  }, [initialized, account]);
+
+  /** Open “Add Admin” modal and reset selection + fetch candidates */
+  const handleOpenModal = (): void => {
+    setModalOpen(true);
+    setSelectedEmails([]);
+    fetchCandidates();
+  };
+
+  /** Assign "Admin" role to selected emails */
+  const handleConfirmAdd = async (): Promise<void> => {
+    try {
+      await Promise.all(
+        selectedEmails.map(email =>
+          changeUserRole({ userEmail: email, newRole: 'Admin' })
+        )
+      );
+      setModalOpen(false);
+      fetchAdmins();
+    } catch (err: any) {
+      console.error('Error adding admins:', err);
+    }
+  };
+
+  /**
+   * Remove Admin role from a single user.
+   * No-op if the user attempts to remove themselves.
+   */
+  const handleRemoveAdmin = async (email: string): Promise<void> => {
+    if (email === currentEmail) {
+      console.warn("Admins cannot remove themselves.");
+      return;
+    }
+    try {
+      await changeUserRole({ userEmail: email, newRole: null });
+      fetchAdmins();
+    } catch (err: any) {
+      console.error('Error removing admin:', err);
+    }
+  };
+
+  //
+  // Column definitions
+  //
+  const adminColumns: Column<CandidateUser>[] = [
+    { key: 'email',     header: 'Email'      },
+    { key: 'firstName', header: 'First Name' },
+    { key: 'lastName',  header: 'Last Name'  },
+    { key: 'role',      header: 'Role'       },
     {
       key: 'email',
+      header: 'Actions',
+      render: row =>
+        row.email === currentEmail ? null : (
+          <TrashButton onClick={() => handleRemoveAdmin(row.email)} />
+        ),
+    },
+  ];
+
+  const candidateColumns: Column<CandidateUser>[] = [
+    {
+      key: 'azureAdObjectId',
       header: 'Select',
       render: row => (
         <input
@@ -97,15 +163,11 @@ const AdminsPage: React.FC = () => {
             );
           }}
           className="
-            appearance-none
-            w-5 h-5
-            rounded
-            border-2 border-[var(--color-primary)]
-            bg-[var(--color-primary-light)]
+            appearance-none w-5 h-5 rounded border-2
+            border-[var(--color-primary)] bg-[var(--color-primary-light)]
             checked:bg-[var(--color-secondary)]
             checked:border-[var(--color-secondary)]
-            focus:ring-0 focus:outline-none
-            cursor-pointer
+            focus:ring-0 focus:outline-none cursor-pointer
             transition-colors
           "
         />
@@ -115,39 +177,15 @@ const AdminsPage: React.FC = () => {
     { key: 'firstName', header: 'First Name' },
     { key: 'lastName',  header: 'Last Name'  },
     { key: 'role',      header: 'Role'       },
-    {
-      key: 'email',
-      header: 'Actions',
-      render: row => (
-        <TrashButton onClick={() => console.log('Delete', row.email)} />
-      ),
-    },
   ];
-
-  /**
-   * Adds the selected admins, then clears the selection and closes the modal.
-   *
-   * @returns void
-   */
-  const handleConfirmAdd = (): void => {
-    console.log('Adding admins:', selectedEmails);
-    // TODO: replace with API call to add admins
-    setSelectedEmails([]);
-    setModalOpen(false);
-  };
 
   return (
     <div className="flex flex-col flex-1 min-h-0 bg-[var(--color-primary-dark)] p-4">
-      <TableComponent<Admin>
-        columns={columns.filter(c => c.header !== 'Select')}
-        data={data}
+      <TableComponent<CandidateUser>
+        columns={adminColumns}
+        data={admins}
         pageSize={9}
-        addButton={
-          <AddButton
-            label="Add Admin"
-            onClick={() => setModalOpen(true)}
-          />
-        }
+        addButton={<AddButton label="Add Admin" onClick={handleOpenModal} />}
       />
 
       <AddModal
@@ -159,9 +197,9 @@ const AdminsPage: React.FC = () => {
         onConfirm={handleConfirmAdd}
         confirmLabel="Add Admin"
       >
-        <TableComponent<Admin>
-          columns={columns}
-          data={data}
+        <TableComponent<CandidateUser>
+          columns={candidateColumns}
+          data={candidates}
           pageSize={5}
           addButton={null}
           headerBg="bg-[var(--color-primary)]"

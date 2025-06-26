@@ -1,9 +1,7 @@
-﻿import { RoomServiceClient, AccessToken, Room } from "livekit-server-sdk";
-import { config } from "../config";
+﻿import { RoomServiceClient, AccessToken } from 'livekit-server-sdk';
+import { config } from '../config';
 
-/**
- * LiveKit admin client configured with API URL, key, and secret.
- */
+/** Admin client for LiveKit REST API */
 const adminClient = new RoomServiceClient(
   config.livekitApiUrl,
   config.livekitApiKey,
@@ -11,29 +9,53 @@ const adminClient = new RoomServiceClient(
 );
 
 /**
- * Retrieves the list of existing LiveKit rooms.
- *
- * @returns A promise that resolves to an array of room names or IDs.
- * @throws Error if the LiveKit API call fails.
+ * Ensure that a room exists with emptyTimeout = 0 (never auto-delete).
+ * If already existe, ignora el error.
  */
-export async function listRooms(): Promise<string[]> {
-  const rooms: Room[] = await adminClient.listRooms();
-  return rooms.map(r => r.name ?? "unknown-room");
+export async function ensureRoom(roomName: string): Promise<void> {
+  try {
+    await adminClient.createRoom({
+      name:         roomName,
+      emptyTimeout: 0,
+    });
+  } catch (err: any) {
+    // Código 409 = sala ya existe
+    if ((err as any).code !== 409) {
+      throw err;
+    }
+  }
 }
 
 /**
- * Generates a LiveKit access token for a client identity.
+ * List all existing LiveKit room names (o SIDs si no tienen nombre).
+ */
+export async function listRooms(): Promise<string[]> {
+  const rooms = await adminClient.listRooms();
+  return rooms.map(r => r.name ?? r.sid);
+}
+
+/**
+ * Generate a LiveKit access token (JWT) para un usuario dado.
  *
- * @param identity - A unique identifier for the client (e.g., Azure AD object ID).
- * @param isAdmin - If true, grants room admin privileges for any room.
- * @param room - Specific room name or ID to join when isAdmin is false.
- * @returns A promise that resolves to a JWT string for LiveKit connection.
- * @throws Error if isAdmin is false and no room is provided.
+ * - Admin/Supervisor:
+ *   • roomAdmin: true
+ *   • canSubscribe: true
+ *   • canPublish: false
+ *
+ * - Employee:
+ *   • roomJoin: true
+ *   • room: su propia sala
+ *   • canSubscribe: true
+ *   • canPublish: true
+ *
+ * @param identity  Identidad única (e.g. Azure AD object ID).
+ * @param isAdmin   true para Admin/Supervisor, false para Employee.
+ * @param room      Nombre de sala (requerido si !isAdmin).
  */
 export async function generateToken(
   identity: string,
   isAdmin: boolean,
-  room?: string,
+  room?: string
 ): Promise<string> {
   const at = new AccessToken(
     config.livekitApiKey,
@@ -42,12 +64,22 @@ export async function generateToken(
   );
 
   if (isAdmin) {
-    at.addGrant({ roomAdmin: true });
+    at.addGrant({
+      roomAdmin:    true,
+      canSubscribe: true,
+      canPublish:   false,
+    });
   } else {
     if (!room) {
-      throw new Error("Room must be specified when not an admin");
+      throw new Error('Employees must specify their room name');
     }
-    at.addGrant({ roomJoin: true, room });
+    at.addGrant({
+      roomJoin:     true,
+      room,
+      canSubscribe: true,
+      canPublish:   true,
+    });
   }
+
   return await at.toJwt();
 }
