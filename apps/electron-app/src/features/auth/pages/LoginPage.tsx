@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import logoSrc from '@assets/ColletteHealth_logo.png'
 import camaraLogo from '@assets/InContact_logo.png'
 import { SignInButton } from '../components/SignInButton'
-import IconWithLabel from '../../../components/IconWithLabel'
+import IconWithLabel from '../components/IconWithLabel'
 
 /**
  * LoginPage component.

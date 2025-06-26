@@ -13,9 +13,9 @@
     "resolveJsonModule": true,
     "forceConsistentCasingInFileNames": true,
     "esModuleInterop": true,
-    "baseUrl": ".",                
+    "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"],           
+      "@/*": ["src/*"],
       "@assets/*": ["src/assets/*"],
       "@components/*": ["src/components/*"]
     },
@@ -24,6 +24,6 @@
       "node"
     ]
   },
-  "include": ["src", "src/**/*.d.ts"],
+  "include": ["src", "src/**/*.d.ts", "main.ts", "preload.ts"],
   "exclude": ["node_modules", "dist"]
 }
