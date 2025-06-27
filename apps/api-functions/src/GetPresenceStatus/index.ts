@@ -25,7 +25,7 @@ const querySchema = z.object({
  *
  * Query Parameters:
  * - `page` (optional, default `1`): 1-based page number
- * - `pageSize` (optional, default `50`): items per page
+ * - `pageSize` (optional, default `50`): items per page, capped at 100
  *
  * Response (200):
  * ```json
@@ -36,6 +36,8 @@ const querySchema = z.object({
  *   "items": [
  *     {
  *       "email": "employee1@foo.com",
+ *       "fullName": "Employee One",
+ *       "azureAdObjectId": "7f849383-fc13-40a7-9dfe-764eea83a610",
  *       "status": "online",
  *       "lastSeenAt": "2025-06-25T13:45:30.000Z"
  *     },
@@ -48,21 +50,20 @@ const querySchema = z.object({
  * - `400 Bad Request` – invalid query parameters
  * - `401 Unauthorized` – missing/invalid JWT or user deleted
  * - `403 Forbidden` – caller not Admin or Supervisor
- *
- * @param ctx - Azure Functions execution context
  */
 const getPresenceStatusesFunction: AzureFunction = withErrorHandler(async (ctx: Context) => {
   const req: HttpRequest = ctx.req!;
 
-  // Validate and parse query params
+  // 1) Validate and parse query params
   const parse = querySchema.safeParse(req.query);
   if (!parse.success) {
     return badRequest(ctx, "Invalid query parameters: page and pageSize must be positive integers");
   }
   const { page = "1", pageSize = "50" } = parse.data;
-  const p      = Math.max(1, parseInt(page, 10));
-  const size   = Math.min(100, Math.max(1, parseInt(pageSize, 10))); // cap at 100
+  const p    = Math.max(1, parseInt(page, 10));
+  const size = Math.min(100, Math.max(1, parseInt(pageSize, 10))); // cap at 100
 
+  // 2) Authenticate
   await withAuth(ctx, async () => {
     const claims   = (ctx as any).bindings.user as JwtPayload;
     const callerId = (claims.oid || claims.sub) as string;
@@ -70,7 +71,7 @@ const getPresenceStatusesFunction: AzureFunction = withErrorHandler(async (ctx: 
       return unauthorized(ctx, "Unable to determine caller identity");
     }
 
-    // Fetch caller from DB
+    // 3) Fetch caller and check role
     const caller = await prisma.user.findUnique({
       where: { azureAdObjectId: callerId },
     });
@@ -81,23 +82,24 @@ const getPresenceStatusesFunction: AzureFunction = withErrorHandler(async (ctx: 
       return forbidden(ctx, "Insufficient privileges");
     }
 
-    // Build filter for employees
+    // 4) Build filter for employees
     const where: any = { deletedAt: null, role: "Employee" };
     if (caller.role === "Supervisor") {
       where.supervisorId = caller.id;
     }
 
-    // Count total
+    // 5) Count total
     const total = await prisma.user.count({ where });
 
-    // Fetch page of users + their presence
+    // 6) Fetch page of users + their presence + Azure AD object ID
     const users = await prisma.user.findMany({
       where,
       skip: (p - 1) * size,
       take: size,
       select: {
-        email: true,
-        fullName: true,
+        email:             true,
+        fullName:          true,
+        azureAdObjectId:   true,  
         presence: {
           select: {
             status:     true,
@@ -108,18 +110,20 @@ const getPresenceStatusesFunction: AzureFunction = withErrorHandler(async (ctx: 
       orderBy: { email: "asc" },
     });
 
-    // Map into response items
+    // 7) Map into response items
     const items = users.map(u => ({
-      email:      u.email,
-      fullName:   u.fullName ?? "",
-      status:     u.presence?.status   ?? "offline",
-      lastSeenAt: u.presence?.lastSeenAt?.toISOString() ?? null,
+      email:            u.email,
+      fullName:         u.fullName ?? "",
+      azureAdObjectId:  u.azureAdObjectId,
+      status:           u.presence?.status   ?? "offline",
+      lastSeenAt:       u.presence?.lastSeenAt?.toISOString() ?? null,
     }));
 
+    // 8) Return paginated result
     return ok(ctx, {
       total,
-      page:      p,
-      pageSize:  size,
+      page:     p,
+      pageSize: size,
       items,
     });
   });
