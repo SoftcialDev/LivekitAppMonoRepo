@@ -68,6 +68,7 @@ resource "azurerm_function_app" "function_app" {
     DATABASE_URL           = "@Microsoft.KeyVault(SecretUri=${var.secret_uris["postgres_connection"]})"
     AZURE_AD_API_IDENTIFIER_URI = var.AZURE_AD_API_IDENTIFIER_URI
     SERVICE_PRINCIPAL_OBJECT_ID = var.SERVICE_PRINCIPAL_OBJECT_ID
+    COMMANDS_SUBSCRIPTION_NAME  = var.commands_subscription_name
   }
 }
 

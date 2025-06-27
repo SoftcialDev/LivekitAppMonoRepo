@@ -1,5 +1,5 @@
 import { ServiceBusClient, ServiceBusSender } from "@azure/service-bus";
-import { config } from "../config";
+import { config } from "../config/index";
 
 /**
  * Creates a Service Bus client using the connection string from configuration.

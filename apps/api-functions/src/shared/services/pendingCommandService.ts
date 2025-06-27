@@ -1,104 +1,104 @@
 import prisma from "./prismaClienService";
 import { sendToGroup } from "./webPubSubService";
 import { getPresenceStatus } from "./presenceService";
+import type { PendingCommand, CommandType } from "@prisma/client";
 
 /**
- * createPendingCommand
+ * Persists a new pending command for an employee.
  *
- * Persists a command START/STOP for an employee.
- *
- * @param employeeEmail — Email of the employee.
- * @param command       — "START" or "STOP".
- * @param timestamp     — ISO string or Date; if string, se convierte a Date.
- * @returns Promise<PendingCommand> — El registro creado.
+ * @param employeeId – UUID of the target employee.
+ * @param command    – “START” to begin streaming or “STOP” to end it.
+ * @param timestamp  – Date or ISO-string when the admin issued the command.
+ * @returns Promise<PendingCommand> – The newly created PendingCommand record.
  */
 export async function createPendingCommand(
-  employeeEmail: string,
-  command: "START" | "STOP",
+  employeeId: string,
+  command: CommandType,
   timestamp: string | Date
-) {
+): Promise<PendingCommand> {
   const ts = typeof timestamp === "string" ? new Date(timestamp) : timestamp;
   return await prisma.pendingCommand.create({
     data: {
-      employeeEmail,
+      employeeId,
       command,
       timestamp: ts,
-      delivered: false
-    }
+      // published and acknowledged default to false
+      // attemptCount defaults to 0
+    },
   });
 }
 
 /**
- * tryDeliverCommand
+ * Attempts immediate delivery of a pending command.
  *
- * Intenta entregar el comando de inmediato si el usuario está online:
- *  - Consulta presencia (via presenceService).
- *  - Si online: envía vía Web PubSub y marca como delivered.
- *  - Si offline: no envía y deja delivered=false.
+ * - Checks if employee is online via presenceService.
+ * - If online, sends the command over Web PubSub, marks it published.
+ * - If offline, leaves it pending for later retry.
  *
- * @param pendingCmd — Registro de PendingCommand (de Prisma) o al menos su id y employeeEmail.
- * @returns Promise<boolean> — true si se entregó ahora, false si quedó pendiente.
+ * @param pendingCmd – An object containing at least:
+ *   • id          – PendingCommand.id  
+ *   • employeeId  – PendingCommand.employeeId  
+ *   • command     – PendingCommand.command  
+ *   • timestamp   – PendingCommand.timestamp  
+ * @returns Promise<boolean> – True if sent now; false if left pending.
  */
 export async function tryDeliverCommand(pendingCmd: {
   id: string;
-  employeeEmail: string;
-  command: string;
+  employeeId: string;
+  command: CommandType;
   timestamp: Date;
 }): Promise<boolean> {
-  const status = await getPresenceStatus(pendingCmd.employeeEmail);
+  const status = await getPresenceStatus(pendingCmd.employeeId);
   if (status === "online") {
-    // enviar notificación
-    await sendToGroup(pendingCmd.employeeEmail, {
+    await sendToGroup(pendingCmd.employeeId, {
+      id: pendingCmd.id,
       command: pendingCmd.command,
-      timestamp: pendingCmd.timestamp.toISOString()
+      timestamp: pendingCmd.timestamp.toISOString(),
     });
-    // marcar delivered
     await prisma.pendingCommand.update({
       where: { id: pendingCmd.id },
-      data: { delivered: true }
+      data: {
+        published: true,
+        publishedAt: new Date(),
+        attemptCount: { increment: 1 },
+      },
     });
     return true;
   }
-  // usuario offline, no entregado aún
   return false;
 }
 
 /**
- * getPendingCommandsForEmployee
+ * Retrieves all commands that have not yet been acknowledged.
  *
- * Recupera todos los comandos pendientes (delivered = false) para un empleado.
- *
- * @param employeeEmail — Email del empleado.
- * @returns Promise<PendingCommand[]> — Lista de comandos pendientes, ordenados por timestamp ascendente.
+ * @param employeeId – UUID of the employee whose commands to fetch.
+ * @returns Promise<PendingCommand[]> – List of pending commands, oldest first.
  */
 export async function getPendingCommandsForEmployee(
-  employeeEmail: string
-) {
+  employeeId: string
+): Promise<PendingCommand[]> {
   return await prisma.pendingCommand.findMany({
     where: {
-      employeeEmail,
-      delivered: false
+      employeeId,
+      acknowledged: false,
     },
-    orderBy: {
-      timestamp: "asc"
-    }
+    orderBy: { createdAt: "asc" },
   });
 }
 
 /**
- * markCommandsDelivered
+ * Marks a batch of commands as acknowledged.
  *
- * Marca como entregados (delivered = true) una lista de IDs de comandos.
- *
- * @param ids — Array de IDs de PendingCommand.
- * @returns Promise<number> — Número de registros actualizados.
+ * @param ids – Array of PendingCommand.id strings to acknowledge.
+ * @returns Promise<number> – Count of records updated.
  */
 export async function markCommandsDelivered(ids: string[]): Promise<number> {
-  const resp = await prisma.pendingCommand.updateMany({
-    where: {
-      id: { in: ids }
+  const result = await prisma.pendingCommand.updateMany({
+    where: { id: { in: ids } },
+    data: {
+      acknowledged: true,
+      acknowledgedAt: new Date(),
     },
-    data: { delivered: true }
   });
-  return resp.count;
+  return result.count;
 }

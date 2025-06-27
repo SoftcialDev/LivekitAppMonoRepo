@@ -144,10 +144,6 @@ variable "aad_supervisors_group_members" {
   type        = list(string)
 }
 
-variable "aad_invite_emails" {
-  description = "List of email addresses to invite into the Azure AD tenant."
-  type        = list(string)
-}
 
 variable "aad_enable_directory_role_assignment" {
   description = "Whether to assign directory roles (e.g., 'User Administrator') to the Admins group."

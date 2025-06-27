@@ -1,53 +1,75 @@
 import { Context, HttpRequest } from "@azure/functions";
+import prisma from "../shared/services/prismaClienService";
 import { withAuth } from "../shared/middleware/auth";
 import { withErrorHandler } from "../shared/middleware/errorHandler";
 import { ok, unauthorized } from "../shared/utils/response";
-import { generateWebPubSubToken } from "../shared/services/webPubSubService"
+import { generateWebPubSubToken } from "../shared/services/webPubSubService";
 import { JwtPayload } from "jsonwebtoken";
 import { config } from "../shared/config/index";
 
 /**
- * WebPubSubToken Function
+ * WebPubSubToken Azure Function
  *
- * HTTP GET /api/WebPubSubToken
+ * Issues an Azure Web PubSub client access token, scoped to the authenticated
+ * employee’s group, allowing them to join and receive messages.
  *
- * Issues an Azure Web PubSub access token to the authenticated employee.
+ * @remarks
+ * - **Endpoint**: GET /api/WebPubSubToken  
+ * - **Auth**: Azure AD JWT in Authorization header  
+ * - **Role**: only users with `Employee` role can access  
+ * - **Email lookup**: email is read from the User record in the database,
+ *   using the Azure AD object ID (`oid`/`sub`) from the token
  *
- * Authentication:
- * - Expects a valid Azure AD Bearer token in the Authorization header.
- * - The user’s email is extracted from the token claims.
+ * **Flow**:
+ * 1. `withAuth` validates the JWT and populates `ctx.bindings.user` with claims.  
+ * 2. Extract `oid` or `sub` from the claims and look up the User in the database.  
+ * 3. Ensure the User exists, is not deleted, and has role `Employee`.  
+ * 4. Read and normalize `user.email` from the database record.  
+ * 5. Call `generateWebPubSubToken(email)` to get a scoped token.  
+ * 6. Return `{ token, endpoint, hubName }` JSON.
  *
- * Success Response (200 OK):
- * {
- *   token: string,
- *   endpoint: string
- * }
- *
- * Error Responses:
- * 401 Unauthorized – missing/invalid token
+ * @param ctx - Azure Function execution context (bindings, logger, etc.)
+ * @returns 200 OK with JSON `{ token: string; endpoint: string; hubName: string }`
+ * @throws 401 Unauthorized if:
+ *   - JWT is missing or invalid
+ *   - User not found or deleted
+ *   - User does not have Employee role
  */
 export default withErrorHandler(async (ctx: Context) => {
-  const req: HttpRequest = ctx.req!;
-
-  // 1) Authenticate via Azure AD; populates ctx.bindings.user
   await withAuth(ctx, async () => {
-    const claims = (ctx as any).bindings.user as JwtPayload;
-    // Extract email claim (could be 'upn' or 'email')
-    const email = (claims.upn ?? claims.email) as string | undefined;
-
-    if (!email) {
-      // If no email claim present, reject
-      unauthorized(ctx, "Email claim not found in token");
+    const claims = ctx.bindings.user as JwtPayload;
+    const azureAdId = (claims.oid ?? claims.sub) as string | undefined;
+    if (!azureAdId) {
+      unauthorized(ctx, "Cannot determine user identity");
       return;
     }
 
-    // 2) Generate Web PubSub token for this employee
-    const token = generateWebPubSubToken(email);
+    // Look up the user by Azure AD object ID
+    const user = await prisma.user.findUnique({
+      where: { azureAdObjectId: azureAdId }
+    });
+    if (!user || user.deletedAt) {
+      unauthorized(ctx, "User not found or deleted");
+      return;
+    }
 
-    // 3) Return the token and endpoint for the client
+    // Enforce Employee role
+    if (user.role !== "Employee") {
+      unauthorized(ctx, "Only employees may access this endpoint");
+      return;
+    }
+
+    // Use the canonical email from the database
+    const email = user.email.trim().toLowerCase();
+
+    // Generate a Web PubSub token scoped to this user’s group
+    const token = await generateWebPubSubToken(email);
+
+    // Return token, endpoint, and hub name for client to connect
     ok(ctx, {
       token,
-      endpoint: config.webPubSubEndpoint
+      endpoint: config.webPubSubEndpoint,
+      hubName: config.webPubSubHubName
     });
   });
 });

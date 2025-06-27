@@ -1,7 +1,8 @@
 // 1. Datasource & Generator
+
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL") // ej. "postgresql://USER:PASSWORD@HOST:PORT/DATABASE?schema=livekit&sslmode=disable"
+  url      = env("DATABASE_URL")
 }
 
 generator client {
@@ -10,67 +11,47 @@ generator client {
 
 // 2. Enumerations
 
-/// Distinguishes between super administrators, administrators, and employees.
-/// Ahora, suponemos que solo los usuarios con rol Supervisor pueden tener empleados asignados.
 enum UserRole {
-  Supervisor  // Highest privileges: puede gestionar empleados y otros settings.
-  Admin       // Rol intermedio, si aún lo necesitas (puede tener lógica distinta).
-  Employee    // Usuario final, asignado a un supervisor.
+  Supervisor  // users with highest privileges
+  Admin       // managers or intermediate-level admins
+  Employee    // standard users who stream video
 }
 
-/// A user’s presence status.
 enum Status {
-  online
-  offline
+  online      // user is connected and ready
+  offline     // user is not connected
+}
+
+enum CommandType {
+  START       // begin streaming session
+  STOP        // end streaming session
 }
 
 // 3. Models
 
-/// Representa un usuario autenticado en Azure AD.
 model User {
-  /// Primary key: UUID generado por Prisma o en la base.
-  /// Puedes usar @default(uuid()) para generar en el cliente, o dbgenerated("gen_random_uuid()") si tienes pgcrypto.
   id              String            @id @default(uuid()) @db.Uuid
-
-  /// Identificador único en Azure AD.
   azureAdObjectId String            @unique
-
-  /// Correo único.
   email           String            @unique
-
-  /// Nombre completo.
   fullName        String
-
-  /// Rol: Supervisor, Admin o Employee.
   role            UserRole
-
-  /// Timestamp cuando cambió el rol.
-  roleChangedAt   DateTime?
-
-  /// (Opcional) Referencia al supervisor de este usuario (si es Employee).
+  roleChangedAt   DateTime?         // timestamp when the role was last updated
   supervisorId    String?           @db.Uuid
-
-  /// Timestamp cuando se asignó a este supervisor.
   assignedAt      DateTime?
 
-  /// Relación: el supervisor (User con rol Supervisor) de este empleado.
   supervisor      User?             @relation("SupervisorToEmployees", fields: [supervisorId], references: [id], onDelete: Cascade)
-
-  /// Relación inversa: lista de empleados asignados a este supervisor.
   employees       User[]            @relation("SupervisorToEmployees")
-
-  /// Relaciones de presencia
   presence        Presence?
   presenceHistory PresenceHistory[]
+  commands        PendingCommand[]  @relation("EmployeeCommands")
 
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
   deletedAt       DateTime?
 
-  @@index([supervisorId]) // acelera consultas por supervisorId
+  @@index([supervisorId])
 }
 
-/// Sigue igual: estado actual online/offline
 model Presence {
   userId     String   @id @db.Uuid
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -81,11 +62,10 @@ model Presence {
   @@index([status])
 }
 
-/// Historial de conexiones WebSocket
 model PresenceHistory {
   id             String   @id @default(uuid()) @db.Uuid
-  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId         String   @db.Uuid
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   connectedAt    DateTime @default(now())
   disconnectedAt DateTime?
   updatedAt      DateTime @updatedAt
@@ -94,13 +74,21 @@ model PresenceHistory {
   @@index([connectedAt])
 }
 
-/// Comandos pendientes para un empleado. Considera usar una referencia a User en lugar de email si prefieres integridad referencial.
 model PendingCommand {
-  id            String   @id @default(uuid()) @db.Uuid
-  employeeEmail String   // si deseas fuerte integridad, podrías cambiar a employeeId String? y relación a User
-  command       String   // "START" | "STOP"
-  timestamp     DateTime
-  delivered     Boolean  @default(false)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id              String      @id @default(uuid()) @db.Uuid
+  employeeId      String      @db.Uuid
+  employee        User        @relation("EmployeeCommands", fields: [employeeId], references: [id], onDelete: Cascade)
+  command         CommandType
+  timestamp       DateTime
+  published       Boolean     @default(false)
+  publishedAt     DateTime?   
+  acknowledged    Boolean     @default(false)
+  acknowledgedAt  DateTime?   
+  attemptCount    Int         @default(0)
+  expiresAt       DateTime?   
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@index([employeeId, acknowledged])
+  @@index([expiresAt])
 }

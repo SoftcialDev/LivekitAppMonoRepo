@@ -13,6 +13,12 @@ variable "location" {
   type        = string
 }
 
+variable "commands_subscription_name" {
+  description = "Name of the Service Bus subscription for commands topic"
+  type        = string
+  default     = "commands-sub"
+}
+
 variable "function_plan_sku_tier" {
   description = "App Service Plan SKU tier for Functions. For Consumption use 'Dynamic'; for Elastic Premium use 'ElasticPremium'; for dedicated use 'PremiumV2', etc."
   type        = string

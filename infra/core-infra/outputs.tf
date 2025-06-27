@@ -116,6 +116,13 @@ output "postgres_server_id" {
   value       = module.postgres.postgres_server_id
 }
 
+# Resource ID of the PostgreSQL Flexible Server
+output "postgres_database_url" {
+  description = "Resource ID of the PostgreSQL Flexible Server from the database module"
+  value       = module.postgres.database_url
+  sensitive = true
+}
+
 ########################################
 # Function App Module Outputs in Root
 ########################################
@@ -180,6 +187,11 @@ output "servicebus_connection_string" {
   sensitive = true
 }
 
+output "servicebus_commands_subscription_name" {
+  description = "Name of the Service Bus subscription for commands topic from the service-bus module"
+  value       = module.service_bus.commands_subscription_name
+}
+
 ########################################
 # Network Module Outputs
 ########################################
@@ -194,9 +206,8 @@ output "subnet_id" {
   value       = module.network.subnet_id
 }
 
-
 ########################################
-# Web PubSub Module Outputs
+# Web PubSub Module Outputs (root module)
 ########################################
 
 output "web_pubsub_host" {
@@ -205,15 +216,25 @@ output "web_pubsub_host" {
 }
 
 output "web_pubsub_primary_connection_string" {
-  description = "Primary connection string for server to send messages from the web_pubsub module"
+  description = "Primary connection string for server-to-service messages from the web_pubsub module"
   value       = module.web_pubsub.primary_connection_string
-  sensitive = true
+  sensitive   = true
 }
 
 output "web_pubsub_primary_key" {
   description = "Primary access key for client token generation from the web_pubsub module"
   value       = module.web_pubsub.primary_key
-  sensitive = true
+  sensitive   = true
+}
+
+output "web_pubsub_hub_name" {
+  description = "Name of the default Web PubSub hub from the web_pubsub module"
+  value       = module.web_pubsub.webpubsub_hub_name
+}
+
+output "web_pubsub_hub_id" {
+  description = "Resource ID of the default Web PubSub hub from the web_pubsub module"
+  value       = module.web_pubsub.webpubsub_hub_id
 }
 
 

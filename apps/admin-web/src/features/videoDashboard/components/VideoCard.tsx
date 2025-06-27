@@ -1,4 +1,3 @@
-// ui/src/features/auth/components/VideoCard.tsx
 import React, { useRef, useEffect } from 'react'
 import UserIndicator from '../../../components/UserIndicator'
 import {
@@ -9,6 +8,7 @@ import {
   RemoteVideoTrack,
 } from 'livekit-client'
 import type { VideoCardProps } from '../types/VideoCardProps'
+
 
 const VideoCard: React.FC<VideoCardProps & { livekitUrl?: string }> = ({
   name,

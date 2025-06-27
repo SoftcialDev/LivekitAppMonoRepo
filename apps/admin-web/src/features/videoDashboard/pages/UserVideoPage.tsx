@@ -47,7 +47,7 @@ const UserVideoPage: React.FC = () => {
 
   // Find this user in the live-online list
   const matched = onlineUsers.find(u => u.name === displayName);
-  const user: UserStatus = matched ?? { name: displayName, email: '' };
+  const user: UserStatus = matched ?? { name: displayName, email: '', status: 'offline', fullName: displayName };
   const isOnline = Boolean(matched);
 
   // Set page header

@@ -19,13 +19,18 @@ const wpsClient = new WebPubSubServiceClient(
  * @throws Errors from the Web PubSub SDK are propagated.
  */
 export async function generateWebPubSubToken(groupName: string): Promise<string> {
+  // Normalize input to avoid casing or whitespace inconsistencies
+  const normalized = groupName.trim().toLowerCase();
+
   const tokenResponse = await wpsClient.getClientAccessToken({
     roles: ["webpubsub.joinLeaveGroup", "webpubsub.receive"],
-    userId: groupName,
-    groups: [groupName],
+    userId: normalized,
+    groups: [normalized],
   });
+
   return tokenResponse.token;
 }
+
 
 /**
  * Broadcasts a JSON-serializable payload to all connections in the given group.

@@ -1,16 +1,12 @@
 ﻿{
   "bindings": [
     {
-      "authLevel": "anonymous",
-      "type": "httpTrigger",
+      "type": "serviceBusTrigger",
+      "name": "message",
       "direction": "in",
-      "name": "req",
-      "methods": ["get", "post"]
-    },
-    {
-      "type": "http",
-      "direction": "out",
-      "name": "res"
+      "topicName": "commands",                
+      "subscriptionName": "commands-sub", 
+      "connection": "SERVICE_BUS_CONNECTION"  
     }
   ],
   "scriptFile": "index.js"

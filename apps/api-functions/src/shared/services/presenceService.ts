@@ -4,8 +4,8 @@ import prisma from "./prismaClienService";
  * Marks a user as online.
  *
  * Looks up the user by Azure AD object ID or email, upserts the presence record
- * with status "online" and current timestamp, and creates a new presence history entry
- * with connectedAt set to now and disconnectedAt null.
+ * with status "online" and the current timestamp, and creates a new presence history entry
+ * with `connectedAt` set to now and `disconnectedAt` as null.
  *
  * @param userIdOrEmail - Azure AD object ID or email of the user.
  * @returns A promise that resolves when the presence update and history entry are created.
@@ -25,6 +25,8 @@ export async function setUserOnline(userIdOrEmail: string): Promise<void> {
     throw new Error("User not found for presence update");
   }
   const now = new Date();
+
+  // Upsert presence record with status "online"
   await prisma.presence.upsert({
     where: { userId: user.id },
     create: {
@@ -37,6 +39,8 @@ export async function setUserOnline(userIdOrEmail: string): Promise<void> {
       lastSeenAt: now
     }
   });
+
+  // Create a presence history entry for when the user connects
   await prisma.presenceHistory.create({
     data: {
       user: { connect: { id: user.id } },
@@ -50,8 +54,8 @@ export async function setUserOnline(userIdOrEmail: string): Promise<void> {
  * Marks a user as offline.
  *
  * Looks up the user by Azure AD object ID or email, upserts the presence record
- * with status "offline" and current timestamp, and closes the latest open
- * presence history entry by setting disconnectedAt to now if one exists.
+ * with status "offline" and the current timestamp, and closes the latest open
+ * presence history entry by setting `disconnectedAt` to now if one exists.
  *
  * @param userIdOrEmail - Azure AD object ID or email of the user.
  * @returns A promise that resolves when the presence update and history closure are done.
@@ -67,10 +71,13 @@ export async function setUserOffline(userIdOrEmail: string): Promise<void> {
       deletedAt: null
     }
   });
+
   if (!user) {
     throw new Error("User not found for presence update");
   }
   const now = new Date();
+
+  // Upsert presence record with status "offline"
   await prisma.presence.upsert({
     where: { userId: user.id },
     create: {
@@ -83,6 +90,8 @@ export async function setUserOffline(userIdOrEmail: string): Promise<void> {
       lastSeenAt: now
     }
   });
+
+  // Find the most recent open presence history (where `disconnectedAt` is null)
   const openHistory = await prisma.presenceHistory.findFirst({
     where: {
       userId: user.id,
@@ -90,7 +99,9 @@ export async function setUserOffline(userIdOrEmail: string): Promise<void> {
     },
     orderBy: { connectedAt: "desc" }
   });
+
   if (openHistory) {
+    // Close the latest open presence history by setting `disconnectedAt` to now
     await prisma.presenceHistory.update({
       where: { id: openHistory.id },
       data: { disconnectedAt: now }
@@ -105,10 +116,11 @@ export async function setUserOffline(userIdOrEmail: string): Promise<void> {
  * based on the presence record. Returns "offline" if no presence record exists.
  *
  * @param userIdOrEmail - Azure AD object ID or email of the user.
- * @returns A promise that resolves to "online" or "offline".
+ * @returns A promise that resolves to "online" or "offline" based on the most recent presence record.
  * @throws Error if no matching user is found.
  */
 export async function getPresenceStatus(userIdOrEmail: string): Promise<"online" | "offline"> {
+  console.log("getPresenceStatus called for:", userIdOrEmail);
   const user = await prisma.user.findFirst({
     where: {
       OR: [
@@ -121,8 +133,13 @@ export async function getPresenceStatus(userIdOrEmail: string): Promise<"online"
   if (!user) {
     throw new Error("User not found for presence query");
   }
-  const presence = await prisma.presence.findUnique({
-    where: { userId: user.id }
+
+  // Get the most recent presence record
+  const latestPresence = await prisma.presence.findFirst({
+    where: { userId: user.id },
+    orderBy: { lastSeenAt: "desc" }, // Order by the most recent entry
   });
-  return presence?.status ?? "offline";
+
+  // Return the status, or default to "offline" if no record exists
+  return latestPresence?.status ?? "offline";
 }

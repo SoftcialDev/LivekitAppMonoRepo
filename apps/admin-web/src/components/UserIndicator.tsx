@@ -1,5 +1,3 @@
-// src/components/UserIndicator.tsx
-
 import React from 'react';
 import { Link } from 'react-router-dom';
 import type { UserStatus } from '../features/navigation/types/types';

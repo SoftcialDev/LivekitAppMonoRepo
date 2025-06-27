@@ -179,6 +179,7 @@ module "function_app" {
   SERVICE_PRINCIPAL_OBJECT_ID = module.aad_spa.SERVICE_PRINCIPAL_OBJECT_ID
   webpubsub_hub_name          = module.web_pubsub.webpubsub_hub_name
   service_bus_topic_name      = var.servicebus_topic_name
+  commands_subscription_name   = module.service_bus.commands_subscription_name
 
   # CORS settings for the Static Web App and local development
   cors_allowed_origins        = [
