@@ -1,4 +1,3 @@
-# .github/workflows/build-electron.yml
 name: Build Electron App
 
 on:
@@ -25,7 +24,7 @@ jobs:
         run: npm ci
 
       - name: Build Electron
-        # ajusta la ruta/script si tu build está en otro lugar
+
         run: .\scripts\build-electron.ps1
         shell: pwsh
 

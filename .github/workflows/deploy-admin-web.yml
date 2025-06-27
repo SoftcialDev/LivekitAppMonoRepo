@@ -1,5 +1,3 @@
-# .github/workflows/deploy-admin-web.yml
-# Name of the workflow
 name: Deploy Admin-Web to Azure Static Web Apps
 
 # Trigger on push to main when files under apps/admin-web change,

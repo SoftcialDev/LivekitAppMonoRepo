@@ -14,7 +14,7 @@ import ForbiddenPage      from './pages/ForbiddenPage';
 import DashboardPage      from './pages/Dashboard';
 
 import { setTokenGetter } from './services/apiClient';
-import { useAuth }        from './features/auth/hooks/useAuth';
+import { useAuth }        from './hooks/useAuth';
 
 /**
  * Inyecta el token Bearer en cada petición axios
