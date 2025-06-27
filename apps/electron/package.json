@@ -1,0 +1,59 @@
+{
+  "name": "livekitwrapper",
+  "version": "1.0.0",
+  "main": "main.js",
+  "author": "Softcial",
+  "scripts": {
+    "start": "concurrently \"npm:ui:dev\" \"wait-on http://localhost:5173 && electron .\"",
+    "ui:dev": "cd ui && npm run dev",
+    "ui:build": "cd ui && npm run build",
+    "start:prod": "npm run ui:build &&  cross-env NODE_ENV=production electron .",
+    "build": "npm run ui:build && electron-builder",
+    "dist:exe": "npm run ui:build && electron-builder --win nsis",
+    "dist:msi": "npm run ui:build && electron-builder --win msi",
+    "dist:win": "npm run ui:build && electron-builder --win nsis,msi"
+  },
+  "overrides": {
+    "minimatch": "3.1.2"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.0",
+    "cross-env": "^7.0.3",
+    "electron": "^28.1.3",
+    "electron-builder": "^26.0.12",
+    "wait-on": "^8.0.3"
+  },
+  "dependencies": {
+    "electron-store": "^10.1.0",
+    "express": "^4.19.2",
+    "livekit-client": "^2.13.8",
+    "react-router-dom": "^7.6.2"
+  },
+  "build": {
+    "appId": "com.example.livekitwrapper",
+    "productName": "LiveKitWrapper",
+    "icon": "icon",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "ui/dist/**/*"
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "msi"
+      ],
+      "protocols": [
+        {
+          "name": "MyApp Protocol",
+          "schemes": [
+            "myapp"
+          ]
+        }
+      ]
+    }
+  }
+}
