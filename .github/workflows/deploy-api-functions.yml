@@ -32,16 +32,13 @@ jobs:
           npm ci
           npx prisma generate
 
-      - name: Push Prisma schema and create tables
+      - name: Apply database migrations
         working-directory: apps/api-functions
         env:
-          DATABASE_URL: >-
-            postgresql://livekitadmin:${{ secrets.POSTGRES_ADMIN_PASSWORD }}
-            @livekit-agent-azure-postgres-server-flexible.postgres.database.azure.com:5432
-            /livekit-agent-azure-db?schema=public&sslmode=require
+          DATABASE_URL: "postgresql://livekitadmin:${{ secrets.POSTGRES_ADMIN_PASSWORD }}@livekit-agent-azure-postgres-server-flexible.postgres.database.azure.com:5432/livekit-agent-azure-db?schema=public&sslmode=require"
         run: |
-          echo "✨ Pushing Prisma schema to livekit-agent-azure-db…"
-          npx prisma db push --accept-data-loss
+          echo "✨ Applying pending Prisma migrations…"
+          npx prisma migrate deploy
 
       - name: Build & prepare dist
         working-directory: apps/api-functions
