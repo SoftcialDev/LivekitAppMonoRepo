@@ -21,7 +21,7 @@ const schema = z.object({
 /**
  * PresenceUpdateFunction
  *
- * HTTP POST /api/PresenceUpdate
+ * HTTP POST /api/PresenceUpdate,
  *
  * Authenticates via Azure AD JWT.
  * Body must include `{ status: "online" | "offline" }`.
