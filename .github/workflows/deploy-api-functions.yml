@@ -53,4 +53,4 @@ jobs:
           app-name:        ${{ secrets.AZURE_FUNCTIONAPP_NAME }}
           publish-profile: ${{ secrets.AZURE_FUNCTIONAPP_PUBLISH_PROFILE }}
           package:         apps/api-functions/dist
-          enable-remote-build: true
+          remote-build:    true
