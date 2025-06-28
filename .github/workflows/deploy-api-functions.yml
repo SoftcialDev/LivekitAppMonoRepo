@@ -6,7 +6,7 @@ on:
       - main
     paths:
       - 'apps/admin-web/**'
-      - '.github/workflows/deploy-admin-web.yml'
+      - '.github/workflows/deploy-api-functions.yml'
 
 permissions:
   id-token: write
