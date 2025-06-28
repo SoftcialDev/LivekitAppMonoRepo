@@ -8,8 +8,7 @@ import prisma from "../shared/services/prismaClienService";
 import { JwtPayload } from "jsonwebtoken";
 
 /**
- * Request body for ChangeSupervisorFunction
- */
+ * Request body for ChangeSupervisorFunction. */
 const schema = z.object({
   /** List of employee emails to reassign */
   userEmails: z.array(z.string().email()).min(1),
@@ -22,7 +21,7 @@ const schema = z.object({
  *
  * HTTP POST /api/ChangeSupervisor
  *
- * Reassigns one or more employees from their current supervisor
+ * Reassigns one or more employees from their current supervisor a
  * to a new supervisor.
  *
  * Caller must authenticate via Azure AD JWT and have the "Admin" role.
