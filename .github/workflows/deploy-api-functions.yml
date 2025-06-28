@@ -26,11 +26,17 @@ jobs:
           node-version: '18.x'
           cache: npm
 
-      - name: Install dependencies & generate Prisma client
+      - name: Install dependencies
         working-directory: apps/api-functions
-        run: |
-          npm ci
-          npx prisma generate
+        run: npm ci
+
+      - name: Install Prisma CLI
+        working-directory: apps/api-functions
+        run: npm install prisma --no-save
+
+      - name: Generate Prisma client
+        working-directory: apps/api-functions
+        run: npx prisma generate
 
       - name: Apply database migrations
         working-directory: apps/api-functions
