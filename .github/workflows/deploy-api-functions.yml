@@ -36,7 +36,9 @@ jobs:
         working-directory: apps/api-functions
         env:
           DATABASE_URL: >-
-            postgresql://livekitadmin:${{ secrets.POSTGRES_ADMIN_PASSWORD }}@livekit-agent-azure-postgres-server-flexible.postgres.database.azure.com:5432/livekit-agent-azure-db?schema=public&sslmode=require
+            postgresql://livekitadmin:${{ secrets.POSTGRES_ADMIN_PASSWORD }}
+            @livekit-agent-azure-postgres-server-flexible.postgres.database.azure.com:5432
+            /livekit-agent-azure-db?schema=public&sslmode=require
         run: |
           echo "✨ Pushing Prisma schema to livekit-agent-azure-db…"
           npx prisma db push --accept-data-loss
@@ -47,19 +49,10 @@ jobs:
           npm run build
           npm run prepare-dist:prod
 
-      - name: Ensure Prisma client is in dist
-        working-directory: apps/api-functions
-        run: |
-          if [ ! -d "dist/node_modules/.prisma/client" ]; then
-            echo "⚠️ Prisma client missing in dist, copying from root node_modules…"
-            mkdir -p dist/node_modules/.prisma
-            cp -R node_modules/.prisma/client dist/node_modules/.prisma/
-          fi
-          echo "✅ Prisma client is now in dist."
-
       - name: Deploy API Functions to Azure
         uses: Azure/functions-action@v1
         with:
           app-name:        ${{ secrets.AZURE_FUNCTIONAPP_NAME }}
           publish-profile: ${{ secrets.AZURE_FUNCTIONAPP_PUBLISH_PROFILE }}
           package:         apps/api-functions/dist
+          enable-remote-build: false
