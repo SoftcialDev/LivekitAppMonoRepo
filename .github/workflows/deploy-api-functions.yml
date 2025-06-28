@@ -26,18 +26,22 @@ jobs:
           node-version: '18.x'
           cache: npm
 
-      - name: Install dependencies & generate Prisma client
+      - name: Install dependencies
+        working-directory: apps/api-functions
+        run: npm ci
+
+      - name: Ensure Prisma deps
         working-directory: apps/api-functions
         run: |
-          npm ci
-          npx prisma generate
+          npm install @prisma/client --save --ignore-scripts --no-audit \
+            && npm install prisma --save-dev --ignore-scripts --no-audit
 
       - name: Apply database migrations
         working-directory: apps/api-functions
         env:
           DATABASE_URL: "postgresql://livekitadmin:${{ secrets.POSTGRES_ADMIN_PASSWORD }}@livekit-agent-azure-postgres-server-flexible.postgres.database.azure.com:5432/livekit-agent-azure-db?schema=public&sslmode=require"
         run: |
-          echo "✨ Applying pending Prisma migrations…"
+          echo "✨ Applying Prisma migrations…"
           npx prisma migrate deploy
 
       - name: Build & prepare dist
