@@ -16,37 +16,36 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # 1) Código
       - uses: actions/checkout@v4
 
+      # 2) Node + caché npm
       - uses: actions/setup-node@v4
         with:
           node-version: '18.x'
           cache: npm
 
-      - name: Install deps & generate Prisma client
+      # 3) Instalar dependencias (no generamos cliente aquí)
+      - name: Install dependencies
         working-directory: apps/api-functions
-        run: |
-          npm ci
-          npx prisma generate
+        run: npm ci
 
-      - name: Apply database migrations
+
+      # 5) Compilar, copiar artefactos y generar Prisma Client (ya con binary-targets correctos)
+      - name: Build & prepare dist
         working-directory: apps/api-functions
         env:
           DATABASE_URL: >-
             postgresql://livekitadmin:${{ secrets.POSTGRES_ADMIN_PASSWORD }}@livekit-agent-azure-postgres-server-flexible.postgres.database.azure.com:5432/livekit-agent-azure-db?schema=public&sslmode=require
-        run: npx prisma migrate deploy
-
-      - name: Build & prepare dist
-        working-directory: apps/api-functions
         run: |
           npm run build
-          npm run prepare-dist
+          npm run prepare-dist     # copia node_modules, Prisma runtime, schema, etc.
           npm run prisma:deploy
 
+      # 6) Despliegue a Azure Functions
       - name: Deploy API Functions to Azure
         uses: Azure/functions-action@v1
         with:
           app-name:        ${{ secrets.AZURE_FUNCTIONAPP_NAME }}
           publish-profile: ${{ secrets.AZURE_FUNCTIONAPP_PUBLISH_PROFILE }}
           package:         apps/api-functions/dist
-      
