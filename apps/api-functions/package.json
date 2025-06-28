@@ -8,9 +8,8 @@
   "build": "npm run clean && tsc",
 
   "prepare-dist:dev": "cpx \"src/*/function.json\" dist && cpx \"host.json\" dist && cpx \"local.settings.json\" dist",
-  "prepare-dist:prod": "cpx \"src/*/function.json\" dist && cpx \"host.json\" dist",
-
-  "prepare-dist": "npm run prepare-dist:prod && cpx \"../../node_modules/**/*\" dist/node_modules",
+  "prepare-dist:prod": "cpx \"src/*/function.json\" dist && cpx \"host.json\" dist && cpx \"package.json\" dist && cpx \"prisma/schema.prisma\" dist/prisma/schema.prisma",
+  "prepare-dist": "npm run prepare-dist:prod",
 
   "dev": "npm run build && npm run prepare-dist:dev && func start --script-root dist --verbose",
   "prisma:generate": "prisma generate",
