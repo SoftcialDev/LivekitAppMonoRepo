@@ -108,7 +108,7 @@ output "spa_app_client_id" {
 # Object ID of the Service Principal for the API, for Graph API operations.
 output "SERVICE_PRINCIPAL_OBJECT_ID" {
   description = "Object ID of the Service Principal used in Graph API operations"
-  value       = azuread_application.spa_app.object_id
+  value       = azuread_application.spa_app.client_id
 }
 
 # The primary identifier URI of the registered API application (used as the JWT audience).

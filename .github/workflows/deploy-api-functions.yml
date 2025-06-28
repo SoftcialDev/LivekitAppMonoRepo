@@ -26,21 +26,11 @@ jobs:
           node-version: '18.x'
           cache: 'npm'
 
-      - name: Install dependencies
-        working-directory: apps/api-functions
-        run: npm ci
-
-      - name: Generate Prisma client
-        working-directory: apps/api-functions
-        run: npm run prisma:generate
-
-      - name: Verify Prisma client was generated
+      - name: Install dependencies & generate Prisma client
         working-directory: apps/api-functions
         run: |
-          if [ ! -d "node_modules/.prisma/client" ]; then
-            echo "❌ Prisma client not found!"; exit 1;
-          fi
-          echo "✅ Prisma client is present."
+          npm ci
+          npx prisma generate
 
       - name: Push Prisma schema and create tables
         working-directory: apps/api-functions
@@ -53,7 +43,9 @@ jobs:
 
       - name: Build & prepare dist
         working-directory: apps/api-functions
-        run: npm run build && npm run prepare-dist:prod
+        run: |
+          npm run build
+          npm run prepare-dist:prod
 
       - name: Deploy API Functions to Azure
         uses: Azure/functions-action@v1

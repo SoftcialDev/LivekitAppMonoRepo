@@ -1,6 +1,10 @@
 data "azuread_client_config" "current" {}
 
 
+data "azuread_service_principal" "api_sp" {
+  client_id  = var.SERVICE_PRINCIPAL_OBJECT_ID
+}
+
 
 resource "azurerm_app_service_plan" "function_plan" {
   name                = "${var.name_prefix}-func-plan"
@@ -69,7 +73,7 @@ resource "azurerm_function_app" "function_app" {
     SERVICE_BUS_CONNECTION = "@Microsoft.KeyVault(SecretUri=${var.secret_uris["service_bus_connection"]})"
     WEBPUBSUB_KEY          = "@Microsoft.KeyVault(SecretUri=${var.secret_uris["webpubsub_key"]})"
     DATABASE_URL           = "@Microsoft.KeyVault(SecretUri=${var.secret_uris["postgres_connection"]})"
-    AZURE_AD_API_IDENTIFIER_URI = var.AZURE_AD_API_IDENTIFIER_URI
+    AZURE_AD_API_IDENTIFIER_URI = data.azuread_service_principal.api_sp.object_id
     SERVICE_PRINCIPAL_OBJECT_ID = var.SERVICE_PRINCIPAL_OBJECT_ID
     COMMANDS_SUBSCRIPTION_NAME  = var.commands_subscription_name
   }

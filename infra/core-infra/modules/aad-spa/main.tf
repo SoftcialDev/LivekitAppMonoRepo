@@ -128,6 +128,13 @@ resource "azuread_application" "spa_app" {
     redirect_uris = var.aad_redirect_uris
   }
 
+    public_client {
+    redirect_uris = [
+      "com.mycompany.myapp://auth",            # esquema personalizado
+      "msauth://com.mycompany.myapp/XYZabc123" # esquema MSAL/Android
+    ]
+  }
+
   # Define three custom App Roles for Admin, Supervisor, and Employee
   app_role {
     id                   = random_uuid.app_role_admin.result
