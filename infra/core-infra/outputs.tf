@@ -211,8 +211,8 @@ output "subnet_id" {
 ########################################
 
 output "web_pubsub_host" {
-  description = "Web PubSub endpoint host (without wss://) from the web_pubsub module"
-  value       = module.web_pubsub.host
+  description = "Web PubSub endpoint URL (with https://) from the web_pubsub module"
+  value       = "https://${module.web_pubsub.host}"
 }
 
 output "web_pubsub_primary_connection_string" {

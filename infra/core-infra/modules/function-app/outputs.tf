@@ -20,3 +20,8 @@ output "function_app_url" {
   description = "URL base de la Function App para invocar la API"
   value       = "https://${azurerm_function_app.function_app.default_hostname}/api"
 }
+
+output "real_principal_id" {
+  description = "Real principal ID of the Function App's Managed Identity"
+  value       = azuread_service_principal.api_sp.object_id
+}
