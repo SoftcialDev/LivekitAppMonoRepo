@@ -44,14 +44,13 @@ jobs:
       - name: Build & prepare dist
         working-directory: apps/api-functions
         run: |
-          npm run clean
           npm run build
-          npm run prepare-dist:prod
+          npm run prepare-dist
 
       - name: Deploy API Functions to Azure
         uses: Azure/functions-action@v1
         with:
-          app-name:    ${{ secrets.AZURE_FUNCTIONAPP_NAME }}
+          app-name:        ${{ secrets.AZURE_FUNCTIONAPP_NAME }}
           publish-profile: ${{ secrets.AZURE_FUNCTIONAPP_PUBLISH_PROFILE }}
-          package:     apps/api-functions/dist
-          remote-build: true
+          package:         apps/api-functions/dist
+          remote-build:    true
