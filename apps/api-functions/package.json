@@ -2,17 +2,20 @@
   "name": "api-function",
   "version": "1.0.0",
   "main": "index.js",
-  "scripts": {
-    "clean":         "rimraf dist",
-    "build":          "npm run clean && tsc",
-    "prepare-dist":   "cpx \"src/*/function.json\" dist && cpx \"host.json\" dist && cpx \"local.settings.json\" dist && cpx \"../../node_modules/**/*\" dist/node_modules",
-    "prepare-dist:dev":   "cpx \"src/*/function.json\" dist && cpx \"host.json\" dist && cpx \"local.settings.json\" dist",
-   "prepare-dist:prod": "rimraf dist && cpx \"src/*/function.json\" dist && cpx \"host.json\" dist && cpx \"package.json\" dist",
-     "dev":            "npm run build && npm run prepare-dist:dev && func start --script-root dist --verbose",
-    "prisma:generate": "prisma generate",
-    "prisma:migrate:dev": "prisma migrate dev --name init",
-    "prisma:deploy": "prisma migrate deploy && prisma generate"
-  },
+"scripts": {
+  "clean": "rimraf dist",
+
+  "build": "npm run clean && tsc",
+
+  "prepare-dist:dev": "cpx \"src/*/function.json\" dist && cpx \"host.json\" dist && cpx \"local.settings.json\" dist",
+
+  "prepare-dist": "npm run prepare-dist:dev && cpx \"../../node_modules/**/*\" dist/node_modules",
+
+  "dev": "npm run build && npm run prepare-dist:dev && func start --script-root dist --verbose",
+  "prisma:generate": "prisma generate",
+  "prisma:migrate:dev": "prisma migrate dev --name init",
+  "prisma:deploy": "prisma migrate deploy && prisma generate"
+},
   "dependencies": {
     "@azure/functions": "^3.0.0",
     "@azure/service-bus": "^7.0.0",
