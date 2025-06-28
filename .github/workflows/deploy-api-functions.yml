@@ -41,6 +41,7 @@ jobs:
         run: |
           npm run build
           npm run prepare-dist
+          npm run prisma:deploy
 
       - name: Deploy API Functions to Azure
         uses: Azure/functions-action@v1
