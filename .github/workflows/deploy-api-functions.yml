@@ -24,7 +24,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '18.x'
-          cache: 'npm'
+          cache: npm
 
       - name: Install dependencies & generate Prisma client
         working-directory: apps/api-functions
@@ -46,6 +46,16 @@ jobs:
         run: |
           npm run build
           npm run prepare-dist:prod
+
+      - name: Ensure Prisma client is in dist
+        working-directory: apps/api-functions
+        run: |
+          if [ ! -d "dist/node_modules/.prisma/client" ]; then
+            echo "⚠️ Prisma client missing in dist, copying from root node_modules…"
+            mkdir -p dist/node_modules/.prisma
+            cp -R node_modules/.prisma/client dist/node_modules/.prisma/
+          fi
+          echo "✅ Prisma client is now in dist."
 
       - name: Deploy API Functions to Azure
         uses: Azure/functions-action@v1
