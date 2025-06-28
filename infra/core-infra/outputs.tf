@@ -78,6 +78,7 @@ output SERVICE_PRINCIPAL_OBJECT_ID {
   value       = module.aad_spa.SERVICE_PRINCIPAL_OBJECT_ID
 }
 
+
 output AZURE_AD_API_IDENTIFIER_URI {
   description = "Identifier URI for the API App"
   value       = module.aad_spa.AZURE_AD_API_IDENTIFIER_URI

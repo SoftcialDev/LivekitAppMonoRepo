@@ -34,6 +34,25 @@ output "spa_app_role_ids" {
   value       = azuread_application.spa_app.app_role_ids
 }
 
+# Admin role ID
+output "spa_app_role_admin_id" {
+  description = "UUID for the SPA App Role: Admin"
+  value       = azuread_application.spa_app.app_role_ids["Admin"]
+}
+
+# Supervisor role ID
+output "spa_app_role_supervisor_id" {
+  description = "UUID for the SPA App Role: Supervisor"
+  value       = azuread_application.spa_app.app_role_ids["Supervisor"]
+}
+
+# Employee role ID
+output "spa_app_role_employee_id" {
+  description = "UUID for the SPA App Role: Employee"
+  value       = azuread_application.spa_app.app_role_ids["Employee"]
+}
+
+
 # Constructs and outputs the full URI for the API scope (used as the audience in JWT tokens).
 output "api_scope_uri" {
   value = "api://${data.azuread_client_config.current.tenant_id}/${var.aad_app_name}-API/access_as_user"
@@ -89,7 +108,7 @@ output "spa_app_client_id" {
 # Object ID of the Service Principal for the API, for Graph API operations.
 output "SERVICE_PRINCIPAL_OBJECT_ID" {
   description = "Object ID of the Service Principal used in Graph API operations"
-  value       = azuread_service_principal.api_sp.object_id
+  value       = azuread_application.spa_app.object_id
 }
 
 # The primary identifier URI of the registered API application (used as the JWT audience).

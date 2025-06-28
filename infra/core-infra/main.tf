@@ -168,9 +168,9 @@ module "function_app" {
   secret_uris                 = module.keyvault.secret_uris
 
   # Assign Azure AD group IDs for role-based access
-  admins_group_id             = module.aad_spa.admins_group_id
-  employees_group_id          = module.aad_spa.employees_group_id
-  supervisors_group_id        = module.aad_spa.supervisors_groups_id
+  admins_group_id             = module.aad_spa.spa_app_role_admin_id
+  employees_group_id          = module.aad_spa.spa_app_role_employee_id
+  supervisors_group_id        = module.aad_spa.spa_app_role_supervisor_id
 
   # External service endpoints and configuration
   livekit_api_url             = var.livekit_url
@@ -194,7 +194,8 @@ module "function_app" {
   node_env                    = var.node_env
 
   # Ensure Key Vault exists before deploying the Function App
-  depends_on = [ module.keyvault ]
+  depends_on = [ module.keyvault,
+  module.aad_spa ]
 }
 
 # 11. PostgreSQL database module

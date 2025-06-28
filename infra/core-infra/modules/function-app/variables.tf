@@ -19,11 +19,6 @@ variable "commands_subscription_name" {
   default     = "commands-sub"
 }
 
-variable aad_app_client_id {
-  description = "Client ID of the Azure AD App Registration used for Function App authentication"
-  type        = string
-}
-
 variable "function_plan_sku_tier" {
   description = "App Service Plan SKU tier for Functions. For Consumption use 'Dynamic'; for Elastic Premium use 'ElasticPremium'; for dedicated use 'PremiumV2', etc."
   type        = string

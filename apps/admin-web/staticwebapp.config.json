@@ -1,8 +1,9 @@
 {
-  "routes": [
-    {
-      "route": "/*",
-      "rewrite": "/index.html"
-    }
-  ]
+  "navigationFallback": {
+    "rewrite": "/index.html",
+    "exclude": [
+      "/assets/*",
+      "/*.{js,css,png,jpg,jpeg,svg,ico,txt,json,woff,woff2}"
+    ]
+  }
 }
