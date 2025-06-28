@@ -1,20 +1,32 @@
-name: Deploy API Functions with Prisma Schema
+name: Deploy Admin-Web to Azure Static Web Apps
 
 on:
   push:
     branches:
       - main
     paths:
-      - 'apps/api-functions/**'
-      - '.github/workflows/deploy-api-functions.yml'
+      - 'apps/admin-web/**'
+      - '.github/workflows/deploy-admin-web.yml'
 
 permissions:
-  contents: read
   id-token: write
+  contents: read
 
 jobs:
-  deploy_api_functions:
+  deploy_admin_web:
     runs-on: ubuntu-latest
+
+    env:
+      VITE_AZURE_AD_CLIENT_ID:               ${{ secrets.VITE_AZURE_AD_CLIENT_ID }}
+      VITE_AZURE_AD_TENANT_ID:               ${{ secrets.VITE_AZURE_AD_TENANT_ID }}
+      VITE_AZURE_AD_REDIRECT_URI:            ${{ secrets.VITE_AZURE_AD_REDIRECT_URI }}
+      VITE_AZURE_AD_POST_LOGOUT_REDIRECT_URI: ${{ secrets.VITE_AZURE_AD_POST_LOGOUT_REDIRECT_URI }}
+      VITE_AZURE_AD_API_CLIENT_ID:           ${{ secrets.VITE_AZURE_AD_API_CLIENT_ID }}
+      VITE_AZURE_AD_API_SCOPE_URI:           ${{ secrets.VITE_AZURE_AD_API_SCOPE_URI }}
+      VITE_API_URL:                          ${{ secrets.VITE_API_URL }}
+      AZURE_CLIENT_ID:        ${{ secrets.VITE_AZURE_AD_CLIENT_ID }}
+      AZURE_TENANT_ID:        ${{ secrets.VITE_AZURE_AD_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID:  ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
     steps:
       - name: Checkout code
@@ -24,40 +36,28 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '18.x'
-          cache: 'npm'
+          cache: npm
 
-      - name: Install dependencies
-        working-directory: apps/api-functions
-        run: npm ci
-
-      - name: Generate Prisma client
-        working-directory: apps/api-functions
-        run: npm run prisma:generate
-
-      - name: Verify Prisma client was generated
-        working-directory: apps/api-functions
+      - name: Install dependencies & build
+        working-directory: apps/admin-web
         run: |
-          if [ ! -d "node_modules/.prisma/client" ]; then
-            echo "❌ Prisma client not found!"; exit 1;
+          npm ci
+          npm run build
+
+      - name: Validate staticwebapp.config.json
+        working-directory: apps/admin-web/dist
+        run: |
+          if [ ! -f staticwebapp.config.json ]; then
+            echo "❌ staticwebapp.config.json not found in dist/"; exit 1;
           fi
-          echo "✅ Prisma client is present."
+          echo "✅ staticwebapp.config.json is present."
 
-      - name: Push Prisma schema and create tables
-        working-directory: apps/api-functions
-        env:
-          DATABASE_URL: >-
-            postgresql://livekitadmin:${{ secrets.POSTGRES_ADMIN_PASSWORD }}@livekit-agent-azure-postgres-server-flexible.postgres.database.azure.com:5432/livekit-agent-azure-db?schema=public&sslmode=require
-        run: |
-          echo "✨ Pushing Prisma schema to livekit-agent-azure-db…"
-          npx prisma db push --accept-data-loss
-
-      - name: Build & prepare dist
-        working-directory: apps/api-functions
-        run: npm run build && npm run prepare-dist:prod
-
-      - name: Deploy API Functions to Azure
-        uses: Azure/functions-action@v1
+      - name: Deploy to Azure Static Web Apps
+        uses: Azure/static-web-apps-deploy@v1
         with:
-          app-name:        ${{ secrets.AZURE_FUNCTIONAPP_NAME }}
-          publish-profile: ${{ secrets.AZURE_FUNCTIONAPP_PUBLISH_PROFILE }}
-          package:         apps/api-functions/dist
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_APP_DEPLOY_KEY }}
+          repo_token:                     ${{ secrets.GITHUB_TOKEN }}
+          action:                         upload
+          app_location:                   "apps/admin-web"
+          api_location:                   ""
+          app_artifact_location:          "apps/admin-web/dist"
