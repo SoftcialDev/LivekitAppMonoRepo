@@ -85,7 +85,7 @@ function splitName(fullName: string): { firstName: string; lastName: string } {
  */
 const getRoleCandidates: AzureFunction = withErrorHandler(
   async (context: Context, req: HttpRequest) => {
-    await withAuth(context, async () => {
+    return withAuth(context, async () => {
       // 1. Authorization
       const claims = (context as any).bindings.user as JwtPayload;
       const callerId = (claims.oid || claims.sub) as string;

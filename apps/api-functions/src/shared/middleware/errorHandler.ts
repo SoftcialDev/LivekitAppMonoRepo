@@ -105,7 +105,7 @@ export function withErrorHandler<Args extends any[]>(
 
   return async function (ctx: Context, ...args: Args): Promise<void> {
     try {
-      await fn(ctx, ...args);
+      return await fn(ctx, ...args);
     } catch (err: unknown) {
       // Determine if this is an ExpectedError (controlled 4xx)
       if (err instanceof ExpectedError) {

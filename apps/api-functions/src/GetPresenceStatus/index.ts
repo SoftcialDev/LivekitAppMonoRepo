@@ -64,7 +64,7 @@ const getPresenceStatusesFunction: AzureFunction = withErrorHandler(async (ctx: 
   const size = Math.min(100, Math.max(1, parseInt(pageSize, 10))); // cap at 100
 
   // 2) Authenticate
-  await withAuth(ctx, async () => {
+  return  withAuth(ctx, async () => {
     const claims   = (ctx as any).bindings.user as JwtPayload;
     const callerId = (claims.oid || claims.sub) as string;
     if (!callerId) {
