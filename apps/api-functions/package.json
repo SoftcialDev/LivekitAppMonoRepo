@@ -11,7 +11,7 @@
     "dev": "npm run build && npm run prepare-dist:dev && func start --script-root dist --verbose",
     "prisma:generate": "prisma generate",
     "prisma:migrate:dev": "prisma migrate dev --name init",
-    "postinstall": "npm run prisma:generate",
+    "postinstall": "npx prisma generate",
     "prisma:deploy": "prisma migrate deploy && prisma generate"
   },
   "dependencies": {
