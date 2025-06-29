@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
 
 env:
-  FUNC_SRC: app/api-functions      # folder containing host.json, functions code, node_modules, etc.
+  FUNC_SRC: apps/api-functions      # folder containing host.json, functions code, node_modules, etc.
   NODE_VER: '20.x'   # Node.js version to use
 
 jobs:
