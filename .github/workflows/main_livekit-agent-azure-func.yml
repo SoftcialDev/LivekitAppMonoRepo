@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
 
 env:
-  FUNC_SRC: apps/api-functions/src
+  FUNC_SRC: apps/api-functions
   NODE_VER: '20.x'
 
 jobs:

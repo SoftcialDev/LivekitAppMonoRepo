@@ -11,7 +11,7 @@ export interface ErrorHandlerOptions {
    */
   genericMessage?: string;
   /**
-   * Whether to include the error stack in the response when not in production..
+   * Whether to include the error stack in the response when not in production../
    * Defaults to false.
    */
   showStackInDev?: boolean;
