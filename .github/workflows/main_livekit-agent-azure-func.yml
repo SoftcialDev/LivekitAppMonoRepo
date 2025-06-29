@@ -13,19 +13,22 @@ env:
   FUNC_SRC: apps/api-functions      # folder containing host.json, functions code, node_modules, etc.
   NODE_VER: '20.x'                  # Node.js version to use
 
+permissions:
+  contents: read
+  id-token: write
+
 jobs:
   build:
     runs-on: windows-latest
     permissions:
       contents: read
-      id-token: write 
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Node.js ${{ env.NODE_VER }}
+      - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
           node-version: ${{ env.NODE_VER }}
@@ -73,7 +76,7 @@ jobs:
       - name: Upload deploy.zip artifact
         uses: actions/upload-artifact@v4
         with:
-          name: node-app
+          name: function-zip
           path: deploy.zip
 
   deploy:
@@ -81,11 +84,12 @@ jobs:
     needs: build
     permissions:
       contents: read
+      id-token: write
     steps:
       - name: Download deploy.zip artifact
         uses: actions/download-artifact@v4
         with:
-          name: node-app
+          name: function-zip
           path: .
 
       - name: Find deploy.zip
@@ -98,10 +102,9 @@ jobs:
             Write-Error "❌ deploy.zip not found"
             Exit 1
           }
-          Write-Host "Found ZIP at: $zip"
           Write-Output "::set-output name=path::$zip"
 
-      - name: Azure CLI login
+      - name: Login to Azure (Service Principal)
         uses: azure/login@v2
         with:
           client-id:       ${{ secrets.AZUREAPPSERVICE_CLIENTID_BB7ED3C2C8D841F3B4502B8A848971AA }}
