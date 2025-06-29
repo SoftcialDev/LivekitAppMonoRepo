@@ -25,7 +25,8 @@ jobs:
 
       - name: Setup Node.js
         uses: actions/setup-node@v3
-        with: { node-version: ${{ env.NODE_VER }} }
+        with:
+          node-version: ${{ env.NODE_VER }}
 
       - name: Install, build & Prisma
         shell: pwsh
