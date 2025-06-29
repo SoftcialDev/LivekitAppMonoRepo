@@ -1,6 +1,8 @@
 import React, { useRef, useEffect, useState } from 'react';
 import {
   Room,
+  LocalVideoTrack,
+  LocalAudioTrack,
   createLocalVideoTrack,
   createLocalAudioTrack,
 } from 'livekit-client';
@@ -10,34 +12,36 @@ import {
   PendingCommand,
 } from '../services/pendingCommandsClient';
 import { PresenceClient } from '../services/presenceClient';
+import { StreamingClient } from '../services/streamingClient';
 import { WebPubSubClientService } from '../services/webpubsubClient';
 import { useAuth } from '../hooks/useAuth';
 
 const DashboardPage: React.FC = () => {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const audioRef = useRef<HTMLAudioElement>(null);
-  const roomRef = useRef<Room | null>(null);
+  const videoRef     = useRef<HTMLVideoElement>(null);
+  const audioRef     = useRef<HTMLAudioElement>(null);
+  const roomRef      = useRef<Room | null>(null);
+  const tracksRef    = useRef<{ video?: LocalVideoTrack; audio?: LocalAudioTrack }>({});
+  const streamingRef = useRef(false);
   const [isStreaming, setIsStreaming] = useState(false);
 
   const { initialized, account } = useAuth();
+  const userEmail = account?.username.toLowerCase() ?? '';
 
-  const pendingClient = useRef(new PendingCommandsClient()).current;
-  const presenceClient = useRef(new PresenceClient()).current;
-  const pubSubService = useRef(new WebPubSubClientService()).current;
+  // clients
+  const pendingClient   = useRef(new PendingCommandsClient()).current;
+  const presenceClient  = useRef(new PresenceClient()).current;
+  const streamingClient = useRef(new StreamingClient()).current;
+  const pubSubService   = useRef(new WebPubSubClientService()).current;
 
-  /**
-   * Handles an incoming camera command.
-   *
-   * @param cmd - The pending command received from Web PubSub or fallback.
-   */
   const handleCommand = async (cmd: PendingCommand) => {
-    console.log(`[Cmd] Received ${cmd.command} at ${cmd.timestamp}`);
+    console.log(`[Cmd] ${cmd.command} @ ${cmd.timestamp}`);
+    console.log('→ before:', streamingRef.current);
+
     try {
-      // START: connect to LiveKit and publish media
-      if (cmd.command === 'START' && !isStreaming) {
-        console.log('[Stream] Starting…');
+      if (cmd.command === 'START' && !streamingRef.current) {
+        console.log('[Stream] STARTing…');
         const { rooms, livekitUrl } = await getLiveKitToken();
-        const { token } = rooms[0];
+        const { token }             = rooms[0];
         const room = new Room();
         await room.connect(livekitUrl, token);
         roomRef.current = room;
@@ -46,68 +50,85 @@ const DashboardPage: React.FC = () => {
           createLocalVideoTrack(),
           createLocalAudioTrack(),
         ]);
+        tracksRef.current.video = v;
+        tracksRef.current.audio = a;
+
         await room.localParticipant.publishTrack(v);
         await room.localParticipant.publishTrack(a);
-        v.attach(videoRef.current!);
-        a.attach(audioRef.current!);
 
+        if (videoRef.current) v.attach(videoRef.current);
+        if (audioRef.current) a.attach(audioRef.current);
+
+        streamingRef.current = true;
         setIsStreaming(true);
-        console.log('[Presence] setting online');
-        await presenceClient.setOnline();
+
+        // notify presence + streaming
+        console.log('[Streaming] ACTIVE');
+        await streamingClient.setActive();
       }
 
-      // STOP: always process STOP to teardown streaming
-      if (cmd.command === 'STOP') {
-        console.log('[Cmd] STOP received');
-        if (isStreaming) {
-          console.log('[Stream] Stopping…');
-          roomRef.current?.disconnect();
-          roomRef.current = null;
-          setIsStreaming(false);
-        }
-        console.log('[Presence] setting offline');
-        await presenceClient.setOffline();
+      if (cmd.command === 'STOP' && streamingRef.current) {
+        console.log('[Stream] STOPping…');
+        const { video, audio } = tracksRef.current;
+        if (video) { video.stop(); video.detach(); }
+        if (audio) { audio.stop(); audio.detach(); }
+        tracksRef.current = {};
+
+        console.log('[Stream] disconnecting…');
+        await roomRef.current?.disconnect();
+        roomRef.current = null;
+        console.log('[Stream] disconnected');
+
+        streamingRef.current = false;
+        setIsStreaming(false);
+
+        console.log('[Streaming] INACTIVE');
+        await streamingClient.setInactive();
       }
 
-      // Acknowledge the command in backend
+      console.log('→ after:', streamingRef.current);
       const ackCount = await pendingClient.acknowledge([cmd.id]);
-      console.log(`[Cmd] Acknowledged ${cmd.id} (count=${ackCount})`);
+      console.log(`[Cmd] ACK’d ${cmd.id} (count=${ackCount})`);
     } catch (err) {
       console.error('[Error] handling command', err);
     }
   };
 
   useEffect(() => {
-    if (!initialized || !account) return;
-    const userEmail = account.username.toLowerCase();
+    if (!initialized || !userEmail) return;
     let mounted = true;
 
     (async () => {
       try {
-        console.log('[WS] connecting to PubSub…');
+        console.log('[WS] connecting…');
         await pubSubService.connect(userEmail);
         console.log('[WS] connected');
+        console.log('[Presence] ONLINE');
+        await presenceClient.setOnline();
 
-        // Handle WS disconnects and fetch missed commands
+
+        // WS disconnect → mark streaming inactive
         pubSubService.onDisconnected(async () => {
-          console.warn('[WS] disconnected – fetching pending…');
           if (!mounted) return;
-          const missed = await pendingClient.fetch();
-          console.log('[Cmd] fetched', missed.length, 'pending commands');
-          if (missed.length > 0) {
-            const latest = missed.reduce((p, c) =>
-              new Date(c.timestamp) > new Date(p.timestamp) ? c : p
-            );
-            await handleCommand(latest);
+          console.warn('[WS] disconnected');
+          presenceClient.setOffline();
+          if (streamingRef.current) {
+            console.log('[Streaming] marking INACTIVE on WS close');
+            await streamingClient.setInactive();
+            streamingRef.current = false;
+            setIsStreaming(false);
           }
         });
 
-        // Subscribe to live group messages
-        pubSubService.onMessage(data => handleCommand(data as PendingCommand));
+        // live commands
+        pubSubService.onMessage(data => {
+          if (!mounted) return;
+          handleCommand(data as PendingCommand);
+        });
 
-        // Initial fallback fetch for any missed commands
+        // fallback fetch
         const missed = await pendingClient.fetch();
-        console.log('[Cmd] fetched', missed.length, 'pending commands');
+        console.log('[Cmd] fetched', missed.length, 'pending');
         for (const cmd of missed) {
           if (!mounted) break;
           await handleCommand(cmd);
@@ -119,15 +140,15 @@ const DashboardPage: React.FC = () => {
 
     return () => {
       mounted = false;
-      console.log('[App] cleanup: disconnect WS & set offline');
+      console.log('[App] cleanup');
       pubSubService.disconnect();
-      presenceClient.setOffline();
       roomRef.current?.disconnect();
+      presenceClient.setOffline();
     };
-  }, [initialized, account]);
+  }, [initialized, userEmail]);
 
   return (
-    <div className="flex items-center justify-center h-screen bg-gray-900 p-4">
+    <div className="flex items-center justify-center h-screen p-4 bg-[#764E9F]">
       <div className="flex flex-col h-full w-full max-w-4xl rounded-xl overflow-hidden bg-black">
         <div className="flex-1 min-h-0 overflow-hidden">
           <video

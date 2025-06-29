@@ -26,6 +26,18 @@ export function badRequest(ctx: Context, error: string | object) {
   };
 }
 
+
+/**
+ * Send 204 No Content.
+ * @param ctx Azure Functions context
+ */
+export function noContent(ctx: Context) {
+  ctx.res = {
+    status: 204,
+    body: null,
+  };
+}
+
 /**
  * Send 401 Unauthorized.
  * @param ctx Azure Functions context

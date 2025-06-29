@@ -48,6 +48,6 @@ export async function getLiveKitToken(): Promise<LiveKitTokenResponse> {
       throw new Error('Invalid room/token entry in LiveKitToken response')
     }
   }
-
+  console.log('LiveKitToken response:', res.data)
   return res.data
 }

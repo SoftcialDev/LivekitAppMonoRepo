@@ -1,46 +1,60 @@
 import apiClient from './apiClient';
 
 /**
- * Represents a pending camera command fetched from the server.
+ * Represents a camera command that has been issued by an admin
+ * but not yet acknowledged by the client app.
  */
 export interface PendingCommand {
-  /** UUID of the pending command record */
+  /** Unique identifier of the pending command record */
   id: string;
-  /** Type of command: 'START' or 'STOP' */
+  /** One of "START" or "STOP" */
   command: 'START' | 'STOP';
-  /** ISO timestamp when the admin issued the command */
+  /** ISO‐8601 timestamp when the command was issued */
   timestamp: string;
 }
 
 /**
- * Client for interacting with the PendingCommand REST endpoints.
+ * Client for interacting with the pending‐commands REST API.
  *
- * Provides methods to fetch unacknowledged commands and
- * to acknowledge processing of commands by ID.
+ * Supports fetching unacknowledged commands and marking them acknowledged.
  */
 export class PendingCommandsClient {
   /**
-   * Fetches all pending commands (not yet acknowledged) for the
-   * authenticated employee.
+   * Fetches all pending commands for the authenticated user.
    *
-   * @returns An array of PendingCommand objects, sorted oldest first.
-   * @throws HTTPError if the request fails or returns non-200.
+   * The server may return:
+   * - `pending` as an array
+   * - `pending` as a single object
+   * - `pending` omitted (no commands)
+   *
+   * This method normalizes all cases into an array.
+   *
+   * @returns Array of `PendingCommand`, oldest first. Empty if none.
+   * @throws HTTPError if the request fails or returns a non-200 status.
    */
-  async fetch(): Promise<PendingCommand[]> {
-    const response = await apiClient.get<{ pending: PendingCommand[] }>(
-      '/api/FetchPendingCommands'
-    );
-       return response.data.pending ?? [];
+  public async fetch(): Promise<PendingCommand[]> {
+    const response = await apiClient.get<{
+      pending?: PendingCommand | PendingCommand[];
+    }>('/api/FetchPendingCommands');
+
+    const raw = response.data.pending;
+    if (Array.isArray(raw)) {
+      return raw;
+    } else if (raw) {
+      return [raw];
+    } else {
+      return [];
+    }
   }
 
   /**
    * Acknowledges that the given commands have been received and processed.
    *
-   * @param ids Array of PendingCommand.id to mark as acknowledged.
-   * @returns The number of records successfully updated.
-   * @throws HTTPError if the request fails or returns non-200.
+   * @param ids — Array of command IDs to mark acknowledged.
+   * @returns Number of records successfully updated.
+   * @throws HTTPError if the request fails or returns a non-200 status.
    */
-  async acknowledge(ids: string[]): Promise<number> {
+  public async acknowledge(ids: string[]): Promise<number> {
     const response = await apiClient.post<{ updatedCount: number }>(
       '/api/AcknowledgeCommand',
       { ids }

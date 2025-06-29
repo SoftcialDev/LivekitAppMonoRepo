@@ -8,7 +8,7 @@ datasource db {
 generator client {
   provider      = "prisma-client-js"
   binaryTargets = ["native", "windows"]
-  engineType = "binary"
+  engineType    = "binary"
 }
 
 // 2. Enumerations
@@ -43,9 +43,13 @@ model User {
 
   supervisor      User?             @relation("SupervisorToEmployees", fields: [supervisorId], references: [id], onDelete: Cascade)
   employees       User[]            @relation("SupervisorToEmployees")
+
   presence        Presence?
   presenceHistory PresenceHistory[]
   commands        PendingCommand[]  @relation("EmployeeCommands")
+
+  streamingSessions StreamingSessionHistory[]
+  auditLogs         AuditLog[]       @relation("UserAuditLogs")
 
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
@@ -83,14 +87,45 @@ model PendingCommand {
   command         CommandType
   timestamp       DateTime
   published       Boolean     @default(false)
-  publishedAt     DateTime?   
+  publishedAt     DateTime?
   acknowledged    Boolean     @default(false)
-  acknowledgedAt  DateTime?   
+  acknowledgedAt  DateTime?
   attemptCount    Int         @default(0)
-  expiresAt       DateTime?   
+  expiresAt       DateTime?
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
 
   @@index([employeeId, acknowledged])
   @@index([expiresAt])
+}
+
+model StreamingSessionHistory {
+  id            String    @id @default(uuid()) @db.Uuid
+  userId        String    @db.Uuid
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  startedAt     DateTime  @default(now())
+  stoppedAt     DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([startedAt])
+}
+
+/// 5. Auditoría de cambios
+
+model AuditLog {
+  id            String    @id @default(uuid()) @db.Uuid
+  entity        String    // e.g. "User", "PendingCommand", "StreamingSession"
+  entityId      String    // UUID of the affected record
+  action        String    // "CREATE" | "UPDATE" | "DELETE" | "ROLE_CHANGE" | …
+  changedById   String    @db.Uuid
+  changedBy     User      @relation("UserAuditLogs", fields: [changedById], references: [id])
+  timestamp     DateTime  @default(now())
+  dataBefore    Json?     // snapshot JSON before change
+  dataAfter     Json?     // snapshot JSON after change
+
+  @@index([entity, entityId])
+  @@index([changedById])
+  @@index([timestamp])
 }

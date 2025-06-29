@@ -1,47 +1,30 @@
-import React from 'react';
-import { NavLink } from 'react-router-dom';
-import IconWithLabel from '../../../components/IconWithLabel';
-import camaraLogo from '@assets/InContact_logo.png';
-import monitorIcon from '@assets/icon-monitor.png';
-import OnlineUserItem from '../../../features/auth/components/OnlineUserItem';
-import OfflineUserItem from '../../../features/auth/components/OfflineUserItem';
-import type { UserStatus } from '../types/types';
+import React from 'react'
+import { NavLink } from 'react-router-dom'
+import IconWithLabel from '../../../components/IconWithLabel'
+import camaraLogo from '@assets/InContact_logo.png'
+import monitorIcon from '@assets/icon-monitor.png'
+import UserItem from '../../auth/components/UserItem'
+import type { UserStatus } from '../types/types'
 
-/**
- * SidebarProps
- *
- * @property onlineUsers  Array of users currently online.
- * @property offlineUsers Array of users currently offline.
- * @property onStop       Callback when stopping an online user's video.
- * @property onPlay       Callback when starting an offline user's video.
- */
 interface SidebarProps {
-  onlineUsers:  UserStatus[];
-  offlineUsers: UserStatus[];
-  onStop:       (email: string) => void;
-  onPlay:       (email: string) => void;
+  /** Everyone currently connected over WS */
+  onlineUsers: UserStatus[]
+  /** Everyone not connected over WS */
+  offlineUsers: UserStatus[]
+  /** Map from user.email → true if that user is actively streaming */
+  streamingMap: Record<string, boolean>
+  /** Called when the sidebar’s Play or Stop button is clicked */
+  onToggle: (email: string, action: 'PLAY' | 'STOP') => void
 }
 
-/**
- * Sidebar
- *
- * Renders the application sidebar with:
- * 1. Header (logo + title).
- * 2. "Manage" links (Admins, Supervisors, PSOs).
- * 3. "Monitor" link (PSO dashboard).
- * 4. Real-time lists of online and offline users.
- *
- * Uses `NavLink` to highlight the active route.
- */
 const Sidebar: React.FC<SidebarProps> = ({
   onlineUsers,
   offlineUsers,
-  onStop,
-  onPlay,
+  streamingMap,
+  onToggle,
 }) => {
-  const linkBase   =
-    'block py-2 pl-14 pr-3 rounded-md text-gray-300 transition-colors hover:text-[var(--color-secondary-hover)]';
-  const activeLink = 'text-white font-semibold';
+  const linkBase = 'block py-2 pl-14 pr-3 rounded-md text-gray-300 transition-colors hover:text-[var(--color-secondary-hover)]'
+  const activeLink = 'text-white font-semibold'
 
   return (
     <aside className="flex flex-col bg-[var(--color-primary)] text-white border-r border-black">
@@ -50,8 +33,8 @@ const Sidebar: React.FC<SidebarProps> = ({
         <IconWithLabel
           src={camaraLogo}
           alt="In Contact"
-          imgSize="h-4 sm:h-8 md:h-8"
-          textSize="text-m sm:text-xl md:text-xl font-semibold"
+          imgSize="h-4 sm:h-8"
+          textSize="text-m sm:text-xl font-semibold"
           className="flex items-center px-6 py-4"
         >
           In Contact
@@ -71,32 +54,9 @@ const Sidebar: React.FC<SidebarProps> = ({
             Manage
           </IconWithLabel>
 
-          <NavLink
-            to="/admins"
-            className={({ isActive }) =>
-              `${linkBase} ${isActive ? activeLink : ''}`
-            }
-          >
-            Admins
-          </NavLink>
-
-          <NavLink
-            to="/supervisors"
-            className={({ isActive }) =>
-              `${linkBase} ${isActive ? activeLink : ''}`
-            }
-          >
-            Supervisors
-          </NavLink>
-
-          <NavLink
-            to="/psos"
-            className={({ isActive }) =>
-              `${linkBase} ${isActive ? activeLink : ''}`
-            }
-          >
-            PSOs
-          </NavLink>
+          <NavLink to="/admins"   className={({ isActive }) => `${linkBase} ${isActive ? activeLink : ''}`}>Admins</NavLink>
+          <NavLink to="/supervisors" className={({ isActive }) => `${linkBase} ${isActive ? activeLink : ''}`}>Supervisors</NavLink>
+          <NavLink to="/psos"      className={({ isActive }) => `${linkBase} ${isActive ? activeLink : ''}`}>PSOs</NavLink>
         </div>
 
         {/* Monitor Section */}
@@ -111,31 +71,34 @@ const Sidebar: React.FC<SidebarProps> = ({
             Monitor
           </IconWithLabel>
 
-          <NavLink
-            to="/dashboard"
-            className={({ isActive }) =>
-              `${linkBase} ${isActive ? activeLink : ''}`
-            }
-          >
-            PSOs
-          </NavLink>
+          <NavLink to="/dashboard" className={({ isActive }) => `${linkBase} ${isActive ? activeLink : ''}`}>Dashboard</NavLink>
         </div>
 
         {/* Presence Lists */}
         <div className="px-6 py-4">
           <div className="text-xs font-semibold mb-2">Online</div>
-          {onlineUsers.map(u => (
-            <OnlineUserItem key={u.email} user={u} onStop={onStop} />
+          {onlineUsers.map(user => (
+            <UserItem
+              key={user.email}
+              user={user}
+              isStreaming={!!streamingMap[user.email]}
+              onToggle={onToggle}
+            />
           ))}
 
           <div className="text-xs font-semibold mt-4 mb-2">Offline</div>
-          {offlineUsers.map(u => (
-            <OfflineUserItem key={u.email} user={u} onPlay={onPlay} />
+          {offlineUsers.map(user => (
+            <UserItem
+              key={user.email}
+              user={user}
+              isStreaming={false}
+              onToggle={onToggle}
+            />
           ))}
         </div>
       </nav>
     </aside>
-  );
-};
+  )
+}
 
-export default Sidebar;
+export default Sidebar

@@ -6,19 +6,25 @@ import type { UserStatus } from 'src/features/navigation/types/types'
 import VideoCard from '../components/VideoCard'
 import { useVideoActions } from '../hooks/UseVideoAction'
 import { getLiveKitToken, RoomWithToken } from '../services/livekitClient'
-import apiClient from '../../../services/apiClient'
+import { usePresence } from '../../navigation/hooks/usePresence'
+import { fetchStreamingSessions } from '@/services/streamingStatusClient'
 
 ////////////////////////////////////////////////////////////////////////////////
 // Types
 ////////////////////////////////////////////////////////////////////////////////
 
+interface StreamingSessionDto {
+  email:     string
+  startedAt: string
+  userId:    string
+}
+
 export interface PSOWithStatus extends UserStatus {
-  fullName: string
-  isOnline: boolean
+  fullName:      string
+  isOnline:      boolean
   liveKitToken?: string
-  liveKitRoom?: string
-  liveKitUrl?: string
-  azureAdObjectId: string
+  liveKitRoom?:  string
+  liveKitUrl?:   string
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -29,6 +35,7 @@ const PSOsPage: React.FC = () => {
   useHeader({ title: 'PSOs', iconSrc: monitorIcon, iconAlt: 'PSOs' })
   const { initialized, account } = useAuth()
   const { handlePlay, handleStop, handleChat } = useVideoActions()
+  const { onlineUsers, offlineUsers } = usePresence()
 
   const [psos, setPsos]       = useState<PSOWithStatus[]>([])
   const [loading, setLoading] = useState(true)
@@ -40,40 +47,58 @@ const PSOsPage: React.FC = () => {
 
     const loadData = async () => {
       setLoading(true)
+      setError(undefined)
+
       try {
-        // 1) Fetch presence (includes azureAdObjectId)
-        const resp = await apiClient.get<{
-          items: (UserStatus & { azureAdObjectId: string })[]
-        }>('/api/GetPresenceStatus')
+        // 1) Combine presence lists
+        const combined: PSOWithStatus[] = [
+          ...onlineUsers,
+          ...offlineUsers,
+        ].map(u => ({
+          ...u,
+          fullName: u.fullName ?? u.name ?? '',
+          isOnline: u.status === 'online',
+        }))
 
-        // 2) Fetch per-room tokens + URL
-        const { rooms, livekitUrl } = await getLiveKitToken()
-        if (canceled) return
+        // 2) Fetch active sessions (with DB PK userId)
+        const sessions: StreamingSessionDto[] = await fetchStreamingSessions()
+        const sessionMap: Record<string,string> = {}
+        sessions.forEach(s => {
+          sessionMap[s.email] = s.userId
+        })
+        const streamingIds = Object.values(sessionMap)
 
-        // 3) Build enriched list
-        const list: PSOWithStatus[] = resp.data.items.map(u => {
-          const isOnline = u.status === 'online'
-          const roomName = u.azureAdObjectId
-          const match    = rooms.find((r: RoomWithToken) => r.room === roomName)
-          const token    = isOnline && match
-            ? match.token
-            : undefined
+        // 3) Fetch LiveKit tokens once
+        let tokenMap: Record<string,string> = {}
+        let livekitUrl = ''
+        if (streamingIds.length > 0) {
+          const { rooms, livekitUrl: url } = await getLiveKitToken()
+          livekitUrl = url
+          ;(rooms as RoomWithToken[]).forEach(r => {
+            if (streamingIds.includes(r.room)) {
+              tokenMap[r.room] = r.token
+            }
+          })
+        }
 
+        // 4) Enrich each PSO with token & URL if available
+        const enriched = combined.map(u => {
+          const id = sessionMap[u.email]
+          const token = id ? tokenMap[id] : undefined
           return {
             ...u,
-            fullName:     u.fullName ?? u.name ?? '',
-            isOnline,
-            liveKitRoom:  roomName,
+            liveKitRoom:  id,
             liveKitToken: token,
             liveKitUrl:   token ? livekitUrl : undefined,
           }
         })
 
-        // 4) Sort online-first
-        list.sort((a, b) => Number(b.isOnline) - Number(a.isOnline))
+        // 5) Sort online-first
+        enriched.sort((a, b) => Number(b.isOnline) - Number(a.isOnline))
 
-        if (!canceled) setPsos(list)
+        if (!canceled) setPsos(enriched)
       } catch (e: any) {
+        console.error('[PSOsPage] loadData error', e)
         if (!canceled) setError(e.message || 'Failed to load PSOs')
       } finally {
         if (!canceled) setLoading(false)
@@ -82,7 +107,7 @@ const PSOsPage: React.FC = () => {
 
     loadData()
     return () => { canceled = true }
-  }, [initialized, account])
+  }, [initialized, account, onlineUsers, offlineUsers])
 
   if (loading) return <div className="p-6 text-white">Loading PSOs…</div>
   if (error)   return <div className="p-6 text-red-500">Error: {error}</div>
@@ -90,6 +115,7 @@ const PSOsPage: React.FC = () => {
     return <div className="p-6 text-white">No PSOs to display</div>
 
   const count = psos.length
+  console.log('[PSOsPage] Loaded PSOs:', psos)
 
   return (
     <div className="flex flex-col flex-1 h-full bg-[var(--color-primary-dark)] p-10">
@@ -99,15 +125,15 @@ const PSOsPage: React.FC = () => {
           <div className="flex flex-grow items-center justify-center p-4">
             <div className="w-11/12 h-full">
               <VideoCard
-                name={psos[0].fullName}
-                email={psos[0].email}
-                accessToken={psos[0].liveKitToken}
-                roomName={psos[0].liveKitRoom}
-                livekitUrl={psos[0].liveKitUrl}
-                onPlay={handlePlay}
-                onStop={handleStop}
-                onChat={handleChat}
-                className="w-full h-full"
+                name        ={psos[0].fullName}
+                email       ={psos[0].email}
+                accessToken ={psos[0].liveKitToken}
+                roomName    ={psos[0].liveKitRoom}
+                livekitUrl  ={psos[0].liveKitUrl}
+                onPlay      ={handlePlay}
+                onStop      ={handleStop}
+                onChat      ={handleChat}
+                className   ="w-full h-full"
               />
             </div>
           </div>
@@ -120,22 +146,22 @@ const PSOsPage: React.FC = () => {
           className="grid flex-grow gap-4"
           style={{
             gridTemplateColumns: 'repeat(2, 1fr)',
-            gridTemplateRows: '1fr',
-            height: '-webkit-fill-available',
+            gridTemplateRows:    '1fr',
+            height:              '-webkit-fill-available',
           }}
         >
           {psos.map(u => (
             <div key={u.email} className="w-full h-full">
               <VideoCard
-                name={u.fullName}
-                email={u.email}
-                accessToken={u.liveKitToken}
-                roomName={u.liveKitRoom}
-                livekitUrl={u.liveKitUrl}
-                onPlay={handlePlay}
-                onStop={handleStop}
-                onChat={handleChat}
-                className="w-full h-full"
+                name        ={u.fullName}
+                email       ={u.email}
+                accessToken ={u.liveKitToken}
+                roomName    ={u.liveKitRoom}
+                livekitUrl  ={u.liveKitUrl}
+                onPlay      ={handlePlay}
+                onStop      ={handleStop}
+                onChat      ={handleChat}
+                className   ="w-full h-full"
               />
             </div>
           ))}
@@ -149,15 +175,15 @@ const PSOsPage: React.FC = () => {
             {psos.slice(0, 2).map(u => (
               <div key={u.email} className="w-1/2 flex flex-col h-full">
                 <VideoCard
-                  name={u.fullName}
-                  email={u.email}
-                  accessToken={u.liveKitToken}
-                  roomName={u.liveKitRoom}
-                  livekitUrl={u.liveKitUrl}
-                  onPlay={handlePlay}
-                  onStop={handleStop}
-                  onChat={handleChat}
-                  className="flex-1"
+                  name        ={u.fullName}
+                  email       ={u.email}
+                  accessToken ={u.liveKitToken}
+                  roomName    ={u.liveKitRoom}
+                  livekitUrl  ={u.liveKitUrl}
+                  onPlay      ={handlePlay}
+                  onStop      ={handleStop}
+                  onChat      ={handleChat}
+                  className   ="flex-1"
                 />
               </div>
             ))}
@@ -165,15 +191,15 @@ const PSOsPage: React.FC = () => {
           <div className="flex flex-1 justify-center mt-2 min-h-0">
             <div className="w-1/2 flex flex-col h-full">
               <VideoCard
-                name={psos[2].fullName}
-                email={psos[2].email}
-                accessToken={psos[2].liveKitToken}
-                roomName={psos[2].liveKitRoom}
-                livekitUrl={psos[2].liveKitUrl}
-                onPlay={handlePlay}
-                onStop={handleStop}
-                onChat={handleChat}
-                className="flex-1"
+                name        ={psos[2].fullName}
+                email       ={psos[2].email}
+                accessToken ={psos[2].liveKitToken}
+                roomName    ={psos[2].liveKitRoom}
+                livekitUrl  ={psos[2].liveKitUrl}
+                onPlay      ={handlePlay}
+                onStop      ={handleStop}
+                onChat      ={handleChat}
+                className   ="flex-1"
               />
             </div>
           </div>
@@ -186,21 +212,21 @@ const PSOsPage: React.FC = () => {
           className="grid flex-grow gap-4 justify-center content-center"
           style={{
             gridTemplateColumns: 'repeat(2, 0.4fr)',
-            gridTemplateRows: 'repeat(2, 1fr)',
+            gridTemplateRows:    'repeat(2, 1fr)',
           }}
         >
           {psos.map(u => (
             <div key={u.email} className="w-full h-full">
               <VideoCard
-                name={u.fullName}
-                email={u.email}
-                accessToken={u.liveKitToken}
-                roomName={u.liveKitRoom}
-                livekitUrl={u.liveKitUrl}
-                onPlay={handlePlay}
-                onStop={handleStop}
-                onChat={handleChat}
-                className="w-full h-full"
+                name        ={u.fullName}
+                email       ={u.email}
+                accessToken ={u.liveKitToken}
+                roomName    ={u.liveKitRoom}
+                livekitUrl  ={u.liveKitUrl}
+                onPlay      ={handlePlay}
+                onStop      ={handleStop}
+                onChat      ={handleChat}
+                className   ="w-full h-full"
               />
             </div>
           ))}
@@ -213,31 +239,30 @@ const PSOsPage: React.FC = () => {
           className="grid flex-grow gap-4"
           style={{
             gridTemplateColumns: 'repeat(3, 1fr)',
-            gridAutoRows: '1fr',
+            gridAutoRows:        '1fr',
           }}
         >
           {psos.map((u, i) => {
-            const rows       = Math.ceil(count / 3)
-            const rowIndex   = Math.floor(i / 3)
-            const inLastRow  = rowIndex === rows - 1
+            const rows        = Math.ceil(count / 3)
+            const rowIndex    = Math.floor(i / 3)
+            const inLastRow   = rowIndex === rows - 1
             const itemsInLast = count - 3 * (rows - 1)
-            const alignClass =
-              inLastRow && itemsInLast < 3
-                ? 'justify-self-center'
-                : 'justify-self-stretch'
+            const alignClass  = inLastRow && itemsInLast < 3
+              ? 'justify-self-center'
+              : 'justify-self-stretch'
 
             return (
               <div key={u.email} className={`w-full h-full ${alignClass}`}>
                 <VideoCard
-                  name={u.fullName}
-                  email={u.email}
-                  accessToken={u.liveKitToken}
-                  roomName={u.liveKitRoom}
-                  livekitUrl={u.liveKitUrl}
-                  onPlay={handlePlay}
-                  onStop={handleStop}
-                  onChat={handleChat}
-                  className="w-full h-full"
+                  name        ={u.fullName}
+                  email       ={u.email}
+                  accessToken ={u.liveKitToken}
+                  roomName    ={u.liveKitRoom}
+                  livekitUrl  ={u.liveKitUrl}
+                  onPlay      ={handlePlay}
+                  onStop      ={handleStop}
+                  onChat      ={handleChat}
+                  className   ="w-full h-full"
                 />
               </div>
             )

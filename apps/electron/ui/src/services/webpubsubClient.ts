@@ -6,7 +6,8 @@ import {
 
 /**
  * Callback type invoked when a PubSub group message arrives.
- * @param data – Parsed JSON payload.
+ * @template T Type of the parsed message payload.
+ * @param data Parsed JSON payload.
  */
 export type MessageHandler<T = unknown> = (data: T) => void;
 
@@ -24,18 +25,16 @@ export class WebPubSubClientService {
   private groupName!: string;
 
   /**
-   * 1) Fetch { token, endpoint, hubName } from your API.
-   * 2) Turn “https://…” → “wss://…”.
-   * 3) Create a WebPubSubClient with the JSON sub-protocol.
-   * 4) start() and joinGroup().
+   * Fetches a client access token and endpoint from your API,
+   * constructs a wss:// URL, initializes the client with JSON protocol,
+   * starts the connection, and joins the user-specific group.
    *
-   * @param userEmail – group name (normalized email).
+   * @param userEmail The normalized email to use as the group name.
    */
   public async connect(userEmail: string): Promise<void> {
-    // Normalize and store groupName once
     this.groupName = userEmail.trim().toLowerCase();
 
-    // 1) Fetch token + endpoint + hubName
+    // 1) Fetch token, endpoint, and hubName from backend
     const { data } = await apiClient.get<{
       token: string;
       endpoint: string;
@@ -44,28 +43,33 @@ export class WebPubSubClientService {
     const { token, endpoint, hubName } = data;
     this.hubName = hubName;
 
-    // 2) Build WebSocket URL
+    // 2) Convert https:// to wss:// and append access token
     const wss = endpoint.replace(/^https?:\/\//, 'wss://');
     const clientUrl = `${wss}/client/hubs/${hubName}` +
-      `?access_token=${encodeURIComponent(token)}`;
+                      `?access_token=${encodeURIComponent(token)}`;
 
-    // 3) Initialize client with JSON protocol
+    // 3) Initialize WebPubSubClient with JSON sub-protocol
     this.client = new WebPubSubClient(clientUrl, {
       protocol: WebPubSubJsonProtocol()
     });
 
-    // 4) Start and join group
+    // 4) Start the connection and join the group
     await this.client.start();
     await this.client.joinGroup(this.groupName);
   }
 
   /**
-   * Subscribe to incoming group messages.
+   * Registers a handler for incoming group messages.
+   * Throws if not connected.
    *
-   * @param handler – invoked for each parsed JSON message.
+   * @param handler Called with each parsed JSON message.
+   * @template T Expected payload type.
    */
   public onMessage<T = unknown>(handler: MessageHandler<T>): void {
-    if (!this.client) throw new Error('Not connected. Call connect() first.');
+    if (!this.client) {
+      throw new Error('Not connected. Call connect() first.');
+    }
+
     this.client.on('group-message', e => {
       let text: string;
       const raw = e.message.data;
@@ -77,29 +81,35 @@ export class WebPubSubClientService {
       } else if (ArrayBuffer.isView(raw)) {
         text = new TextDecoder().decode(raw.buffer as ArrayBuffer);
       } else {
-        console.warn('Unsupported data type', raw);
+        console.warn('Unsupported data type:', raw);
         return;
       }
 
       try {
         handler(JSON.parse(text) as T);
       } catch (err) {
-        console.error('JSON parse error:', err);
+        console.error('Failed to parse JSON message:', err);
       }
     });
   }
 
   /**
-   * Register a callback for when the WS connection closes.
+   * Registers a handler to be called when the connection closes.
+   * Use this to react to disconnects (e.g. fetch pending commands).
    *
-   * You can use this to trigger a fetch of pending commands on disconnect.
+   * @param handler Called on connection-close.
    */
   public onDisconnected(handler: DisconnectHandler): void {
-    if (!this.client) throw new Error('Not connected. Call connect() first.');
+    if (!this.client) {
+      throw new Error('Not connected. Call connect() first.');
+    }
+    // The SDK emits 'disconnected' when the socket closes.
     this.client.on('disconnected', handler);
   }
 
-  /** Gracefully disconnect. */
+  /**
+   * Gracefully stops the client and clears internal state.
+   */
   public disconnect(): void {
     this.client?.stop();
     this.client = undefined;

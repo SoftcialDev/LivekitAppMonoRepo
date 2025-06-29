@@ -46,4 +46,5 @@ export async function sendToGroup(
 ): Promise<void> {
   const groupClient = wpsClient.group(groupName);
   await groupClient.sendToAll(JSON.stringify(payload));
+  console.log(`Sent to group ${groupName}`);
 }

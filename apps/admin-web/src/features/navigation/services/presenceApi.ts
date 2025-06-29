@@ -49,7 +49,7 @@ export async function fetchPresence(): Promise<{
   online:  UserStatus[]
   offline: UserStatus[]
 }> {
-  const resp = await apiClient.get<PagedPresenceResponse>('/api/GetPresenceStatus')
+  const resp = await apiClient.get<PagedPresenceResponse>('/api/GetWebsocketPresenceStatus')
   const items = resp.data.items ?? []
 
   const online = items

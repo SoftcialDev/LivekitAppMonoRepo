@@ -12,31 +12,8 @@ import { JwtPayload } from 'jsonwebtoken';
 import { config } from '../shared/config/index';
 
 /**
- * Azure Function handler for generating LiveKit access tokens and room listings.
- *
- * - **Employee**:
- *   - Ensures the caller's personal room exists
- *   - Returns a single entry in `rooms` with their own room and token
- *
- * - **Admin / Supervisor**:
- *   - Ensures the caller’s own room exists
- *   - Lists all other existing rooms (excluding empty rooms and the caller’s own)
- *   - Returns one token per room in `rooms`
- *
- * The response payload will be:
- * ```json
- * {
- *   "rooms": [
- *     { "room": "roomA-id", "token": "ey..." },
- *     { "room": "roomB-id", "token": "ey..." },
- *     …
- *   ],
- *   "livekitUrl": "wss://your.livekit.server"
- * }
- * ```
- *
- * @param ctx - Azure Functions execution context, augmented with `bindings.user` JWT claims
- * @returns A Promise that resolves to an HTTP response via the provided context
+ * Azure Function handler for generating LiveKit access tokens and room listings,
+ * now using database PK (user.id) as the room identifier.
  */
 export default withErrorHandler(async (ctx: Context) => {
   await withAuth(ctx, async () => {
@@ -46,40 +23,44 @@ export default withErrorHandler(async (ctx: Context) => {
       return badRequest(ctx, 'Unable to determine caller identity');
     }
 
+    // Load caller from DB
     const caller = await prisma.user.findUnique({
       where: { azureAdObjectId: azureAdId },
+      select: { id: true, role: true, deletedAt: true },
     });
     if (!caller || caller.deletedAt) {
       return unauthorized(ctx, 'Caller not found or deleted');
     }
 
+    // Use database PK as room identifier
+    const userId = caller.id;
     const isAdminOrSup = caller.role === 'Admin' || caller.role === 'Supervisor';
 
-    // 1) Always ensure the caller’s own room exists
-    await ensureRoom(azureAdId);
+    // Ensure the caller's personal room exists (named by userId)
+    await ensureRoom(userId);
 
-    // 2) Determine which room names to use
+    // Determine which rooms to include
     let roomNames: string[];
     if (isAdminOrSup) {
-      roomNames = (await listRooms())
-        .filter(r => r && r !== azureAdId);
+      // listRooms returns array of existing room names
+      roomNames = (await listRooms()).filter(r => r !== userId);
     } else {
-      roomNames = [azureAdId];
+      roomNames = [userId];
     }
 
-    // 3) Generate one token per room
+    // Generate a token per room, using userId as the identity in the JWT
     const roomsWithTokens = await Promise.all(
       roomNames.map(async (room) => {
         const token = await generateToken(
-          azureAdId,
+          userId,          // identity claim = database PK
           isAdminOrSup,
-          room,
+          room,            // room name = either other user IDs or own userId
         );
         return { room, token };
       })
     );
 
-    // 4) Return payload
+    // Return the list of rooms and the WebSocket URL
     return ok(ctx, {
       rooms:      roomsWithTokens,
       livekitUrl: config.livekitApiUrl,

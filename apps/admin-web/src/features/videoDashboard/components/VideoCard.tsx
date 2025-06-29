@@ -9,7 +9,6 @@ import {
 } from 'livekit-client'
 import type { VideoCardProps } from '../types/VideoCardProps'
 
-
 const VideoCard: React.FC<VideoCardProps & { livekitUrl?: string }> = ({
   name,
   email,
@@ -26,35 +25,50 @@ const VideoCard: React.FC<VideoCardProps & { livekitUrl?: string }> = ({
   const roomRef  = useRef<Room | null>(null)
 
   useEffect(() => {
-    if (!accessToken || !roomName || !livekitUrl) return
+    if (!accessToken || !roomName || !livekitUrl) {
+      return
+    }
+
     const vid = videoRef.current!
     let lkRoom: Room | null = null
     let canceled = false
+    let started = false  // tracker para solo llamar onPlay una vez
 
     function attachIfVideo(pub: any) {
       const track = pub.track
       if (pub.kind === 'video' && pub.isSubscribed && track) {
-        (track as RemoteVideoTrack).attach(vid)
+        ;(track as RemoteVideoTrack).attach(vid)
+        if (!started) {
+          started = true
+          onPlay(email)
+        }
       }
     }
 
     function setupParticipant(p: RemoteParticipant) {
-      // already-published
+      // suscribe publicaciones existentes
       for (const pub of p.getTrackPublications().values()) {
         attachIfVideo(pub)
       }
-      // future subscriptions
+      // nuevas suscripciones
       p.on(ParticipantEvent.TrackSubscribed, track => {
-        if (track instanceof RemoteVideoTrack) {
-          track.attach(vid)
+        if (track.kind === 'video') {
+          ;(track as RemoteVideoTrack).attach(vid)
+          if (!started) {
+            started = true
+            onPlay(email)
+          }
         }
       })
-      // whenever they publish anew
-      p.on(ParticipantEvent.TrackPublished, pub => {
-        // Wait for the SDK to auto-subscribe then TrackSubscribed will fire.
-        // But we can attach as soon as isSubscribed is true:
-        if (pub.kind === 'video' && pub.isSubscribed) {
-          attachIfVideo(pub)
+      // cuando el participante deja de publicar video
+      p.on(ParticipantEvent.TrackUnsubscribed, track => {
+        if (track.kind === 'video') {
+          onStop(email)
+        }
+      })
+      p.on(ParticipantEvent.TrackUnpublished, pub => {
+        if (pub.kind === 'video') {
+          onStop(email)
         }
       })
     }
@@ -62,9 +76,9 @@ const VideoCard: React.FC<VideoCardProps & { livekitUrl?: string }> = ({
     async function connectAndWatch() {
       const room = new Room()
       try {
-         await room.connect(livekitUrl!, accessToken!)
+        await room.connect(livekitUrl!, accessToken!)
       } catch (e) {
-        // empty-room ICE can fail harmlessly
+        console.warn('[VideoCard] connection error', e)
       }
       if (canceled) {
         room.disconnect()
@@ -73,17 +87,27 @@ const VideoCard: React.FC<VideoCardProps & { livekitUrl?: string }> = ({
       lkRoom = room
       roomRef.current = room
 
-      // 1) subscribe to anyone already in room
+      // Avisar si el room cae por completo
+      room.on(RoomEvent.Disconnected, () => {
+        onStop(email)
+      })
+
+      // subscribe a los que ya están
       for (const p of room.remoteParticipants.values()) {
-        if (roomName && p.identity.toLowerCase() === roomName.toLowerCase()) {
+        if (p.identity === roomName) {
           setupParticipant(p)
         }
       }
-
-      // 2) future joins
+      // nuevos participantes entrando
       room.on(RoomEvent.ParticipantConnected, p => {
-        if (roomName && p.identity.toLowerCase() === roomName.toLowerCase()) {
+        if (p.identity === roomName) {
           setupParticipant(p)
+        }
+      })
+      // participante sale de la sala
+      room.on(RoomEvent.ParticipantDisconnected, p => {
+        if (p.identity === roomName) {
+          onStop(email)
         }
       })
     }
@@ -94,12 +118,12 @@ const VideoCard: React.FC<VideoCardProps & { livekitUrl?: string }> = ({
       canceled = true
       if (lkRoom) lkRoom.disconnect()
       roomRef.current = null
-      if (videoRef.current) {
+      if (vid) {
         vid.srcObject = null
-        vid.src = ''
+        vid.src       = ''
       }
     }
-  }, [accessToken, roomName, livekitUrl])
+  }, [accessToken, roomName, livekitUrl, email, onPlay, onStop])
 
   const hasVideo = Boolean(accessToken && roomName && livekitUrl)
 
@@ -108,7 +132,13 @@ const VideoCard: React.FC<VideoCardProps & { livekitUrl?: string }> = ({
       {showHeader && (
         <div className="flex items-center px-2 py-1">
           <UserIndicator
-            user={{ email, name, fullName: name, status: hasVideo ? 'online' : 'offline' }}
+            user={{
+              email,
+              name,
+              fullName: name,
+              status: hasVideo ? 'online' : 'offline',
+              azureAdObjectId: roomName,
+            }}
             outerClass="w-5 h-5"
             innerClass="w-4 h-4"
             bgClass="bg-[var(--color-secondary)]"
@@ -117,6 +147,7 @@ const VideoCard: React.FC<VideoCardProps & { livekitUrl?: string }> = ({
           />
         </div>
       )}
+
       <div className="flex-1 bg-black overflow-hidden rounded-xl">
         {hasVideo ? (
           <video
@@ -133,6 +164,7 @@ const VideoCard: React.FC<VideoCardProps & { livekitUrl?: string }> = ({
           </div>
         )}
       </div>
+
       <div className="flex space-x-2 mt-2">
         <button
           onClick={() => (hasVideo ? onStop(email) : onPlay(email))}
