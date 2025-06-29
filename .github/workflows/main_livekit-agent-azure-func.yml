@@ -1,4 +1,4 @@
-name: Build, Zip & Deploy – livekit-agent-azure-func
+name: Build & Deploy – livekit-agent-azure-func
 
 on:
   push:
@@ -9,26 +9,26 @@ on:
   workflow_dispatch:
 
 env:
-  FUNC_SRC: apps/api-functions
+  FUNC_SRC: apps/api-functions   # folder containing host.json & built functions
   NODE_VER: '20.x'
 
 jobs:
   build-and-deploy:
     runs-on: windows-latest
-    permissions: { contents: read }
+    permissions:
+      contents: read
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
-
     steps:
-      - name: Checkout repo
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Setup Node.js ${{ env.NODE_VER }}
         uses: actions/setup-node@v3
         with:
           node-version: ${{ env.NODE_VER }}
 
-      - name: Install, build & Prisma
+      - name: Install deps, build & generate Prisma client
         shell: pwsh
         run: |
           Push-Location ${{ env.FUNC_SRC }}
@@ -36,33 +36,18 @@ jobs:
           npm run build
           npm run prisma:generate
           if (-Not (Test-Path ".\node_modules\.prisma\client")) {
-            Write-Error "❌ Prisma Client missing"; Exit 1
+            Write-Error "❌ Prisma Client was not generated"
+            Exit 1
           }
           npm run migrate:deploy
           Pop-Location
 
-      - name: Package ZIP
-        shell: pwsh
-        run: |
-          Remove-Item deploy.zip -Force -ErrorAction Ignore
-          Compress-Archive -Path ${{ env.FUNC_SRC }}\* -DestinationPath deploy.zip -Force
-
-      - name: Validate ZIP
-        shell: pwsh
-        run: |
-          Remove-Item zip-temp -Recurse -Force -ErrorAction Ignore
-          Expand-Archive deploy.zip -DestinationPath zip-temp -Force
-          if (-Not (Test-Path "zip-temp/host.json")) { Write-Error "❌ host.json missing"; Exit 1 }
-          if (Test-Path "zip-temp/apps/api-functions") { Write-Error "❌ nested folder"; Exit 1 }
-          if (-Not (Test-Path "zip-temp/node_modules/.prisma/client")) { Write-Error "❌ prisma client missing"; Exit 1 }
-          Write-Host "✅ ZIP OK"
-
-      - name: Deploy via Publish Profile
+      - name: Deploy to Azure Function App
         uses: Azure/functions-action@v1
         with:
           app-name:                       livekit-agent-azure-func
           slot-name:                      Production
-          package:                        './deploy.zip'
+          package:                        ${{ env.FUNC_SRC }}       # <<< publish this folder only
           publish-profile:                ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_FF8DCA89135F49D0BAFC08A0152A293C }}
           scm-do-build-during-deployment: false
           enable-oryx-build:              false
