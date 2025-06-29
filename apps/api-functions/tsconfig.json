@@ -1,19 +1,27 @@
 ﻿{
   "compilerOptions": {
+    /* Salida: .js se genera in-place junto al .ts */
     "target": "ES2020",
     "module": "commonjs",
-    "rootDir": "src",
-    "outDir": "dist",
-    "baseUrl": "src",
+
+    /* Imports con alias */
+    "baseUrl": ".",                       // ← ahora “src” es la raíz lógica
     "paths": {
-      "@config/*": ["config/*"],
+      "@config/*":     ["config/*"],
       "@middleware/*": ["middleware/*"],
-      "@services/*": ["services/*"],
-      "@utils/*": ["utils/*"]
+      "@services/*":   ["services/*"],
+      "@utils/*":      ["utils/*"]
     },
+
+    /* Seguridad + interoperabilidad */
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true
   },
-  "include": ["src/**/*.ts"]
+
+  /* Incluir todos los .ts dentro de src/ (ya estamos en src/) */
+  "include": ["**/*.ts"],
+
+  /* Excluir node_modules; el runtime lo ignorará de todos modos */
+  "exclude": ["node_modules"]
 }

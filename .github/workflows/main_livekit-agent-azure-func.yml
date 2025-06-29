@@ -1,63 +1,95 @@
-# Docs for the Azure Web Apps Deploy action: https://github.com/azure/functions-action
-# More GitHub Actions for Azure: https://github.com/Azure/actions
-
-name: Build and deploy Node.js project to Azure Function App - livekit-agent-azure-func
+name: Build, Zip & Deploy – livekit-agent-azure-func
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
+
+    paths:
+    - 'apps/api-functions/**'
+    - '.github/workflows/main_livekit-agent-azure-func.yml'
+    
   workflow_dispatch:
 
 env:
-  AZURE_FUNCTIONAPP_PACKAGE_PATH: '.' # set this to the path to your web app project, defaults to the repository root
-  NODE_VERSION: '20.x' # set this to the node version to use (supports 8.x, 10.x, 12.x)
+  FUNC_SRC: apps/api-functions       
+  NODE_VER: '20.x'
 
 jobs:
   build:
     runs-on: windows-latest
     permissions:
-      contents: read #This is required for actions/checkout
-      
+      contents: read
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
     steps:
-      - name: 'Checkout GitHub Action'
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node ${{ env.NODE_VERSION }} Environment
+      - name: Set up Node.js ${{ env.NODE_VER }}
         uses: actions/setup-node@v3
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version: ${{ env.NODE_VER }}
 
-      - name: 'Resolve Project Dependencies Using Npm'
+      - name: Install deps, build & generate Prisma client
         shell: pwsh
         run: |
-          pushd './${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}'
-          npm install
-          npm run build --if-present
-          npm run test --if-present
-          popd
+          # Enter your Function App directory
+          Push-Location ${{ env.FUNC_SRC }}
 
-      - name: Upload artifact for deployment job
-        uses: actions/upload-artifact@v4
-        with:
-          name: node-app
-          path: .
+          npm install
+          npm run build
+          npm run prisma:generate
+
+          if (-Not (Test-Path ".\node_modules\.prisma\client")) {
+            Write-Error "❌ Prisma Client was not generated"
+            Exit 1
+          }
+
+          npm run migrate:deploy
+          Pop-Location
+
+      - name: Package deployable ZIP
+        shell: pwsh
+        run: |
+          # Remove any old ZIP
+          Remove-Item -Force deploy.zip -ErrorAction Ignore
+
+          # ZIP up the contents of apps/api-functions (no nested folder)
+          Compress-Archive -Path ${{ env.FUNC_SRC }}\* -DestinationPath deploy.zip -Force
+
+      - name: Validate ZIP contents
+        shell: pwsh
+        run: |
+          Remove-Item -Recurse -Force zip-temp -ErrorAction Ignore
+          Expand-Archive -Path deploy.zip -DestinationPath zip-temp -Force
+
+          if (-Not (Test-Path "zip-temp/host.json")) {
+            Write-Error "❌ host.json is missing in ZIP root"
+            Exit 1
+          }
+          if (Test-Path "zip-temp/apps/api-functions") {
+            Write-Error "❌ ZIP contains nested apps/api-functions folder"
+            Exit 1
+          }
+          if (-Not (Test-Path "zip-temp/node_modules/.prisma/client")) {
+            Write-Error "❌ node_modules/.prisma/client is missing in ZIP"
+            Exit 1
+          }
+
+          Write-Host "✅ ZIP structure is valid"
+          Remove-Item -Recurse -Force zip-temp
 
   deploy:
     runs-on: windows-latest
     needs: build
-    
+    permissions:
+      id-token: write
+      contents: read
     steps:
-      - name: Download artifact from build job
-        uses: actions/download-artifact@v4
-        with:
-          name: node-app
-      
-      - name: 'Run Azure Functions Action'
+      - name: Azure Functions Action deploy
         uses: Azure/functions-action@v1
-        id: fa
         with:
-          app-name: 'livekit-agent-azure-func'
-          slot-name: 'Production'
-          package: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
+          app-name:        livekit-agent-azure-func
+          slot-name:       Production
+          package:         './deploy.zip'
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_FF8DCA89135F49D0BAFC08A0152A293C }}

@@ -1,32 +1,20 @@
 {
   "name": "api-function",
   "version": "1.0.0",
-  "main": "index.js",
-"scripts": {
-  "clean": "rimraf dist",
-
-  "build": "npm run clean && tsc",
-
-  "prepare-dist:dev": "cpx \"src/*/function.json\" dist && cpx \"host.json\" dist && cpx \"local.settings.json\" dist",
-  "prepare-dist:prod": "cpx \"src/*/function.json\" dist && cpx \"host.json\" dist",
-
-  "copy-prisma-runtime": "cpx \"../../node_modules/.prisma/**/*\" dist/node_modules/.prisma",
-  "copy-node-modules":   "cpx \"../../node_modules/**/*\" dist/node_modules",
-  "copy-schema":         "cpx \"prisma/schema.prisma\" dist/prisma/schema.prisma",
-
-  "prepare-dist": "npm run prepare-dist:prod && npm run copy-prisma-runtime && npm run copy-node-modules && npm run copy-schema",
-
-  "dev": "npm run build && npm run prepare-dist:dev && func start --script-root dist --verbose",
-  "prisma:generate": "prisma generate",
-  "prisma:migrate:dev": "prisma migrate dev --name init",
-  "prisma:deploy": "prisma migrate deploy && prisma generate"
-},
+  "scripts": {
+    "build": "tsc",
+    "prisma:generate": "prisma generate",
+    "migrate:deploy": "prisma migrate deploy",
+    "prepare": "npm run prisma:generate",
+    "postinstall": "npm run prepare",
+    "postbuild": "npm run prepare",
+    "start": "func start --script-root ."
+  },
   "dependencies": {
     "@azure/functions": "^3.0.0",
     "@azure/service-bus": "^7.0.0",
     "@azure/web-pubsub": "^1.2.0",
     "@prisma/client": "^6.10.1",
-    "prisma": "^6.10.1",
     "axios": "^1.0.0",
     "jsonwebtoken": "^8.5.1",
     "jwks-rsa": "^3.2.0",
@@ -40,13 +28,8 @@
     "@types/qs": "^6.14.0",
     "copyfiles": "^2.4.1",
     "cpx": "^1.5.0",
+    "prisma": "^6.10.1",
     "rimraf": "^3.0.2",
     "typescript": "^5.1.0"
-  },
-  "_moduleAliases": {
-    "@config": "dist/config",
-    "@middleware": "dist/middleware",
-    "@services": "dist/services",
-    "@utils": "dist/utils"
   }
 }

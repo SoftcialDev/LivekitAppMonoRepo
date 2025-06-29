@@ -122,7 +122,7 @@ export async function withAuth(
     ctx.log.info("[withAuth] Authentication succeeded", { oid: decoded.oid || decoded.sub });
 
     // 4. Proceed to next middleware/handler
-    return await next();
+    await next();
   } catch (err: any) {
     ctx.log.warn("[withAuth] Token verification failed or error occurred", { error: err.message });
     ctx.res = {

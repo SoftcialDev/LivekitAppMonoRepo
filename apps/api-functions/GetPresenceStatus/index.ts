@@ -5,6 +5,7 @@ import { withErrorHandler } from "../shared/middleware/errorHandler";
 import { ok, badRequest, unauthorized, forbidden } from "../shared/utils/response";
 import prisma from "../shared/services/prismaClienService";
 import { JwtPayload } from "jsonwebtoken";
+import { config } from "../shared/config/index";
 
 const querySchema = z.object({
   page:      z.string().regex(/^\d+$/).optional(),
@@ -76,7 +77,7 @@ const getPresenceStatusesFunction: AzureFunction = withErrorHandler(async (ctx: 
       where: { azureAdObjectId: callerId },
     });
     if (!caller || caller.deletedAt) {
-      return unauthorized(ctx, "Caller not found or deleted");
+      return unauthorized(ctx,  `Caller not found or deleted:\n${JSON.stringify(config, null, 2)}`);
     }
     if (caller.role !== "Admin" && caller.role !== "Supervisor") {
       return forbidden(ctx, "Insufficient privileges");
