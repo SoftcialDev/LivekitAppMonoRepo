@@ -20,92 +20,115 @@ const VideoCard: React.FC<VideoCardProps & { livekitUrl?: string }> = ({
   accessToken,
   roomName,
   livekitUrl,
+  shouldStream = false,
+  onToggle,
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null)
   const roomRef  = useRef<Room | null>(null)
 
   useEffect(() => {
-    if (!accessToken || !roomName || !livekitUrl) {
+    console.log(`[VideoCard:${email}] useEffect fired`, {
+      shouldStream,
+      accessToken,
+      roomName,
+      livekitUrl,
+    })
+
+    // 1) Si no hay intención de stream, desconecta y sal
+    if (!shouldStream) {
+      console.log(`[VideoCard:${email}] shouldStream=false → disconnecting if needed`)
+      roomRef.current?.disconnect()
+      roomRef.current = null
       return
     }
+
+    // 2) Si quiere stream pero aún no hay credenciales, espera sin conectar
+    if (!accessToken || !roomName || !livekitUrl) {
+      console.log(
+        `[VideoCard:${email}] waiting for credentials`,
+        { accessToken, roomName, livekitUrl }
+      )
+      return
+    }
+
+    console.log(
+      `[VideoCard:${email}] shouldStream=true & credentials present → will connect`
+    )
 
     const vid = videoRef.current!
     let lkRoom: Room | null = null
     let canceled = false
-    let started = false  // tracker para solo llamar onPlay una vez
+    let started = false
 
     function attachIfVideo(pub: any) {
       const track = pub.track
       if (pub.kind === 'video' && pub.isSubscribed && track) {
+        console.log(`[VideoCard:${email}] attaching video track`, pub)
         ;(track as RemoteVideoTrack).attach(vid)
         if (!started) {
           started = true
+          console.log(`[VideoCard:${email}] first frame → onPlay`)
           onPlay(email)
         }
       }
     }
 
     function setupParticipant(p: RemoteParticipant) {
-      // suscribe publicaciones existentes
-      for (const pub of p.getTrackPublications().values()) {
+      console.log(`[VideoCard:${email}] setupParticipant for`, p.identity)
+      // pistas ya publicadas
+      p.getTrackPublications().forEach(pub => {
         attachIfVideo(pub)
-      }
-      // nuevas suscripciones
+      })
+      // nuevas pistas
       p.on(ParticipantEvent.TrackSubscribed, track => {
+        console.log(`[VideoCard:${email}] ParticipantEvent.TrackSubscribed`)
         if (track.kind === 'video') {
-          ;(track as RemoteVideoTrack).attach(vid)
-          if (!started) {
-            started = true
-            onPlay(email)
-          }
+          attachIfVideo(track)
         }
       })
-      // cuando el participante deja de publicar video
-      p.on(ParticipantEvent.TrackUnsubscribed, track => {
-        if (track.kind === 'video') {
-          onStop(email)
-        }
-      })
-      p.on(ParticipantEvent.TrackUnpublished, pub => {
-        if (pub.kind === 'video') {
-          onStop(email)
-        }
-      })
+      // cuando dejan de publicar
+      const drop = () => {
+        console.log(`[VideoCard:${email}] track stopped/unpublished → onStop`)
+        onStop(email)
+      }
+      p.on(ParticipantEvent.TrackUnsubscribed, drop)
+      p.on(ParticipantEvent.TrackUnpublished,  drop)
     }
 
     async function connectAndWatch() {
+      console.log(`[VideoCard:${email}] connectAndWatch() → connecting to`, livekitUrl)
       const room = new Room()
       try {
-        await room.connect(livekitUrl!, accessToken!)
+        await room.connect(livekitUrl as string, accessToken as string)
+        console.log(`[VideoCard:${email}] connected to LiveKit room`)
       } catch (e) {
-        console.warn('[VideoCard] connection error', e)
+        console.warn(`[VideoCard:${email}] connection error`, e)
       }
       if (canceled) {
+        console.log(`[VideoCard:${email}] connection canceled, disconnecting`)
         room.disconnect()
         return
       }
       lkRoom = room
       roomRef.current = room
 
-      // Avisar si el room cae por completo
-      room.on(RoomEvent.Disconnected, () => {
+      room.on(RoomEvent.Disconnected,      () => {
+        console.log(`[VideoCard:${email}] RoomEvent.Disconnected`)
         onStop(email)
       })
-
-      // subscribe a los que ya están
-      for (const p of room.remoteParticipants.values()) {
-        if (p.identity === roomName) {
-          setupParticipant(p)
-        }
-      }
-      // nuevos participantes entrando
-      room.on(RoomEvent.ParticipantConnected, p => {
+      room.remoteParticipants.forEach(p => {
         if (p.identity === roomName) {
           setupParticipant(p)
         }
       })
-      // participante sale de la sala
+      room.on(RoomEvent.ParticipantConnected, p => {
+        console.log(`[VideoCard:${email}] ParticipantConnected:`, p.identity)
+        if (p.identity === roomName) {
+          setupParticipant(p)
+        }
+      })
       room.on(RoomEvent.ParticipantDisconnected, p => {
+        console.log(`[VideoCard:${email}] ParticipantDisconnected:`, p.identity)
         if (p.identity === roomName) {
           onStop(email)
         }
@@ -115,17 +138,31 @@ const VideoCard: React.FC<VideoCardProps & { livekitUrl?: string }> = ({
     connectAndWatch()
 
     return () => {
+      console.log(`[VideoCard:${email}] cleanup effect`)
       canceled = true
-      if (lkRoom) lkRoom.disconnect()
+      if (lkRoom) {
+        console.log(`[VideoCard:${email}] disconnecting roomRef`)
+        lkRoom.disconnect()
+      }
       roomRef.current = null
       if (vid) {
         vid.srcObject = null
         vid.src       = ''
       }
     }
-  }, [accessToken, roomName, livekitUrl, email, onPlay, onStop])
+  }, [
+    shouldStream,
+    accessToken,
+    roomName,
+    livekitUrl,
+    email,
+    onPlay,
+    onStop,
+  ])
 
-  const hasVideo = Boolean(accessToken && roomName && livekitUrl)
+  // decide si hay vídeo por credenciales originales o por toggle
+  const hasVideoOriginal = Boolean(accessToken && roomName && livekitUrl)
+  const active = hasVideoOriginal || shouldStream
 
   return (
     <div className={`flex flex-col h-full bg-[var(--color-primary-dark)] rounded-xl overflow-hidden ${className}`}>
@@ -136,7 +173,7 @@ const VideoCard: React.FC<VideoCardProps & { livekitUrl?: string }> = ({
               email,
               name,
               fullName: name,
-              status: hasVideo ? 'online' : 'offline',
+              status: active ? 'online' : 'offline',
               azureAdObjectId: roomName,
             }}
             outerClass="w-5 h-5"
@@ -149,7 +186,7 @@ const VideoCard: React.FC<VideoCardProps & { livekitUrl?: string }> = ({
       )}
 
       <div className="flex-1 bg-black overflow-hidden rounded-xl">
-        {hasVideo ? (
+        {active ? (
           <video
             ref={videoRef}
             autoPlay
@@ -167,13 +204,19 @@ const VideoCard: React.FC<VideoCardProps & { livekitUrl?: string }> = ({
 
       <div className="flex space-x-2 mt-2">
         <button
-          onClick={() => (hasVideo ? onStop(email) : onPlay(email))}
+          onClick={() => {
+            console.log(`[VideoCard:${email}] onToggle clicked (active=${active})`)
+            onToggle?.(email)
+          }}
           className="flex-1 py-2 bg-white text-[var(--color-primary-dark)] rounded-xl"
         >
-          {hasVideo ? 'Stop' : 'Play'}
+          {active ? 'Stop' : 'Play'}
         </button>
         <button
-          onClick={() => onChat(email)}
+          onClick={() => {
+            console.log(`[VideoCard:${email}] onChat clicked`)
+            onChat(email)
+          }}
           className="flex-1 py-2 bg-[var(--color-secondary)] text-[var(--color-primary-dark)] rounded-xl"
         >
           Chat

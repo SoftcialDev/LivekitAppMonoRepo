@@ -40,6 +40,8 @@ const PSOsPage: React.FC = () => {
   const [psos, setPsos]       = useState<PSOWithStatus[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError]     = useState<string>()
+  // ← añadido: control en caliente de Play/Stop
+  const [requested, setRequested] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
     if (!initialized || !account) return
@@ -96,7 +98,19 @@ const PSOsPage: React.FC = () => {
         // 5) Sort online-first
         enriched.sort((a, b) => Number(b.isOnline) - Number(a.isOnline))
 
-        if (!canceled) setPsos(enriched)
+        if (!canceled) {
+          setPsos(enriched)
+          // inicializar requested para quienes ya tenían token
+          setRequested(prev => {
+            const next = { ...prev }
+            enriched.forEach(p => {
+              if (!(p.email in next)) {
+                next[p.email] = Boolean(p.liveKitToken)
+              }
+            })
+            return next
+          })
+        }
       } catch (e: any) {
         console.error('[PSOsPage] loadData error', e)
         if (!canceled) setError(e.message || 'Failed to load PSOs')
@@ -115,7 +129,80 @@ const PSOsPage: React.FC = () => {
     return <div className="p-6 text-white">No PSOs to display</div>
 
   const count = psos.length
-  console.log('[PSOsPage] Loaded PSOs:', psos)
+
+  // ← añadido: toggle que refresca token y marca shouldStream
+ const handleToggle = (email: string) => {
+  const isOn = requested[email] ?? false
+  console.log(`[PSOsPage] toggle for ${email}: currently ${isOn ? 'ON' : 'OFF'}`)
+
+  if (isOn) {
+    // ——— STOP ———
+    console.log(`[PSOsPage] sending STOP for ${email}`)
+    handleStop(email)
+    setPsos(prev =>
+      prev.map(u =>
+        u.email === email
+          ? {
+              ...u,
+              liveKitRoom:  undefined,
+              liveKitToken: undefined,
+              liveKitUrl:   undefined,
+            }
+          : u
+      )
+    )
+    setRequested(prev => ({ ...prev, [email]: false }))
+  } else {
+    // ——— START ———
+    console.log(`[PSOsPage] sending START for ${email}`)
+    handlePlay(email)
+
+    const updateToken = async (): Promise<boolean> => {
+      try {
+        console.log(`[PSOsPage] fetching sessions for ${email}`)
+        const sessions = await fetchStreamingSessions()
+        const session  = sessions.find(s => s.email === email)
+        if (!session) throw new Error('session not found for ' + email)
+
+        console.log(`[PSOsPage] sessionId=${session.userId}`)
+        const { rooms, livekitUrl: lkUrl } = await getLiveKitToken()
+        const entry = (rooms as RoomWithToken[]).find(r => r.room === session.userId)
+        if (!entry) throw new Error('no token returned for room ' + session.userId)
+
+        console.log(`[PSOsPage] got token+URL for ${email}`)
+        setPsos(prev =>
+          prev.map(u =>
+            u.email === email
+              ? {
+                  ...u,
+                  liveKitRoom:  session.userId,
+                  liveKitToken: entry.token,
+                  liveKitUrl:   lkUrl,    // <-- casing correcto
+                }
+              : u
+          )
+        )
+        setRequested(prev => ({ ...prev, [email]: true }))
+        return true
+      } catch (err) {
+        console.error('[PSOsPage] updateToken error for', email, err)
+        return false
+      }
+    }
+
+    // 1er intento tras 3s
+    setTimeout(async () => {
+      const ok = await updateToken()
+      if (!ok) {
+        console.log(`[PSOsPage] retrying token fetch for ${email} in 1s`)
+        // retry único tras 1s
+        setTimeout(async () => {
+          await updateToken()
+        }, 1000)
+      }
+    }, 3000)
+  }
+}
 
   return (
     <div className="flex flex-col flex-1 h-full bg-[var(--color-primary-dark)] p-10">
@@ -125,15 +212,17 @@ const PSOsPage: React.FC = () => {
           <div className="flex flex-grow items-center justify-center p-4">
             <div className="w-11/12 h-full">
               <VideoCard
-                name        ={psos[0].fullName}
-                email       ={psos[0].email}
-                accessToken ={psos[0].liveKitToken}
-                roomName    ={psos[0].liveKitRoom}
-                livekitUrl  ={psos[0].liveKitUrl}
-                onPlay      ={handlePlay}
-                onStop      ={handleStop}
-                onChat      ={handleChat}
-                className   ="w-full h-full"
+                name         ={psos[0].fullName}
+                email        ={psos[0].email}
+                accessToken  ={psos[0].liveKitToken}
+                roomName     ={psos[0].liveKitRoom}
+                livekitUrl   ={psos[0].liveKitUrl}
+                shouldStream ={requested[psos[0].email]}
+                onToggle     ={handleToggle}
+                onPlay       ={handlePlay}
+                onStop       ={handleStop}
+                onChat       ={handleChat}
+                className    ="w-full h-full"
               />
             </div>
           </div>
@@ -153,15 +242,17 @@ const PSOsPage: React.FC = () => {
           {psos.map(u => (
             <div key={u.email} className="w-full h-full">
               <VideoCard
-                name        ={u.fullName}
-                email       ={u.email}
-                accessToken ={u.liveKitToken}
-                roomName    ={u.liveKitRoom}
-                livekitUrl  ={u.liveKitUrl}
-                onPlay      ={handlePlay}
-                onStop      ={handleStop}
-                onChat      ={handleChat}
-                className   ="w-full h-full"
+                name         ={u.fullName}
+                email        ={u.email}
+                accessToken  ={u.liveKitToken}
+                roomName     ={u.liveKitRoom}
+                livekitUrl   ={u.liveKitUrl}
+                shouldStream ={requested[u.email]}
+                onToggle     ={handleToggle}
+                onPlay       ={handlePlay}
+                onStop       ={handleStop}
+                onChat       ={handleChat}
+                className    ="w-full h-full"
               />
             </div>
           ))}
@@ -175,15 +266,17 @@ const PSOsPage: React.FC = () => {
             {psos.slice(0, 2).map(u => (
               <div key={u.email} className="w-1/2 flex flex-col h-full">
                 <VideoCard
-                  name        ={u.fullName}
-                  email       ={u.email}
-                  accessToken ={u.liveKitToken}
-                  roomName    ={u.liveKitRoom}
-                  livekitUrl  ={u.liveKitUrl}
-                  onPlay      ={handlePlay}
-                  onStop      ={handleStop}
-                  onChat      ={handleChat}
-                  className   ="flex-1"
+                  name         ={u.fullName}
+                  email        ={u.email}
+                  accessToken  ={u.liveKitToken}
+                  roomName     ={u.liveKitRoom}
+                  livekitUrl   ={u.liveKitUrl}
+                  shouldStream ={requested[u.email]}
+                  onToggle     ={handleToggle}
+                  onPlay       ={handlePlay}
+                  onStop       ={handleStop}
+                  onChat       ={handleChat}
+                  className    ="flex-1"
                 />
               </div>
             ))}
@@ -191,15 +284,17 @@ const PSOsPage: React.FC = () => {
           <div className="flex flex-1 justify-center mt-2 min-h-0">
             <div className="w-1/2 flex flex-col h-full">
               <VideoCard
-                name        ={psos[2].fullName}
-                email       ={psos[2].email}
-                accessToken ={psos[2].liveKitToken}
-                roomName    ={psos[2].liveKitRoom}
-                livekitUrl  ={psos[2].liveKitUrl}
-                onPlay      ={handlePlay}
-                onStop      ={handleStop}
-                onChat      ={handleChat}
-                className   ="flex-1"
+                name         ={psos[2].fullName}
+                email        ={psos[2].email}
+                accessToken  ={psos[2].liveKitToken}
+                roomName     ={psos[2].liveKitRoom}
+                livekitUrl   ={psos[2].liveKitUrl}
+                shouldStream ={requested[psos[2].email]}
+                onToggle     ={handleToggle}
+                onPlay       ={handlePlay}
+                onStop       ={handleStop}
+                onChat       ={handleChat}
+                className    ="flex-1"
               />
             </div>
           </div>
@@ -218,15 +313,17 @@ const PSOsPage: React.FC = () => {
           {psos.map(u => (
             <div key={u.email} className="w-full h-full">
               <VideoCard
-                name        ={u.fullName}
-                email       ={u.email}
-                accessToken ={u.liveKitToken}
-                roomName    ={u.liveKitRoom}
-                livekitUrl  ={u.liveKitUrl}
-                onPlay      ={handlePlay}
-                onStop      ={handleStop}
-                onChat      ={handleChat}
-                className   ="w-full h-full"
+                name         ={u.fullName}
+                email        ={u.email}
+                accessToken  ={u.liveKitToken}
+                roomName     ={u.liveKitRoom}
+                livekitUrl   ={u.liveKitUrl}
+                shouldStream ={requested[u.email]}
+                onToggle     ={handleToggle}
+                onPlay       ={handlePlay}
+                onStop       ={handleStop}
+                onChat       ={handleChat}
+                className    ="w-full h-full"
               />
             </div>
           ))}
@@ -254,15 +351,17 @@ const PSOsPage: React.FC = () => {
             return (
               <div key={u.email} className={`w-full h-full ${alignClass}`}>
                 <VideoCard
-                  name        ={u.fullName}
-                  email       ={u.email}
-                  accessToken ={u.liveKitToken}
-                  roomName    ={u.liveKitRoom}
-                  livekitUrl  ={u.liveKitUrl}
-                  onPlay      ={handlePlay}
-                  onStop      ={handleStop}
-                  onChat      ={handleChat}
-                  className   ="w-full h-full"
+                  name         ={u.fullName}
+                  email        ={u.email}
+                  accessToken  ={u.liveKitToken}
+                  roomName     ={u.liveKitRoom}
+                  livekitUrl   ={u.liveKitUrl}
+                  shouldStream ={requested[u.email]}
+                  onToggle     ={handleToggle}
+                  onPlay       ={handlePlay}
+                  onStop       ={handleStop}
+                  onChat       ={handleChat}
+                  className    ="w-full h-full"
                 />
               </div>
             )

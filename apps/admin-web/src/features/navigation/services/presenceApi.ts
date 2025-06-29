@@ -60,6 +60,7 @@ export async function fetchPresence(): Promise<{
       status:     u.status,
       lastSeenAt: u.lastSeenAt,
       name:       u.fullName, 
+      azureAdObjectId: (u as any).azureAdObjectId ?? null,
     }))
 
   const offline = items
@@ -70,6 +71,7 @@ export async function fetchPresence(): Promise<{
       status:     u.status,
       lastSeenAt: u.lastSeenAt,
       name:       u.fullName, 
+      azureAdObjectId: (u as any).azureAdObjectId ?? null,
     }))
 
   return { online, offline }

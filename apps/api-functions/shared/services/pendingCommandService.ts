@@ -17,15 +17,27 @@ export async function createPendingCommand(
   timestamp: string | Date
 ): Promise<PendingCommand> {
   const ts = typeof timestamp === "string" ? new Date(timestamp) : timestamp;
-  return await prisma.pendingCommand.create({
-    data: {
-      employeeId,
-      command,
-      timestamp: ts,
-      // published, acknowledged and attemptCount use their defaults
-    },
-  });
+
+  const [_, newCmd] = await prisma.$transaction([
+    // a) borrar anteriores
+    prisma.pendingCommand.deleteMany({
+      where: {
+        employeeId,
+      },
+    }),
+    // b) crear el nuevo
+    prisma.pendingCommand.create({
+      data: {
+        employeeId,
+        command,
+        timestamp: ts,
+      },
+    }),
+  ]);
+
+  return newCmd;
 }
+
 
 /**
  * Attempts immediate delivery of a pending command.
