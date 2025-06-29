@@ -3,16 +3,14 @@ name: Build, Zip & Deploy – livekit-agent-azure-func
 on:
   push:
     branches: [ main ]
-
     paths:
-    - 'apps/api-functions/**'
-    - '.github/workflows/main_livekit-agent-azure-func.yml'
-    
+      - 'apps/api-functions/**'
+      - '.github/workflows/main_livekit-agent-azure-func.yml'
   workflow_dispatch:
 
 env:
-  FUNC_SRC: apps/api-functions       
-  NODE_VER: '20.x'
+  FUNC_SRC: apps/api-functions/src   # path to your Function App within the monorepo
+  NODE_VER: '20.x'                   # Node.js version
 
 jobs:
   build:
@@ -33,28 +31,21 @@ jobs:
       - name: Install deps, build & generate Prisma client
         shell: pwsh
         run: |
-          # Enter your Function App directory
           Push-Location ${{ env.FUNC_SRC }}
-
-          npm install
+          npm ci
           npm run build
           npm run prisma:generate
-
           if (-Not (Test-Path ".\node_modules\.prisma\client")) {
             Write-Error "❌ Prisma Client was not generated"
             Exit 1
           }
-
           npm run migrate:deploy
           Pop-Location
 
       - name: Package deployable ZIP
         shell: pwsh
         run: |
-          # Remove any old ZIP
           Remove-Item -Force deploy.zip -ErrorAction Ignore
-
-          # ZIP up the contents of apps/api-functions (no nested folder)
           Compress-Archive -Path ${{ env.FUNC_SRC }}\* -DestinationPath deploy.zip -Force
 
       - name: Validate ZIP contents
@@ -62,7 +53,6 @@ jobs:
         run: |
           Remove-Item -Recurse -Force zip-temp -ErrorAction Ignore
           Expand-Archive -Path deploy.zip -DestinationPath zip-temp -Force
-
           if (-Not (Test-Path "zip-temp/host.json")) {
             Write-Error "❌ host.json is missing in ZIP root"
             Exit 1
@@ -75,7 +65,6 @@ jobs:
             Write-Error "❌ node_modules/.prisma/client is missing in ZIP"
             Exit 1
           }
-
           Write-Host "✅ ZIP structure is valid"
           Remove-Item -Recurse -Force zip-temp
 
@@ -83,13 +72,20 @@ jobs:
     runs-on: windows-latest
     needs: build
     permissions:
-      id-token: write
       contents: read
     steps:
-      - name: Azure Functions Action deploy
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Deploy ZIP to Azure Function
         uses: Azure/functions-action@v1
         with:
-          app-name:        livekit-agent-azure-func
-          slot-name:       Production
-          package:         './deploy.zip'
-          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_FF8DCA89135F49D0BAFC08A0152A293C }}
+          app-name:                        livekit-agent-azure-func
+          slot-name:                       Production
+          package:                         '${{ github.workspace }}/deploy.zip'
+          publish-profile:                 ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_FF8DCA89135F49D0BAFC08A0152A293C }}
+          respect-funcignore:              false
+          respect-pom-xml:                 false
+          scm-do-build-during-deployment:  false
+          enable-oryx-build:               false
+          remote-build:                    false
