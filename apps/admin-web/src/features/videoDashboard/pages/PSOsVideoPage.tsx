@@ -5,7 +5,7 @@ import { useAuth } from '../../auth/hooks/useAuth'
 import type { UserStatus } from 'src/features/navigation/types/types'
 import VideoCard from '../components/VideoCard'
 import { useVideoActions } from '../hooks/UseVideoAction'
-import { getLiveKitToken, RoomWithToken } from '../services/livekitClient'
+import { getLiveKitToken, RoomWithToken } from '../../../services/livekitClient'
 import { usePresence } from '../../navigation/hooks/usePresence'
 import { fetchStreamingSessions } from '@/services/streamingStatusClient'
 

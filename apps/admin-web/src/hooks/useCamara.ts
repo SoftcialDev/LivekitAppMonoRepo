@@ -6,7 +6,7 @@ import {
   createLocalVideoTrack,
   createLocalAudioTrack,
 } from 'livekit-client';
-import { getLiveKitToken } from '../features/videoDashboard/services/livekitClient';
+import { getLiveKitToken } from '../services/livekitClient';
 import {
   PendingCommandsClient,
   PendingCommand,

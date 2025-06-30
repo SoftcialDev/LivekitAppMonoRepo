@@ -1,13 +1,14 @@
-import React, { useEffect, useMemo } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useAuth } from '../../auth/hooks/useAuth'
 import { usePresence } from '../../navigation/hooks/usePresence'
 import { usePresenceWebSocket } from '../../navigation/hooks/usePresenceWebSocket'
+import { fetchStreamingSessions } from '../../../services/streamingStatusClient'
+import { getLiveKitToken, RoomWithToken } from '../../../services/livekitClient'
 import UserIndicator from '../../../components/UserIndicator'
 import VideoCard from '../components/VideoCard'
 import { useHeader } from '../../../context/HeaderContext'
 import { useVideoActions } from '../hooks/UseVideoAction'
-import type { UserStatus } from '../../navigation/types/types'
 
 type RouteParams = { username?: string }
 
@@ -16,8 +17,10 @@ type RouteParams = { username?: string }
  *
  * - Fetches REST streaming flags via `usePresence`.
  * - Subscribes to live presence diffs via `usePresenceWebSocket`.
- * - Derives `shouldStream` from `streamingMap[displayName]`.
- * - Updates the page header only when title or status actually change.
+ * - When `shouldStream` becomes true, looks up the DB `userId` via
+ *   `fetchStreamingSessions`, then requests a LiveKit token for that room
+ *   via `getLiveKitToken(userId)`.
+ * - Passes credentials into `<VideoCard>` so it can connect/play.
  */
 const UserVideoPage: React.FC = () => {
   const { username } = useParams<RouteParams>()
@@ -28,36 +31,80 @@ const UserVideoPage: React.FC = () => {
   // 1️⃣ REST snapshot of active streams
   const { streamingMap, loading, error } = usePresence()
 
-  // 2️⃣ Listen for live presence diffs (internally merges into streamingMap)
+  // 2️⃣ Listen for live presence diffs (merges into streamingMap)
   usePresenceWebSocket({
     currentEmail: myEmail,
-    onPresence: () => { /* no-op: usePresenceWebSocket updates streamingMap */ },
+    onPresence: () => {}, // no-op
   })
 
-  // derive whether we should be streaming right now
+  // 3️⃣ Derive streaming flag for this user
   const shouldStream = Boolean(streamingMap[displayName])
 
-  // 3️⃣ Prepare stable header props
+  // 4️⃣ Local state for LiveKit credentials
+  const [accessToken, setAccessToken] = useState<string>()
+  const [roomName,    setRoomName]    = useState<string>()
+  const [livekitUrl,  setLivekitUrl]  = useState<string>()
+  const [loadingToken, setLoadingToken] = useState(false)
+
+  // 5️⃣ When we should stream, fetch session ID + LiveKit token
+  useEffect(() => {
+    if (!shouldStream) {
+      // cleanup on stop
+      setAccessToken(undefined)
+      setRoomName(undefined)
+      return
+    }
+
+    let cancelled = false
+    ;(async () => {
+      setLoadingToken(true)
+      try {
+        // a) find the DB session for this email
+        const sessions = await fetchStreamingSessions()
+        const sess = sessions.find(s => s.email === displayName)
+        if (!sess) throw new Error('Streaming session not found')
+
+        // b) ask backend for a token scoped to that room/userId
+        const { rooms, livekitUrl } = await getLiveKitToken(sess.userId)
+        const entry = rooms.find((r: RoomWithToken) => r.room === sess.userId)
+        if (!entry) throw new Error('LiveKit token missing')
+
+        if (!cancelled) {
+          setRoomName(entry.room)
+          setAccessToken(entry.token)
+          setLivekitUrl(livekitUrl)
+        }
+      } catch (e) {
+        console.error('[UserVideoPage] failed to fetch LiveKit token', e)
+      } finally {
+        if (!cancelled) setLoadingToken(false)
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [shouldStream, displayName])
+
+  // 6️⃣ Header is updated only when title or stream status change
   const headerProps = useMemo(() => ({
     title: displayName,
     iconNode: (
       <UserIndicator
         user={{
-          email:            displayName,
-          name:             displayName,
-          fullName:         displayName,
-          status:           shouldStream ? 'online' : 'offline',
-          azureAdObjectId:  null,
+          email:           displayName,
+          name:            displayName,
+          fullName:        displayName,
+          status:          shouldStream ? 'online' : 'offline',
+          azureAdObjectId: null,
         }}
         nameClass="text-white font-bold"
       />
     ),
   }), [displayName, shouldStream])
-
-  // 4️⃣ Apply header props via hook
   useHeader(headerProps)
 
-  // 5️⃣ Video control hooks
+  // 7️⃣ Play/Stop/Chat actions
   const { handlePlay, handleStop, handleChat } = useVideoActions()
 
   if (loading) return <div className="p-6 text-white">Loading presence…</div>
@@ -69,10 +116,11 @@ const UserVideoPage: React.FC = () => {
         <VideoCard
           name         ={displayName}
           email        ={displayName}
-          accessToken  ={undefined}
-          roomName     ={undefined}
-          livekitUrl   ={undefined}
+          accessToken  ={accessToken}
+          roomName     ={roomName}
+          livekitUrl   ={livekitUrl}
           shouldStream ={shouldStream}
+          connecting   ={loadingToken}
           onToggle     ={() =>
             shouldStream
               ? handleStop(displayName)
@@ -83,7 +131,6 @@ const UserVideoPage: React.FC = () => {
           onChat       ={handleChat}
           className    ="w-full h-full max-w-3xl"
           showHeader   ={false}
-          connecting   ={false}
         />
       </div>
     </div>

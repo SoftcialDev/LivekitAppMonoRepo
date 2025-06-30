@@ -137,8 +137,6 @@ const InnerAuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     };
     try {
       const silentResult = await instance.acquireTokenSilent(silentRequest);
-      console.log("acaaa",apiScope)
-      console.log(silentResult)
       return silentResult.accessToken;
     } catch (err: any) {
       // If interaction is required, fallback to popup

@@ -1,6 +1,6 @@
 import React from 'react';
 import { useStreamingDashboard } from './useCamara';
-import PSOsPage from '@/features/videoDashboard/pages/PSOsVideoPage';
+
 
 const PsoDashboard: React.FC = () => {
   const { videoRef, audioRef, isStreaming } = useStreamingDashboard();
