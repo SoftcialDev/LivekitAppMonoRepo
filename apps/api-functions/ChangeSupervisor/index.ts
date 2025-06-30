@@ -1,121 +1,112 @@
 import { AzureFunction, Context } from "@azure/functions";
 import { z } from "zod";
-import { withAuth } from "../shared/middleware/auth";
-import { withErrorHandler } from "../shared/middleware/errorHandler";
+import { randomUUID } from "crypto";
+
+import { withAuth }          from "../shared/middleware/auth";
+import { withErrorHandler }  from "../shared/middleware/errorHandler";
 import { withBodyValidation } from "../shared/middleware/validate";
-import { ok, unauthorized, badRequest, forbidden } from "../shared/utils/response";
-import prisma from "../shared/services/prismaClienService";
+import {
+  ok, unauthorized, badRequest, forbidden,
+} from "../shared/utils/response";
+
+import {
+  getUserByAzureOid,
+  getUserByEmail,
+  upsertUserRole,
+  findOrCreateAdmin,
+} from "../shared/services/userService";
 import type { JwtPayload } from "jsonwebtoken";
 
 /* -------------------------------------------------------------------------- */
-/*  📝 Request body validation                                                */
+/*  ChangeSupervisorFunction                                                  */
 /* -------------------------------------------------------------------------- */
-const schema = z.object({
-  /** List of employee emails to reassign */
-  userEmails: z.array(z.string().email()).min(1),
-  /**
-   * Email of the new supervisor.
-   * Send `null` to remove the current supervisor.
-   */
-  newSupervisorEmail: z.string().email().nullable(),   // ← no default("")
-});
 
-/* -------------------------------------------------------------------------- */
-/*  🏗️  ChangeSupervisorFunction                                             */
-/* -------------------------------------------------------------------------- */
-const changeSupervisor: AzureFunction = withErrorHandler(async (ctx: Context) => {
-  await withAuth(ctx, async () => {
-    /* ---------------------------------------------------------------------- */
-    /*  1. Caller validation                                                  */
-    /* ---------------------------------------------------------------------- */
-    const claims = (ctx as any).bindings.user as JwtPayload;
-    const callerAdId = (claims.oid || claims.sub) as string | undefined;
-    if (!callerAdId) return unauthorized(ctx, "Cannot determine caller identity");
+const changeSupervisor: AzureFunction = withErrorHandler(
+  async (ctx: Context) => {
+    await withAuth(ctx, async () => {
+      /* ───────────────── 1. Resolve caller ───────────────────────────── */
+      const claims = (ctx as any).bindings.user as JwtPayload;
+      const oid   = claims.oid || claims.sub;
+      const upn   = (claims.preferred_username ?? claims.email) as string | undefined;
+      const name  = (claims.name ?? upn ?? "Unknown") as string;
 
-    const caller = await prisma.user.findUnique({
-      where: { azureAdObjectId: callerAdId },
-    });
-    if (!caller || caller.deletedAt)
-      return unauthorized(ctx, "User not found or deleted");
+      if (!oid) return unauthorized(ctx, "Missing OID in token");
 
-    if (caller.role !== "Admin" && caller.role !== "Supervisor")
-      return forbidden(ctx, "Only Admins or Supervisors may reassign employees");
+      // Ensure caller exists in DB (auto-create Admin if absent)
+      const caller =
+        (await getUserByAzureOid(oid)) ??
+        (upn && (await getUserByEmail(upn))) ??
+        (await findOrCreateAdmin(oid, upn ?? `${oid}@tenant`, name));
 
-    /* ---------------------------------------------------------------------- */
-    /*  2. Body validation                                                    */
-    /* ---------------------------------------------------------------------- */
-    await withBodyValidation(schema)(ctx, async () => {
-      const { userEmails, newSupervisorEmail } = ctx.bindings
-        .validatedBody as {
-        userEmails: string[];
-        newSupervisorEmail: string | null;
-      };
-
-      ctx.log.info("ChangeSupervisor → userEmails %o", userEmails);
-      ctx.log.info(
-        "ChangeSupervisor → newSupervisorEmail: %s",
-        newSupervisorEmail ?? "(remove)"
-      );
-
-      /* -------------------------------------------------------------------- */
-      /*  3. Determine supervisorId                                           */
-      /* -------------------------------------------------------------------- */
-      let supervisorId: string | null;
-      if (newSupervisorEmail === null) {
-        supervisorId = null; // explicit removal
-      } else {
-        // newSupervisorEmail must be a valid email here
-        const sup = await prisma.user.findUnique({
-          where: { email: newSupervisorEmail },
-        });
-        if (!sup || sup.deletedAt)
-          return badRequest(ctx, "Supervisor not found or deleted");
-        if (sup.role !== "Supervisor")
-          return badRequest(ctx, "Target user is not a Supervisor");
-        supervisorId = sup.id;
+      if (!caller || caller.deletedAt)         return unauthorized(ctx, "Caller not found");
+      if (caller.role !== "Admin" && caller.role !== "Supervisor") {
+        return forbidden(ctx, "Caller must be Admin or Supervisor");
       }
 
-      /* -------------------------------------------------------------------- */
-      /* 4. Perform update inside a transaction                               */
-      /* -------------------------------------------------------------------- */
-      try {
-        const [updateRes, stillWithSupervisorAfter] = await prisma.$transaction([
-          prisma.user.updateMany({
-            where: { email: { in: userEmails }, deletedAt: null },
-            data: { supervisorId },
-          }),
-          prisma.user.count({
-            where: { supervisorId: { not: null }, deletedAt: null },
-          }),
-        ]);
+      /* ───────────────── 2. Validate body ────────────────────────────── */
+      const schema = z.object({
+        userEmails:          z.array(z.string().email()).min(1),
+        newSupervisorEmail:  z.string().email().nullable(),
+      });
 
-        ctx.log.info(
-          "ChangeSupervisor → updateMany count: %d",
-          updateRes.count
-        );
+      await withBodyValidation(schema)(ctx, async () => {
+        const {
+          userEmails:        raw,
+          newSupervisorEmail,
+        } = ctx.bindings.validatedBody as {
+          userEmails: string[];
+          newSupervisorEmail: string | null;
+        };
 
-        // Defensive: row-count mismatch → rollback by throwing
-        if (updateRes.count !== userEmails.length) {
-          throw new Error(
-            `Row mismatch – expected ${userEmails.length}, got ${updateRes.count}`
-          );
+        const userEmails = raw.map(e => e.toLowerCase());
+        const supEmail   = newSupervisorEmail?.toLowerCase() ?? null;
+
+        /* ─────────────── 3. Resolve supervisorId (or null) ───────────── */
+        let supervisorId: string | null = null;
+        if (supEmail) {
+          const sup = await getUserByEmail(supEmail);
+          if (!sup || sup.deletedAt)             return badRequest(ctx, "Supervisor not found");
+          if (sup.role !== "Supervisor")         return badRequest(ctx, "Target is not a Supervisor");
+          supervisorId = sup.id;
         }
 
-        ctx.log.info(
-          "ChangeSupervisor → employees still WITH supervisor: %d",
-          stillWithSupervisorAfter
-        );
+        /* ─────────────── 4. Upsert ONLY the target employees ─────────── */
+        let updatedCount = 0;
 
-        return ok(ctx, { updatedCount: updateRes.count });
-      } catch (err: any) {
-        ctx.log.error("ChangeSupervisor → transaction error", err);
-        return badRequest(ctx, `Failed to reassign employees: ${err.message}`);
-      }
+        for (const email of userEmails) {
+          const existing = await getUserByEmail(email);
+
+          // If user already exists *with* a non-Employee role, skip.
+          if (existing && existing.role && existing.role !== "Employee") {
+            ctx.log.warn(`Skipping ${email} (role = ${existing.role})`);
+            continue;
+          }
+
+          // Choose a safe OID when we must create a brand-new tenant user
+          const oidForCreate =
+            existing?.azureAdObjectId ?? randomUUID();   // unique every time
+
+          await upsertUserRole(
+            email,
+            oidForCreate,
+            existing?.fullName ?? email,   // placeholder name if none
+            "Employee",
+            supervisorId                   // defined ⇒ set / clear link
+          );
+
+          updatedCount += 1;
+        }
+
+        /* ─────────────── 5. Done ─────────────────────────────────────── */
+        ctx.log.info(`ChangeSupervisor → updated ${updatedCount} row(s).`);
+        return ok(ctx, { updatedCount });
+      });
     });
-  });
-}, {
-  genericMessage: "Internal Server Error in ChangeSupervisor",
-  showStackInDev: true,
-});
+  },
+  {
+    genericMessage: "Internal Server Error in ChangeSupervisor",
+    showStackInDev: true,
+  }
+);
 
 export default changeSupervisor;

@@ -114,7 +114,7 @@ const AddModal: React.FC<AddModalProps> = ({
           bg-[var(--color-primary-light)]
           border-2 border-white
           rounded-lg shadow-xl
-          w-[90%] max-w-5xl
+          w-[90%] 
         "
         style={{ left: pos.x, top: pos.y }}
       >

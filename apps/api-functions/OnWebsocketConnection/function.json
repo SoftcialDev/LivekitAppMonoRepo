@@ -1,0 +1,13 @@
+{
+  "bindings": [
+    {
+      "type":       "webPubSubTrigger",
+      "name":       "connectionContext",
+      "direction":  "in",
+      "hub":        "%WEBPUBSUB_HUB%",
+      "connection": "WEBPUBSUB_CONNECTION",
+      "eventType":  "system",
+      "eventName":  "connect"
+    }
+  ],  "scriptFile": "index.js"
+}

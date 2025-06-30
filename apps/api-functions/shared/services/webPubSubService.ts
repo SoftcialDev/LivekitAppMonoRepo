@@ -25,7 +25,7 @@ export async function generateWebPubSubToken(groupName: string): Promise<string>
   const tokenResponse = await wpsClient.getClientAccessToken({
     roles: ["webpubsub.joinLeaveGroup", "webpubsub.receive"],
     userId: normalized,
-    groups: [normalized],
+    groups: [normalized, "presence"],
   });
 
   return tokenResponse.token;
@@ -47,4 +47,20 @@ export async function sendToGroup(
   const groupClient = wpsClient.group(groupName);
   await groupClient.sendToAll(JSON.stringify(payload));
   console.log(`Sent to group ${groupName}`);
+}
+
+
+
+/**
+ * Envía un evento de presencia al grupo “presence”.
+ */
+export async function broadcastPresence(payload: {
+  email:      string;
+  fullName:   string;
+  status:     "online" | "offline";
+  lastSeenAt: string;
+}) {
+  await wpsClient.group("presence").sendToAll(
+    JSON.stringify({ type: "presence", user: payload }),
+  );
 }

@@ -1,89 +1,93 @@
-import React from 'react';
-import { useParams } from 'react-router-dom';
-import { useHeader } from '../../../context/HeaderContext';
-import { useAuth } from '../../auth/hooks/useAuth';
-import { usePresence } from '../../navigation/hooks/usePresence';
-import UserIndicator from '../../../components/UserIndicator';
-import VideoCard from '../components/VideoCard';
-import type { UserStatus } from '../../navigation/types/types';
-import { useVideoActions } from '../hooks/UseVideoAction';
+import React, { useEffect, useMemo } from 'react'
+import { useParams } from 'react-router-dom'
+import { useAuth } from '../../auth/hooks/useAuth'
+import { usePresence } from '../../navigation/hooks/usePresence'
+import { usePresenceWebSocket } from '../../navigation/hooks/usePresenceWebSocket'
+import UserIndicator from '../../../components/UserIndicator'
+import VideoCard from '../components/VideoCard'
+import { useHeader } from '../../../context/HeaderContext'
+import { useVideoActions } from '../hooks/UseVideoAction'
+import type { UserStatus } from '../../navigation/types/types'
+
+type RouteParams = { username?: string }
 
 /**
- * Props extracted from the route.
+ * Shows a single user’s live video stream if they’re online.
  *
- * We tell React-Router that our only param is "username", so
- * useParams<'username'>() returns { username?: string }.
- */
-type ParamKey = 'username';
-
-/**
- * UserVideoPage
- *
- * - Reads the `:username` route param.
- * - Fetches current user’s presence list via usePresence.
- * - Finds the specified user in the online list (if any).
- * - Calls useHeader() to set the header title and icon.
- * - Renders a single VideoCard centered in the viewport:
- *   • If online, passes `/video.mp4` as videoSrc.
- *   • Otherwise, shows “No Stream”.
- * - Buttons call stub handlers for Start/Stop/Chat.
- *
- * Layout uses nested flex wrappers to center the VideoCard:
- * 1. `flex-1 min-h-0` to fill available space without overflow.
- * 2. `items-center justify-center` to center content.
- * 3. `max-w-3xl` to constrain width on large screens.
- *
- * @returns {JSX.Element}
+ * - Fetches REST streaming flags via `usePresence`.
+ * - Subscribes to live presence diffs via `usePresenceWebSocket`.
+ * - Derives `shouldStream` from `streamingMap[displayName]`.
+ * - Updates the page header only when title or status actually change.
  */
 const UserVideoPage: React.FC = () => {
-  // Extract `username` param
-  const { username } = useParams<ParamKey>();
-  const displayName = username ?? 'Unknown User';
+  const { username } = useParams<RouteParams>()
+  const displayName  = username ?? ''
+  const { account }  = useAuth()
+  const myEmail      = account?.username ?? ''
 
-  // Auth & presence
-  const { account } = useAuth();
-  const currentUser = account?.username ?? '';
-  const { onlineUsers, loading, error } = usePresence();
+  // 1️⃣ REST snapshot of active streams
+  const { streamingMap, loading, error } = usePresence()
 
-  // Find this user in the live-online list
-  const matched = onlineUsers.find(u => u.name === displayName);
-  const user: UserStatus = matched ?? { name: displayName, email: '', status: 'offline', fullName: displayName, azureAdObjectId: null };
-  const isOnline = Boolean(matched);
+  // 2️⃣ Listen for live presence diffs (internally merges into streamingMap)
+  usePresenceWebSocket({
+    currentEmail: myEmail,
+    onPresence: () => { /* no-op: usePresenceWebSocket updates streamingMap */ },
+  })
 
-  // Set page header
-  useHeader({
-    title: user.name,
-    iconNode: <UserIndicator user={user} 
-       nameClass="text-white font-bold" />,
-  });
+  // derive whether we should be streaming right now
+  const shouldStream = Boolean(streamingMap[displayName])
 
-  const { handlePlay, handleStop, handleChat } = useVideoActions();
+  // 3️⃣ Prepare stable header props
+  const headerProps = useMemo(() => ({
+    title: displayName,
+    iconNode: (
+      <UserIndicator
+        user={{
+          email:            displayName,
+          name:             displayName,
+          fullName:         displayName,
+          status:           shouldStream ? 'online' : 'offline',
+          azureAdObjectId:  null,
+        }}
+        nameClass="text-white font-bold"
+      />
+    ),
+  }), [displayName, shouldStream])
 
-  if (loading) return <div className="p-6 text-white">Loading...</div>;
-  if (error)   return <div className="p-6 text-red-500">Error: {error}</div>;
+  // 4️⃣ Apply header props via hook
+  useHeader(headerProps)
+
+  // 5️⃣ Video control hooks
+  const { handlePlay, handleStop, handleChat } = useVideoActions()
+
+  if (loading) return <div className="p-6 text-white">Loading presence…</div>
+  if (error)   return <div className="p-6 text-red-500">Error: {error}</div>
 
   return (
-    <div className="flex flex-col flex-1 min-h-0 bg-[var(--color-primary-dark)] p-20 w-full h-full">
-      <div className="flex flex-1 min-h-0">
-        {/* Centering wrapper: fills space and centers its content */}
-        <div className="flex flex-1 items-center justify-center p-4 ">
-          {/* Constrain max width and height */}
-          <div className="w-full  h-full flex items-center justify-center">
-            <VideoCard
-              name={user.name}
-              email={user.email}
-              videoSrc={isOnline ? '/video.mp4' : undefined}
-              onStop={handleStop}
-              onPlay={handlePlay}
-              onChat={handleChat}
-              className="w-full h-full"
-              showHeader={false}
-            />
-          </div>
-        </div>
+    <div className="flex flex-col flex-1 min-h-0 bg-[var(--color-primary-dark)] p-20">
+      <div className="flex-1 flex items-center justify-center">
+        <VideoCard
+          name         ={displayName}
+          email        ={displayName}
+          accessToken  ={undefined}
+          roomName     ={undefined}
+          livekitUrl   ={undefined}
+          shouldStream ={shouldStream}
+          onToggle     ={() =>
+            shouldStream
+              ? handleStop(displayName)
+              : handlePlay(displayName)
+          }
+          onPlay       ={handlePlay}
+          onStop       ={handleStop}
+          onChat       ={handleChat}
+          className    ="w-full h-full max-w-3xl"
+          showHeader   ={false}
+          connecting   ={false}
+        />
       </div>
     </div>
-  );
-};
+  )
+}
 
-export default UserVideoPage;
+export default UserVideoPage

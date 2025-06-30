@@ -1,26 +1,29 @@
 import { AzureFunction, Context, HttpRequest } from "@azure/functions";
-import { withAuth } from "../shared/middleware/auth";
-import { withErrorHandler } from "../shared/middleware/errorHandler";
+import { withAuth }           from "../shared/middleware/auth";
+import { withErrorHandler }   from "../shared/middleware/errorHandler";
+import { withBodyValidation } from "../shared/middleware/validate";
 import { ok, unauthorized, badRequest } from "../shared/utils/response";
+
 import prisma from "../shared/services/prismaClienService";
 import {
   getGraphToken,
   fetchAllUsers,
   fetchAppRoleMemberIds,
 } from "../shared/services/graphService";
-import { JwtPayload } from "jsonwebtoken";
 
-// import your user‐service helpers:
 import {
   findOrCreateAdmin,
   upsertUserRole,
+  getUserByAzureOid,
 } from "../shared/services/userService";
 
+import type { JwtPayload } from "jsonwebtoken";
+
 ////////////////////////////////////////////////////////////////////////////////
-// Types
+// helpers
 ////////////////////////////////////////////////////////////////////////////////
 
-export interface CandidateUser {
+interface CandidateUser {
   azureAdObjectId: string;
   email:           string;
   firstName:       string;
@@ -30,68 +33,65 @@ export interface CandidateUser {
   supervisorName?: string;
 }
 
-function splitName(fullName: string): { firstName: string; lastName: string } {
-  const [firstName = "", second = ""] = fullName.trim().split(/\s+/);
-  return { firstName, lastName: second };
-}
+const splitName = (n = ""): { firstName: string; lastName: string } => {
+  const [firstName = "", lastName = ""] = n.trim().split(/\s+/);
+  return { firstName, lastName };
+};
 
 ////////////////////////////////////////////////////////////////////////////////
-// Function
+// function
 ////////////////////////////////////////////////////////////////////////////////
 
 const getRoleCandidates: AzureFunction = withErrorHandler(
-  async (context: Context, req: HttpRequest) => {
-    return withAuth(context, async () => {
-      // 1) AUTHZ & ensure caller in DB
-      const claims = (context as any).bindings.user as JwtPayload;
-      const callerOid = (claims.oid || claims.sub) as string;
-      if (!callerOid) {
-        return unauthorized(context, "Unable to determine caller");
+  async (ctx: Context, req: HttpRequest) => {
+    return withAuth(ctx, async () => {
+      /* ─────────────── 1. Caller authentication / authorisation ─────── */
+      const claims = (ctx as any).bindings.user as JwtPayload;
+      const oid   = claims.oid || claims.sub;
+      if (!oid) return unauthorized(ctx, "Unable to determine caller OID");
+
+      const callerUpn  = claims.preferred_username as string | undefined;
+      const callerName = (claims.name ?? callerUpn ?? "Unknown") as string;
+      const caller =
+        (await getUserByAzureOid(oid)) ??
+        (callerUpn && (await prisma.user.findUnique({ where: { email: callerUpn.toLowerCase() } }))) ??
+        (await findOrCreateAdmin(oid, callerUpn ?? `${oid}@tenant`, callerName));
+
+      if (!caller || typeof caller !== "object" || caller.role !== "Admin" && caller.role !== "Supervisor") {
+        return unauthorized(ctx, "Insufficient privileges");
       }
 
-      // ensure an Admin record exists for caller
-      const callerUpn = claims.preferred_username as string;
-      const callerName = claims.name as string;
-      const caller = await findOrCreateAdmin(callerOid, callerUpn, callerName);
+      /* ─────────────── 2. Query-string params ────────────────────────── */
+      const rawRoleParam = (req.query.role as string | "")              .trim();
+      const requested    = rawRoleParam ? rawRoleParam.split(",").map(r => r.trim()) : ["All"];
 
-      if (caller.role !== "Admin" && caller.role !== "Supervisor") {
-        return unauthorized(context, "Insufficient privileges");
-      }
-
-      // 2) Parse query params
-      const rawRoles     = (req.query.role as string || "").trim();
-      const requested    = rawRoles.split(",").map(r => r.trim());
-      const prismaRoles  = requested.filter(r =>
+      const prismaRoles = requested.filter(r =>
         ["Admin", "Supervisor", "Employee"].includes(r)
-      ) as Array<"Admin"|"Supervisor"|"Employee">;
-      const includeTenant = requested.includes("Tenant");
+      ) as Array<"Admin" | "Supervisor" | "Employee">;
 
-      const page     = Math.max(1, parseInt(req.query.page as string)    || 1);
-      const pageSize = Math.max(1, parseInt(req.query.pageSize as string)|| 50);
+      const includeTenant = requested.includes("Tenant") || requested.includes("All");
+
+      const page     = Math.max(1, parseInt(req.query.page     as string) || 1);
+      const pageSize = Math.max(1, parseInt(req.query.pageSize as string) || 50);
 
       const candidates: CandidateUser[] = [];
 
-      // 3) Fetch existing DB users for requested roles
+      /* ─────────────── 3. Users already in DB (incl. supervisor link) ── */
       if (prismaRoles.length) {
         const dbUsers = await prisma.user.findMany({
-          where: {
-            deletedAt: null,
-            role:      { in: prismaRoles },
-          },
+          where: { deletedAt: null, role: { in: prismaRoles } },
           select: {
             azureAdObjectId: true,
             email:           true,
             fullName:        true,
             role:            true,
             supervisor: {
-              select: {
-                azureAdObjectId: true,
-                fullName:        true,
-              },
+              select: { azureAdObjectId: true, fullName: true },
             },
           },
         });
-        for (const u of dbUsers) {
+
+        dbUsers.forEach(u => {
           const { firstName, lastName } = splitName(u.fullName);
           candidates.push({
             azureAdObjectId: u.azureAdObjectId,
@@ -99,79 +99,56 @@ const getRoleCandidates: AzureFunction = withErrorHandler(
             firstName,
             lastName,
             role: u.role,
-            supervisorAdId: u.supervisor?.azureAdObjectId ?? undefined,
-            supervisorName: u.supervisor?.fullName           ?? undefined,
+            supervisorAdId:  u.supervisor?.azureAdObjectId,
+            supervisorName:  u.supervisor?.fullName,
           });
-        }
+        });
       }
 
-      // 4) Fetch tenant users via Graph if requested
+      /* ─────────────── 4. Optional tenant discovery via Graph ────────── */
       if (includeTenant) {
         let token: string;
         try {
           token = await getGraphToken();
         } catch (err: any) {
-          return badRequest(context, `Graph token error: ${err.message}`);
-        }
-        const spId    = process.env.SERVICE_PRINCIPAL_OBJECT_ID!;
-        const roleIds = [
-          process.env.SUPERVISORS_GROUP_ID!,
-          process.env.ADMINS_GROUP_ID!,
-          process.env.EMPLOYEES_GROUP_ID!,
-        ];
-
-        // fetch membership sets
-        let supIds: Set<string>, adminIds: Set<string>, empIds: Set<string>;
-        try {
-          [supIds, adminIds, empIds] = await Promise.all([
-            fetchAppRoleMemberIds(token, spId, roleIds[0]),
-            fetchAppRoleMemberIds(token, spId, roleIds[1]),
-            fetchAppRoleMemberIds(token, spId, roleIds[2]),
-          ]);
-        } catch (err: any) {
-          return badRequest(context, `Graph role fetch error: ${err.message}`);
+          return badRequest(ctx, `Graph token error: ${err.message}`);
         }
 
-        // fetch all AAD users
-        let allUsers: Array<{
-          id: string;
-          displayName?: string;
-          mail?: string;
-          userPrincipalName?: string;
-          accountEnabled?: boolean;
-        }>;
-        try {
-          allUsers = await fetchAllUsers(token);
-        } catch (err: any) {
-          return badRequest(context, `Graph users fetch error: ${err.message}`);
-        }
+        const spId = process.env.SERVICE_PRINCIPAL_OBJECT_ID!;
+        const [supIds, adminIds, empIds] = await Promise.all([
+          fetchAppRoleMemberIds(token, spId, process.env.SUPERVISORS_GROUP_ID!),
+          fetchAppRoleMemberIds(token, spId, process.env.ADMINS_GROUP_ID!),
+          fetchAppRoleMemberIds(token, spId, process.env.EMPLOYEES_GROUP_ID!),
+        ]);
 
-        // process each user: if not in any role-sets above, treat as tenant
-        for (const u of allUsers) {
-          if (u.accountEnabled === false) continue;
+        // fetch **all** tenant users once
+        const graphUsers = await fetchAllUsers(token);
 
-          // skip those already in App Roles
-          if (supIds.has(u.id) || adminIds.has(u.id) || empIds.has(u.id)) {
-            // but if they’re in a role but missing in DB, upsert them too
-            let role: "Supervisor"|"Admin"|"Employee" = "Employee";
-            if (adminIds.has(u.id))      role = "Admin";
-            else if (supIds.has(u.id))   role = "Supervisor";
+        for (const gu of graphUsers) {
+          if (gu.accountEnabled === false) continue;
+          const email = gu.mail || gu.userPrincipalName || "";
+          if (!email) continue;
 
-            // derive email & name
-            const email = u.mail || u.userPrincipalName || "";
-            if (!email) continue;
-            const fullName = u.displayName || email;
-            // upsert into DB with correct role
-            await upsertUserRole(email, u.id, fullName, role, null);
-            continue;
+          const inAnyRole = supIds.has(gu.id) || adminIds.has(gu.id) || empIds.has(gu.id);
+
+          /* 4-a) User already in an App-role group but missing in our DB */
+          if (inAnyRole) {
+            const exists = await prisma.user.findUnique({ where: { azureAdObjectId: gu.id } });
+            if (!exists) {
+              // determine DB role once
+              const role: "Supervisor" | "Admin" | "Employee" =
+                adminIds.has(gu.id) ? "Admin" :
+                supIds.has (gu.id) ? "Supervisor" : "Employee";
+
+              await upsertUserRole(email, gu.id, gu.displayName || email, role);
+            }
+            continue; // do not list them as tenants
           }
 
-          // this is a pure tenant user
-          const email = u.mail || u.userPrincipalName || "";
-          if (!email) continue;
-          const { firstName, lastName } = splitName(u.displayName || "");
+          /* 4-b) Pure tenant user → include in response */
+          const { firstName, lastName } = splitName(gu.displayName);
           candidates.push({
-            azureAdObjectId: u.id,
+            azureAdObjectId: gu.id,
             email,
             firstName,
             lastName,
@@ -180,29 +157,26 @@ const getRoleCandidates: AzureFunction = withErrorHandler(
         }
       }
 
-      // 5) Dedupe by Azure AD ID
+      /* ─────────────── 5. Deduplicate by OID ─────────────────────────── */
+      const dedup: CandidateUser[] = [];
       const seen = new Set<string>();
-      const unique = candidates.filter(u => {
-        if (seen.has(u.azureAdObjectId)) return false;
-        seen.add(u.azureAdObjectId);
-        return true;
-      });
+      for (const c of candidates) {
+        if (!seen.has(c.azureAdObjectId)) {
+          seen.add(c.azureAdObjectId);
+          dedup.push(c);
+        }
+      }
 
-      // 6) Paginate
-      const total = unique.length;
-      const start = (page - 1) * pageSize;
-      const pageItems = unique.slice(start, start + pageSize);
+      /* ─────────────── 6. Pagination ─────────────────────────────────── */
+      const total   = dedup.length;
+      const startIx = (page - 1) * pageSize;
+      const users   = dedup.slice(startIx, startIx + pageSize);
 
-      return ok(context, {
-        total,
-        page,
-        pageSize,
-        users: pageItems,
-      });
+      return ok(ctx, { total, page, pageSize, users });
     });
   },
   {
-    genericMessage: "Internal server error in GetRoleCandidates",
+    genericMessage: "Internal server error in GetUsersByRole",
     showStackInDev: true,
   }
 );

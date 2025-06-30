@@ -146,7 +146,6 @@ const changeUserRole: AzureFunction = withErrorHandler(
           targetAdId,
           displayName,
           newRole,
-          null
         );
 
           await logAudit({

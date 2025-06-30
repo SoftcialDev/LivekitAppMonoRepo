@@ -4,4 +4,5 @@ export interface UserStatus {
   fullName: string
   email: string
   name:  string
+  lastSeenAt?: string;  
 }
