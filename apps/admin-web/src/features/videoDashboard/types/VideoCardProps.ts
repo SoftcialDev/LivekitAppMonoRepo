@@ -7,7 +7,7 @@ export interface VideoCardProps {
 
   // admin dashboard won’t use videoSrc
   videoSrc?: string
-
+connecting?:   boolean
   accessToken?: string
   roomName?: string
   livekitUrl?: string

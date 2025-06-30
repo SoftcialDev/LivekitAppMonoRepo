@@ -106,6 +106,43 @@ const DashboardPage: React.FC = () => {
         console.log('[Presence] ONLINE');
         await presenceClient.setOnline();
 
+        // ───────────────────────────────────────────────────────────
+        // Try to resume the last session if it stopped less than 5 minutes ago
+        // ───────────────────────────────────────────────────────────
+        try {
+          const last = await streamingClient.fetchLastSession();
+          const stoppedAt = last.stoppedAt ? new Date(last.stoppedAt) : null;
+          const now = new Date();
+          // if still active or stopped under 5m ago → resume
+          if (!stoppedAt || (now.getTime() - stoppedAt.getTime()) < 5 * 60_000) {
+            console.log('[Streaming] resuming last session automatically');
+            const { rooms, livekitUrl } = await getLiveKitToken();
+            const { token }             = rooms[0];
+            const room = new Room();
+            await room.connect(livekitUrl, token);
+            roomRef.current = room;
+
+            const [v, a] = await Promise.all([
+              createLocalVideoTrack(),
+              createLocalAudioTrack(),
+            ]);
+            tracksRef.current.video = v;
+            tracksRef.current.audio = a;
+
+            await room.localParticipant.publishTrack(v);
+            await room.localParticipant.publishTrack(a);
+
+            if (videoRef.current) v.attach(videoRef.current);
+            if (audioRef.current) a.attach(audioRef.current);
+
+            streamingRef.current = true;
+            setIsStreaming(true);
+            console.log('[Streaming] ACTIVE (resumed)');
+            await streamingClient.setActive();
+          }
+        } catch (resumeErr) {
+          console.warn('[Streaming] resume skipped:', resumeErr);
+        }
 
         // WS disconnect → mark streaming inactive
         pubSubService.onDisconnected(async () => {

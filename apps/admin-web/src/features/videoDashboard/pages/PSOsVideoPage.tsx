@@ -40,6 +40,7 @@ const PSOsPage: React.FC = () => {
   const [psos, setPsos]       = useState<PSOWithStatus[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError]     = useState<string>()
+  const [connecting, setConnecting] = useState<Record<string, boolean>>({})
   // ← añadido: control en caliente de Play/Stop
   const [requested, setRequested] = useState<Record<string, boolean>>({})
 
@@ -131,77 +132,67 @@ const PSOsPage: React.FC = () => {
   const count = psos.length
 
   // ← añadido: toggle que refresca token y marca shouldStream
- const handleToggle = (email: string) => {
-  const isOn = requested[email] ?? false
-  console.log(`[PSOsPage] toggle for ${email}: currently ${isOn ? 'ON' : 'OFF'}`)
+const handleToggle = (email: string) => {
+  const isOn   = requested[email]   ?? false
+  const isConn = connecting[email]  ?? false
 
-  if (isOn) {
-    // ——— STOP ———
-    console.log(`[PSOsPage] sending STOP for ${email}`)
+  // Si ya está on o en connecting → STOP
+  if (isOn || isConn) {
     handleStop(email)
     setPsos(prev =>
       prev.map(u =>
         u.email === email
-          ? {
-              ...u,
-              liveKitRoom:  undefined,
-              liveKitToken: undefined,
-              liveKitUrl:   undefined,
-            }
+          ? { ...u, liveKitRoom: undefined, liveKitToken: undefined, liveKitUrl: undefined }
           : u
       )
     )
-    setRequested(prev => ({ ...prev, [email]: false }))
-  } else {
-    // ——— START ———
-    console.log(`[PSOsPage] sending START for ${email}`)
-    handlePlay(email)
+    setRequested(prev  => ({ ...prev,  [email]: false }))
+    setConnecting(prev => ({ ...prev,  [email]: false }))
+    return
+  }
 
-    const updateToken = async (): Promise<boolean> => {
-      try {
-        console.log(`[PSOsPage] fetching sessions for ${email}`)
-        const sessions = await fetchStreamingSessions()
-        const session  = sessions.find(s => s.email === email)
-        if (!session) throw new Error('session not found for ' + email)
+  // START
+  handlePlay(email)
+  setConnecting(prev => ({ ...prev, [email]: true }))
 
-        console.log(`[PSOsPage] sessionId=${session.userId}`)
-        const { rooms, livekitUrl: lkUrl } = await getLiveKitToken()
-        const entry = (rooms as RoomWithToken[]).find(r => r.room === session.userId)
-        if (!entry) throw new Error('no token returned for room ' + session.userId)
+  const doFetch = async (isRetry: boolean) => {
+    try {
+      const sessions = await fetchStreamingSessions()
+      const sess     = sessions.find(s => s.email === email)
+      if (!sess) throw new Error('session not found')
 
-        console.log(`[PSOsPage] got token+URL for ${email}`)
-        setPsos(prev =>
-          prev.map(u =>
-            u.email === email
-              ? {
-                  ...u,
-                  liveKitRoom:  session.userId,
-                  liveKitToken: entry.token,
-                  liveKitUrl:   lkUrl,    // <-- casing correcto
-                }
-              : u
-          )
+      const { rooms, livekitUrl: lkUrl } = await getLiveKitToken()
+      const entry = (rooms as RoomWithToken[]).find(r => r.room === sess.userId)
+      if (!entry) throw new Error('token not returned')
+
+      setPsos(prev =>
+        prev.map(u =>
+          u.email === email
+            ? {
+                ...u,
+                liveKitRoom:  sess.userId,
+                liveKitToken: entry.token,
+                liveKitUrl:   lkUrl,
+              }
+            : u
         )
-        setRequested(prev => ({ ...prev, [email]: true }))
-        return true
-      } catch (err) {
-        console.error('[PSOsPage] updateToken error for', email, err)
-        return false
+      )
+      setRequested(prev  => ({ ...prev,  [email]: true }))
+      setConnecting(prev => ({ ...prev,  [email]: false }))
+    } catch (err) {
+      console.error(`[PSOsPage] token fetch ${isRetry ? 'retry ' : ''}failed for`, email, err)
+      if (!isRetry) {
+        // schedule retry único a los 10s totales (7s después del primer intento)
+        setTimeout(() => void doFetch(true), 7000)
+      } else {
+        // tras segundo fallo, liberamos el botón
+        setConnecting(prev => ({ ...prev, [email]: false }))
       }
     }
-
-    // 1er intento tras 3s
-    setTimeout(async () => {
-      const ok = await updateToken()
-      if (!ok) {
-        console.log(`[PSOsPage] retrying token fetch for ${email} in 1s`)
-        // retry único tras 1s
-        setTimeout(async () => {
-          await updateToken()
-        }, 1000)
-      }
-    }, 3000)
   }
+
+  // primer intento a los 3s
+  setTimeout(() => void doFetch(false), 3000)
 }
 
   return (
@@ -219,6 +210,7 @@ const PSOsPage: React.FC = () => {
                 livekitUrl   ={psos[0].liveKitUrl}
                 shouldStream ={requested[psos[0].email]}
                 onToggle     ={handleToggle}
+                connecting   ={connecting[psos[0].email] ?? false} 
                 onPlay       ={handlePlay}
                 onStop       ={handleStop}
                 onChat       ={handleChat}
@@ -249,6 +241,7 @@ const PSOsPage: React.FC = () => {
                 livekitUrl   ={u.liveKitUrl}
                 shouldStream ={requested[u.email]}
                 onToggle     ={handleToggle}
+                connecting   ={connecting[u.email] ?? false} 
                 onPlay       ={handlePlay}
                 onStop       ={handleStop}
                 onChat       ={handleChat}
@@ -274,6 +267,7 @@ const PSOsPage: React.FC = () => {
                   shouldStream ={requested[u.email]}
                   onToggle     ={handleToggle}
                   onPlay       ={handlePlay}
+                  connecting   ={connecting[u.email] ?? false} 
                   onStop       ={handleStop}
                   onChat       ={handleChat}
                   className    ="flex-1"
@@ -293,6 +287,7 @@ const PSOsPage: React.FC = () => {
                 onToggle     ={handleToggle}
                 onPlay       ={handlePlay}
                 onStop       ={handleStop}
+                connecting   ={connecting[psos[2].email] ?? false}
                 onChat       ={handleChat}
                 className    ="flex-1"
               />
@@ -321,6 +316,7 @@ const PSOsPage: React.FC = () => {
                 shouldStream ={requested[u.email]}
                 onToggle     ={handleToggle}
                 onPlay       ={handlePlay}
+                connecting   ={connecting[u.email] ?? false} 
                 onStop       ={handleStop}
                 onChat       ={handleChat}
                 className    ="w-full h-full"
@@ -359,6 +355,7 @@ const PSOsPage: React.FC = () => {
                   shouldStream ={requested[u.email]}
                   onToggle     ={handleToggle}
                   onPlay       ={handlePlay}
+                  connecting   ={connecting[u.email] ?? false} 
                   onStop       ={handleStop}
                   onChat       ={handleChat}
                   className    ="w-full h-full"
