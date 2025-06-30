@@ -15,30 +15,36 @@ const querySchema = z.object({
  * HTTP-triggered Azure Function that returns a paginated list of presence statuses
  * for users with the "Employee" role.
  *
- * Admin callers see all employees; Supervisor callers see only their direct-report employees.
+ * - Admin callers see **all** employees.
+ * - Supervisor callers see **only** their direct reports.
  *
- * @param ctx - The Azure Functions execution context.
- * @param ctx.req - The incoming HTTP request.
- * @param ctx.req.query.page - (optional) 1-based page number. Defaults to "1" if not provided.
- * @param ctx.req.query.pageSize - (optional) Number of items per page (max 100). Defaults to "50".
- * @returns A 200 OK response with the following JSON payload:
+ * Query parameters:
+ * - `page` (string, optional): 1-based page number. Defaults to `"1"`.  
+ * - `pageSize` (string, optional): Number of items per page (max 100). Defaults to `"50"`.
+ *
+ * Response JSON:
  * ```json
  * {
- *   "total": number,
- *   "page": number,
- *   "pageSize": number,
- *   "items": Array<{
- *     email: string;
- *     fullName: string;
- *     azureAdObjectId: string;
- *     status: string;
- *     lastSeenAt: string | null;
- *   }>
+ *   "total": number,      // total matching users before paging
+ *   "page": number,       // current page (1-based)
+ *   "pageSize": number,   // page size
+ *   "items": [
+ *     {
+ *       "email": string,
+ *       "fullName": string,
+ *       "azureAdObjectId": string,
+ *       "status": string,         // presence status ("online"/"offline"/etc.)
+ *       "lastSeenAt": string|null // ISO timestamp or null
+ *     },
+ *     …
+ *   ]
  * }
  * ```
- * @throws 400 Bad Request if `page` or `pageSize` are invalid or if the database query fails.
- * @throws 401 Unauthorized if the caller’s identity cannot be determined or the caller is deleted.
- * @throws 403 Forbidden if the caller is neither Admin nor Supervisor.
+ *
+ * Errors:
+ * - 400 Bad Request if `page` or `pageSize` are invalid or on DB query failure.  
+ * - 401 Unauthorized if the caller’s identity is missing or deleted.  
+ * - 403 Forbidden if the caller is neither Admin nor Supervisor.
  */
 const getWebsocketPresenceStatusesFunction: AzureFunction = withErrorHandler(
   async (ctx: Context) => {
@@ -47,7 +53,10 @@ const getWebsocketPresenceStatusesFunction: AzureFunction = withErrorHandler(
     // 1) Validate and parse query parameters
     const parseResult = querySchema.safeParse(req.query);
     if (!parseResult.success) {
-      return badRequest(ctx, "Invalid query parameters: page and pageSize must be positive integers");
+      return badRequest(
+        ctx,
+        "Invalid query parameters: page and pageSize must be positive integers"
+      );
     }
     const { page = "1", pageSize = "50" } = parseResult.data;
     const p = Math.max(1, parseInt(page, 10));
@@ -119,7 +128,10 @@ const getWebsocketPresenceStatusesFunction: AzureFunction = withErrorHandler(
         });
       } catch (err: any) {
         ctx.log.error("Fetch presence statuses error:", err);
-        return badRequest(ctx, `Failed to fetch presence statuses: ${err.message}`);
+        return badRequest(
+          ctx,
+          `Failed to fetch presence statuses: ${err.message}`
+        );
       }
     });
   }
