@@ -184,7 +184,8 @@ module "function_app" {
   # CORS settings for the Static Web App and local development
   cors_allowed_origins        = [
     "https://${module.static_web_app.default_hostname}",
-    "http://localhost:5173"
+    "http://localhost:5173",
+    "http://localhost:3000"
   ]
 
   # Consumption-based Function App plan settings

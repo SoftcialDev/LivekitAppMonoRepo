@@ -1,29 +1,60 @@
 // main.js
-const { app, BrowserWindow, session, ipcMain } = require('electron');
+const { app, BrowserWindow, session, ipcMain, Tray, Menu } = require('electron');
 const path = require('path');
 const fs   = require('fs');
+const Service = require('electron-windows-service');
 
-const PORT        = 3000;
-const DIST_FOLDER = path.join(__dirname, 'ui', 'dist');
-const HAS_DIST    = fs.existsSync(DIST_FOLDER);
-const IS_PROD     = process.env.NODE_ENV === 'production' || HAS_DIST;
-const START_URL   = `http://localhost:${PORT}`;
+const APP_NAME       = 'InContact';
+const SERVICE_NAME   = 'InContactService';
+const SERVICE_DESC   = 'InContact background service';
+const PORT           = 3000;
+const DIST_FOLDER    = path.join(__dirname, 'ui', 'dist');
+const HAS_DIST       = fs.existsSync(DIST_FOLDER);
+const IS_PROD        = process.env.NODE_ENV === 'production' || HAS_DIST;
+const START_URL      = IS_PROD
+  ? `file://${path.join(DIST_FOLDER, 'index.html')}`
+  : `http://localhost:${PORT}`;
 
-// dynamically import electron-store so ESM works
+let mainWindow = null;
+let tray       = null;
+let allowQuit  = false;
+
+// ----------------------------------------
+// 1) Service install/uninstall handling
+// ----------------------------------------
+if (process.argv.includes('--install-service')) {
+  Service.install({
+    name:        SERVICE_NAME,
+    description: SERVICE_DESC,
+    script:      process.execPath,
+    args:        ['--hidden'],
+  });
+  return;
+}
+
+if (process.argv.includes('--uninstall-service')) {
+  Service.uninstall(SERVICE_NAME);
+  return;
+}
+
+// ----------------------------------------
+// 2) Persistence setup (electron-store)
+// ----------------------------------------
 let store;
 async function setupPersistence() {
   const { default: Store } = await import('electron-store');
   store = new Store();
-  // save incoming snapshots
   ipcMain.on('storage-save', (_evt, data) => {
     store.set('localStorage', data);
   });
-  // reply with last snapshot
   ipcMain.on('storage-load', (evt) => {
     evt.returnValue = store.get('localStorage') || {};
   });
 }
 
+// ----------------------------------------
+// 3) Express static server in production
+// ----------------------------------------
 if (IS_PROD) {
   const express = require('express');
   const server  = express();
@@ -38,37 +69,97 @@ if (IS_PROD) {
   console.log('🛠  Dev — waiting on Vite…');
 }
 
+// ----------------------------------------
+// 4) Create main BrowserWindow
+// ----------------------------------------
 async function createWindow() {
   await setupPersistence();
 
-  const win = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: 1024,
     height: 768,
+    icon: path.join(__dirname, 'assets', 'icon-tray.ico'),
+    closable: false,
     webPreferences: {
       contextIsolation: true,
       nodeIntegration:  false,
-      webSecurity:     true,
       preload:         path.join(__dirname, 'preload.js'),
-      nativeWindowOpen: true,
+      nativeWindowOpen:true,
     },
   });
 
-  win.loadURL(START_URL);
+  mainWindow.loadURL(START_URL);
 
   session.defaultSession.setPermissionRequestHandler((_, perm, cb) =>
     cb(perm === 'media')
   );
 
   if (!IS_PROD) {
-    win.webContents.openDevTools({ mode: 'detach' });
+    mainWindow.webContents.openDevTools({ mode: 'detach' });
   }
+
+  // never close: minimize instead
+  mainWindow.on('close', e => {
+    e.preventDefault();
+    mainWindow.minimize();
+  });
+
+  // system tray menu
+  try {
+    const trayIcon = path.join(__dirname, 'assets', 'icon-tray.ico');
+    if (!fs.existsSync(trayIcon)) throw new Error('Tray icon not found');
+    tray = new Tray(trayIcon);
+    const menu = Menu.buildFromTemplate([
+      { label: `${APP_NAME}`, enabled: false },
+      { type: 'separator' },
+      { label: 'Show', click: () => mainWindow.show() },
+      {
+        label: 'Quit (Admin only)',
+        click: () => {
+          allowQuit = true;
+          app.quit();
+        }
+      }
+    ]);
+    tray.setToolTip(APP_NAME);
+    tray.setContextMenu(menu);
+  } catch (err) {
+    console.warn('[Tray] failed to set up tray icon:', err.message);
+  }
+
+  // hide window on successful login
+  ipcMain.on('login-success', () => {
+    mainWindow.hide();
+  });
 }
 
-app.whenReady().then(createWindow);
-
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
+// ----------------------------------------
+// 5) App lifecycle
+// ----------------------------------------
+app.whenReady().then(() => {
+  // if not running as service, also auto-start at login
+  if (process.platform === 'win32' && !process.argv.includes('--hidden')) {
+    app.setLoginItemSettings({
+      openAtLogin: true,
+      path: process.execPath,
+      args: ['--hidden']
+    });
+  }
+  createWindow();
 });
+
+// block any programmatic quit
+app.on('before-quit', e => {
+  if (!allowQuit) e.preventDefault();
+});
+
+// on macOS re-activate
 app.on('activate', () => {
-  if (BrowserWindow.getAllWindows().length === 0) createWindow();
+  if (!mainWindow) createWindow();
+  else mainWindow.show();
+});
+
+// do not quit when all windows are closed
+app.on('window-all-closed', () => {
+  // no-op
 });

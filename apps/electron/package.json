@@ -3,11 +3,14 @@
   "version": "1.0.0",
   "main": "main.js",
   "author": "Softcial",
+  "description": "In Contact Electron App for Collette Health",
   "scripts": {
     "start": "concurrently \"npm:ui:dev\" \"wait-on http://localhost:5173 && electron .\"",
     "ui:dev": "cd ui && npm run dev",
     "ui:build": "cd ui && npm run build",
-    "start:prod": "npm run ui:build &&  cross-env NODE_ENV=production electron .",
+    "start:prod": "npm run ui:build && cross-env NODE_ENV=production electron .",
+    "postinstall": "electron . --install-service",
+    "postuninstall": "electron . --uninstall-service",
     "build": "npm run ui:build && electron-builder",
     "dist:exe": "npm run ui:build && electron-builder --win nsis",
     "dist:msi": "npm run ui:build && electron-builder --win msi",
@@ -19,7 +22,7 @@
   "devDependencies": {
     "concurrently": "^9.2.0",
     "cross-env": "^7.0.3",
-    "electron": "^28.1.3",
+    "electron": "^28.3.3",
     "electron-builder": "^26.0.12",
     "wait-on": "^8.0.3"
   },
@@ -27,7 +30,8 @@
     "electron-store": "^10.1.0",
     "express": "^4.19.2",
     "livekit-client": "^2.13.8",
-    "react-router-dom": "^7.6.2"
+    "react-router-dom": "^7.6.2",
+    "electron-windows-service": "^2.0.0"
   },
   "build": {
     "appId": "com.example.livekitwrapper",
@@ -39,7 +43,11 @@
     "files": [
       "main.js",
       "preload.js",
-      "ui/dist/**/*"
+      "ui/dist/**/*",
+      "node_modules/electron-windows-service/**/*"
+    ],
+    "asarUnpack": [
+      "node_modules/electron-windows-service/**"
     ],
     "win": {
       "target": [

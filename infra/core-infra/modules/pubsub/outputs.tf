@@ -1,7 +1,7 @@
 # Host endpoint to which clients connect (without the wss:// prefix)
 output "host" {
-  description = "Web PubSub endpoint host (without wss:// prefix)"
-  value       = azurerm_web_pubsub.web_pubsub.hostname
+  description = "Web PubSub endpoint host (with https:// prefix)"
+  value       = "https://${azurerm_web_pubsub.web_pubsub.hostname}"
 }
 
 # Primary connection string for server-to-service communication
