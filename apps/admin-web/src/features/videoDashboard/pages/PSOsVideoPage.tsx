@@ -36,7 +36,7 @@ const PSOsPage: React.FC = () => {
   const { initialized, account } = useAuth()
   const { handlePlay, handleStop, handleChat } = useVideoActions()
   const { onlineUsers, offlineUsers } = usePresence()
-
+   const [playState, setPlayState] = useState<Record<string, boolean>>({})
   const [psos, setPsos]       = useState<PSOWithStatus[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError]     = useState<string>()
@@ -130,6 +130,9 @@ const PSOsPage: React.FC = () => {
     return <div className="p-6 text-white">No PSOs to display</div>
 
   const count = psos.length
+
+
+  
 
   // ← añadido: toggle que refresca token y marca shouldStream
 const handleToggle = (email: string) => {

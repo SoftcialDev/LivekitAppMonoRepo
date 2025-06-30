@@ -1,97 +1,119 @@
-import React, { useState, useEffect } from 'react'
-import { useAuth } from '../hooks/useAuth'
-import { useNavigate } from 'react-router-dom'
-import logoSrc from '@assets/ColletteHealth_logo.png'
-import camaraLogo from '@assets/InContact_logo.png'
-import { SignInButton } from '../components/SignInButton'
-import IconWithLabel from '../../../components/IconWithLabel'
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '../hooks/useAuth';
+import { useNavigate } from 'react-router-dom';
+import logoSrc from '@assets/ColletteHealth_logo.png';
+import camaraLogo from '@assets/InContact_logo.png';
+import { SignInButton } from '../components/SignInButton';
+import IconWithLabel from '../../../components/IconWithLabel';
 
 /**
- * LoginPage component.
+ * @component LoginPage
+ * @description
+ * Renders the login screen and handles MSAL authentication flow.
  *
- * - Renders the Collette Health logo at the top.
- * - Below the logo, shows an "In Contact" label with the camera icon,
- *   styled in Montserrat Bold and in white via IconWithLabel.
- * - Displays the SignInButton.
- * - Handles MSAL initialization, redirect if already signed in, loading state,
- *   and error messages.
+ * - Shows the Collette Health logo.
+ * - Displays an "In Contact" label with camera icon.
+ * - Presents a SignInButton.
+ * - Once authenticated, redirects:
+ *   - Employees → `/psos`
+ *   - Admins & Supervisors → `/dashboard`
  *
- * Responsive behavior:
- * - Logo and camera icon scale up on sm/md breakpoints.
+ * Responsive:
+ * - Logo and icon scale on sm/md breakpoints.
  * - Text size increases on larger viewports.
  *
- * @component
- * @returns {JSX.Element} The login page UI or a loading indicator.
+ * @returns {JSX.Element} The login UI or a loading indicator.
  */
-
 export const LoginPage: React.FC = () => {
-  const { account, initialized, login } = useAuth()
-  const navigate = useNavigate()
+  const { account, initialized, login } = useAuth();
+  const navigate = useNavigate();
 
-  // Loading state for login popup
-  const [isLoading, setIsLoading] = useState<boolean>(false)
-  // Error message if login fails
-  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // If already signed in, redirect immediately
+  // If already authenticated, redirect based on role
   useEffect(() => {
-    if (initialized && account) {
-      navigate('/dashboard', { replace: true })
+    if (!initialized || !account) return;
+
+    const claims = account.idTokenClaims as Record<string, any>;
+    const rolesClaim = claims.roles ?? claims.role;
+    const roles: string[] = Array.isArray(rolesClaim)
+      ? rolesClaim
+      : typeof rolesClaim === 'string'
+      ? [rolesClaim]
+      : [];
+
+    if (roles.includes('Employee')) {
+      navigate('/psos', { replace: true });
+    } else {
+      navigate('/dashboard', { replace: true });
     }
-  }, [initialized, account, navigate])
+  }, [initialized, account, navigate]);
 
   /**
-   * handleLogin triggers MSAL login popup flow.
+   * handleLogin
    *
-   * @async
-   * @returns {Promise<void>}
+   * Triggers the MSAL login popup and redirects upon success.
    */
   const handleLogin = async (): Promise<void> => {
-    setErrorMessage(null)
-    setIsLoading(true)
+    setErrorMessage(null);
+    setIsLoading(true);
 
     try {
-      await login()
-      navigate('/dashboard', { replace: true })
-    } catch (err: any) {
-      console.error('Login failed:', err)
-      setErrorMessage('Login failed. Please try again.')
-    } finally {
-      setIsLoading(false)
-    }
-  }
+      await login();
 
-  // Prevent flash of login UI while MSAL initializes
+      // After login, determine redirect path
+      // account will be updated by useAuth hook
+      if (account && account.idTokenClaims) {
+        const claims = account.idTokenClaims as Record<string, any>;
+        const rolesClaim = claims.roles ?? claims.role;
+        const roles: string[] = Array.isArray(rolesClaim)
+          ? rolesClaim
+          : typeof rolesClaim === 'string'
+          ? [rolesClaim]
+          : [];
+
+        if (roles.includes('Employee')) {
+          navigate('/psos', { replace: true });
+        } else {
+          navigate('/dashboard', { replace: true });
+        }
+      }
+    } catch (err: any) {
+      console.error('Login failed:', err);
+      setErrorMessage('Login failed. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   if (!initialized) {
-    return <div>Loading…</div>
+    return <div>Loading…</div>;
   }
 
   return (
     <div className="h-screen flex flex-col items-center justify-center bg-[var(--color-primary-dark)] px-4 sm:px-6">
-      {/* 1. Logo */}
+      {/* Logo */}
       <img
         src={logoSrc}
         alt="Collette Health"
         className="h-16 sm:h-20 md:h-24 mb-12"
       />
 
-      {/* 2. Camera icon + "In Contact" via IconWithLabel */}
-      <IconWithLabel
-        src={camaraLogo}
-        alt="Camera Icon"
-      >
+      {/* Camera icon + label */}
+      <IconWithLabel src={camaraLogo} alt="Camera Icon">
         In Contact
       </IconWithLabel>
 
-      {/* 3. Sign In button */}
+      {/* Sign In */}
       <SignInButton onClick={handleLogin} isLoading={isLoading} />
 
-      {/* 4. Error message */}
+      {/* Error */}
       {errorMessage && (
         <p className="mt-4 montserrat-bold text-tertiary text-center px-4">
           {errorMessage}
         </p>
       )}
     </div>
-  )
-}
+  );
+};

@@ -7,6 +7,7 @@ import AddModal from '@/components/ModalComponent';
 import managementIcon from '@assets/monitor-icon.png';
 import { getUsersByRole, changeUserRole } from '../../services/userClient';
 import { useAuth } from '../auth/hooks/useAuth';
+import { useToast } from '../../components/ToastContext'
 
 ////////////////////////////////////////////////////////////////////////////////
 // Types
@@ -46,6 +47,7 @@ const AdminsPage: React.FC = () => {
   const { initialized, account } = useAuth();
   const currentEmail = account?.username ?? '';
 
+  const { showToast } = useToast()
   const [admins, setAdmins] = useState<CandidateUser[]>([]);
   const [candidates, setCandidates] = useState<CandidateUser[]>([]);
   const [isModalOpen, setModalOpen] = useState(false);
@@ -64,13 +66,13 @@ const AdminsPage: React.FC = () => {
    */
   const fetchAdmins = async (): Promise<void> => {
     try {
-      const res = await getUsersByRole('Admin', 1, 1000);
-      // res.users is UserByRole[]
-      setAdmins(res.users);
+      const res = await getUsersByRole('Admin', 1, 1000)
+      setAdmins(res.users)
     } catch (err: any) {
-      console.error('Failed to load admins:', err);
+      console.error('Failed to load admins:', err)
+      showToast('Could not load admins', 'error')            // ← on error
     }
-  };
+  }
 
   /**
    * Load candidate users: everyone except Admins.
@@ -81,6 +83,7 @@ const AdminsPage: React.FC = () => {
       const res = await getUsersByRole('Supervisor,Employee,Tenant', 1, 1000);
       setCandidates(res.users);
     } catch (err: any) {
+      showToast('Could not load candidate users', 'error')    // ← on error
       console.error('Failed to load candidates:', err);
     }
   };
@@ -107,7 +110,12 @@ const AdminsPage: React.FC = () => {
       );
       setModalOpen(false);
       fetchAdmins();
+      showToast(
+        `${selectedEmails.length} admin${selectedEmails.length > 1 ? 's' : ''} added`,
+        'success'
+      )   
     } catch (err: any) {
+      showToast('Failed to add admins', 'error')              // ← on error
       console.error('Error adding admins:', err);
     }
   };
@@ -118,13 +126,16 @@ const AdminsPage: React.FC = () => {
    */
   const handleRemoveAdmin = async (email: string): Promise<void> => {
     if (email === currentEmail) {
+       showToast("You can't remove yourself", 'warning')   
       console.warn("Admins cannot remove themselves.");
       return;
     }
     try {
       await changeUserRole({ userEmail: email, newRole: null });
       fetchAdmins();
+      showToast(`Removed ${email} from admins`, 'success')   
     } catch (err: any) {
+       showToast(`Failed to remove ${email}`, 'error')  
       console.error('Error removing admin:', err);
     }
   };
@@ -209,5 +220,7 @@ const AdminsPage: React.FC = () => {
     </div>
   );
 };
+
+
 
 export default AdminsPage;

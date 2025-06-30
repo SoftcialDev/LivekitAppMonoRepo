@@ -34,13 +34,14 @@ const schema = z.object({
  * ChangeUserRole
  *
  * Authenticates an Admin caller, validates the request body, updates the user's Azure AD app role,
- * persists the change to the database, logs an audit entry, and optionally marks the user offline.
+ * persists the change to the database (creating the user record if it didn't exist), logs an audit entry,
+ * and optionally marks the user offline.
  *
  * @param ctx - The Azure Functions execution context, including bindings and response helpers.
  * @returns A Promise that resolves to a HTTP response indicating the result of the operation.
- * @throws Unauthorized when the caller’s identity cannot be determined or the caller is deleted.
- * @throws Forbidden when the caller is not an Admin.
- * @throws BadRequest when Graph token retrieval fails or the target user cannot be found.
+ * @throws 401 Unauthorized when the caller’s identity cannot be determined or the caller is deleted.
+ * @throws 403 Forbidden when the caller is not an Admin.
+ * @throws 400 BadRequest when Graph token retrieval fails or the target user cannot be found.
  */
 const changeUserRole: AzureFunction = withErrorHandler(
   async (ctx: Context) => {
@@ -62,12 +63,10 @@ const changeUserRole: AzureFunction = withErrorHandler(
       }
 
       await withBodyValidation(schema)(ctx, async () => {
-        const { userEmail, newRole } =
-          ctx.bindings.validatedBody as {
-            userEmail: string;
-            newRole: "Supervisor" | "Admin" | "Employee" | null;
-          };
+        const { userEmail, newRole } = ctx.bindings
+          .validatedBody as { userEmail: string; newRole: "Supervisor" | "Admin" | "Employee" | null };
 
+        // fetch existing record, may be undefined
         const before = await getUserByEmail(userEmail);
 
         let graphToken: string;
@@ -83,6 +82,7 @@ const changeUserRole: AzureFunction = withErrorHandler(
           spId = await getServicePrincipalObjectId(graphToken, clientId);
         }
 
+        // resolve target AD object ID
         let targetAdId: string;
         try {
           const resp = await axios.get(
@@ -101,28 +101,34 @@ const changeUserRole: AzureFunction = withErrorHandler(
           targetAdId = fallback.data.value[0].id;
         }
 
+        // remove any existing app roles
         await removeAllAppRolesFromUser(graphToken, spId!, targetAdId);
 
+        // if newRole is null, delete only if record existed
         if (newRole === null) {
-          await deleteUserByEmail(userEmail);
-          await logAudit({
-            entity: "User",
-            entityId: before?.id ?? userEmail,
-            action: "DELETE" as AuditAction,
-            changedById: caller.id,
-            dataBefore: before,
-          });
+          if (before) {
+            await deleteUserByEmail(userEmail);
+            await logAudit({
+              entity: "User",
+              entityId: before.id,
+              action: "DELETE" as AuditAction,
+              changedById: caller.id,
+              dataBefore: before,
+            });
+          }
           return ok(ctx, { message: `${userEmail} deleted` });
         }
 
+        // assign new app-role
         const roleIdMap: Record<string, string> = {
           Supervisor: process.env.SUPERVISORS_GROUP_ID!,
-          Admin: process.env.ADMINS_GROUP_ID!,
-          Employee: process.env.EMPLOYEES_GROUP_ID!,
+          Admin:      process.env.ADMINS_GROUP_ID!,
+          Employee:   process.env.EMPLOYEES_GROUP_ID!,
         };
         const roleId = roleIdMap[newRole];
         await assignAppRoleToPrincipal(graphToken, spId!, targetAdId, roleId);
 
+        // fetch displayName
         let displayName = "";
         try {
           const resp = await axios.get(
@@ -131,12 +137,19 @@ const changeUserRole: AzureFunction = withErrorHandler(
           );
           displayName = resp.data.displayName || "";
         } catch {
+          /* ignore */
         }
 
-        await upsertUserRole(userEmail, targetAdId, displayName, newRole, null);
+        // upsert in our DB (will create if missing)
+        const after: { id: string } | null = await upsertUserRole(
+          userEmail,
+          targetAdId,
+          displayName,
+          newRole,
+          null
+        );
 
-        const after = await getUserByEmail(userEmail);
-        await logAudit({
+          await logAudit({
           entity: "User",
           entityId: after!.id,
           action: "ROLE_CHANGE" as AuditAction,

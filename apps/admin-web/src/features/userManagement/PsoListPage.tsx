@@ -7,6 +7,7 @@ import AddModal from '@components/ModalComponent';
 import monitorIcon from '@assets/icon-monitor.png';
 import { getUsersByRole, changeUserRole } from '../../services/userClient';
 import { useAuth } from '../auth/hooks/useAuth';
+import { useToast } from '../../components/ToastContext'
 
 ////////////////////////////////////////////////////////////////////////////////
 // Types
@@ -57,6 +58,7 @@ const PSOsListPage: React.FC = () => {
   const { initialized, account } = useAuth();
   const currentEmail = account?.username ?? '';
 
+  const { showToast } = useToast()
   // State for PSO list page
   const [psos, setPsos]     = useState<CandidateUser[]>([]);
   const [total, setTotal]   = useState(0);
@@ -153,13 +155,18 @@ const PSOsListPage: React.FC = () => {
         selectedEmails.map(email =>
           changeUserRole({ userEmail: email, newRole: 'Employee' })
         )
-      );
-      setModalOpen(false);
-      fetchPsos(page);
+      )
+      setModalOpen(false)
+      fetchPsos(page)
+      showToast(
+        `${selectedEmails.length} user${selectedEmails.length > 1 ? 's' : ''} added`,
+        'success'
+      )
     } catch (err: any) {
-      console.error('Error adding PSOs:', err);
+      console.error('Error adding PSOs:', err)
+      showToast('Failed to add PSOs, please try again.', 'error')
     }
-  };
+  }
 
   /**
    * Removes the "Employee" role from a PSO.
@@ -169,16 +176,18 @@ const PSOsListPage: React.FC = () => {
    */
   const handleRemovePso = async (email: string): Promise<void> => {
     if (email === currentEmail) {
-      console.warn("You cannot remove your own PSO role.");
-      return;
+      showToast("You can't remove yourself", 'warning')
+      return
     }
     try {
-      await changeUserRole({ userEmail: email, newRole: null });
-      fetchPsos(page);
+      await changeUserRole({ userEmail: email, newRole: null })
+      fetchPsos(page)
+      showToast(`Removed ${email} from PSOs`, 'success')
     } catch (err: any) {
-      console.error('Error removing PSO:', err);
+      console.error('Error removing PSO:', err)
+      showToast(`Failed to remove ${email}`, 'error')
     }
-  };
+  }
 
   //
   // Columns for main PSO table
@@ -243,24 +252,7 @@ const PSOsListPage: React.FC = () => {
         addButton={<AddButton label="Add PSO" onClick={handleOpenModal} />}
       />
 
-      {/* External pagination controls */}
-      <div className="flex justify-between items-center mt-2 text-white">
-        <button
-          onClick={() => fetchPsos(page - 1)}
-          disabled={page <= 1}
-          className="px-3 py-1 bg-[var(--color-primary)] rounded disabled:opacity-50"
-        >
-          Previous
-        </button>
-        <span>Page {page} of {Math.ceil(total / pageSize)}</span>
-        <button
-          onClick={() => fetchPsos(page + 1)}
-          disabled={page * pageSize >= total}
-          className="px-3 py-1 bg-[var(--color-primary)] rounded disabled:opacity-50"
-        >
-          Next
-        </button>
-      </div>
+      
 
       {/* Modal for selecting new PSOs */}
       <AddModal
@@ -286,3 +278,4 @@ const PSOsListPage: React.FC = () => {
 };
 
 export default PSOsListPage;
+

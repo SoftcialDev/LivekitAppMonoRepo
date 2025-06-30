@@ -92,7 +92,7 @@ export interface ChangeSupervisorPayload {
   /** Array of employee emails to reassign */
   userEmails: string[];
   /** New supervisor’s email */
-  newSupervisorEmail: string;
+  newSupervisorEmail: string | null;  
 }
 
 //
@@ -179,21 +179,13 @@ export async function changeUserRole(
  * Reassigns one or more employees to a new supervisor.
  *
  * @param payload.userEmails         - Array of employee emails.
- * @param payload.newSupervisorEmail - Supervisor’s email.
+ * @param payload.newSupervisorEmail - Supervisor’s email, or null to clear.
  * @returns Promise resolving to the number of records updated.
- *
- * @example
- * ```ts
- * const count = await changeSupervisor({
- *   userEmails: ["e1@foo.com", "e2@foo.com"],
- *   newSupervisorEmail: "sup@foo.com"
- * });
- * console.log(`${count} records updated`);
- * ```
  */
 export async function changeSupervisor(
   payload: ChangeSupervisorPayload
 ): Promise<number> {
+  // Si es null, enviamos JSON null; si no, la cadena
   const res = await apiClient.post<{ updatedCount: number }>(
     "/api/ChangeSupervisor",
     payload

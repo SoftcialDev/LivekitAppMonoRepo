@@ -7,6 +7,7 @@ import AddModal from '@/components/ModalComponent';
 import managementIcon from '@assets/monitor-icon.png';
 import { getUsersByRole, changeUserRole } from '../../services/userClient';
 import { useAuth } from '../auth/hooks/useAuth';
+import { useNavigate }                  from 'react-router-dom';
 
 ////////////////////////////////////////////////////////////////////////////////
 // Types
@@ -44,6 +45,7 @@ interface CandidateUser {
 const SupervisorsPage: React.FC = () => {
   const { initialized, account } = useAuth();
   const currentEmail = account?.username ?? '';
+  const navigate = useNavigate();
 
   const [supervisors, setSupervisors] = useState<CandidateUser[]>([]);
   const [candidates, setCandidates]   = useState<CandidateUser[]>([]);
@@ -132,20 +134,40 @@ const SupervisorsPage: React.FC = () => {
   //
   // Column definitions
   //
-  const supervisorColumns: Column<CandidateUser>[] = [
-    { key: 'email',     header: 'Email'      },
-    { key: 'firstName', header: 'First Name' },
-    { key: 'lastName',  header: 'Last Name'  },
-    { key: 'role',      header: 'Role'       },
-    {
-      key: 'email',
-      header: 'Actions',
-      render: row =>
-        row.email === currentEmail ? null : (
-          <TrashButton onClick={() => handleRemoveSupervisor(row.email)} />
-        ),
-    },
-  ];
+const supervisorColumns: Column<CandidateUser>[] = [
+  {
+    key: 'email',
+    header: 'Email',
+  },
+  {
+    key: 'firstName',
+    header: 'First Name',
+    render: row => (
+      <span
+        className="cursor-pointer text-[var(--color-secondary)] hover:underline"
+        onClick={() => navigate(`/supervisors/${row.azureAdObjectId}`)}
+      >
+        {row.firstName}
+      </span>
+    ),
+  },
+  {
+    key: 'lastName',
+    header: 'Last Name',
+  },
+  {
+    key: 'role',
+    header: 'Role',
+  },
+  {
+    key: 'actions',          // clave única (evita repetir "email")
+    header: 'Actions',
+    render: row =>
+      row.email === currentEmail ? null : (
+        <TrashButton onClick={() => handleRemoveSupervisor(row.email)} />
+      ),
+  },
+];
 
   const candidateColumns: Column<CandidateUser>[] = [
     {

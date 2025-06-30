@@ -26,6 +26,12 @@ const Sidebar: React.FC<SidebarProps> = ({
   const linkBase = 'block py-2 pl-14 pr-3 rounded-md text-gray-300 transition-colors hover:text-[var(--color-secondary-hover)]'
   const activeLink = 'text-white font-semibold'
 
+  // keep only first name + first surname
+  const shortName = (u: UserStatus) => {
+    const parts = (u.fullName ?? u.name ?? '').trim().split(/\s+/)
+    return parts.slice(0, 2).join(' ')
+  }
+
   return (
     <aside className="flex flex-col bg-[var(--color-primary)] text-white border-r border-black">
       {/* Header */}
@@ -53,10 +59,9 @@ const Sidebar: React.FC<SidebarProps> = ({
           >
             Manage
           </IconWithLabel>
-
-          <NavLink to="/admins"   className={({ isActive }) => `${linkBase} ${isActive ? activeLink : ''}`}>Admins</NavLink>
+          <NavLink to="/admins"      className={({ isActive }) => `${linkBase} ${isActive ? activeLink : ''}`}>Admins</NavLink>
           <NavLink to="/supervisors" className={({ isActive }) => `${linkBase} ${isActive ? activeLink : ''}`}>Supervisors</NavLink>
-          <NavLink to="/psos"      className={({ isActive }) => `${linkBase} ${isActive ? activeLink : ''}`}>PSOs</NavLink>
+          <NavLink to="/psos"         className={({ isActive }) => `${linkBase} ${isActive ? activeLink : ''}`}>PSOs</NavLink>
         </div>
 
         {/* Monitor Section */}
@@ -70,31 +75,36 @@ const Sidebar: React.FC<SidebarProps> = ({
           >
             Monitor
           </IconWithLabel>
-
-          <NavLink to="/dashboard" className={({ isActive }) => `${linkBase} ${isActive ? activeLink : ''}`}>Dashboard</NavLink>
+          <NavLink to="/dashboard" className={({ isActive }) => `${linkBase} ${isActive ? activeLink : ''}`}>PSOs streaming</NavLink>
         </div>
 
         {/* Presence Lists */}
         <div className="px-6 py-4">
           <div className="text-xs font-semibold mb-2">Online</div>
-          {onlineUsers.map(user => (
-            <UserItem
-              key={user.email}
-              user={user}
-              isStreaming={!!streamingMap[user.email]}
-              onToggle={onToggle}
-            />
-          ))}
+          {onlineUsers.map(orig => {
+            const name = shortName(orig)
+            return (
+              <UserItem
+                key={orig.email}
+                user={{ ...orig, name, fullName: name }}
+                isStreaming={!!streamingMap[orig.email]}
+                onToggle={onToggle}
+              />
+            )
+          })}
 
           <div className="text-xs font-semibold mt-4 mb-2">Offline</div>
-          {offlineUsers.map(user => (
-            <UserItem
-              key={user.email}
-              user={user}
-              isStreaming={false}
-              onToggle={onToggle}
-            />
-          ))}
+          {offlineUsers.map(orig => {
+            const name = shortName(orig)
+            return (
+              <UserItem
+                key={orig.email}
+                user={{ ...orig, name, fullName: name }}
+                isStreaming={false}
+                onToggle={onToggle}
+              />
+            )
+          })}
         </div>
       </nav>
     </aside>

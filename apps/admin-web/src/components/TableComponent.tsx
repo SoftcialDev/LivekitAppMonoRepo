@@ -6,21 +6,28 @@ import AddButton from './Buttons/AddButton';
 ////////////////////////////////////////////////////////////////////////////////
 
 /**
- * Defines a table column.
+ * Define los metadatos de una columna para una tabla genérica.
  *
- * @template T Row data type.
+ * @template T Tipo de los datos de cada fila.
  */
 export interface Column<T> {
-  /** Key in the row object to display if no custom renderer is provided. */
-  key: keyof T;
-  /** Header label text. */
-  header: string;
   /**
-   * Optional custom cell renderer. If provided, will be used instead
-   * of the default `row[col.key]` rendering.
+   * Texto que aparecerá en el encabezado de la columna.
+   */
+  header: string;
+
+  /**
+   * Propiedad del objeto de fila cuyo valor se mostrará por defecto.
+   * Si la columna usa un `render` personalizado, puede omitirse.
+   */
+  key?: keyof T | string;
+
+  /**
+   * Función opcional para renderizar la celda.
+   * Si se define, tendrá prioridad sobre el valor obtenido por `key`.
    *
-   * @param row The data object for this row.
-   * @returns A React node to render in this cell.
+   * @param row Objeto completo de la fila.
+   * @returns Un nodo React para renderizar en la celda.
    */
   render?: (row: T) => React.ReactNode;
 }
@@ -83,7 +90,7 @@ export interface TableComponentProps<T> {
  * @param props.addLabel  Label for default AddButton if `addButton` is absent.
  * @returns A JSX element displaying the searchable, paginated table.
  */
-export function TableComponent<T>({
+export function TableComponent<T extends object>({
   columns,
   data = [],                  // default to empty array
   pageSize = 10,
@@ -107,11 +114,21 @@ export function TableComponent<T>({
         .filter(row =>
           columns.some(col => {
             if (col.render) return false;
-            const cell = row[col.key];
-            return (
-              cell != null &&
-              String(cell).toLowerCase().includes(searchTerm.toLowerCase())
-            );
+            if (col.key && typeof col.key !== 'string') {
+              const cell = row[col.key as keyof T];
+              return (
+                cell != null &&
+                String(cell).toLowerCase().includes(searchTerm.toLowerCase())
+              );
+            }
+            if (col.key && typeof col.key === 'string' && col.key in row) {
+              const cell = (row as any)[col.key];
+              return (
+                cell != null &&
+                String(cell).toLowerCase().includes(searchTerm.toLowerCase())
+              );
+            }
+            return false;
           })
         ),
     [data, columns, searchTerm]
@@ -184,7 +201,13 @@ export function TableComponent<T>({
                   key={String(col.key)}
                   className="px-6 py-4 whitespace-nowrap text-sm text-white"
                 >
-                  {col.render ? col.render(row) : String(row[col.key] ?? '')}
+                  {col.render
+                    ? col.render(row)
+                    : col.key && typeof col.key !== 'string'
+                      ? String(row[col.key as keyof T] ?? '')
+                      : col.key && typeof col.key === 'string' && col.key in row
+                        ? String((row as any)[col.key] ?? '')
+                        : ''}
                 </td>
               ))}
             </tr>

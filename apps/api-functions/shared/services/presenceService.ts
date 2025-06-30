@@ -1,113 +1,133 @@
 import prisma from "./prismaClienService";
+import { isUuid } from "../utils/uuid";
+
+/* -------------------------------------------------------------------------- */
+/*  ⚡ Flexible user lookup                                                   */
+/* -------------------------------------------------------------------------- */
 
 /**
- * Marks a user as online.
+ * Finds an *active* user (deletedAt IS NULL) by:
+ *   • Database UUID  – when `key` is a valid UUID
+ *   • Azure AD OID   – when `key` is a valid UUID
+ *   • E-mail         – always (lower-cased)
  *
- * Looks up the user by database ID, Azure AD object ID or email,
- * upserts the presence record with status "online" and the current timestamp,
- * and creates a new presence history entry with `connectedAt` set to now.
- *
- * @param userIdOrEmailOrOid - User's DB UUID, Azure AD object ID or email.
+ * @throws Error if no matching, non-deleted user exists.
  */
-export async function setUserOnline(
-  userIdOrEmailOrOid: string
-): Promise<void> {
-  const user = await prisma.user.findFirst({
-    where: {
-      deletedAt: null,
-      OR: [
-        { id: userIdOrEmailOrOid },
-        { azureAdObjectId: userIdOrEmailOrOid },
-        { email: userIdOrEmailOrOid },
-      ],
-    },
-  });
-  if (!user) throw new Error("User not found for presence update");
+async function findActiveUserFlexible(key: string) {
+  const or: import("@prisma/client").Prisma.UserWhereInput[] = [];
 
-  const now = new Date();
-  await prisma.presence.upsert({
-    where:  { userId: user.id },
-    create: { userId: user.id, status: "online", lastSeenAt: now },
-    update: { status: "online", lastSeenAt: now },
-  });
-  await prisma.presenceHistory.create({
-    data: { userId: user.id, connectedAt: now, disconnectedAt: null },
-  });
-}
-
-/**
- * Marks a user as offline.
- *
- * Same lookup logic as setUserOnline, upserts presence→"offline",
- * and closes the most recent open history entry.
- *
- * @param userIdOrEmailOrOid - User's DB UUID, Azure AD object ID or email.
- */
-export async function setUserOffline(
-  userIdOrEmailOrOid: string
-): Promise<void> {
-  const user = await prisma.user.findFirst({
-    where: {
-      deletedAt: null,
-      OR: [
-        { id: userIdOrEmailOrOid },
-        { azureAdObjectId: userIdOrEmailOrOid },
-        { email: userIdOrEmailOrOid },
-      ],
-    },
-  });
-  if (!user) throw new Error("User not found for presence update");
-
-  const now = new Date();
-  await prisma.presence.upsert({
-    where:  { userId: user.id },
-    create: { userId: user.id, status: "offline", lastSeenAt: now },
-    update: { status: "offline", lastSeenAt: now },
-  });
-
-  const open = await prisma.presenceHistory.findFirst({
-    where: { userId: user.id, disconnectedAt: null },
-    orderBy: { connectedAt: "desc" },
-  });
-  if (open) {
-    await prisma.presenceHistory.update({
-      where: { id: open.id },
-      data: { disconnectedAt: now },
-    });
+  if (isUuid(key)) {
+    or.push({ id: key }, { azureAdObjectId: key });
   }
+  or.push({ email: key.toLowerCase() });
+
+  console.log("[findActiveUserFlexible] OR criteria →", JSON.stringify(or));
+
+  const user = await prisma.user.findFirst({
+    where: { deletedAt: null, OR: or },
+  });
+
+  if (!user) {
+    console.error("[findActiveUserFlexible] NOT FOUND for key:", key);
+    throw new Error(`User not found for presence operation (${key})`);
+  }
+
+  console.log(
+    "[findActiveUserFlexible] found id=%s role=%s",
+    user.id,
+    user.role,
+  );
+  return user;
 }
 
+/* -------------------------------------------------------------------------- */
+/*  📡 ONLINE / OFFLINE handlers                                              */
+/* -------------------------------------------------------------------------- */
+
+export async function setUserOnline(key: string): Promise<void> {
+  console.log("[setUserOnline] lookup key:", key);
+  const user = await findActiveUserFlexible(key);
+
+  const now = new Date();
+
+  // Run both inserts/updates atomically
+  const [presence, history] = await prisma.$transaction([
+    prisma.presence.upsert({
+      where: { userId: user.id },
+      create: { userId: user.id, status: "online", lastSeenAt: now },
+      update: { status: "online", lastSeenAt: now },
+    }),
+    prisma.presenceHistory.create({
+      data: { userId: user.id, connectedAt: now, disconnectedAt: null },
+    }),
+  ]);
+
+  console.log("[setUserOnline] presence row →", presence);
+  console.log("[setUserOnline] history row  →", history);
+  console.log("[setUserOnline] SUCCESS for user:", user.id);
+}
+
+export async function setUserOffline(key: string): Promise<void> {
+  console.log("[setUserOffline] lookup key:", key);
+  const user = await findActiveUserFlexible(key);
+
+  const now = new Date();
+
+  await prisma.$transaction(async (tx) => {
+    const presence = await tx.presence.upsert({
+      where: { userId: user.id },
+      create: { userId: user.id, status: "offline", lastSeenAt: now },
+      update: { status: "offline", lastSeenAt: now },
+    });
+
+    console.log("[setUserOffline][tx] presence updated →", presence);
+
+    const open = await tx.presenceHistory.findFirst({
+      where: { userId: user.id, disconnectedAt: null },
+      orderBy: { connectedAt: "desc" },
+    });
+
+    if (open) {
+      await tx.presenceHistory.update({
+        where: { id: open.id },
+        data: { disconnectedAt: now },
+      });
+      console.log(
+        "[setUserOffline][tx] closed history id=%s (connectedAt=%s)",
+        open.id,
+        open.connectedAt.toISOString(),
+      );
+    } else {
+      console.log("[setUserOffline][tx] no open history found");
+    }
+  });
+
+  console.log("[setUserOffline] SUCCESS for user:", user.id);
+}
+
+/* -------------------------------------------------------------------------- */
+/*  🔍 Presence query                                                         */
+/* -------------------------------------------------------------------------- */
+
 /**
- * Retrieves the current presence status of a user.
- *
- * Looks up the user by DB UUID, Azure AD object ID or email,
- * then returns "online" or "offline" based on the most recent
- * row in `presence`. Defaults to "offline" if no record exists.
- *
- * @param userIdOrEmailOrOid - User's DB UUID, Azure AD object ID or email.
- * @returns "online" | "offline"
+ * Returns the user’s last known status (`"online"` or `"offline"`).
+ * Defaults to `"offline"` when no presence record exists.
  */
 export async function getPresenceStatus(
-  userIdOrEmailOrOid: string
+  key: string,
 ): Promise<"online" | "offline"> {
-  console.log("getPresenceStatus called for:", userIdOrEmailOrOid);
-
-  const user = await prisma.user.findFirst({
-    where: {
-      deletedAt: null,
-      OR: [
-        { id: userIdOrEmailOrOid },
-        { azureAdObjectId: userIdOrEmailOrOid },
-        { email: userIdOrEmailOrOid },
-      ],
-    },
-  });
-  if (!user) throw new Error("User not found for presence query");
+  console.log("[getPresenceStatus] lookup key:", key);
+  const user = await findActiveUserFlexible(key);
 
   const presence = await prisma.presence.findFirst({
     where: { userId: user.id },
     orderBy: { lastSeenAt: "desc" },
   });
+
+  console.log(
+    "[getPresenceStatus] presence row →",
+    presence ? presence : "(none)",
+  );
 
   return presence?.status ?? "offline";
 }
