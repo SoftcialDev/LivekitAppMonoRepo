@@ -74,7 +74,7 @@ export const LoginPage: React.FC = () => {
           : [];
 
         if (roles.includes('Employee')) {
-          navigate('/psos', { replace: true });
+          navigate('/psosDashboard', { replace: true });
         } else {
           navigate('/dashboard', { replace: true });
         }

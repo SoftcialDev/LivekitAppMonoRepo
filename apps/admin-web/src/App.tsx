@@ -39,6 +39,7 @@ import SupervisorDetailPage from './features/userManagement/AddPsoToSupervisorPa
 
 import PSOsVideoPage from './features/videoDashboard/pages/PSOsVideoPage';
 import UserVideoPage from './features/videoDashboard/pages/UserVideoPage';
+import PSOsListPage from './features/userManagement/PsoListPage';
 
 import PsoDashboard from './hooks/PsoDashboard';
 
@@ -109,21 +110,21 @@ function App(): JSX.Element {
               <Route path="/supervisors/:id" element={<SupervisorDetailPage />} />
               <Route path="/dashboard" element={<PSOsVideoPage />} />
               <Route path="/videos/:username" element={<UserVideoPage />} />
+              <Route path="/psos" element={<PSOsListPage />} />
             </Route>
-
-            {/* Employee-only PSOs dashboard */}
-            <Route
-              path="/psos"
-              element={
-                <ProtectedRoute allowedRoles={['Employee']}>
-                  <PsoDashboard />
-                </ProtectedRoute>
-              }
-            />
 
             {/* catch-all → PSOs dashboard */}
             <Route path="/" element={<Navigate to="/psos" replace />} />
             <Route path="*" element={<Navigate to="/psos" replace />} />
+
+            
+            {/* Employee-only PSOs dashboard */}
+            <Route
+              path="/psosDashboard"
+              element={
+                  <PsoDashboard />
+              }
+            />
           </Routes>
         </ToastProvider>
       </BrowserRouter>
