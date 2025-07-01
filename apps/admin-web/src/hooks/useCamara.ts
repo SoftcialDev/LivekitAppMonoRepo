@@ -7,46 +7,99 @@ import {
   createLocalAudioTrack,
 } from 'livekit-client';
 import { getLiveKitToken } from '../services/livekitClient';
-import {
-  PendingCommandsClient,
-  PendingCommand,
-} from '../services/pendingCommandsClient';
+import { PendingCommandsClient, PendingCommand } from '../services/pendingCommandsClient';
 import { PresenceClient } from '../services/presenceClient';
 import { StreamingClient } from '../services/streamingClient';
 import { WebPubSubClientService } from '../services/webpubsubClient';
 import { useAuth } from '../features/auth/hooks/useAuth';
 
 /**
- * Custom hook to manage LiveKit streaming lifecycle, presence,
- * pending-command delivery via Web PubSub, and selection of a
- * specific camera device with fallback preferences.
+ * Requests camera access once.
+ * - If the user denies (NotAllowedError), alerts detected cameras and asks to enable & refresh.
+ * - If the default device is busy (NotReadableError), logs a warning and returns.
  *
- * @remarks
- * - On mount, logs connected camera count and labels (after requesting
- *   video permission).  
- * - Chooses in order:
- *   1. “Logi C270 HD”  
- *   2. any other Logitech camera (label includes “Logi” or “Logitech”)  
- *   3. default camera  
- * - Connects to Web PubSub using the user’s email as group name.  
- * - Sets presence online/offline.  
- * - Resumes an active or recently stopped session (<5 min) on mount.  
- * - Publishes local audio/video tracks when starting.  
- * - Acknowledges and handles START/STOP commands.  
+ * @throws NotAllowedError if permission is denied
+ */
+async function ensureCameraPermission(): Promise<void> {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+    stream.getTracks().forEach((t) => t.stop());
+  } catch (err: any) {
+    if (err.name === 'NotAllowedError') {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const cams = devices
+        .filter(d => d.kind === 'videoinput')
+        .map(c => c.label || `ID: ${c.deviceId}`);
+      alert(
+        `Camera access blocked.\nDetected cameras: ${cams.join(', ')}\n\n` +
+        `Please enable camera permission for this site in your browser settings and refresh.`
+      );
+      throw err;
+    }
+    if (err.name === 'NotReadableError') {
+      console.warn('[Camera] Default device busy, will try others', err);
+      return;
+    }
+    throw err;
+  }
+}
+
+/**
+ * Tries to create a LocalVideoTrack in this order:
+ *  1. “Logi C270 HD”
+ *  2. Any other camera (excluding “Logitech C930e”)
+ * If a device fails with NotReadableError, moves on to the next.
+ * If all attempts fail, falls back to default camera.
+ *
+ * @param cameras – list of 'videoinput' devices
+ * @returns a working LocalVideoTrack
+ * @throws any error other than NotReadableError
+ */
+async function createVideoTrackWithFallback(
+  cameras: MediaDeviceInfo[]
+): Promise<LocalVideoTrack> {
+  const filtered = cameras.filter(c => !/Logi(?:tech)? C930e/i.test(c.label));
+  const prioritized: MediaDeviceInfo[] = [];
+  const c270 = filtered.find(c => c.label.includes('Logi C270 HD'));
+  if (c270) prioritized.push(c270);
+  for (const cam of filtered) {
+    if (cam !== c270) prioritized.push(cam);
+  }
+
+  for (const cam of prioritized) {
+    try {
+      return await createLocalVideoTrack({ deviceId: { exact: cam.deviceId } });
+    } catch (err: any) {
+      if (err.name === 'NotReadableError') {
+        console.warn(`[Camera] "${cam.label}" busy, trying next…`, err);
+        continue;
+      }
+      throw err;
+    }
+  }
+
+  // last resort: default camera
+  return createLocalVideoTrack();
+}
+
+/**
+ * Hook that manages LiveKit streaming:
+ * - Requests permission once
+ * - Picks “Logi C270 HD” first, excludes C930e
+ * - Falls back on NotReadableError
+ * - Connects/disconnects, publishes tracks
+ * - Handles presence and START/STOP commands with proper parsing
  *
  * @returns
- * - `videoRef` – ref to attach the local video track element  
- * - `audioRef` – ref to attach the local audio track element  
- * - `isStreaming` – boolean flag for current streaming state
+ *  videoRef: RefObject<HTMLVideoElement>;
+ *  audioRef: RefObject<HTMLAudioElement>;
+ *  isStreaming: boolean;
  */
 export function useStreamingDashboard() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const roomRef = useRef<Room | null>(null);
-  const tracksRef = useRef<{
-    video?: LocalVideoTrack;
-    audio?: LocalAudioTrack;
-  }>({});
+  const tracksRef = useRef<{ video?: LocalVideoTrack; audio?: LocalAudioTrack }>({});
   const streamingRef = useRef(false);
   const [isStreaming, setIsStreaming] = useState(false);
 
@@ -58,76 +111,44 @@ export function useStreamingDashboard() {
   const streamingClient = useRef(new StreamingClient()).current;
   const pubSubService = useRef(new WebPubSubClientService()).current;
 
-  /**
-   * Start streaming:
-   * 1. Enumerate cameras and select by preference:
-   *    a) “Logi C270 HD”  
-   *    b) any other Logitech (“Logi” or “Logitech” in label)  
-   *    c) default  
-   * 2. Connect to LiveKit.  
-   * 3. Create & publish tracks.  
-   * 4. Attach tracks to DOM.  
-   * 5. Update streaming state & presence.
-   */
+  /** Starts the stream, handling permission and device fallback. */
   const startStream = useCallback(async () => {
-    if (streamingRef.current) {
-      console.debug('[Stream] already streaming; skipping start');
+    if (streamingRef.current) return;
+
+    try {
+      await ensureCameraPermission();
+    } catch {
       return;
     }
-    console.debug('[Stream] attempting to start…');
 
-    // --- Camera enumeration & selection with fallback ---
-    let videoCaptureOptions: { deviceId?: string; facingMode?: "user" | "environment" | "left" | "right" } | undefined;
-    if (navigator.mediaDevices?.enumerateDevices) {
-      try {
-        await navigator.mediaDevices.getUserMedia({ video: true });
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const cams = devices.filter(d => d.kind === 'videoinput');
-        console.info(`Detected ${cams.length} video input device(s):`);
-        cams.forEach((cam, idx) => {
-          console.info(`  [${idx + 1}] Label: "${cam.label || 'Unknown'}", ID: ${cam.deviceId}`);
-        });
-
-        // 1) Try exact "Logi C270 HD"
-        let chosen = cams.find(c => c.label.includes('Logi C270 HD'));
-        if (chosen) {
-          console.info(`[Camera] Selecting exact match "${chosen.label}"`);
-        } else {
-          // 2) Try any other Logitech
-          chosen = cams.find(c =>
-            /Logi(?:tech)?/i.test(c.label)
-          );
-          if (chosen) {
-            console.warn(`[Camera] "Logi C270 HD" not found; falling back to Logitech camera "${chosen.label}"`);
-          } else {
-            console.warn('[Camera] No Logitech camera found; using default camera');
-          }
-        }
-
-        if (chosen) {
-          videoCaptureOptions = { deviceId: chosen.deviceId };
-        }
-      } catch (err) {
-        console.warn('[Camera] Could not enumerate devices; using default', err);
-      }
+    let videoTrack: LocalVideoTrack;
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const cams = devices.filter(d => d.kind === 'videoinput');
+      videoTrack = await createVideoTrackWithFallback(cams);
+    } catch (err) {
+      console.error('[Stream] video setup failed', err);
+      alert('Unable to access any camera.');
+      return;
     }
 
-    // --- LiveKit connection & track publishing ---
-    const { rooms, livekitUrl } = await getLiveKitToken();
-    const { token } = rooms[0];
-    const room = new Room();
-    await room.connect(livekitUrl, token);
-    roomRef.current = room;
+    let audioTrack: LocalAudioTrack;
+    try {
+      audioTrack = await createLocalAudioTrack();
+    } catch (err) {
+      console.error('[Stream] audio setup failed', err);
+      alert('Unable to access microphone.');
+      return;
+    }
 
-    const [videoTrack, audioTrack] = await Promise.all([
-      createLocalVideoTrack(videoCaptureOptions),
-      createLocalAudioTrack(),
-    ]);
-    tracksRef.current = { video: videoTrack, audio: audioTrack };
+    const { rooms, livekitUrl } = await getLiveKitToken();
+    const room = new Room();
+    await room.connect(livekitUrl, rooms[0].token);
+    roomRef.current = room;
+    console.info('[WS] LiveKit connected');
 
     await room.localParticipant.publishTrack(videoTrack);
     await room.localParticipant.publishTrack(audioTrack);
-
     videoTrack.attach(videoRef.current!);
     audioTrack.attach(audioRef.current!);
 
@@ -137,18 +158,10 @@ export function useStreamingDashboard() {
     await streamingClient.setActive();
   }, [streamingClient]);
 
-  /**
-   * Stop streaming:
-   * - Unpublish & detach tracks.  
-   * - Disconnect the LiveKit room.  
-   * - Update streaming state & presence.
-   */
+  /** Stops the stream and disconnects. */
   const stopStream = useCallback(async () => {
-    if (!streamingRef.current) {
-      console.debug('[Stream] not streaming; skipping stop');
-      return;
-    }
-    console.debug('[Stream] stopping…');
+    if (!streamingRef.current) return;
+
     const { video, audio } = tracksRef.current;
     video?.stop(); video?.detach();
     audio?.stop(); audio?.detach();
@@ -163,56 +176,38 @@ export function useStreamingDashboard() {
     await streamingClient.setInactive();
   }, [streamingClient]);
 
-  /**
-   * Handle an incoming pending command: START or STOP.
-   * After executing, acknowledge the command.
-   *
-   * @param cmd – the pending command object received from the server
-   */
+  /** Processes a PendingCommand, with correct fields. */
   const handleCommand = useCallback(
     async (cmd: PendingCommand) => {
-      console.debug(`[Cmd] received ${cmd.command} @ ${cmd.timestamp}`);
-      if (cmd.command === 'START') {
-        await startStream();
-      }
-      if (cmd.command === 'STOP') {
-        await stopStream();
-      }
-      const ackCount = await pendingClient.acknowledge([cmd.id]);
-      console.debug(`[Cmd] acknowledged ${cmd.id} (count=${ackCount})`);
+      console.info(`[WS Cmd] "${cmd.command}" @ ${cmd.timestamp}`);
+      if (cmd.command === 'START') await startStream();
+      else if (cmd.command === 'STOP') await stopStream();
+      await pendingClient.acknowledge([cmd.id]);
+      console.debug(`[WS Cmd] acknowledged ${cmd.id}`);
     },
     [pendingClient, startStream, stopStream]
   );
 
-  /**
-   * Main effect: on mount, connect to PubSub, set presence,
-   * resume recent sessions, subscribe to live commands,
-   * fetch & handle pending commands; and clean up on unmount.
-   */
   useEffect(() => {
     if (!initialized || !userEmail) return;
     let mounted = true;
 
     (async () => {
-      console.debug('[WS] connecting to PubSub…');
+      console.debug('[WS] connecting…');
       await pubSubService.connect(userEmail);
-      console.info('[WS] connected');
+      console.info(`[WS] connected to "${userEmail}"`);
       await presenceClient.setOnline();
 
-      // Resume a session if it stopped <5 minutes ago
+      // resume short sessions
       try {
         const last = await streamingClient.fetchLastSession();
         const stoppedAt = last.stoppedAt ? new Date(last.stoppedAt) : null;
-        const ageMs = stoppedAt ? Date.now() - stoppedAt.getTime() : Infinity;
-        if (!stoppedAt || ageMs < 5 * 60_000) {
-          console.info('[Streaming] resuming previous session');
+        if (!stoppedAt || Date.now() - stoppedAt.getTime() < 5 * 60_000) {
+          console.info('[Streaming] resuming');
           await startStream();
         }
-      } catch (err) {
-        console.warn('[Streaming] resume skipped:', err);
-      }
+      } catch { /* none */ }
 
-      // On WebSocket disconnect, mark offline & stop streaming
       pubSubService.onDisconnected(async () => {
         if (!mounted) return;
         console.warn('[WS] disconnected');
@@ -220,14 +215,24 @@ export function useStreamingDashboard() {
         await stopStream();
       });
 
-      // Listen for live commands
-      pubSubService.onMessage(data => {
-        if (mounted) handleCommand(data as PendingCommand);
+      pubSubService.onMessage(async (raw) => {
+        console.debug('[WS raw msg]', raw);
+        let cmd: PendingCommand;
+        if (typeof raw === 'string') {
+          try {
+            cmd = JSON.parse(raw) as PendingCommand;
+          } catch (e) {
+            console.error('[WS] parse error', raw);
+            return;
+          }
+        } else {
+          cmd = raw as PendingCommand;
+        }
+        await handleCommand(cmd);
       });
 
-      // Fetch & process any missed commands
       const missed = await pendingClient.fetch();
-      console.info(`[Cmd] fetched ${missed.length} pending`);
+      console.info(`[WS] fetched ${missed.length} commands`);
       for (const cmd of missed) {
         if (!mounted) break;
         await handleCommand(cmd);
@@ -236,7 +241,7 @@ export function useStreamingDashboard() {
 
     return () => {
       mounted = false;
-      console.debug('[App] cleaning up');
+      console.debug('[App] cleanup');
       pubSubService.disconnect();
       roomRef.current?.disconnect();
       presenceClient.setOffline();
