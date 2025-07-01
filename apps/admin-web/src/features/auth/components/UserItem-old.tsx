@@ -5,8 +5,13 @@ import UserIndicator from '../../../components/UserIndicator'
 export interface UserItemProps {
   /** The user to display */
   user: UserStatus
-  /** Callback when the Chat button is clicked */
-  onChat: (email: string) => void
+  /** Is the user actually streaming right now? */
+  isStreaming: boolean
+  /**
+   * Callback when the Play/Stop button is clicked.
+   * Signature: (email: string, action: 'PLAY' | 'STOP') => void
+   */
+  onToggle: (email: string, action: 'PLAY' | 'STOP') => void
 }
 
 /**
@@ -14,32 +19,51 @@ export interface UserItemProps {
  *
  * Renders a row for a user, showing:
  * - A larger online indicator via UserIndicator, or an offline SVG icon
- * - The user’s display name
- * - A Chat button with the Microsoft brand icon and tertiary color
+ * - The user’s display name (styled exactly as in Online/Offline components)
+ * - A Play or Stop button (with the exact same SVG + styles)
  */
 export const UserItem: React.FC<UserItemProps> = ({
   user,
-  onChat,
+  isStreaming,
+  onToggle,
 }) => {
-  // Microsoft Teams brand chat icon
-  const brandIcon = (
+  const isPlay = !isStreaming
+
+  const playIcon = (
     <svg
-      xmlns="http://www.w3.org/2000/svg"
       viewBox="0 0 24 24"
       fill="none"
-      stroke="var(--color-tertiary)"
-      strokeWidth={1}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="w-6 h-6"
+      xmlns="http://www.w3.org/2000/svg"
+      className="w-full h-full"
     >
-      <path d="M3 7h10v10h-10z" />
-      <path d="M6 10h4" />
-      <path d="M8 10v4" />
-      <path d="M8.104 17c.47 2.274 2.483 4 4.896 4a5 5 0 0 0 5 -5v-7h-5" />
-      <path d="M18 18a4 4 0 0 0 4 -4v-5h-4" />
-      <path d="M13.003 8.83a3 3 0 1 0 -1.833 -1.833" />
-      <path d="M15.83 8.36a2.5 2.5 0 1 0 .594 -4.117" />
+      <g id="SVGRepo_bgCarrier" strokeWidth="0" />
+      <g id="SVGRepo_tracerCarrier" strokeLinecap="round" strokeLinejoin="round" />
+      <g id="SVGRepo_iconCarrier">
+        <path
+          d="M21.4086 9.35258C23.5305 10.5065 23.5305 13.4935 21.4086 14.6474L8.59662 21.6145C6.53435 22.736 4 21.2763 4 18.9671L4 5.0329C4 2.72368 6.53435 1.26402 8.59661 2.38548L21.4086 9.35258Z"
+          fill="var(--color-tertiary)"
+        />
+      </g>
+    </svg>
+  )
+
+  const stopIcon = (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className="w-full h-full"
+    >
+      <g id="SVGRepo_bgCarrier" strokeWidth="0" />
+      <g id="SVGRepo_tracerCarrier" strokeLinecap="round" strokeLinejoin="round" />
+      <g id="SVGRepo_iconCarrier">
+        <path
+          fillRule="evenodd"
+          clipRule="evenodd"
+          d="M4 18a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v12z"
+          fill="var(--color-tertiary)"
+        />
+      </g>
     </svg>
   )
 
@@ -86,7 +110,7 @@ export const UserItem: React.FC<UserItemProps> = ({
       </div>
 
       <button
-        onClick={() => onChat(user.email)}
+        onClick={() => onToggle(user.email, isPlay ? 'PLAY' : 'STOP')}
         className="
           flex items-center space-x-1
           px-2 py-1
@@ -94,11 +118,11 @@ export const UserItem: React.FC<UserItemProps> = ({
           rounded cursor-pointer transition-colors
         "
       >
-        <span className="flex-shrink-0">
-          {brandIcon}
+        <span className="w-6 h-6 flex-shrink-0">
+          {isPlay ? playIcon : stopIcon}
         </span>
         <span className="text-[var(--color-tertiary)]">
-          Chat
+          {isPlay ? 'Play' : 'Stop'}
         </span>
       </button>
     </div>

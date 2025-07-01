@@ -6,21 +6,19 @@ import monitorIcon from "@assets/icon-monitor.png";
 import UserItem from "../../auth/components/UserItem";
 import { useAuth } from "../../auth/hooks/useAuth";
 import type { UserStatus } from "../types/types";
+import { useVideoActions } from "@/features/videoDashboard/hooks/UseVideoAction";
 
 export interface SidebarProps {
   onlineUsers:  UserStatus[];
   offlineUsers: UserStatus[];
-  streamingMap: Record<string, boolean>;
-  onToggle:     (email: string, action: "PLAY" | "STOP") => void;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
   onlineUsers,
   offlineUsers,
-  streamingMap,
-  onToggle,
 }) => {
   const { account } = useAuth();
+  const { handleChat } = useVideoActions();
 
   // extract roles from MSAL's idTokenClaims
   const claims     = (account?.idTokenClaims ?? {}) as Record<string, any>;
@@ -81,7 +79,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           )}
 
           {/* Supervisors may see Supervisors link */}
-          { (isAdmin || isSupervisor) && (
+          {(isAdmin || isSupervisor) && (
             <NavLink
               to="/supervisors"
               className={({ isActive }) =>
@@ -136,8 +134,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 <UserItem
                   key={orig.email}
                   user={{ ...orig, name, fullName: name }}
-                  isStreaming={!!streamingMap[orig.email]}
-                  onToggle={onToggle}
+                  onChat={handleChat}
                 />
               );
             })
@@ -155,8 +152,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 <UserItem
                   key={orig.email}
                   user={{ ...orig, name, fullName: name }}
-                  isStreaming={false}
-                  onToggle={onToggle}
+                  onChat={handleChat}
                 />
               );
             })

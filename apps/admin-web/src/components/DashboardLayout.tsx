@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback } from "react";
 import { Outlet } from "react-router-dom";
 import Sidebar from "../features/navigation/components/Sidebar";
@@ -8,7 +9,6 @@ import { usePresence } from "../features/navigation/hooks/usePresence";
 import { usePresenceWebSocket } from "../features/navigation/hooks/usePresenceWebSocket";
 import { CameraCommandClient } from "../services/camaraCommandClient";
 import type { UserStatus } from "../features/navigation/types/types";
-import { UserStreamProvider } from '../context/StreamingContext';
 
 const cameraClient = new CameraCommandClient();
 
@@ -21,6 +21,9 @@ const cameraClient = new CameraCommandClient();
  * - Passes presence lists and `streamingMap` into the `Sidebar`.
  * - Handles Play/Stop commands using `cameraClient`.
  * - Renders a sticky `Header` and nested routes via `Outlet`.
+ *
+ * @component
+ * @returns The layout wrapper for all pages, including sidebar and header.
  */
 const Layout: React.FC = () => {
   // Logged-in user’s email for joining PubSub group
@@ -43,15 +46,15 @@ const Layout: React.FC = () => {
   const handlePresencePush = useCallback(
     (u: UserStatus, status: "online" | "offline") => {
       if (status === "online") {
-        setOnlineUsers(prev =>
-          prev.some(x => x.email === u.email) ? prev : [...prev, u]
+        setOnlineUsers((prev) =>
+          prev.some((x) => x.email === u.email) ? prev : [...prev, u]
         );
-        setOfflineUsers(prev => prev.filter(x => x.email !== u.email));
+        setOfflineUsers((prev) => prev.filter((x) => x.email !== u.email));
       } else {
-        setOfflineUsers(prev =>
-          prev.some(x => x.email === u.email) ? prev : [...prev, u]
+        setOfflineUsers((prev) =>
+          prev.some((x) => x.email === u.email) ? prev : [...prev, u]
         );
-        setOnlineUsers(prev => prev.filter(x => x.email !== u.email));
+        setOnlineUsers((prev) => prev.filter((x) => x.email !== u.email));
       }
     },
     []
@@ -64,23 +67,19 @@ const Layout: React.FC = () => {
    * @param email  The target user’s email
    * @param action "PLAY" to start streaming, "STOP" to end streaming
    */
-  const handleToggle = useCallback(
-    async (email: string, action: "PLAY" | "STOP") => {
-      try {
-        if (action === "PLAY") {
-          await cameraClient.start(email);
-        } else {
-          await cameraClient.stop(email);
-        }
-      } catch (err) {
-        console.error("Failed to send camera command", err);
+  const handleToggle = async (email: string, action: "PLAY" | "STOP") => {
+    try {
+      if (action === "PLAY") {
+        await cameraClient.start(email);
+      } else {
+        await cameraClient.stop(email);
       }
-    },
-    []
-  );
+    } catch (err) {
+      console.error("Failed to send camera command", err);
+    }
+  };
 
   return (
-    
     <HeaderProvider>
       <div className="grid grid-cols-[350px_1fr] min-h-screen">
         <Sidebar
