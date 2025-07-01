@@ -1,66 +1,75 @@
 import React, { useState, ChangeEvent, useMemo } from 'react';
 import AddButton from './Buttons/AddButton';
+import Loading from '@/components/Loading';
 
 ////////////////////////////////////////////////////////////////////////////////
 // Types
 ////////////////////////////////////////////////////////////////////////////////
 
 /**
- * Define los metadatos de una columna para una tabla genérica.
+ * Column metadata for a generic table.
  *
- * @template T Tipo de los datos de cada fila.
+ * @template T Type of each row data object.
  */
 export interface Column<T> {
   /**
-   * Texto que aparecerá en el encabezado de la columna.
+   * Header text to display at the top of the column.
    */
   header: string;
 
   /**
-   * Propiedad del objeto de fila cuyo valor se mostrará por defecto.
-   * Si la columna usa un `render` personalizado, puede omitirse.
+   * Key of the row object to display when no custom render is provided.
+   * If you use a `render` function, this can be omitted.
    */
   key?: keyof T | string;
 
   /**
-   * Función opcional para renderizar la celda.
-   * Si se define, tendrá prioridad sobre el valor obtenido por `key`.
+   * Optional custom cell renderer.
    *
-   * @param row Objeto completo de la fila.
-   * @returns Un nodo React para renderizar en la celda.
+   * @param row The full row data object.
+   * @returns A React node to render inside this cell.
    */
   render?: (row: T) => React.ReactNode;
 }
 
 /**
- * Props for TableComponent.
+ * Props for the TableComponent.
  *
- * @template T Row data type.
+ * @template T Type of each row data object.
  */
 export interface TableComponentProps<T> {
   /** Column definitions. */
   columns: Column<T>[];
-  /** Array of row data. */
-  data?: T[]; // Made optional to allow default empty array
-  /** Number of rows per page; defaults to 10. */
+  /** Array of row data (defaults to empty array). */
+  data?: T[];
+  /** Number of rows per page (defaults to 10). */
   pageSize?: number;
   /**
    * Optional custom “Add…” button node.
-   * If omitted, a default <AddButton /> is rendered.
+   * If omitted, a default <AddButton /> labeled by `addLabel` is rendered.
    */
   addButton?: React.ReactNode;
   /**
    * Label text for the default AddButton when `addButton` is not provided.
    * E.g. "Add Admin", "Add Supervisor".
+   *
    * @default "Add Admin"
    */
   addLabel?: string;
-
   /** Overrides the background CSS class for the `<th>` row. */
   headerBg?: string;
-
-  /** Overrides the padding CSS class for the table component */
+  /** Overrides the padding CSS class for the table container. */
   tablePadding?: string;
+  /**
+   * If true, shows a loading spinner row instead of data.
+   */
+  loading?: boolean;
+  /**
+   * Text to display under the spinner when loading.
+   *
+   * @default "Loading…"
+   */
+  loadingAction?: string;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -71,33 +80,40 @@ export interface TableComponentProps<T> {
  * TableComponent
  *
  * Renders:
- * 1. A toolbar with:
- *    • Left: the provided `addButton` (even if `null`) or a default
- *      `AddButton` labeled by `addLabel`.
- *    • Right: a search input that filters rows.
- * 2. A paginated table:
- *    • Header row styled with primary background, white text,
- *      with all four corners rounded.
- *    • Each body `<tr>` except the first gets a thin white top border.
- *    • A bottom border on the entire table (above pagination).
- * 3. Pagination controls.
+ *   1. A toolbar with:
+ *      • Left: the provided `addButton` (even if `null`) or a default
+ *        `AddButton` labeled by `addLabel`.
+ *      • Right: a search input that filters rows.
+ *   2. A paginated table:
+ *      • Header row styled with `headerBg`, white text, and rounded corners.
+ *      • Each body `<tr>` except the first gets a thin white top border.
+ *      • A bottom border on the entire table (above pagination).
+ *   3. Pagination controls.
+ *   4. A loading state: when `loading` is true, shows a single row
+ *      with a centered spinner instead of data rows.
  *
  * @template T Row data type.
- * @param props.columns   Column definitions.
- * @param props.data      Array of row objects.
- * @param props.pageSize  Rows per page.
- * @param props.addButton Optional custom add-button node.
- * @param props.addLabel  Label for default AddButton if `addButton` is absent.
+ * @param props.columns    Column definitions.
+ * @param props.data       Array of row objects.
+ * @param props.pageSize   Rows per page.
+ * @param props.addButton  Optional custom add-button node.
+ * @param props.addLabel   Label for default AddButton if `addButton` is absent.
+ * @param props.headerBg   CSS classes for the header background.
+ * @param props.tablePadding CSS classes for table container padding.
+ * @param props.loading    Whether the table is in loading state.
+ * @param props.loadingAction Text to show under the spinner.
  * @returns A JSX element displaying the searchable, paginated table.
  */
 export function TableComponent<T extends object>({
   columns,
-  data = [],                  // default to empty array
+  data = [],
   pageSize = 10,
   addButton,
   addLabel = 'Add Admin',
   headerBg = 'bg-[var(--color-primary-light)]',
   tablePadding = 'p-30',
+  loading = false,
+  loadingAction = 'Loading…',
 }: TableComponentProps<T>): JSX.Element {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -110,27 +126,30 @@ export function TableComponent<T extends object>({
   // Filter rows by search term across all non-rendered columns
   const filteredData = useMemo(
     () =>
-      data
-        .filter(row =>
-          columns.some(col => {
-            if (col.render) return false;
-            if (col.key && typeof col.key !== 'string') {
-              const cell = row[col.key as keyof T];
-              return (
-                cell != null &&
-                String(cell).toLowerCase().includes(searchTerm.toLowerCase())
-              );
-            }
-            if (col.key && typeof col.key === 'string' && col.key in row) {
-              const cell = (row as any)[col.key];
-              return (
-                cell != null &&
-                String(cell).toLowerCase().includes(searchTerm.toLowerCase())
-              );
-            }
-            return false;
-          })
-        ),
+      data.filter(row =>
+        columns.some(col => {
+          if (col.render) return false;
+          if (col.key && typeof col.key !== 'string') {
+            const cell = row[col.key as keyof T];
+            return (
+              cell != null &&
+              String(cell).toLowerCase().includes(searchTerm.toLowerCase())
+            );
+          }
+          if (
+            col.key &&
+            typeof col.key === 'string' &&
+            col.key in row
+          ) {
+            const cell = (row as any)[col.key];
+            return (
+              cell != null &&
+              String(cell).toLowerCase().includes(searchTerm.toLowerCase())
+            );
+          }
+          return false;
+        })
+      ),
     [data, columns, searchTerm]
   );
 
@@ -147,26 +166,24 @@ export function TableComponent<T extends object>({
   );
 
   const goPrevious = () => setCurrentPage(p => Math.max(1, p - 1));
-  const goNext     = () => setCurrentPage(p => Math.min(totalPages, p + 1));
+  const goNext = () =>
+    setCurrentPage(p => Math.min(totalPages, p + 1));
 
   return (
     <div className={`flex flex-col ${tablePadding} pt-10`}>
       {/* Toolbar */}
       <div className="flex justify-between items-center mb-4">
-        {addButton !== undefined
-          ? addButton
-          : (
-            <AddButton
-              label={addLabel}
-              onClick={() => { /* TODO: hook up add action */ }}
-            />
-          )}
+        {addButton !== undefined ? (
+          addButton
+        ) : (
+          <AddButton label={addLabel} onClick={() => { /* hook up action */ }} />
+        )}
         <input
           type="text"
           placeholder="Search..."
           value={searchTerm}
           onChange={handleSearch}
-          className="px-3 py-2 bg-[var(--color-primary)] text-white rounded border border-transparent focus:outline-none focus:ring-0"
+          className="px-3 py-2 bg-[var(--color-primary)] text-white rounded border-transparent focus:outline-none"
         />
       </div>
 
@@ -176,16 +193,16 @@ export function TableComponent<T extends object>({
           <tr>
             {columns.map((col, i) => {
               const isFirst = i === 0;
-              const isLast  = i === columns.length - 1;
+              const isLast = i === columns.length - 1;
               return (
                 <th
-                  key={String(col.key)}
-                  className={
-                    `px-6 py-3 text-left text-sm font-semibold
+                  key={String(col.key ?? col.header)}
+                  className={`
+                    px-6 py-3 text-left text-sm font-semibold
                     ${headerBg} text-white
                     ${isFirst ? 'rounded-tl-lg rounded-bl-lg' : ''}
-                    ${isLast  ? 'rounded-tr-lg rounded-br-lg' : ''}`
-                  }
+                    ${isLast ? 'rounded-tr-lg rounded-br-lg' : ''}
+                  `}
                 >
                   {col.header}
                 </th>
@@ -194,25 +211,41 @@ export function TableComponent<T extends object>({
           </tr>
         </thead>
         <tbody>
-          {pagedData.map((row, idx) => (
-            <tr key={idx} className={idx > 0 ? 'border-t border-white' : ''}>
+          {loading ? (
+            <tr>
+              <td
+                className="px-6 py-16 text-center"
+              >
+                <Loading
+                  action={loadingAction}
+                  bgClassName="bg-transparent"
+                />
+              </td>
+            </tr>
+          ) : pagedData.map((row, idx) => (
+            <tr
+              key={idx}
+              className={idx > 0 ? 'border-t border-white' : ''}
+            >
               {columns.map(col => (
                 <td
-                  key={String(col.key)}
+                  key={String(col.key ?? col.header)}
                   className="px-6 py-4 whitespace-nowrap text-sm text-white"
                 >
                   {col.render
                     ? col.render(row)
                     : col.key && typeof col.key !== 'string'
-                      ? String(row[col.key as keyof T] ?? '')
-                      : col.key && typeof col.key === 'string' && col.key in row
-                        ? String((row as any)[col.key] ?? '')
-                        : ''}
+                    ? String(row[col.key as keyof T] ?? '')
+                    : col.key &&
+                      typeof col.key === 'string' &&
+                      col.key in row
+                    ? String((row as any)[col.key] ?? '')
+                    : ''}
                 </td>
               ))}
             </tr>
           ))}
-          {pagedData.length === 0 && (
+          {!loading && pagedData.length === 0 && (
             <tr>
               <td
                 colSpan={columns.length}

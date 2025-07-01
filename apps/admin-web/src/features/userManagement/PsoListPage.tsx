@@ -1,3 +1,4 @@
+// src/features/video/pages/PSOsListPage.tsx
 import React, { useEffect, useState } from 'react';
 import { useHeader } from '../../context/HeaderContext';
 import { TableComponent, Column } from '@components/TableComponent';
@@ -7,7 +8,7 @@ import AddModal from '@components/ModalComponent';
 import monitorIcon from '@assets/icon-monitor.png';
 import { getUsersByRole, changeUserRole } from '../../services/userClient';
 import { useAuth } from '../auth/hooks/useAuth';
-import { useToast } from '../../components/ToastContext'
+import { useToast } from '../../components/ToastContext';
 
 ////////////////////////////////////////////////////////////////////////////////
 // Types
@@ -20,23 +21,12 @@ import { useToast } from '../../components/ToastContext'
  * - `role === null` for tenant-user candidates.
  */
 export interface CandidateUser {
-  /** Azure AD object ID */
   azureAdObjectId: string;
-  /** User’s email or UPN */
-  email: string;
-  /** First name parsed from display name */
-  firstName: string;
-  /** Last name parsed from display name */
-  lastName: string;
-  /**
-   * Current App Role for PSO context:
-   * - `"Employee"` for existing PSOs
-   * - `null` for tenant-user candidates
-   */
-  role: 'Employee' | null;
-  /** (Hidden) Azure AD object ID of assigned supervisor; only for employees */
+  email:           string;
+  firstName:       string;
+  lastName:        string;
+  role:            'Employee' | null;
   supervisorAdId?: string;
-  /** (Displayed) Full name of assigned supervisor; only for employees */
   supervisorName?: string;
 }
 
@@ -57,18 +47,20 @@ export interface CandidateUser {
 const PSOsListPage: React.FC = () => {
   const { initialized, account } = useAuth();
   const currentEmail = account?.username ?? '';
+  const { showToast } = useToast();
 
-  const { showToast } = useToast()
   // State for PSO list page
-  const [psos, setPsos]     = useState<CandidateUser[]>([]);
-  const [total, setTotal]   = useState(0);
-  const [page, setPage]     = useState(1);
-  const [pageSize]          = useState(8);
+  const [psos, setPsos]               = useState<CandidateUser[]>([]);
+  const [total, setTotal]             = useState(0);
+  const [page, setPage]               = useState(1);
+  const [pageSize]                    = useState(8);
+  const [psosLoading, setPsosLoading] = useState(false);
 
   // State for candidate modal
-  const [candidates, setCandidates]     = useState<CandidateUser[]>([]);
-  const [isModalOpen, setModalOpen]     = useState(false);
-  const [selectedEmails, setSelectedEmails] = useState<string[]>([]);
+  const [candidates, setCandidates]                   = useState<CandidateUser[]>([]);
+  const [candidatesLoading, setCandidatesLoading]     = useState(false);
+  const [isModalOpen, setModalOpen]                   = useState(false);
+  const [selectedEmails, setSelectedEmails]           = useState<string[]>([]);
 
   useHeader({
     title:   'PSOs',
@@ -77,22 +69,18 @@ const PSOsListPage: React.FC = () => {
   });
 
   /**
-   * Fetches one page of PSOs (Employee role), including supervisor info.
-   *
-   * Calls GET /api/GetUsersByRole?role=Employee&page=<page>&pageSize=<pageSize>
-   * Expects response { total, page, pageSize, users: UserByRole[] }.
-   * Maps UserByRole → CandidateUser (role forced to "Employee").
+   * Fetch one page of PSOs (Employee role).
    */
   const fetchPsos = async (pageNumber = 1): Promise<void> => {
+    setPsosLoading(true);
     try {
       const res = await getUsersByRole('Employee', pageNumber, pageSize);
-      // Map API UserByRole → CandidateUser
       const mapped: CandidateUser[] = res.users.map(u => ({
         azureAdObjectId: u.azureAdObjectId,
         email:           u.email,
         firstName:       u.firstName,
         lastName:        u.lastName,
-        role:            'Employee', 
+        role:            'Employee',
         supervisorAdId:  u.supervisorAdId,
         supervisorName:  u.supervisorName,
       }));
@@ -101,20 +89,18 @@ const PSOsListPage: React.FC = () => {
       setPage(res.page);
     } catch (err: any) {
       console.error('Failed to load PSOs:', err);
+      showToast('Failed to load PSOs', 'error');
+    } finally {
+      setPsosLoading(false);
     }
   };
 
   /**
-   * Fetches all tenant-user candidates (no App Role).
-   *
-   * Calls GET /api/GetUsersByRole?role=Tenant
-   * Expects response { total, page, pageSize, users: UserByRole[] }.
-   * We ignore pagination here (assume all fit) or use default page/pageSize.
-   * Maps UserByRole → CandidateUser with role=null.
+   * Fetch all tenant-user candidates.
    */
   const fetchCandidates = async (): Promise<void> => {
+    setCandidatesLoading(true);
     try {
-      // fetch first page; if many candidates, consider pagination UI
       const res = await getUsersByRole('Tenant', 1, 1000);
       const mapped: CandidateUser[] = res.users.map(u => ({
         azureAdObjectId: u.azureAdObjectId,
@@ -126,6 +112,9 @@ const PSOsListPage: React.FC = () => {
       setCandidates(mapped);
     } catch (err: any) {
       console.error('Failed to load candidates:', err);
+      showToast('Failed to load candidates', 'error');
+    } finally {
+      setCandidatesLoading(false);
     }
   };
 
@@ -139,65 +128,64 @@ const PSOsListPage: React.FC = () => {
    * Opens "Add PSO" modal, resets selection, and fetches candidates.
    */
   const handleOpenModal = (): void => {
-    setModalOpen(true);
     setSelectedEmails([]);
+    setModalOpen(true);
     fetchCandidates();
   };
 
   /**
-   * Assigns "Employee" role to selected users.
-   * Calls POST /api/ChangeUserRole for each email.
-   * Then refreshes current page.
+   * Assign "Employee" role to selected users and refresh.
    */
   const handleConfirmAdd = async (): Promise<void> => {
+    setPsosLoading(true);
     try {
       await Promise.all(
         selectedEmails.map(email =>
           changeUserRole({ userEmail: email, newRole: 'Employee' })
         )
-      )
-      setModalOpen(false)
-      fetchPsos(page)
+      );
+      setModalOpen(false);
+      await fetchPsos(page);
       showToast(
         `${selectedEmails.length} user${selectedEmails.length > 1 ? 's' : ''} added`,
         'success'
-      )
+      );
     } catch (err: any) {
-      console.error('Error adding PSOs:', err)
-      showToast('Failed to add PSOs, please try again.', 'error')
+      console.error('Error adding PSOs:', err);
+      showToast('Failed to add PSOs', 'error');
+    } finally {
+      setPsosLoading(false);
     }
-  }
+  };
 
   /**
-   * Removes the "Employee" role from a PSO.
-   * Prevents self-removal.
-   *
-   * Calls POST /api/ChangeUserRole with newRole=null, then refreshes.
+   * Remove "Employee" role from a PSO and refresh.
    */
   const handleRemovePso = async (email: string): Promise<void> => {
     if (email === currentEmail) {
-      showToast("You can't remove yourself", 'warning')
-      return
+      showToast("You can't remove yourself", 'warning');
+      return;
     }
+    setPsosLoading(true);
     try {
-      await changeUserRole({ userEmail: email, newRole: null })
-      fetchPsos(page)
-      showToast(`Removed ${email} from PSOs`, 'success')
+      await changeUserRole({ userEmail: email, newRole: null });
+      await fetchPsos(page);
+      showToast(`Removed ${email}`, 'success');
     } catch (err: any) {
-      console.error('Error removing PSO:', err)
-      showToast(`Failed to remove ${email}`, 'error')
+      console.error('Error removing PSO:', err);
+      showToast(`Failed to remove ${email}`, 'error');
+    } finally {
+      setPsosLoading(false);
     }
-  }
+  };
 
-  //
   // Columns for main PSO table
-  //
   const psoColumns: Column<CandidateUser>[] = [
-    { key: 'email',         header: 'Email'      },
-    { key: 'firstName',     header: 'First Name' },
-    { key: 'lastName',      header: 'Last Name'  },
+    { key: 'email',          header: 'Email'      },
+    { key: 'firstName',      header: 'First Name' },
+    { key: 'lastName',       header: 'Last Name'  },
     { key: 'supervisorName', header: 'Supervisor' },
-    { key: 'role',          header: 'Role'       },
+    { key: 'role',           header: 'Role'       },
     {
       key: 'email',
       header: 'Actions',
@@ -208,9 +196,7 @@ const PSOsListPage: React.FC = () => {
     },
   ];
 
-  //
-  // Columns for Add PSO modal (only Select, Email, First Name, Last Name)
-  //
+  // Columns for Add PSO modal
   const candidateColumns: Column<CandidateUser>[] = [
     {
       key: 'azureAdObjectId',
@@ -219,13 +205,13 @@ const PSOsListPage: React.FC = () => {
         <input
           type="checkbox"
           checked={selectedEmails.includes(row.email)}
-          onChange={e => {
+          onChange={e =>
             setSelectedEmails(prev =>
               e.target.checked
                 ? [...prev, row.email]
                 : prev.filter(x => x !== row.email)
-            );
-          }}
+            )
+          }
           className="
             appearance-none w-5 h-5 rounded border-2
             border-[var(--color-primary)] bg-[var(--color-primary-light)]
@@ -244,15 +230,15 @@ const PSOsListPage: React.FC = () => {
 
   return (
     <div className="flex flex-col flex-1 min-h-0 bg-[var(--color-primary-dark)] p-4">
-      {/* Main PSO table with server-side pagination */}
+      {/* Main PSO table with loading indicator */}
       <TableComponent<CandidateUser>
         columns={psoColumns}
         data={psos}
         pageSize={pageSize}
         addButton={<AddButton label="Add PSO" onClick={handleOpenModal} />}
+        loading={psosLoading}
+        loadingAction="Loading PSOs"
       />
-
-      
 
       {/* Modal for selecting new PSOs */}
       <AddModal
@@ -271,6 +257,8 @@ const PSOsListPage: React.FC = () => {
           addButton={null}
           headerBg="bg-[var(--color-primary)]"
           tablePadding="p-13"
+          loading={candidatesLoading}
+          loadingAction="Loading candidates"
         />
       </AddModal>
     </div>
@@ -278,4 +266,3 @@ const PSOsListPage: React.FC = () => {
 };
 
 export default PSOsListPage;
-

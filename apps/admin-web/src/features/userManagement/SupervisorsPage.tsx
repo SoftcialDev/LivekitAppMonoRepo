@@ -1,3 +1,4 @@
+// src/features/video/pages/SupervisorsPage.tsx
 import React, { useEffect, useState, useMemo } from 'react';
 import { useHeader } from '../../context/HeaderContext';
 import { TableComponent, Column } from '../../components/TableComponent';
@@ -9,9 +10,6 @@ import { getUsersByRole, changeUserRole } from '../../services/userClient';
 import { useAuth } from '../auth/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 
-////////////////////////////////////////////////////////////////////////////////
-// Types
-////////////////////////////////////////////////////////////////////////////////
 interface CandidateUser {
   azureAdObjectId: string;
   email:           string;
@@ -22,16 +20,12 @@ interface CandidateUser {
   supervisorName?: string;
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// Component
-////////////////////////////////////////////////////////////////////////////////
 const SupervisorsPage: React.FC = () => {
   const { initialized, account } = useAuth();
   const navigate = useNavigate();
   const currentEmail = account?.username ?? '';
 
-  // derive roles from idTokenClaims
-  const claims     = (account?.idTokenClaims ?? {}) as Record<string, any>;
+  const claims = (account?.idTokenClaims ?? {}) as Record<string, any>;
   const rolesClaim = claims.roles ?? claims.role;
   const roles: string[] = Array.isArray(rolesClaim)
     ? rolesClaim
@@ -41,8 +35,12 @@ const SupervisorsPage: React.FC = () => {
   const isAdmin = roles.includes('Admin');
 
   const [supervisors, setSupervisors] = useState<CandidateUser[]>([]);
-  const [candidates, setCandidates]   = useState<CandidateUser[]>([]);
-  const [isModalOpen, setModalOpen]   = useState(false);
+  const [supervisorsLoading, setSupervisorsLoading] = useState(false);
+
+  const [candidates, setCandidates] = useState<CandidateUser[]>([]);
+  const [candidatesLoading, setCandidatesLoading] = useState(false);
+
+  const [isModalOpen, setModalOpen] = useState(false);
   const [selectedEmails, setSelectedEmails] = useState<string[]>([]);
 
   useHeader({
@@ -51,38 +49,43 @@ const SupervisorsPage: React.FC = () => {
     iconAlt: 'Supervisors',
   });
 
-  // Fetch current supervisors
   const fetchSupervisors = async () => {
+    setSupervisorsLoading(true);
     try {
       const res = await getUsersByRole('Supervisor', 1, 1000);
       setSupervisors(res.users);
     } catch (err) {
       console.error('Failed to load supervisors:', err);
+    } finally {
+      setSupervisorsLoading(false);
     }
   };
 
-  // Fetch candidate employees/tenants
   const fetchCandidates = async () => {
+    setCandidatesLoading(true);
     try {
       const res = await getUsersByRole('Employee,Tenant', 1, 1000);
       setCandidates(res.users);
     } catch (err) {
       console.error('Failed to load candidates:', err);
+    } finally {
+      setCandidatesLoading(false);
     }
   };
 
   useEffect(() => {
-    if (!initialized || !account) return;
+    if (!initialized) return;
     fetchSupervisors();
-  }, [initialized, account]);
+  }, [initialized]);
 
   const handleOpenModal = () => {
-    setModalOpen(true);
     setSelectedEmails([]);
+    setModalOpen(true);
     fetchCandidates();
   };
 
   const handleConfirmAdd = async () => {
+    setSupervisorsLoading(true);
     try {
       await Promise.all(
         selectedEmails.map(email =>
@@ -90,9 +93,11 @@ const SupervisorsPage: React.FC = () => {
         )
       );
       setModalOpen(false);
-      fetchSupervisors();
+      await fetchSupervisors();
     } catch (err) {
       console.error('Error adding supervisors:', err);
+    } finally {
+      setSupervisorsLoading(false);
     }
   };
 
@@ -101,17 +106,19 @@ const SupervisorsPage: React.FC = () => {
       console.warn("Supervisors cannot remove themselves.");
       return;
     }
+    setSupervisorsLoading(true);
     try {
       await changeUserRole({ userEmail: email, newRole: null });
-      fetchSupervisors();
+      await fetchSupervisors();
     } catch (err) {
       console.error('Error removing supervisor:', err);
+    } finally {
+      setSupervisorsLoading(false);
     }
   };
 
-  // Columns for the supervisors table
   const baseSupervisorColumns: Column<CandidateUser>[] = [
-    { key: 'email',     header: 'Email' },
+    { key: 'email', header: 'Email' },
     {
       key: 'firstName',
       header: 'First Name',
@@ -125,10 +132,9 @@ const SupervisorsPage: React.FC = () => {
       ),
     },
     { key: 'lastName', header: 'Last Name' },
-    { key: 'role',     header: 'Role' },
+    { key: 'role', header: 'Role' },
   ];
 
-  // Only admins get an Actions column
   const supervisorColumns = useMemo(() => {
     if (isAdmin) {
       return [
@@ -144,9 +150,8 @@ const SupervisorsPage: React.FC = () => {
       ];
     }
     return baseSupervisorColumns;
-  }, [isAdmin, currentEmail, handleRemoveSupervisor]);
+  }, [isAdmin, currentEmail]);
 
-  // Columns for the candidate-selection table in the modal
   const candidateColumns: Column<CandidateUser>[] = [
     {
       key: 'select',
@@ -173,10 +178,10 @@ const SupervisorsPage: React.FC = () => {
         />
       ),
     },
-    { key: 'email',     header: 'Email' },
+    { key: 'email', header: 'Email' },
     { key: 'firstName', header: 'First Name' },
-    { key: 'lastName',  header: 'Last Name' },
-    { key: 'role',      header: 'Role' },
+    { key: 'lastName', header: 'Last Name' },
+    { key: 'role', header: 'Role' },
   ];
 
   return (
@@ -185,15 +190,15 @@ const SupervisorsPage: React.FC = () => {
         columns={supervisorColumns}
         data={supervisors}
         pageSize={9}
-        // Only render AddButton for admins
         addButton={
           isAdmin ? (
             <AddButton label="Add Supervisor" onClick={handleOpenModal} />
           ) : null
         }
+        loading={supervisorsLoading}
+        loadingAction="Loading supervisors"
       />
 
-      {/* Modal only accessible (and openable) by admins */}
       {isAdmin && (
         <AddModal
           open={isModalOpen}
@@ -211,6 +216,8 @@ const SupervisorsPage: React.FC = () => {
             addButton={null}
             headerBg="bg-[var(--color-primary)]"
             tablePadding="p-13"
+            loading={candidatesLoading}
+            loadingAction="Loading candidates"
           />
         </AddModal>
       )}

@@ -8,6 +8,7 @@ import React, {
 import AddButton from './Buttons/AddButton';
 import CancelButton from './Buttons/CancelButton';
 import CancelIcon from './Buttons/CancelIcon';
+import Loading from '@/components/Loading';
 
 export interface AddModalProps {
   /** Determines if the modal is visible */
@@ -26,22 +27,15 @@ export interface AddModalProps {
   onConfirm: () => void;
   /** Label for the confirm button; defaults to "Confirm" */
   confirmLabel?: string;
+  /** Show loading overlay in the body area */
+  loading?: boolean;
+  /** Text to display under the spinner */
+  loadingAction?: string;
 }
 
 /**
  * Draggable modal dialog with custom header, body, and footer actions.
- *
- * Centers itself when opened and allows dragging by the header bar.
- *
- * @param props.open - Controls whether the modal is shown.
- * @param props.title - Header title text.
- * @param props.iconSrc - Optional icon shown next to the title.
- * @param props.iconAlt - Alt text for the header icon.
- * @param props.children - Elements to display in the body section.
- * @param props.onClose - Handler for closing the modal.
- * @param props.onConfirm - Handler for confirming the action.
- * @param props.confirmLabel - Text for the confirm button.
- * @returns A modal dialog component.
+ * Shows a loading overlay over the body when `loading` is true.
  */
 const AddModal: React.FC<AddModalProps> = ({
   open,
@@ -52,6 +46,8 @@ const AddModal: React.FC<AddModalProps> = ({
   onClose,
   onConfirm,
   confirmLabel = 'Confirm',
+  loading = false,
+  loadingAction = 'Loading',
 }) => {
   const modalRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState({ x: 0, y: 0 });
@@ -114,7 +110,7 @@ const AddModal: React.FC<AddModalProps> = ({
           bg-[var(--color-primary-light)]
           border-2 border-white
           rounded-lg shadow-xl
-          w-[90%] 
+          w-[90%]
         "
         style={{ left: pos.x, top: pos.y }}
       >
@@ -123,9 +119,7 @@ const AddModal: React.FC<AddModalProps> = ({
           className="flex items-center justify-between px-6 py-4 cursor-move"
         >
           <div className="flex items-center space-x-2 text-white text-lg font-semibold">
-            {iconSrc && (
-              <img src={iconSrc} alt={iconAlt} className="w-6 h-6" />
-            )}
+            {iconSrc && <img src={iconSrc} alt={iconAlt} className="w-6 h-6" />}
             <span>{title}</span>
           </div>
           <button onClick={onClose} className="leading-none">
@@ -133,7 +127,14 @@ const AddModal: React.FC<AddModalProps> = ({
           </button>
         </div>
 
-        <div className="px-6 py-2 text-white">{children}</div>
+        <div className="relative px-6 py-2 text-white">
+          {loading && (
+            <div className="absolute inset-0 z-10">
+              <Loading action={loadingAction} bgClassName="bg-[var(--color-primary)]" />
+            </div>
+          )}
+          {children}
+        </div>
 
         <div className="flex justify-end items-center space-x-5 px-6 py-2 pb-10">
           <CancelButton onClick={onClose} />

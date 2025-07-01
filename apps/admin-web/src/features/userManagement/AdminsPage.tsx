@@ -1,3 +1,4 @@
+// src/features/video/pages/AdminsPage.tsx
 import React, { useEffect, useState } from 'react';
 import { useHeader } from '../../context/HeaderContext';
 import { TableComponent, Column } from '../../components/TableComponent';
@@ -7,49 +8,29 @@ import AddModal from '@/components/ModalComponent';
 import managementIcon from '@assets/monitor-icon.png';
 import { getUsersByRole, changeUserRole } from '../../services/userClient';
 import { useAuth } from '../auth/hooks/useAuth';
-import { useToast } from '../../components/ToastContext'
+import { useToast } from '../../components/ToastContext';
 
-////////////////////////////////////////////////////////////////////////////////
-// Types
-////////////////////////////////////////////////////////////////////////////////
-
-/**
- * Represents a user in AdminsPage context.
- *
- * Matches the API’s UserByRole shape.
- */
-interface CandidateUser {
+export interface CandidateUser {
   azureAdObjectId: string;
   email:           string;
   firstName:       string;
   lastName:        string;
-  /**
-   * Current App Role or null for tenant users.
-   * One of "Admin" | "Supervisor" | "Employee" | null
-   */
-  role: 'Admin' | 'Supervisor' | 'Employee' | null;
+  role:            'Admin' | 'Supervisor' | 'Employee' | null;
   supervisorAdId?: string;
   supervisorName?: string;
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// Component
-////////////////////////////////////////////////////////////////////////////////
-
-/**
- * AdminsPage
- *
- * - Displays current Admins (role="Admin") in a table.
- * - “Add Admin” modal shows candidates: Supervisor, Employee, Tenant users.
- * - Prevents self-removal.
- */
 const AdminsPage: React.FC = () => {
   const { initialized, account } = useAuth();
   const currentEmail = account?.username ?? '';
+  const { showToast } = useToast();
 
-  const { showToast } = useToast()
   const [admins, setAdmins] = useState<CandidateUser[]>([]);
+  const [adminsLoading, setAdminsLoading] = useState(false);
+
   const [candidates, setCandidates] = useState<CandidateUser[]>([]);
+  const [candidatesLoading, setCandidatesLoading] = useState(false);
+
   const [isModalOpen, setModalOpen] = useState(false);
   const [selectedEmails, setSelectedEmails] = useState<string[]>([]);
 
@@ -59,49 +40,43 @@ const AdminsPage: React.FC = () => {
     iconAlt: 'Admins',
   });
 
-  /**
-   * Load current Admins from API with paging=1,pageSize large enough.
-   * Calls GET /api/GetUsersByRole?role=Admin&page=1&pageSize=...
-   * Extracts `.users` before setState.
-   */
   const fetchAdmins = async (): Promise<void> => {
+    setAdminsLoading(true);
     try {
-      const res = await getUsersByRole('Admin', 1, 1000)
-      setAdmins(res.users)
+      const res = await getUsersByRole('Admin', 1, 1000);
+      setAdmins(res.users);
     } catch (err: any) {
-      console.error('Failed to load admins:', err)
-      showToast('Could not load admins', 'error')            // ← on error
+      showToast('Could not load admins', 'error');
+    } finally {
+      setAdminsLoading(false);
     }
-  }
+  };
 
-  /**
-   * Load candidate users: everyone except Admins.
-   * Uses roleParam "Supervisor,Employee,Tenant".
-   */
   const fetchCandidates = async (): Promise<void> => {
+    setCandidatesLoading(true);
     try {
       const res = await getUsersByRole('Supervisor,Employee,Tenant', 1, 1000);
       setCandidates(res.users);
     } catch (err: any) {
-      showToast('Could not load candidate users', 'error')    // ← on error
-      console.error('Failed to load candidates:', err);
+      showToast('Could not load candidate users', 'error');
+    } finally {
+      setCandidatesLoading(false);
     }
   };
 
   useEffect(() => {
-    if (!initialized || !account) return;
+    if (!initialized) return;
     fetchAdmins();
-  }, [initialized, account]);
+  }, [initialized]);
 
-  /** Open “Add Admin” modal and reset selection + fetch candidates */
   const handleOpenModal = (): void => {
-    setModalOpen(true);
     setSelectedEmails([]);
+    setModalOpen(true);
     fetchCandidates();
   };
 
-  /** Assign "Admin" role to selected emails */
   const handleConfirmAdd = async (): Promise<void> => {
+    setAdminsLoading(true);
     try {
       await Promise.all(
         selectedEmails.map(email =>
@@ -109,40 +84,32 @@ const AdminsPage: React.FC = () => {
         )
       );
       setModalOpen(false);
-      fetchAdmins();
-      showToast(
-        `${selectedEmails.length} admin${selectedEmails.length > 1 ? 's' : ''} added`,
-        'success'
-      )   
-    } catch (err: any) {
-      showToast('Failed to add admins', 'error')              // ← on error
-      console.error('Error adding admins:', err);
+      await fetchAdmins();
+      showToast(`${selectedEmails.length} added`, 'success');
+    } catch {
+      showToast('Failed to add admins', 'error');
+    } finally {
+      setAdminsLoading(false);
     }
   };
 
-  /**
-   * Remove Admin role from a single user.
-   * No-op if the user attempts to remove themselves.
-   */
   const handleRemoveAdmin = async (email: string): Promise<void> => {
     if (email === currentEmail) {
-       showToast("You can't remove yourself", 'warning')   
-      console.warn("Admins cannot remove themselves.");
+      showToast("You can't remove yourself", 'warning');
       return;
     }
+    setAdminsLoading(true);
     try {
       await changeUserRole({ userEmail: email, newRole: null });
-      fetchAdmins();
-      showToast(`Removed ${email} from admins`, 'success')   
-    } catch (err: any) {
-       showToast(`Failed to remove ${email}`, 'error')  
-      console.error('Error removing admin:', err);
+      await fetchAdmins();
+      showToast(`Removed ${email}`, 'success');
+    } catch {
+      showToast(`Failed to remove ${email}`, 'error');
+    } finally {
+      setAdminsLoading(false);
     }
   };
 
-  //
-  // Column definitions
-  //
   const adminColumns: Column<CandidateUser>[] = [
     { key: 'email',     header: 'Email'      },
     { key: 'firstName', header: 'First Name' },
@@ -166,13 +133,13 @@ const AdminsPage: React.FC = () => {
         <input
           type="checkbox"
           checked={selectedEmails.includes(row.email)}
-          onChange={e => {
+          onChange={e =>
             setSelectedEmails(prev =>
               e.target.checked
                 ? [...prev, row.email]
                 : prev.filter(x => x !== row.email)
-            );
-          }}
+            )
+          }
           className="
             appearance-none w-5 h-5 rounded border-2
             border-[var(--color-primary)] bg-[var(--color-primary-light)]
@@ -197,6 +164,8 @@ const AdminsPage: React.FC = () => {
         data={admins}
         pageSize={9}
         addButton={<AddButton label="Add Admin" onClick={handleOpenModal} />}
+        loading={adminsLoading}
+        loadingAction="Loading admins"
       />
 
       <AddModal
@@ -215,12 +184,12 @@ const AdminsPage: React.FC = () => {
           addButton={null}
           headerBg="bg-[var(--color-primary)]"
           tablePadding="p-13"
+          loading={candidatesLoading}
+          loadingAction="Loading candidates"
         />
       </AddModal>
     </div>
   );
 };
-
-
 
 export default AdminsPage;
