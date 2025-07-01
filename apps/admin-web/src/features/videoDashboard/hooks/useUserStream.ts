@@ -1,4 +1,3 @@
-// src/features/video/hooks/useUserStream.ts
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { WebPubSubClientService, MessageHandler } from '../../../services/webpubsubClient';
 import { fetchStreamingSessions } from '../../../services/streamingStatusClient';

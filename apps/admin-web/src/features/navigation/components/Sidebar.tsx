@@ -29,11 +29,6 @@ export interface SidebarProps {
  * - A “Monitor” section with a link to the dashboard.
  * - Two presence lists (Online and Offline) showing UserItem entries.
  *   If a list is empty, shows “No users online” or “No users offline”.
- *
- * @param props.onlineUsers    – Users with `status === "online"`
- * @param props.offlineUsers   – Users with `status === "offline"`
- * @param props.streamingMap   – Active streaming status by email
- * @param props.onToggle       – Callback for Play/Stop actions
  */
 const Sidebar: React.FC<SidebarProps> = ({
   onlineUsers,
@@ -77,7 +72,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           </IconWithLabel>
           <NavLink to="/admins"      className={({ isActive }) => `${linkBase} ${isActive ? activeLink : ""}`}>Admins</NavLink>
           <NavLink to="/supervisors" className={({ isActive }) => `${linkBase} ${isActive ? activeLink : ""}`}>Supervisors</NavLink>
-          <NavLink to="/psos"         className={({ isActive }) => `${linkBase} ${isActive ? activeLink : ""}`}>PSOs</NavLink>
+          <NavLink to="/psos"        className={({ isActive }) => `${linkBase} ${isActive ? activeLink : ""}`}>PSOs</NavLink>
         </div>
 
         <div className="border-b border-black">
@@ -96,7 +91,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         <div className="px-6 py-4">
           <div className="text-xs font-semibold mb-2">Online</div>
           {onlineUsers.length === 0 ? (
-            <div className="text-xs font-semibold text-[var(--color-tertiary)] ">No users online</div>
+            <div className="text-xs font-semibold text-[var(--color-tertiary)]">No users online</div>
           ) : (
             onlineUsers.map(orig => {
               const name = shortName(orig);
@@ -113,7 +108,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 
           <div className="text-xs font-semibold mt-4 mb-2">Offline</div>
           {offlineUsers.length === 0 ? (
-            <div className="text-xl text-[var(--color-tertiary)] ">No users offline</div>
+            <div className="text-xs text-[var(--color-tertiary)]">No users offline</div>
           ) : (
             offlineUsers.map(orig => {
               const name = shortName(orig);

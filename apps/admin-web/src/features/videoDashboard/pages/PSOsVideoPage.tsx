@@ -204,7 +204,7 @@ const handleToggle = (email: string) => {
       {count === 1 && (
         <div className="flex flex-col flex-1 min-h-0">
           <div className="flex flex-grow items-center justify-center p-4">
-            <div className="w-11/12 h-full">
+            <div className="w-11/12 h-full ">
               <VideoCard
                 name         ={psos[0].fullName}
                 email        ={psos[0].email}

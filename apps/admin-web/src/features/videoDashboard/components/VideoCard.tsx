@@ -133,7 +133,7 @@ const VideoCard: React.FC<VideoCardProps & { livekitUrl?: string }> = ({
       : 'Play'
 
   return (
-    <div className={`flex flex-col h-full bg-[var(--color-primary-dark)] rounded-xl overflow-hidden ${className}`}>
+    <div className={`flex flex-col bg-[var(--color-primary-dark)] rounded-xl overflow-hidden ${className} `}>
       {showHeader && (
         <div className="flex items-center px-2 py-1">
           <UserIndicator
@@ -153,18 +153,19 @@ const VideoCard: React.FC<VideoCardProps & { livekitUrl?: string }> = ({
         </div>
       )}
 
-      <div className="flex-1 bg-black overflow-hidden rounded-xl">
-        {(shouldStream || Boolean(accessToken)) ? (
+      {/* Fixed 16:9 video box */}
+      <div className="relative w-full pb-[50.25%] bg-black  rounded-xl">
+        { (shouldStream || Boolean(accessToken)) ? (
           <video
             ref={videoRef}
             autoPlay
             playsInline
             muted
             controls={false}
-            className="w-full h-full object-cover"
+            className="absolute inset-0 w-full h-full object-contain"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-white">
+          <div className="absolute inset-0 flex items-center justify-center text-white">
             No Stream
           </div>
         )}
@@ -172,20 +173,14 @@ const VideoCard: React.FC<VideoCardProps & { livekitUrl?: string }> = ({
 
       <div className="flex space-x-2 mt-2">
         <button
-          onClick={() => {
-            console.log(`[VideoCard:${email}] onToggle clicked (connecting=${connecting})`)
-            onToggle?.(email)
-          }}
+          onClick={() => onToggle?.(email)}
           disabled={connecting}
           className="flex-1 py-2 bg-white text-[var(--color-primary-dark)] rounded-xl disabled:opacity-50"
         >
           {label}
         </button>
         <button
-          onClick={() => {
-            console.log(`[VideoCard:${email}] onChat clicked`)
-            onChat(email)
-          }}
+          onClick={() => onChat(email)}
           className="flex-1 py-2 bg-[var(--color-secondary)] text-[var(--color-primary-dark)] rounded-xl"
         >
           Chat

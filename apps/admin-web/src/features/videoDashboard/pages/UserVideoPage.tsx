@@ -71,7 +71,7 @@ const UserVideoPage: React.FC = () => {
         {/* Single PSO style wrapper */}
         <div className="flex flex-col flex-1 min-h-0">
           <div className="flex flex-grow items-center justify-center p-4">
-            <div className="w-11/12 h-full">
+            <div className="w-11/12 h-full mb-15">
               <VideoCard
                 name         ={targetEmail}
                 email        ={targetEmail}

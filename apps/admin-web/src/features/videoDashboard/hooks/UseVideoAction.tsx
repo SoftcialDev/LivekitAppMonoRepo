@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from 'react';
 import { useAuth } from '../../auth/hooks/useAuth';
 import { CameraCommandClient } from '../../../services/camaraCommandClient';
+import { useToast } from '../../../components/ToastContext';
 
 /**
  * useVideoActions hook
@@ -10,12 +11,15 @@ import { CameraCommandClient } from '../../../services/camaraCommandClient';
  *  - handleStop(email): issues a STOP command via the backend
  *  - handleChat(email): opens a fresh Teams chat window
  *
+ * On success or failure of START/STOP, shows a toast notification.
+ *
  * @returns An object with `handlePlay`, `handleStop` and `handleChat`.
  */
 export function useVideoActions() {
   const { account } = useAuth();
   const currentUser = account?.username ?? '';
   const commandClient = useMemo(() => new CameraCommandClient(), []);
+  const { showToast } = useToast();
 
   /**
    * Start streaming video for the given PSO email.
@@ -27,11 +31,13 @@ export function useVideoActions() {
       try {
         await commandClient.start(email);
         console.log('START command sent for', email);
-      } catch (err) {
+        showToast(`Started stream for ${email}`, 'success');
+      } catch (err: any) {
         console.error('Failed to send START command for', email, err);
+        showToast(`Failed to start stream for ${email}`, 'error');
       }
     },
-    [commandClient]
+    [commandClient, showToast]
   );
 
   /**
@@ -44,11 +50,13 @@ export function useVideoActions() {
       try {
         await commandClient.stop(email);
         console.log('STOP command sent for', email);
-      } catch (err) {
+        showToast(`Stopped stream for ${email}`, 'success');
+      } catch (err: any) {
         console.error('Failed to send STOP command for', email, err);
+        showToast(`Failed to stop stream for ${email}`, 'error');
       }
     },
-    [commandClient]
+    [commandClient, showToast]
   );
 
   /**
