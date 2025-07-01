@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useHeader } from '../../context/HeaderContext';
 import { TableComponent, Column } from '../../components/TableComponent';
 import AddButton from '../../components/Buttons/AddButton';
@@ -7,18 +7,11 @@ import AddModal from '@/components/ModalComponent';
 import managementIcon from '@assets/monitor-icon.png';
 import { getUsersByRole, changeUserRole } from '../../services/userClient';
 import { useAuth } from '../auth/hooks/useAuth';
-import { useNavigate }                  from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 
 ////////////////////////////////////////////////////////////////////////////////
 // Types
 ////////////////////////////////////////////////////////////////////////////////
-
-/**
- * Represents a user in Admin/Supervisor pages.
- *
- * Matches the API’s UserByRole shape:
- * - `role` is "Admin" | "Supervisor" | "Employee" | null.
- */
 interface CandidateUser {
   azureAdObjectId: string;
   email:           string;
@@ -32,20 +25,20 @@ interface CandidateUser {
 ////////////////////////////////////////////////////////////////////////////////
 // Component
 ////////////////////////////////////////////////////////////////////////////////
-
-/**
- * SupervisorsPage
- *
- * - Displays current Supervisors (role="Supervisor") in a table.
- * - “Add Supervisor” opens a modal listing candidate users (Employee and Tenant).
- * - Prevents self-removal.
- *
- * Uses getUsersByRole which returns PagedResponse<UserByRole>, so we extract `.users`.
- */
 const SupervisorsPage: React.FC = () => {
   const { initialized, account } = useAuth();
-  const currentEmail = account?.username ?? '';
   const navigate = useNavigate();
+  const currentEmail = account?.username ?? '';
+
+  // derive roles from idTokenClaims
+  const claims     = (account?.idTokenClaims ?? {}) as Record<string, any>;
+  const rolesClaim = claims.roles ?? claims.role;
+  const roles: string[] = Array.isArray(rolesClaim)
+    ? rolesClaim
+    : typeof rolesClaim === 'string'
+    ? [rolesClaim]
+    : [];
+  const isAdmin = roles.includes('Admin');
 
   const [supervisors, setSupervisors] = useState<CandidateUser[]>([]);
   const [candidates, setCandidates]   = useState<CandidateUser[]>([]);
@@ -58,32 +51,22 @@ const SupervisorsPage: React.FC = () => {
     iconAlt: 'Supervisors',
   });
 
-  /**
-   * Load current Supervisors from API.
-   *
-   * Calls GET /api/GetUsersByRole?role=Supervisor&page=1&pageSize=1000
-   * Extracts `res.users: UserByRole[]` and sets state.
-   */
-  const fetchSupervisors = async (): Promise<void> => {
+  // Fetch current supervisors
+  const fetchSupervisors = async () => {
     try {
       const res = await getUsersByRole('Supervisor', 1, 1000);
       setSupervisors(res.users);
-    } catch (err: any) {
+    } catch (err) {
       console.error('Failed to load supervisors:', err);
     }
   };
 
-  /**
-   * Load candidate users: all Employees and Tenant users (no Supervisor).
-   *
-   * Calls GET /api/GetUsersByRole?role=Employee,Tenant&page=1&pageSize=1000
-   * Extracts `res.users`.
-   */
-  const fetchCandidates = async (): Promise<void> => {
+  // Fetch candidate employees/tenants
+  const fetchCandidates = async () => {
     try {
       const res = await getUsersByRole('Employee,Tenant', 1, 1000);
       setCandidates(res.users);
-    } catch (err: any) {
+    } catch (err) {
       console.error('Failed to load candidates:', err);
     }
   };
@@ -93,15 +76,13 @@ const SupervisorsPage: React.FC = () => {
     fetchSupervisors();
   }, [initialized, account]);
 
-  /** Open the modal, reset selection, and fetch candidates */
-  const handleOpenModal = (): void => {
+  const handleOpenModal = () => {
     setModalOpen(true);
     setSelectedEmails([]);
     fetchCandidates();
   };
 
-  /** Assign "Supervisor" role to selected users */
-  const handleConfirmAdd = async (): Promise<void> => {
+  const handleConfirmAdd = async () => {
     try {
       await Promise.all(
         selectedEmails.map(email =>
@@ -110,15 +91,12 @@ const SupervisorsPage: React.FC = () => {
       );
       setModalOpen(false);
       fetchSupervisors();
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error adding supervisors:', err);
     }
   };
 
-  /**
-   * Remove Supervisor role from a user; prevents self-removal.
-   */
-  const handleRemoveSupervisor = async (email: string): Promise<void> => {
+  const handleRemoveSupervisor = async (email: string) => {
     if (email === currentEmail) {
       console.warn("Supervisors cannot remove themselves.");
       return;
@@ -126,64 +104,64 @@ const SupervisorsPage: React.FC = () => {
     try {
       await changeUserRole({ userEmail: email, newRole: null });
       fetchSupervisors();
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error removing supervisor:', err);
     }
   };
 
-  //
-  // Column definitions
-  //
-const supervisorColumns: Column<CandidateUser>[] = [
-  {
-    key: 'email',
-    header: 'Email',
-  },
-  {
-    key: 'firstName',
-    header: 'First Name',
-    render: row => (
-      <span
-        className="cursor-pointer text-[var(--color-secondary)] hover:underline"
-        onClick={() => navigate(`/supervisors/${row.azureAdObjectId}`)}
-      >
-        {row.firstName}
-      </span>
-    ),
-  },
-  {
-    key: 'lastName',
-    header: 'Last Name',
-  },
-  {
-    key: 'role',
-    header: 'Role',
-  },
-  {
-    key: 'actions',          // clave única (evita repetir "email")
-    header: 'Actions',
-    render: row =>
-      row.email === currentEmail ? null : (
-        <TrashButton onClick={() => handleRemoveSupervisor(row.email)} />
+  // Columns for the supervisors table
+  const baseSupervisorColumns: Column<CandidateUser>[] = [
+    { key: 'email',     header: 'Email' },
+    {
+      key: 'firstName',
+      header: 'First Name',
+      render: row => (
+        <span
+          className="cursor-pointer text-[var(--color-secondary)] hover:underline"
+          onClick={() => navigate(`/supervisors/${row.azureAdObjectId}`)}
+        >
+          {row.firstName}
+        </span>
       ),
-  },
-];
+    },
+    { key: 'lastName', header: 'Last Name' },
+    { key: 'role',     header: 'Role' },
+  ];
 
+  // Only admins get an Actions column
+  const supervisorColumns = useMemo(() => {
+    if (isAdmin) {
+      return [
+        ...baseSupervisorColumns,
+        {
+          key: 'actions',
+          header: 'Actions',
+          render: row =>
+            row.email !== currentEmail ? (
+              <TrashButton onClick={() => handleRemoveSupervisor(row.email)} />
+            ) : null,
+        },
+      ];
+    }
+    return baseSupervisorColumns;
+  }, [isAdmin, currentEmail, handleRemoveSupervisor]);
+
+  // Columns for the candidate-selection table in the modal
   const candidateColumns: Column<CandidateUser>[] = [
     {
-      key: 'azureAdObjectId',
+      key: 'select',
       header: 'Select',
       render: row => (
         <input
           type="checkbox"
           checked={selectedEmails.includes(row.email)}
-          onChange={e => {
+          onChange={e =>
             setSelectedEmails(prev =>
               e.target.checked
                 ? [...prev, row.email]
                 : prev.filter(x => x !== row.email)
-            );
-          }}
+            )
+          }
           className="
             appearance-none w-5 h-5 rounded border-2
             border-[var(--color-primary)] bg-[var(--color-primary-light)]
@@ -195,10 +173,10 @@ const supervisorColumns: Column<CandidateUser>[] = [
         />
       ),
     },
-    { key: 'email',     header: 'Email'      },
+    { key: 'email',     header: 'Email' },
     { key: 'firstName', header: 'First Name' },
-    { key: 'lastName',  header: 'Last Name'  },
-    { key: 'role',      header: 'Role'       },
+    { key: 'lastName',  header: 'Last Name' },
+    { key: 'role',      header: 'Role' },
   ];
 
   return (
@@ -207,27 +185,35 @@ const supervisorColumns: Column<CandidateUser>[] = [
         columns={supervisorColumns}
         data={supervisors}
         pageSize={9}
-        addButton={<AddButton label="Add Supervisor" onClick={handleOpenModal} />}
+        // Only render AddButton for admins
+        addButton={
+          isAdmin ? (
+            <AddButton label="Add Supervisor" onClick={handleOpenModal} />
+          ) : null
+        }
       />
 
-      <AddModal
-        open={isModalOpen}
-        title="Add Supervisor"
-        iconSrc={managementIcon}
-        iconAlt="Supervisors"
-        onClose={() => setModalOpen(false)}
-        onConfirm={handleConfirmAdd}
-        confirmLabel="Add Supervisor"
-      >
-        <TableComponent<CandidateUser>
-          columns={candidateColumns}
-          data={candidates}
-          pageSize={5}
-          addButton={null}
-          headerBg="bg-[var(--color-primary)]"
-          tablePadding="p-13"
-        />
-      </AddModal>
+      {/* Modal only accessible (and openable) by admins */}
+      {isAdmin && (
+        <AddModal
+          open={isModalOpen}
+          title="Add Supervisor"
+          iconSrc={managementIcon}
+          iconAlt="Supervisors"
+          onClose={() => setModalOpen(false)}
+          onConfirm={handleConfirmAdd}
+          confirmLabel="Add Supervisor"
+        >
+          <TableComponent<CandidateUser>
+            columns={candidateColumns}
+            data={candidates}
+            pageSize={5}
+            addButton={null}
+            headerBg="bg-[var(--color-primary)]"
+            tablePadding="p-13"
+          />
+        </AddModal>
+      )}
     </div>
   );
 };

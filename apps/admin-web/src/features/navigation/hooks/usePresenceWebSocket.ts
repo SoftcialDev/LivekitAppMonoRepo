@@ -36,19 +36,34 @@ export function usePresenceWebSocket({ currentEmail, onPresence }: Options) {
   const clientRef = useRef<WebPubSubClientService | null>(null);
 
   useEffect(() => {
-    // Instantiate only once
+    console.log("[usePresenceWebSocket] initializing for", currentEmail);
     const svc = new WebPubSubClientService();
     clientRef.current = svc;
 
     (async () => {
       try {
-        // Starts the WS and auto-joins both groups (token claim).
+        console.log("[usePresenceWebSocket] connecting as", currentEmail);
         await svc.connect(currentEmail);
+        console.log("[usePresenceWebSocket] connected & joined personal group");
+
+        // Si tu token incluye un grupo global "presence", lo habrás unido ya.
+        // Si quieres unirte manualmente:
+        try {
+          await svc.joinGroup("presence");
+          console.log("[usePresenceWebSocket] joined global 'presence' group");
+        } catch (e) {
+          console.warn("[usePresenceWebSocket] could not join 'presence' group", e);
+        }
 
         svc.onMessage<PresenceMsg>((msg) => {
+          console.log("[usePresenceWebSocket] raw message →", msg);
           if (msg.type !== "presence") return;
 
           const u = msg.user;
+          console.log(
+            `[usePresenceWebSocket] presence event for ${u.email}:`,
+            u.status
+          );
           onPresence(
             {
               email: u.email,
@@ -61,12 +76,12 @@ export function usePresenceWebSocket({ currentEmail, onPresence }: Options) {
           );
         });
       } catch (err) {
-        console.error("[WS presence] connection failed", err);
+        console.error("[usePresenceWebSocket] connection failed", err);
       }
     })();
 
-    // Cleanup when the component unmounts
     return () => {
+      console.log("[usePresenceWebSocket] tearing down for", currentEmail);
       clientRef.current?.disconnect();
       clientRef.current = null;
     };

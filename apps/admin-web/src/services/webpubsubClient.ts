@@ -1,3 +1,5 @@
+// src/services/webpubsubClient.ts
+
 import apiClient from './apiClient';
 import {
   WebPubSubClient,
@@ -17,60 +19,74 @@ export type MessageHandler<T = unknown> = (data: T) => void;
 export type DisconnectHandler = () => void;
 
 /**
- * Manages an Azure Web PubSub connection and group subscription.
+ * Manages an Azure Web PubSub connection and group subscriptions.
  */
 export class WebPubSubClientService {
   private client?: WebPubSubClient;
   private hubName!: string;
-  private groupName!: string;
+  private personalGroup!: string;
 
   /**
    * Fetches a client access token and endpoint from your API,
    * constructs a wss:// URL, initializes the client with JSON protocol,
-   * starts the connection, and joins the user-specific group.
+   * starts the connection, and joins the user’s personal group.
    *
    * @param userEmail The normalized email to use as the group name.
    */
   public async connect(userEmail: string): Promise<void> {
-    this.groupName = userEmail.trim().toLowerCase();
+    this.personalGroup = userEmail.trim().toLowerCase();
 
     // 1) Fetch token, endpoint, and hubName from backend
     const { data } = await apiClient.get<{
-      token: string;
+      token:    string;
       endpoint: string;
-      hubName: string;
+      hubName:  string;
     }>('/api/WebPubSubToken');
     const { token, endpoint, hubName } = data;
     this.hubName = hubName;
 
     // 2) Convert https:// to wss:// and append access token
-    const wss = endpoint.replace(/^https?:\/\//, 'wss://');
-    const clientUrl = `${wss}/client/hubs/${hubName}` +
+    const wssUrl = endpoint.replace(/^https?:\/\//, 'wss://');
+    const clientUrl = `${wssUrl}/client/hubs/${hubName}` +
                       `?access_token=${encodeURIComponent(token)}`;
 
-    // 3) Initialize WebPubSubClient with JSON sub-protocol
-    this.client = new WebPubSubClient(clientUrl, {
+    // 3) Create the WebPubSubClient and assign it
+    const wsClient = new WebPubSubClient(clientUrl, {
       protocol: WebPubSubJsonProtocol()
     });
+    this.client = wsClient;
 
-    // 4) Start the connection and join the group
-    await this.client.start();
-    await this.client.joinGroup(this.groupName);
+    // 4) Start the connection
+    await wsClient.start();
+
+    // 5) Join the personal group
+    await wsClient.joinGroup(this.personalGroup);
   }
 
-    /**
+  /**
    * Joins an additional PubSub group on the same connection.
    *
    * @param groupName – normalized group name to join.
    */
   public async joinGroup(groupName: string): Promise<void> {
     if (!this.client) throw new Error('Not connected. Call connect() first.');
-    await this.client.joinGroup(groupName);
+    await this.client.joinGroup(groupName.trim().toLowerCase());
   }
-  
+
+  /**
+   * Leaves a previously joined PubSub group.
+   *
+   * @param groupName – normalized group name to leave.
+   */
+  public async leaveGroup(groupName: string): Promise<void> {
+    if (!this.client) throw new Error('Not connected. Call connect() first.');
+    await this.client.leaveGroup(groupName.trim().toLowerCase());
+  }
+
   /**
    * Registers a handler for incoming group messages.
-   * Throws if not connected.
+   * Any JSON parsing or handler errors are caught & logged
+   * so they don’t crash your app.
    *
    * @param handler Called with each parsed JSON message.
    * @template T Expected payload type.
@@ -91,21 +107,30 @@ export class WebPubSubClientService {
       } else if (ArrayBuffer.isView(raw)) {
         text = new TextDecoder().decode(raw.buffer as ArrayBuffer);
       } else {
-        console.warn('Unsupported data type:', raw);
+        console.warn('Unsupported data type in group-message:', raw);
         return;
       }
 
+      // 1) Safe JSON parse
+      let parsed: unknown;
       try {
-        handler(JSON.parse(text) as T);
+        parsed = JSON.parse(text);
       } catch (err) {
         console.error('Failed to parse JSON message:', err);
+        return;
+      }
+
+      // 2) Safe handler invocation
+      try {
+        handler(parsed as T);
+      } catch (err) {
+        console.error('Message handler threw an error:', err);
       }
     });
   }
 
   /**
    * Registers a handler to be called when the connection closes.
-   * Use this to react to disconnects (e.g. fetch pending commands).
    *
    * @param handler Called on connection-close.
    */
@@ -113,7 +138,6 @@ export class WebPubSubClientService {
     if (!this.client) {
       throw new Error('Not connected. Call connect() first.');
     }
-    // The SDK emits 'disconnected' when the socket closes.
     this.client.on('disconnected', handler);
   }
 
@@ -121,7 +145,9 @@ export class WebPubSubClientService {
    * Gracefully stops the client and clears internal state.
    */
   public disconnect(): void {
-    this.client?.stop();
-    this.client = undefined;
+    if (this.client) {
+      this.client.stop();
+      this.client = undefined;
+    }
   }
 }
