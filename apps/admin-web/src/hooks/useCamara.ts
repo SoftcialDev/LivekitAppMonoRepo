@@ -2,9 +2,7 @@ import { useRef, useEffect, useState, useCallback } from 'react';
 import {
   Room,
   LocalVideoTrack,
-  LocalAudioTrack,
   createLocalVideoTrack,
-  createLocalAudioTrack,
 } from 'livekit-client';
 import { getLiveKitToken } from '../services/livekitClient';
 import { PendingCommandsClient, PendingCommand } from '../services/pendingCommandsClient';
@@ -99,7 +97,7 @@ export function useStreamingDashboard() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const roomRef = useRef<Room | null>(null);
-  const tracksRef = useRef<{ video?: LocalVideoTrack; audio?: LocalAudioTrack }>({});
+  const tracksRef = useRef<{ video?: LocalVideoTrack;}>({});
   const streamingRef = useRef(false);
   const [isStreaming, setIsStreaming] = useState(false);
 
@@ -132,14 +130,6 @@ export function useStreamingDashboard() {
       return;
     }
 
-    let audioTrack: LocalAudioTrack;
-    try {
-      audioTrack = await createLocalAudioTrack();
-    } catch (err) {
-      console.error('[Stream] audio setup failed', err);
-      alert('Unable to access microphone.');
-      return;
-    }
 
     const { rooms, livekitUrl } = await getLiveKitToken();
     const room = new Room();
@@ -148,9 +138,8 @@ export function useStreamingDashboard() {
     console.info('[WS] LiveKit connected');
 
     await room.localParticipant.publishTrack(videoTrack);
-    await room.localParticipant.publishTrack(audioTrack);
     videoTrack.attach(videoRef.current!);
-    audioTrack.attach(audioRef.current!);
+
 
     streamingRef.current = true;
     setIsStreaming(true);
@@ -162,9 +151,8 @@ export function useStreamingDashboard() {
   const stopStream = useCallback(async () => {
     if (!streamingRef.current) return;
 
-    const { video, audio } = tracksRef.current;
+    const { video } = tracksRef.current;
     video?.stop(); video?.detach();
-    audio?.stop(); audio?.detach();
     tracksRef.current = {};
 
     await roomRef.current?.disconnect();
