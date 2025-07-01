@@ -56,7 +56,6 @@ export function usePresenceWebSocket({ currentEmail, onPresence }: Options) {
               name: u.fullName,
               azureAdObjectId: null,
               status: u.status,
-              lastSeenAt: u.lastSeenAt,
             },
             u.status
           );

@@ -58,6 +58,16 @@ export class WebPubSubClientService {
     await this.client.joinGroup(this.groupName);
   }
 
+    /**
+   * Joins an additional PubSub group on the same connection.
+   *
+   * @param groupName – normalized group name to join.
+   */
+  public async joinGroup(groupName: string): Promise<void> {
+    if (!this.client) throw new Error('Not connected. Call connect() first.');
+    await this.client.joinGroup(groupName);
+  }
+  
   /**
    * Registers a handler for incoming group messages.
    * Throws if not connected.

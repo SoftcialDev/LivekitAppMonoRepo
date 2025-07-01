@@ -61,7 +61,7 @@ const UserIndicator: React.FC<UserIndicatorProps> = ({
   nameClass     = 'truncate text-[var(--color-tertiary)] hover:text-[var(--color-secondary-hover)] cursor-pointer',
 }) => {
   const circleSize = innerClass ?? outerClass;
-  const toPath     = `/videos/${encodeURIComponent(user.name)}`;
+  const toPath     = `/videos/${encodeURIComponent(user.email)}`;
 
   return (
     <Link

@@ -109,7 +109,7 @@ function App(): JSX.Element {
               <Route path="/supervisors" element={<SupervisorsPage />} />
               <Route path="/supervisors/:id" element={<SupervisorDetailPage />} />
               <Route path="/dashboard" element={<PSOsVideoPage />} />
-              <Route path="/videos/:username" element={<UserVideoPage />} />
+              <Route path="/videos/:email" element={<UserVideoPage />} />
               <Route path="/psos" element={<PSOsListPage />} />
             </Route>
 

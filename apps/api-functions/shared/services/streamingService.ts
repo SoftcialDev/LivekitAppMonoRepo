@@ -1,21 +1,22 @@
 import prisma from "./prismaClienService";
+import { isUuid } from "../utils/uuid";
+import { sendToGroup } from "./webPubSubService";
 
 /* -------------------------------------------------------------------------- */
-/*  Helper: normaliza la clave de usuario (UUID ↔ email)                      */
+/*  Helper: normalize user key (UUID ↔ email)                                 */
 /* -------------------------------------------------------------------------- */
-
-// UUID v1‑v5 regex (case‑insensitive)
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 /**
- * Acepta tanto el UUID interno del usuario como su email (cualquier casing) y
- * devuelve siempre el UUID persistido en la base de datos.
+ * Normalizes a user key—either an internal UUID or an email address—into
+ * the canonical database UUID. If the key does not match any active user,
+ * returns `null`.
  *
- * Si la clave no corresponde a ningún usuario activo, devuelve `null`.
+ * @param userKey - The user’s UUID or email (any casing).
+ * @returns The persisted UUID for that user, or `null` if not found.
  */
 async function resolveUserId(userKey: string): Promise<string | null> {
-  if (UUID_RE.test(userKey)) {
-    // Ya es un UUID — asumimos que es correcto (evitamos lookup extra)
+  // Fast path: if it already looks like a UUID, assume it’s correct.
+  if (isUuid(userKey)) {
     return userKey;
   }
 
@@ -29,47 +30,73 @@ async function resolveUserId(userKey: string): Promise<string | null> {
 }
 
 /* -------------------------------------------------------------------------- */
-/*                           Streaming session API                            */
+/*                          Streaming session API                             */
 /* -------------------------------------------------------------------------- */
 
 /**
- * Cierra cualquier sesión previa y abre una nueva para el usuario.
+ * Starts a new streaming session for the given user:
+ * 1. Closes any existing open sessions by setting `stoppedAt = now()`.
+ * 2. Inserts a fresh record in `StreamingSessionHistory` with `startedAt = now()`.
+ * 3. Broadcasts a `"started"` event to the user’s Web PubSub group.
+ *
+ * @param userKey - The user’s UUID or email.
  */
 export async function startStreamingSession(userKey: string): Promise<void> {
   const userId = await resolveUserId(userKey);
   if (!userId) {
-    console.warn(`[startStreamingSession] Usuario no encontrado: ${userKey}`);
+    console.warn(`[startStreamingSession] User not found: ${userKey}`);
     return;
   }
 
-  // 1) Cierra sesiones abiertas
+  // 1) Close any previous open session
   await prisma.streamingSessionHistory.updateMany({
     where: { userId, stoppedAt: null },
     data: { stoppedAt: new Date() },
   });
 
-  // 2) Crea nueva entrada
-  await prisma.streamingSessionHistory.create({ data: { userId } });
+  // 2) Create a new streaming session record
+  await prisma.streamingSessionHistory.create({
+    data: { userId },
+  });
+
+   const { email } = await prisma.user.findUniqueOrThrow({
+    where: { id: userId },
+    select: { email: true },
+  });
+  await broadcastStreamEvent(email, "started");
 }
 
 /**
- * Marca como finalizadas todas las sesiones abiertas.
+ * Stops the current streaming session for the given user:
+ * 1. Marks all open sessions (`stoppedAt IS NULL`) as stopped.
+ * 2. Broadcasts a `"stopped"` event to the user’s Web PubSub group.
+ *
+ * @param userKey - The user’s UUID or email.
  */
 export async function stopStreamingSession(userKey: string): Promise<void> {
   const userId = await resolveUserId(userKey);
   if (!userId) {
-    console.warn(`[stopStreamingSession] Usuario no encontrado: ${userKey}`);
+    console.warn(`[stopStreamingSession] User not found: ${userKey}`);
     return;
   }
 
+  // 1) Close all open sessions
   await prisma.streamingSessionHistory.updateMany({
     where: { userId, stoppedAt: null },
     data: { stoppedAt: new Date() },
   });
+  const { email } = await prisma.user.findUniqueOrThrow({
+    where: { id: userId },
+    select: { email: true },
+  });
+  await broadcastStreamEvent(email, "stopped");
 }
 
 /**
- * Devuelve la sesión más reciente (o `null`).
+ * Retrieves the most recent streaming session for the given user.
+ *
+ * @param userKey - The user’s UUID or email.
+ * @returns The latest `StreamingSessionHistory` record, or `null` if none exists.
  */
 export async function getLastStreamingSession(userKey: string) {
   const userId = await resolveUserId(userKey);
@@ -82,7 +109,10 @@ export async function getLastStreamingSession(userKey: string) {
 }
 
 /**
- * Indica si el usuario está actualmente transmitiendo (sesión abierta).
+ * Checks whether the user currently has an open streaming session.
+ *
+ * @param userKey - The user’s UUID or email.
+ * @returns `true` if there is at least one session with `stoppedAt = NULL`; otherwise `false`.
  */
 export async function isUserStreaming(userKey: string): Promise<boolean> {
   const userId = await resolveUserId(userKey);
@@ -92,4 +122,32 @@ export async function isUserStreaming(userKey: string): Promise<boolean> {
     where: { userId, stoppedAt: null },
   });
   return openCount > 0;
+}
+
+/* -------------------------------------------------------------------------- */
+/*                    Internal: broadcast stream events                       */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Broadcasts a streaming‐status update message to the specified Web PubSub group.
+ *
+ * We use the viewer’s email as the group name, so any client subscribed
+ * under that email will receive real‐time `"started"` or `"stopped"` notifications.
+ *
+ * @param userId      The internal UUID of the user whose stream changed.
+ * @param status      `"started"` when the stream opens, `"stopped"` when it ends.
+ * @param viewerEmail The normalized email of the viewing client (the Web PubSub group).
+ */
+/**
+ * Broadcasts a streaming‐status update to the given email‐group.
+ *
+ * @param userEmail The user’s canonical email (lowercased).
+ * @param status    `"started"` or `"stopped"`.
+ */
+async function broadcastStreamEvent(
+  userEmail: string,
+  status: "started" | "stopped"
+): Promise<void> {
+  const group = userEmail.trim().toLowerCase();
+  await sendToGroup(group, { email: userEmail, status });
 }

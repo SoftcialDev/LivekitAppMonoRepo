@@ -1,140 +1,102 @@
-import React, { useEffect, useMemo, useState } from 'react'
-import { useParams } from 'react-router-dom'
-import { useAuth } from '../../auth/hooks/useAuth'
-import { usePresence } from '../../navigation/hooks/usePresence'
-import { usePresenceWebSocket } from '../../navigation/hooks/usePresenceWebSocket'
-import { fetchStreamingSessions } from '../../../services/streamingStatusClient'
-import { getLiveKitToken, RoomWithToken } from '../../../services/livekitClient'
-import UserIndicator from '../../../components/UserIndicator'
-import VideoCard from '../components/VideoCard'
-import { useHeader } from '../../../context/HeaderContext'
-import { useVideoActions } from '../hooks/UseVideoAction'
+import React, { useMemo } from 'react';
+import { useParams } from 'react-router-dom';
+import { useAuth } from '../../auth/hooks/useAuth';
+import { usePresence } from '../../navigation/hooks/usePresence';
+import { useHeader } from '../../../context/HeaderContext';
+import { useVideoActions } from '../hooks/UseVideoAction';
+import { useUserStream } from '../hooks/useUserStream';
+import UserIndicator from '../../../components/UserIndicator';
+import VideoCard from '../components/VideoCard';
 
-type RouteParams = { username?: string }
+type RouteParams = { email?: string };
 
 /**
- * Shows a single user’s live video stream if they’re online.
+ * UserVideoPage
  *
- * - Fetches REST streaming flags via `usePresence`.
- * - Subscribes to live presence diffs via `usePresenceWebSocket`.
- * - When `shouldStream` becomes true, looks up the DB `userId` via
- *   `fetchStreamingSessions`, then requests a LiveKit token for that room
- *   via `getLiveKitToken(userId)`.
- * - Passes credentials into `<VideoCard>` so it can connect/play.
+ * Shows a single user’s live video stream if they are online.
+ *
+ * Responsibilities:
+ * 1. Reads the `:email` route param as the target’s email.
+ * 2. Uses `usePresence()` to get a presence snapshot and determine if the
+ *    target user is currently live.
+ * 3. Uses `useUserStream(viewerEmail, targetEmail)` to subscribe to Web PubSub
+ *    events and fetch LiveKit credentials when the target starts/stops streaming.
+ * 4. Renders `<VideoCard>` with the fetched credentials (or a Play button).
  */
 const UserVideoPage: React.FC = () => {
-  const { username } = useParams<RouteParams>()
-  const displayName  = username ?? ''
-  const { account }  = useAuth()
-  const myEmail      = account?.username ?? ''
+  const { email: paramEmail } = useParams<RouteParams>();
+  const targetEmail           = paramEmail ?? '';
+  const { account }           = useAuth();
+  const viewerEmail           = account?.username ?? '';
 
-  // 1️⃣ REST snapshot of active streams
-  const { streamingMap, loading, error } = usePresence()
+  // 1️⃣ Presence snapshot + streaming flags
+  const { streamingMap, loading: presenceLoading, error } = usePresence();
+  const isLiveNow = Boolean(streamingMap[targetEmail]);
 
-  // 2️⃣ Listen for live presence diffs (merges into streamingMap)
-  usePresenceWebSocket({
-    currentEmail: myEmail,
-    onPresence: () => {}, // no-op
-  })
+  // 2️⃣ Custom hook: subscribe & fetch LiveKit creds
+  const {
+    accessToken,
+    roomName,
+    livekitUrl,
+    loading: tokenLoading,
+  } = useUserStream(viewerEmail, targetEmail);
 
-  // 3️⃣ Derive streaming flag for this user
-  const shouldStream = Boolean(streamingMap[displayName])
-
-  // 4️⃣ Local state for LiveKit credentials
-  const [accessToken, setAccessToken] = useState<string>()
-  const [roomName,    setRoomName]    = useState<string>()
-  const [livekitUrl,  setLivekitUrl]  = useState<string>()
-  const [loadingToken, setLoadingToken] = useState(false)
-
-  // 5️⃣ When we should stream, fetch session ID + LiveKit token
-  useEffect(() => {
-    if (!shouldStream) {
-      // cleanup on stop
-      setAccessToken(undefined)
-      setRoomName(undefined)
-      return
-    }
-
-    let cancelled = false
-    ;(async () => {
-      setLoadingToken(true)
-      try {
-        // a) find the DB session for this email
-        const sessions = await fetchStreamingSessions()
-        const sess = sessions.find(s => s.email === displayName)
-        if (!sess) throw new Error('Streaming session not found')
-
-        // b) ask backend for a token scoped to that room/userId
-        const { rooms, livekitUrl } = await getLiveKitToken(sess.userId)
-        const entry = rooms.find((r: RoomWithToken) => r.room === sess.userId)
-        if (!entry) throw new Error('LiveKit token missing')
-
-        if (!cancelled) {
-          setRoomName(entry.room)
-          setAccessToken(entry.token)
-          setLivekitUrl(livekitUrl)
-        }
-      } catch (e) {
-        console.error('[UserVideoPage] failed to fetch LiveKit token', e)
-      } finally {
-        if (!cancelled) setLoadingToken(false)
-      }
-    })()
-
-    return () => {
-      cancelled = true
-    }
-  }, [shouldStream, displayName])
-
-  // 6️⃣ Header is updated only when title or stream status change
+  // 3️⃣ Update header when title/status change
   const headerProps = useMemo(() => ({
-    title: displayName,
+    title: targetEmail,
     iconNode: (
       <UserIndicator
         user={{
-          email:           displayName,
-          name:            displayName,
-          fullName:        displayName,
-          status:          shouldStream ? 'online' : 'offline',
+          email:           targetEmail,
+          name:            targetEmail,
+          fullName:        targetEmail,
+          status:          isLiveNow ? 'online' : 'offline',
           azureAdObjectId: null,
         }}
         nameClass="text-white font-bold"
       />
     ),
-  }), [displayName, shouldStream])
-  useHeader(headerProps)
+  }), [targetEmail, isLiveNow]);
+  useHeader(headerProps);
 
-  // 7️⃣ Play/Stop/Chat actions
-  const { handlePlay, handleStop, handleChat } = useVideoActions()
+  // 4️⃣ Play/Stop/Chat actions
+  const { handlePlay, handleStop, handleChat } = useVideoActions();
 
-  if (loading) return <div className="p-6 text-white">Loading presence…</div>
-  if (error)   return <div className="p-6 text-red-500">Error: {error}</div>
+  if (presenceLoading) return <div className="p-6 text-white">Loading presence…</div>;
+  if (error)           return <div className="p-6 text-red-500">Error: {error}</div>;
 
   return (
-    <div className="flex flex-col flex-1 min-h-0 bg-[var(--color-primary-dark)] p-20">
-      <div className="flex-1 flex items-center justify-center">
-        <VideoCard
-          name         ={displayName}
-          email        ={displayName}
-          accessToken  ={accessToken}
-          roomName     ={roomName}
-          livekitUrl   ={livekitUrl}
-          shouldStream ={shouldStream}
-          connecting   ={loadingToken}
-          onToggle     ={() =>
-            shouldStream
-              ? handleStop(displayName)
-              : handlePlay(displayName)
-          }
-          onPlay       ={handlePlay}
-          onStop       ={handleStop}
-          onChat       ={handleChat}
-          className    ="w-full h-full max-w-3xl"
-          showHeader   ={false}
-        />
+    <div className="flex flex-col flex-1 min-h-0 bg-[var(--color-primary-dark)] p-20 h-full">
+      <div className="flex flex-col flex-1 h-full bg-[var(--color-primary-dark)] p-10">
+        {/* Single PSO style wrapper */}
+        <div className="flex flex-col flex-1 min-h-0">
+          <div className="flex flex-grow items-center justify-center p-4">
+            <div className="w-11/12 h-full">
+              <VideoCard
+                name         ={targetEmail}
+                email        ={targetEmail}
+                accessToken  ={accessToken}
+                roomName     ={roomName}
+                livekitUrl   ={livekitUrl}
+                shouldStream ={Boolean(accessToken)}
+                onToggle     ={() =>
+                  accessToken
+                    ? handleStop(targetEmail)
+                    : handlePlay(targetEmail)
+                }
+                connecting   ={tokenLoading}
+                onPlay       ={handlePlay}
+                onStop       ={handleStop}
+                onChat       ={handleChat}
+                className    ="w-full h-full"
+                showHeader   ={false}
+              />
+            </div>
+          </div>
+        </div>
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default UserVideoPage
+export default UserVideoPage;

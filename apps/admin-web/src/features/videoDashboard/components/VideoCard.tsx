@@ -28,7 +28,11 @@ const VideoCard: React.FC<VideoCardProps & { livekitUrl?: string }> = ({
   const roomRef  = useRef<Room | null>(null)
 
   useEffect(() => {
-    console.log(`[VideoCard:${email}] useEffect`, { shouldStream, accessToken, roomName, livekitUrl })
+
+    if (!shouldStream && !accessToken && !roomName && !livekitUrl) {
+      return}
+
+      console.log(`[VideoCard:${email}] useEffect`, { shouldStream, accessToken, roomName, livekitUrl })
 
     // 1) Si admin quita el stream, desconecta y salimos
     if (!shouldStream) {
