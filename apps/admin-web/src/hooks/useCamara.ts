@@ -165,16 +165,29 @@ export function useStreamingDashboard() {
   }, [streamingClient]);
 
   /** Processes a PendingCommand, with correct fields. */
-  const handleCommand = useCallback(
-    async (cmd: PendingCommand) => {
-      console.info(`[WS Cmd] "${cmd.command}" @ ${cmd.timestamp}`);
-      if (cmd.command === 'START') await startStream();
-      else if (cmd.command === 'STOP') await stopStream();
-      await pendingClient.acknowledge([cmd.id]);
-      console.debug(`[WS Cmd] acknowledged ${cmd.id}`);
-    },
-    [pendingClient, startStream, stopStream]
-  );
+const handleCommand = useCallback(
+  async (cmd: PendingCommand) => {
+    console.info(`[WS Cmd] "${cmd.command}" @ ${cmd.timestamp}`);
+
+    // Ejecuta siempre el START/STOP
+    if (cmd.command === 'START') {
+      await startStream();
+    } else {
+      await stopStream();
+    }
+
+    // Sólo ack si tenemos un id válido
+    if (cmd.id) {
+      try {
+        await pendingClient.acknowledge([cmd.id]);
+        console.debug(`[WS Cmd] acknowledged ${cmd.id}`);
+      } catch (err) {
+        console.warn(`Failed to acknowledge ${cmd.id}`, err);
+      }
+    }
+  },
+  [pendingClient, startStream, stopStream]
+);
 
   useEffect(() => {
     if (!initialized || !userEmail) return;
@@ -204,20 +217,19 @@ export function useStreamingDashboard() {
       });
 
       pubSubService.onMessage(async (raw) => {
-        console.debug('[WS raw msg]', raw);
-        let cmd: PendingCommand;
-        if (typeof raw === 'string') {
-          try {
-            cmd = JSON.parse(raw) as PendingCommand;
-          } catch (e) {
-            console.error('[WS] parse error', raw);
-            return;
-          }
-        } else {
-          cmd = raw as PendingCommand;
-        }
-        await handleCommand(cmd);
-      });
+  let msg: any;
+  try {
+    msg = typeof raw === 'string' ? JSON.parse(raw) : raw;
+  } catch {
+    return; // mensaje no JSON válido
+  }
+
+  // Sólo procesar si viene con un comando válido
+  if (msg.command === 'START' || msg.command === 'STOP') {
+    await handleCommand(msg as PendingCommand);
+  }
+  // de lo contrario (presencia, etc.) lo ignoramos aquí
+});
 
       const missed = await pendingClient.fetch();
       console.info(`[WS] fetched ${missed.length} commands`);

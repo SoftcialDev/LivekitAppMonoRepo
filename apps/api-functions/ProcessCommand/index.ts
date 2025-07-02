@@ -6,33 +6,34 @@ import {
 } from "../shared/services/pendingCommandService";
 
 /**
- * Payload for messages arriving on the Service Bus queue.
+ * Describes the shape of a camera command message from Service Bus.
  */
 export interface ProcessCommandMessage {
   /** "START" to begin streaming, or "STOP" to end it */
   command: "START" | "STOP";
-  /** Employee’s email address to identify the user */
+  /** Employee’s email address used to identify the target user */
   employeeEmail: string;
-  /** ISO‐8601 timestamp when the admin issued the command */
+  /** When the admin issued the command (ISO-8601 string) */
   timestamp: string;
 }
 
 /**
  * Azure Function: ProcessCommand
  *
- * Triggered by Service Bus messages containing camera commands.
+ * Trigger: Service Bus topic subscription for camera commands.
  *
- * Workflow:
- * 1. Deserialize the incoming message as ProcessCommandMessage.
- * 2. Look up the User by their `employeeEmail`.
- * 3. Persist a new PendingCommand record.
- * 4. Attempt immediate delivery via Web PubSub if the user is online.
- * 5. Log success or let any error bubble up for retry/DLQ.
+ * Responsibilities:
+ * 1. Deserialize the incoming message as `ProcessCommandMessage`.
+ * 2. Look up the corresponding `User` in the database by email.
+ * 3. Persist a new `PendingCommand` in case the client was offline.
+ * 4. Attempt immediate delivery over Web PubSub if the user is online.
+ * 5. Log success or throw to trigger retry/DLQ on failure.
  *
- * Note: This is a non-HTTP trigger, so we do NOT use `withAuth`.
+ * This ensures **at-least-once** semantics: every command is recorded
+ * and retried until delivered or explicitly dead-lettered.
  *
- * @param context Azure Functions execution context
- * @param message The raw message payload
+ * @param context  Azure Functions execution context for logging
+ * @param message  Raw Service Bus message payload (unknown until cast)
  */
 export default async function processCommand(
   context: Context,
@@ -40,34 +41,33 @@ export default async function processCommand(
 ): Promise<void> {
   context.log.info("ProcessCommand received:", message);
 
-  // Validate shape of the message
+  // 1) Deserialize and validate shape
   const { command, employeeEmail, timestamp } =
     message as ProcessCommandMessage;
 
-  // 1) Lookup the employee in our database
-  console.log(employeeEmail)
+  // 2) Look up the employee record
   const user = await prisma.user.findUnique({
-    where: { email: employeeEmail },
+    where: { email: employeeEmail.toLowerCase() },
   });
   if (!user) {
     context.log.error(`User not found for email: ${employeeEmail}`);
-    return; // drop or DLQ as configured
+    return; // drop or dead-letter as configured
   }
 
   try {
-    // 2) Persist the pending command
+    // 3) Persist a pending command (deletes any older one first)
     const pending = await createPendingCommand(
       user.id,
       command,
       timestamp
     );
 
-    // 3) Attempt immediate delivery via Web PubSub
+    // 4) Attempt immediate push over Web PubSub
     const delivered = await tryDeliverCommand({
-      id: pending.id,
-      employeeId: pending.employeeId,
-      command: pending.command,
-      timestamp: pending.timestamp,
+      id:          pending.id,
+      employeeId:  pending.employeeId,
+      command:     pending.command,
+      timestamp:   pending.timestamp,
     });
 
     context.log.info(
@@ -75,7 +75,7 @@ export default async function processCommand(
     );
   } catch (err) {
     context.log.error("Error in ProcessCommand:", err);
-    // Rethrow to trigger retry or DLQ
+    // Rethrow so Azure Functions will retry or move to DLQ
     throw err;
   }
 }

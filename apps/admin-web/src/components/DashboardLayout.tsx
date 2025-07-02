@@ -6,50 +6,50 @@ import { HeaderProvider } from "../context/HeaderContext";
 import { useAuth } from "../features/auth/hooks/useAuth";
 import { usePresenceStore } from "../stores/usePresenceStore";
 
-
-
+interface LayoutProps {}
 
 /**
  * Application layout component.
  *
- * - Reads presence state (online/offline) from the global store
- *   instead of individual REST/WebSocket hooks.
- * - Handles Play/Stop commands using `cameraClient`.
- * - Renders a sticky `Header` and nested routes via `Outlet`.
+ * - Loads an initial presence snapshot and then
+ *   opens a single WebSocket connection for live updates.
+ * - Filters out the current user from the sidebar lists.
+ * - Wraps everything in a HeaderProvider and renders
+ *   a sticky Header plus nested routes via Outlet.
  *
  * @component
  */
-const Layout: React.FC = () => {
+const Layout: React.FC<LayoutProps> = () => {
   const { account } = useAuth();
   const currentEmail = account?.username ?? "";
 
-  // Store actions
+  // Presence store actions
   const loadSnapshot        = usePresenceStore(s => s.loadSnapshot);
   const connectWebSocket    = usePresenceStore(s => s.connectWebSocket);
   const disconnectWebSocket = usePresenceStore(s => s.disconnectWebSocket);
 
-  // Raw store state
+  // Presence store state
   const rawOnlineUsers  = usePresenceStore(s => s.onlineUsers);
   const rawOfflineUsers = usePresenceStore(s => s.offlineUsers);
 
-  // Filter out the current user
+  // Exclude self from sidebar
   const onlineUsers  = rawOnlineUsers .filter(u => u.email !== currentEmail);
   const offlineUsers = rawOfflineUsers.filter(u => u.email !== currentEmail);
 
-  // Initial load
-  useEffect(() => {
-    loadSnapshot();
-  }, [loadSnapshot]);
-
-  // Real-time updates
+  /**
+   * On mount or when currentEmail changes:
+   * 1. Load a one-time presence snapshot.
+   * 2. Connect to WebSocket for real-time updates.
+   * 3. Disconnect when unmounting or email changes.
+   */
   useEffect(() => {
     if (!currentEmail) return;
+    loadSnapshot();
     connectWebSocket(currentEmail);
     return () => {
       disconnectWebSocket();
     };
-  }, [currentEmail, connectWebSocket, disconnectWebSocket]);
-
+  }, [currentEmail, loadSnapshot, connectWebSocket, disconnectWebSocket]);
 
   return (
     <HeaderProvider>

@@ -89,7 +89,7 @@ export class WebPubSubClientService {
    * @param handler Called with each parsed JSON message.
    * @template T Expected payload type.
    */
-  public onMessage<T = unknown>(handler: MessageHandler<T>): void {
+    public onMessage<T = unknown>(handler: MessageHandler<T>): void {
     if (!this.client) {
       throw new Error('Not connected. Call connect() first.');
     }
@@ -109,7 +109,6 @@ export class WebPubSubClientService {
         return;
       }
 
-      // 1) Safe JSON parse
       let parsed: unknown;
       try {
         parsed = JSON.parse(text);
@@ -118,7 +117,6 @@ export class WebPubSubClientService {
         return;
       }
 
-      // 2) Safe handler invocation
       try {
         handler(parsed as T);
       } catch (err) {
