@@ -1,11 +1,10 @@
-// src/features/video/pages/AdminsPage.tsx
 import React, { useEffect, useState } from 'react';
 import { useHeader } from '../../context/HeaderContext';
 import { TableComponent, Column } from '../../components/TableComponent';
 import AddButton from '../../components/Buttons/AddButton';
 import TrashButton from '../../components/Buttons/TrashButton';
 import AddModal from '@/components/ModalComponent';
-import managementIcon from '@assets/monitor-icon.png';
+import managementIcon from '@assets/manage_icon_sidebar.png';
 import { getUsersByRole, changeUserRole } from '../../services/userClient';
 import { useAuth } from '../auth/hooks/useAuth';
 import { useToast } from '../../components/ToastContext';

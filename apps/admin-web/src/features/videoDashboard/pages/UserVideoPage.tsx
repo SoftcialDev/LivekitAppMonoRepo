@@ -7,6 +7,7 @@ import { useUserStream } from '../hooks/useUserStream';
 import UserIndicator from '../../../components/UserIndicator';
 import VideoCard from '../components/VideoCard';
 import { usePresenceStore } from '@/stores/usePresenceStore';
+import Loading from '@/components/Loading';
 
 type RouteParams = { email?: string };
 
@@ -83,43 +84,44 @@ const UserVideoPage: React.FC = () => {
 
   const { handlePlay, handleStop, handleChat } = useVideoActions();
 
-  if (presenceLoading) {
-    return <div className="p-6 text-white">Loading presence…</div>;
-  }
-  if (presenceError) {
-    return <div className="p-6 text-red-500">Error: {presenceError}</div>;
-  }
-
-  return (
+ return (
     <div className="flex flex-col flex-1 min-h-0 bg-[var(--color-primary-dark)] p-20 h-full">
-      <div className="flex flex-col flex-1 h-full p-10">
-        <div className="flex flex-col flex-1 min-h-0">
-          <div className="flex flex-grow items-center justify-center p-4">
-            <div className="w-11/12 h-full mb-15">
-              <VideoCard
-                name           ={targetEmail}
-                email          ={targetEmail}
-                accessToken    ={accessToken}
-                roomName       ={roomName}
-                livekitUrl     ={livekitUrl}
-                shouldStream   ={Boolean(accessToken)}
-                disableControls={!isConnected}
-                onToggle       ={() =>
-                  accessToken
-                    ? handleStop(targetEmail)
-                    : handlePlay(targetEmail)
-                }
-                connecting     ={tokenLoading}
-                onPlay         ={handlePlay}
-                onStop         ={handleStop}
-                onChat         ={handleChat}
-                className      ="w-full h-full"
-                showHeader     ={false}
-              />
+      {presenceLoading ? (
+        <div className="flex flex-1 items-center justify-center">
+          <Loading action="Loading presence…" />
+        </div>
+      ) : presenceError ? (
+        <div className="p-6 text-red-500">Error: {presenceError}</div>
+      ) : (
+        <div className="flex flex-col flex-1 h-full p-10">
+          <div className="flex flex-col flex-1 min-h-0">
+            <div className="flex flex-grow items-center justify-center p-4">
+              <div className="w-11/12 h-full mb-15">
+                <VideoCard
+                  name            ={targetEmail}
+                  email           ={targetEmail}
+                  accessToken     ={accessToken}
+                  roomName        ={roomName}
+                  livekitUrl      ={livekitUrl}
+                  shouldStream    ={Boolean(accessToken)}
+                  disableControls ={!isConnected}
+                  connecting      ={tokenLoading}
+                  onToggle        ={() =>
+                    accessToken
+                      ? handleStop(targetEmail)
+                      : handlePlay(targetEmail)
+                  }
+                  onPlay          ={handlePlay}
+                  onStop          ={handleStop}
+                  onChat          ={handleChat}
+                  className       ="w-full h-full"
+                  showHeader      ={false}
+                />
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };
