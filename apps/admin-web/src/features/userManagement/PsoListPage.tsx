@@ -1,4 +1,3 @@
-// src/features/video/pages/PSOsListPage.tsx
 import React, { useEffect, useState } from 'react';
 import { useHeader } from '../../context/HeaderContext';
 import { TableComponent, Column } from '@components/TableComponent';
