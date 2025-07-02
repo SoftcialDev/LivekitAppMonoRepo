@@ -7,7 +7,8 @@
   "extensions": {
     "webPubSub": {
       "version": "1.0.0",
-      "connectionStringSetting": "WEBPUBSUB_CONNECTION"
+      "connectionStringSetting": "WEBPUBSUB_CONNECTION",
+      "pathPrefix": "runtime/webhooks/webpubsub"
     }
   },
   "logging": {
