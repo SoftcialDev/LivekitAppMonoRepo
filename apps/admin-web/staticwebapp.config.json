@@ -5,5 +5,8 @@
       "/assets/*",
       "/*.{js,css,png,jpg,jpeg,svg,ico,txt,json,woff,woff2}"
     ]
+  },
+    "globalHeaders": {
+    "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0"
   }
 }
