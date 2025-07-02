@@ -222,11 +222,8 @@ export function TableComponent<T extends { azureAdObjectId?: string }>(
         <tbody>
           {loading ? (
             <tr>
-              <td className="px-6 py-16 text-center">
-                <Loading
-                  action={loadingAction}
-                  bgClassName="bg-transparent"
-                />
+              <td colSpan={columns.length} className="relative px-6 py-16 text-center min-h-[200px]">
+                <Loading action={loadingAction} bgClassName="bg-gransparent " />
               </td>
             </tr>
           ) : (

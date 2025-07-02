@@ -5,7 +5,7 @@ import { TableComponent, Column } from '../../components/TableComponent';
 import AddButton from '../../components/Buttons/AddButton';
 import TrashButton from '../../components/Buttons/TrashButton';
 import AddModal from '@/components/ModalComponent';
-import managementIcon from '@assets/monitor-icon.png';
+import managementIcon from '@assets/manage_icon_sidebar.png';
 import {
   getUsersByRole,
   changeSupervisor as changeSupervisorRole,
@@ -32,6 +32,7 @@ const SupervisorDetailPage: React.FC = () => {
   const [candidates,      setCandidates]      = useState<PSO[]>([]);
   const [modalOpen,       setModalOpen]       = useState(false);
   const [selected,        setSelected]        = useState<string[]>([]);
+  const [candidatesLoading, setCandidatesLoading] = useState(false);
 
   // 1) Lookup supervisor’s email & name
   useEffect(() => {
@@ -55,6 +56,7 @@ const SupervisorDetailPage: React.FC = () => {
   // Load only PSOs for this supervisor
   const loadPSOs = useCallback(async () => {
     const emp = await getUsersByRole('Employee', 1, 1000);
+    setCandidatesLoading(true); 
     setPsos(
       emp.users
         .filter(u => u.supervisorAdId === supervisorAdId)
@@ -113,8 +115,11 @@ const loadCandidates = useCallback(async () => {
       ...availableEmployees,
       ...availableTenants,
     ]);
+    setCandidates([...availableEmployees, ...availableTenants]);
   } catch (err) {
     console.error('loadCandidates error', err);
+  }finally {
+   setCandidatesLoading(false); 
   }
 }, [supervisorAdId]);
 
@@ -238,6 +243,8 @@ const loadCandidates = useCallback(async () => {
           data={candidates}
           pageSize={5}
           addButton={null}
+          loading={candidatesLoading }
+          loadingAction="Loading candidates"
           headerBg="bg-[var(--color-primary)]"
           tablePadding="p-13"
         />

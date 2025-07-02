@@ -54,6 +54,7 @@ const PSOsListPage: React.FC = () => {
   const [page, setPage]               = useState(1);
   const [pageSize]                    = useState(8);
   const [psosLoading, setPsosLoading] = useState(false);
+  const [hasFetched, setHasFetched] = useState(false);
 
   // State for candidate modal
   const [candidates, setCandidates]                   = useState<CandidateUser[]>([]);
@@ -91,6 +92,7 @@ const PSOsListPage: React.FC = () => {
       showToast('Failed to load PSOs', 'error');
     } finally {
       setPsosLoading(false);
+      setHasFetched(true);
     }
   };
 
@@ -237,6 +239,7 @@ const PSOsListPage: React.FC = () => {
         addButton={<AddButton label="Add PSO" onClick={handleOpenModal} />}
         loading={psosLoading}
         loadingAction="Loading PSOs"
+    
       />
 
       {/* Modal for selecting new PSOs */}

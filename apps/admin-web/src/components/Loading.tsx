@@ -19,6 +19,8 @@ const Loading: React.FC<LoadingProps> = ({
       absolute inset-0
       flex flex-col items-center justify-center
       text-white p-4
+      items-center justify-center 
+      w-full
       ${bgClassName}
     `}
   >
