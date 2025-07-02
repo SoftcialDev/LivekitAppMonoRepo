@@ -1,5 +1,14 @@
-// src/features/video/pages/SupervisorsPage.tsx
+/**
+ * @file SupervisorsPage.tsx
+ * @description
+ * The SupervisorsPage component displays a list of current Supervisors
+ * and, for Admin users, allows adding or removing Supervisors.
+ * It uses real-time data from the backend and shows Toast notifications
+ * on success or failure.
+ */
+
 import React, { useEffect, useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useHeader } from '../../context/HeaderContext';
 import { TableComponent, Column } from '../../components/TableComponent';
 import AddButton from '../../components/Buttons/AddButton';
@@ -8,9 +17,9 @@ import AddModal from '@/components/ModalComponent';
 import managementIcon from '@assets/monitor-icon.png';
 import { getUsersByRole, changeUserRole } from '../../services/userClient';
 import { useAuth } from '../auth/hooks/useAuth';
-import { useNavigate } from 'react-router-dom';
+import { useToast } from '../../components/ToastContext';
 
-interface CandidateUser {
+export interface CandidateUser {
   azureAdObjectId: string;
   email:           string;
   firstName:       string;
@@ -20,11 +29,22 @@ interface CandidateUser {
   supervisorName?: string;
 }
 
+/**
+ * SupervisorsPage
+ *
+ * Renders a table of supervisors for Admins and non-editable list for others.
+ * Admins can add new Supervisors by selecting from Employee/Tenant candidates,
+ * or remove existing Supervisors via the trash button.
+ *
+ * @returns A React.FC that displays the supervisors management UI.
+ */
 const SupervisorsPage: React.FC = () => {
   const { initialized, account } = useAuth();
   const navigate = useNavigate();
   const currentEmail = account?.username ?? '';
+  const { showToast } = useToast();
 
+  // Determine if the current user has Admin role
   const claims = (account?.idTokenClaims ?? {}) as Record<string, any>;
   const rolesClaim = claims.roles ?? claims.role;
   const roles: string[] = Array.isArray(rolesClaim)
@@ -49,25 +69,34 @@ const SupervisorsPage: React.FC = () => {
     iconAlt: 'Supervisors',
   });
 
-  const fetchSupervisors = async () => {
+  /**
+   * Fetch the list of current Supervisors from the API.
+   * Shows a loading spinner and displays a toast on failure.
+   */
+  const fetchSupervisors = async (): Promise<void> => {
     setSupervisorsLoading(true);
     try {
       const res = await getUsersByRole('Supervisor', 1, 1000);
       setSupervisors(res.users);
-    } catch (err) {
-      console.error('Failed to load supervisors:', err);
+    } catch (err: any) {
+      showToast('Failed to load supervisors', 'error');
     } finally {
       setSupervisorsLoading(false);
     }
   };
 
-  const fetchCandidates = async () => {
+  /**
+   * Fetch the list of candidate users (Employees & pure Tenants)
+   * who can be promoted to Supervisors.
+   * Shows a loading spinner and displays a toast on failure.
+   */
+  const fetchCandidates = async (): Promise<void> => {
     setCandidatesLoading(true);
     try {
       const res = await getUsersByRole('Employee,Tenant', 1, 1000);
       setCandidates(res.users);
-    } catch (err) {
-      console.error('Failed to load candidates:', err);
+    } catch (err: any) {
+      showToast('Failed to load candidate users', 'error');
     } finally {
       setCandidatesLoading(false);
     }
@@ -78,13 +107,21 @@ const SupervisorsPage: React.FC = () => {
     fetchSupervisors();
   }, [initialized]);
 
-  const handleOpenModal = () => {
+  /**
+   * Opens the Add Supervisor modal
+   * and resets selection state.
+   */
+  const handleOpenModal = (): void => {
     setSelectedEmails([]);
     setModalOpen(true);
     fetchCandidates();
   };
 
-  const handleConfirmAdd = async () => {
+  /**
+   * Confirms the addition of selected users
+   * as Supervisors. Shows a toast on success or failure.
+   */
+  const handleConfirmAdd = async (): Promise<void> => {
     setSupervisorsLoading(true);
     try {
       await Promise.all(
@@ -94,31 +131,40 @@ const SupervisorsPage: React.FC = () => {
       );
       setModalOpen(false);
       await fetchSupervisors();
-    } catch (err) {
-      console.error('Error adding supervisors:', err);
+      showToast(`${selectedEmails.length} supervisor(s) added`, 'success');
+    } catch (err: any) {
+      showToast('Failed to add supervisors', 'error');
     } finally {
       setSupervisorsLoading(false);
     }
   };
 
-  const handleRemoveSupervisor = async (email: string) => {
+  /**
+   * Removes a Supervisor by email.
+   * Prevents self-removal. Shows a toast on success or failure.
+   *
+   * @param email - The email of the Supervisor to remove.
+   */
+  const handleRemoveSupervisor = async (email: string): Promise<void> => {
     if (email === currentEmail) {
-      console.warn("Supervisors cannot remove themselves.");
+      showToast("You cannot remove yourself", 'warning');
       return;
     }
     setSupervisorsLoading(true);
     try {
       await changeUserRole({ userEmail: email, newRole: null });
       await fetchSupervisors();
-    } catch (err) {
-      console.error('Error removing supervisor:', err);
+      showToast(`Removed supervisor: ${email}`, 'success');
+    } catch (err: any) {
+      showToast(`Failed to remove supervisor: ${email}`, 'error');
     } finally {
       setSupervisorsLoading(false);
     }
   };
 
+  // Define columns for the supervisors table
   const baseSupervisorColumns: Column<CandidateUser>[] = [
-    { key: 'email', header: 'Email' },
+    { key: 'email',      header: 'Email'      },
     {
       key: 'firstName',
       header: 'First Name',
@@ -131,27 +177,29 @@ const SupervisorsPage: React.FC = () => {
         </span>
       ),
     },
-    { key: 'lastName', header: 'Last Name' },
-    { key: 'role', header: 'Role' },
+    { key: 'lastName',   header: 'Last Name'  },
+    { key: 'role',       header: 'Role'       },
   ];
 
-  const supervisorColumns = useMemo(() => {
-    if (isAdmin) {
-      return [
-        ...baseSupervisorColumns,
-        {
-          key: 'actions',
-          header: 'Actions',
-          render: row =>
-            row.email !== currentEmail ? (
-              <TrashButton onClick={() => handleRemoveSupervisor(row.email)} />
-            ) : null,
-        },
-      ];
-    }
-    return baseSupervisorColumns;
-  }, [isAdmin, currentEmail]);
+  // Conditionally add the Actions column for Admins
+  const supervisorColumns = useMemo<Column<CandidateUser>[]>(
+    () => isAdmin
+      ? [
+          ...baseSupervisorColumns,
+          {
+            key:    'actions',
+            header: 'Actions',
+            render: row =>
+              row.email !== currentEmail ? (
+                <TrashButton onClick={() => handleRemoveSupervisor(row.email)} />
+              ) : null,
+          },
+        ]
+      : baseSupervisorColumns,
+    [isAdmin, currentEmail]
+  );
 
+  // Define columns for the Add Supervisor modal
   const candidateColumns: Column<CandidateUser>[] = [
     {
       key: 'select',
@@ -178,10 +226,10 @@ const SupervisorsPage: React.FC = () => {
         />
       ),
     },
-    { key: 'email', header: 'Email' },
-    { key: 'firstName', header: 'First Name' },
-    { key: 'lastName', header: 'Last Name' },
-    { key: 'role', header: 'Role' },
+    { key: 'email',      header: 'Email'      },
+    { key: 'firstName',  header: 'First Name' },
+    { key: 'lastName',   header: 'Last Name'  },
+    { key: 'role',       header: 'Role'       },
   ];
 
   return (
@@ -191,9 +239,7 @@ const SupervisorsPage: React.FC = () => {
         data={supervisors}
         pageSize={9}
         addButton={
-          isAdmin ? (
-            <AddButton label="Add Supervisor" onClick={handleOpenModal} />
-          ) : null
+          isAdmin ? <AddButton label="Add Supervisor" onClick={handleOpenModal} /> : null
         }
         loading={supervisorsLoading}
         loadingAction="Loading supervisors"
@@ -204,7 +250,7 @@ const SupervisorsPage: React.FC = () => {
           open={isModalOpen}
           title="Add Supervisor"
           iconSrc={managementIcon}
-          iconAlt="Supervisors"
+          iconAlt="Add Supervisor"
           onClose={() => setModalOpen(false)}
           onConfirm={handleConfirmAdd}
           confirmLabel="Add Supervisor"

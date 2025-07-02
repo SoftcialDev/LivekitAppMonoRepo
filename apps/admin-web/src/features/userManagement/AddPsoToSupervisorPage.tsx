@@ -69,15 +69,18 @@ const SupervisorDetailPage: React.FC = () => {
   }, [supervisorAdId, supervisorName]);
 
   // Modal: list ALL employees + tenants, excluding those already assigned
-  const loadCandidates = useCallback(async () => {
-    const [emp, ten] = await Promise.all([
-      getUsersByRole('Employee', 1, 1000),
-      getUsersByRole('Tenant',   1, 1000),
-    ]);
+const loadCandidates = useCallback(async () => {
+  try {
+    // 1) Fetch employees
+    const empResp = await getUsersByRole('Employee', 1, 1000);
+    console.log('EMPLOYEE FETCH:', empResp.users);
 
-    // Exclude employees already under this supervisor
-    const availableEmp = emp.users
-      .filter(u => u.supervisorAdId !== supervisorAdId)
+    // 2) Keep only employees NOT already assigned to this supervisor
+    const availableEmployees = empResp.users
+      .filter(u =>
+        u.role === 'Employee' &&              // just to be safe
+        u.supervisorAdId !== supervisorAdId   // not yet under this sup
+      )
       .map(u => ({
         azureAdObjectId: u.azureAdObjectId,
         email:           u.email,
@@ -86,17 +89,35 @@ const SupervisorDetailPage: React.FC = () => {
         supervisorName:  u.supervisorName ?? '—',
       }));
 
-    // All tenants are available (they have no supervisorAdId)
-    const availableTen = ten.users.map(u => ({
-      azureAdObjectId: u.azureAdObjectId,
-      email:           u.email,
-      firstName:       u.firstName,
-      lastName:        u.lastName,
-      supervisorName:  '—',
-    }));
+    // 3) Fetch tenants and drop any with a non-null role
+    const tenResp = await getUsersByRole('Tenant', 1, 1000);
+    console.log('TENANT FETCH:', tenResp.users);
 
-    setCandidates([...availableEmp, ...availableTen]);
-  }, [supervisorAdId]);
+    const availableTenants = tenResp.users
+      .filter(u => u.role === null)    // only pure tenants
+      .map(u => ({
+        azureAdObjectId: u.azureAdObjectId,
+        email:           u.email,
+        firstName:       u.firstName,
+        lastName:        u.lastName,
+        supervisorName:  '—',
+      }));
+
+    // 4) Combine both and set state
+    setCandidates([
+      ...availableEmployees,
+      ...availableTenants,
+    ]);
+
+    console.log('FINAL CANDIDATES:', [
+      ...availableEmployees,
+      ...availableTenants,
+    ]);
+  } catch (err) {
+    console.error('loadCandidates error', err);
+  }
+}, [supervisorAdId]);
+
 
   useEffect(() => {
     if (!initialized) return;

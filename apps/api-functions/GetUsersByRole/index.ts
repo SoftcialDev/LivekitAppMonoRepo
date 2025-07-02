@@ -106,56 +106,50 @@ const getRoleCandidates: AzureFunction = withErrorHandler(
       }
 
       /* ─────────────── 4. Optional tenant discovery via Graph ────────── */
-      if (includeTenant) {
-        let token: string;
-        try {
-          token = await getGraphToken();
-        } catch (err: any) {
-          return badRequest(ctx, `Graph token error: ${err.message}`);
-        }
+if (includeTenant) {
+  let token: string;
+  try {
+    token = await getGraphToken();
+  } catch (err: any) {
+    return badRequest(ctx, `Graph token error: ${err.message}`);
+  }
 
-        const spId = process.env.SERVICE_PRINCIPAL_OBJECT_ID!;
-        const [supIds, adminIds, empIds] = await Promise.all([
-          fetchAppRoleMemberIds(token, spId, process.env.SUPERVISORS_GROUP_ID!),
-          fetchAppRoleMemberIds(token, spId, process.env.ADMINS_GROUP_ID!),
-          fetchAppRoleMemberIds(token, spId, process.env.EMPLOYEES_GROUP_ID!),
-        ]);
+  const spId = process.env.SERVICE_PRINCIPAL_OBJECT_ID!;
+  const [supIds, adminIds, empIds] = await Promise.all([
+    fetchAppRoleMemberIds(token, spId, process.env.SUPERVISORS_GROUP_ID!),
+    fetchAppRoleMemberIds(token, spId, process.env.ADMINS_GROUP_ID!),
+    fetchAppRoleMemberIds(token, spId, process.env.EMPLOYEES_GROUP_ID!),
+  ]);
 
-        // fetch **all** tenant users once
-        const graphUsers = await fetchAllUsers(token);
+  // fetch all tenant users once
+  const graphUsers = await fetchAllUsers(token);
 
-        for (const gu of graphUsers) {
-          if (gu.accountEnabled === false) continue;
-          const email = gu.mail || gu.userPrincipalName || "";
-          if (!email) continue;
+  for (const gu of graphUsers) {
+    if (gu.accountEnabled === false) continue;
+    const email = gu.mail || gu.userPrincipalName || "";
+    if (!email) continue;
 
-          const inAnyRole = supIds.has(gu.id) || adminIds.has(gu.id) || empIds.has(gu.id);
+    // skip anyone already in an App-role group
+    const inAnyRole = supIds.has(gu.id) || adminIds.has(gu.id) || empIds.has(gu.id);
+    if (inAnyRole) continue;
 
-          /* 4-a) User already in an App-role group but missing in our DB */
-          if (inAnyRole) {
-            const exists = await prisma.user.findUnique({ where: { azureAdObjectId: gu.id } });
-            if (!exists) {
-              // determine DB role once
-              const role: "Supervisor" | "Admin" | "Employee" =
-                adminIds.has(gu.id) ? "Admin" :
-                supIds.has (gu.id) ? "Supervisor" : "Employee";
+    // **skip if already materialized in our DB**
+    const alreadyInDb = await prisma.user.findUnique({
+      where: { azureAdObjectId: gu.id }
+    });
+    if (alreadyInDb) continue;
 
-              await upsertUserRole(email, gu.id, gu.displayName || email, role);
-            }
-            continue; // do not list them as tenants
-          }
-
-          /* 4-b) Pure tenant user → include in response */
-          const { firstName, lastName } = splitName(gu.displayName);
-          candidates.push({
-            azureAdObjectId: gu.id,
-            email,
-            firstName,
-            lastName,
-            role: null,
-          });
-        }
-      }
+    // now this is a pure “tenant” never seen before
+    const { firstName, lastName } = splitName(gu.displayName);
+    candidates.push({
+      azureAdObjectId: gu.id,
+      email,
+      firstName,
+      lastName,
+      role: null,
+    });
+  }
+}
 
       /* ─────────────── 5. Deduplicate by OID ─────────────────────────── */
       const dedup: CandidateUser[] = [];

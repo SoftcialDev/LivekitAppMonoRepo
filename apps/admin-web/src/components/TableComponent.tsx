@@ -104,17 +104,19 @@ export interface TableComponentProps<T> {
  * @param props.loadingAction Text to show under the spinner.
  * @returns A JSX element displaying the searchable, paginated table.
  */
-export function TableComponent<T extends object>({
-  columns,
-  data = [],
-  pageSize = 10,
-  addButton,
-  addLabel = 'Add Admin',
-  headerBg = 'bg-[var(--color-primary-light)]',
-  tablePadding = 'p-30',
-  loading = false,
-  loadingAction = 'Loading…',
-}: TableComponentProps<T>): JSX.Element {
+export function TableComponent<T extends { azureAdObjectId?: string }>(
+  {
+    columns,
+    data = [],
+    pageSize = 10,
+    addButton,
+    addLabel = 'Add Admin',
+    headerBg = 'bg-[var(--color-primary-light)]',
+    tablePadding = 'p-30',
+    loading = false,
+    loadingAction = 'Loading…',
+  }: TableComponentProps<T>
+): JSX.Element {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -123,7 +125,6 @@ export function TableComponent<T extends object>({
     setCurrentPage(1);
   };
 
-  // Filter rows by search term across all non-rendered columns
   const filteredData = useMemo(
     () =>
       data.filter(row =>
@@ -133,7 +134,9 @@ export function TableComponent<T extends object>({
             const cell = row[col.key as keyof T];
             return (
               cell != null &&
-              String(cell).toLowerCase().includes(searchTerm.toLowerCase())
+              String(cell)
+                .toLowerCase()
+                .includes(searchTerm.toLowerCase())
             );
           }
           if (
@@ -144,7 +147,9 @@ export function TableComponent<T extends object>({
             const cell = (row as any)[col.key];
             return (
               cell != null &&
-              String(cell).toLowerCase().includes(searchTerm.toLowerCase())
+              String(cell)
+                .toLowerCase()
+                .includes(searchTerm.toLowerCase())
             );
           }
           return false;
@@ -155,7 +160,6 @@ export function TableComponent<T extends object>({
 
   const totalPages = Math.max(1, Math.ceil(filteredData.length / pageSize));
 
-  // Rows for current page
   const pagedData = useMemo(
     () =>
       filteredData.slice(
@@ -176,7 +180,12 @@ export function TableComponent<T extends object>({
         {addButton !== undefined ? (
           addButton
         ) : (
-          <AddButton label={addLabel} onClick={() => { /* hook up action */ }} />
+          <AddButton
+            label={addLabel}
+            onClick={() => {
+              /* hook up action */
+            }}
+          />
         )}
         <input
           type="text"
@@ -196,7 +205,7 @@ export function TableComponent<T extends object>({
               const isLast = i === columns.length - 1;
               return (
                 <th
-                  key={String(col.key ?? col.header)}
+                  key={`${String(col.key ?? col.header)}-hdr-${i}`}
                   className={`
                     px-6 py-3 text-left text-sm font-semibold
                     ${headerBg} text-white
@@ -213,38 +222,42 @@ export function TableComponent<T extends object>({
         <tbody>
           {loading ? (
             <tr>
-              <td
-                className="px-6 py-16 text-center"
-              >
+              <td className="px-6 py-16 text-center">
                 <Loading
                   action={loadingAction}
                   bgClassName="bg-transparent"
                 />
               </td>
             </tr>
-          ) : pagedData.map((row, idx) => (
-            <tr
-              key={idx}
-              className={idx > 0 ? 'border-t border-white' : ''}
-            >
-              {columns.map(col => (
-                <td
-                  key={String(col.key ?? col.header)}
-                  className="px-6 py-4 whitespace-nowrap text-sm text-white"
-                >
-                  {col.render
-                    ? col.render(row)
-                    : col.key && typeof col.key !== 'string'
-                    ? String(row[col.key as keyof T] ?? '')
-                    : col.key &&
-                      typeof col.key === 'string' &&
-                      col.key in row
-                    ? String((row as any)[col.key] ?? '')
-                    : ''}
-                </td>
-              ))}
-            </tr>
-          ))}
+          ) : (
+            pagedData.map((row, idx) => (
+              <tr
+                key={
+                  row.azureAdObjectId
+                    ? row.azureAdObjectId
+                    : `row-${idx}`
+                }
+                className={idx > 0 ? 'border-t border-white' : ''}
+              >
+                {columns.map((col, colIdx) => (
+                  <td
+                    key={`${String(col.key ?? col.header)}-${idx}-${colIdx}`}
+                    className="px-6 py-4 whitespace-nowrap text-sm text-white"
+                  >
+                    {col.render
+                      ? col.render(row)
+                      : col.key && typeof col.key !== 'string'
+                      ? String(row[col.key as keyof T] ?? '')
+                      : col.key &&
+                        typeof col.key === 'string' &&
+                        col.key in row
+                      ? String((row as any)[col.key] ?? '')
+                      : ''}
+                  </td>
+                ))}
+              </tr>
+            ))
+          )}
           {!loading && pagedData.length === 0 && (
             <tr>
               <td
