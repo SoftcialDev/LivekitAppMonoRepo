@@ -38,7 +38,7 @@ export const UserStreamProvider: React.FC<UserStreamProviderProps> = ({
 };
 
 /**
- * Must be called inside a <UserStreamProvider>
+ * Must be called inside a <UserStreamProvider>/
  */
 export function useUserStreamContext(): UserStreamState {
   const ctx = useContext(UserStreamContext);
