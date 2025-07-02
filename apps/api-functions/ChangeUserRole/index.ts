@@ -33,14 +33,18 @@ const schema = z.object({
 /**
  * ChangeUserRole
  *
- * Authenticates an Admin caller, validates the request body, updates the user's Azure AD app role,
- * persists the change to the database (creating the user record if it didn't exist), logs an audit entry,
+ * Authenticates an Admin or Supervisor caller, validates the request body,
+ * updates the user's Azure AD app role, persists the change to the database
+ * (creating the user record if it didn't exist), logs an audit entry,
  * and optionally marks the user offline.
+ *
+ * Supervisors may only assign the Employee role; Admins may assign any role
+ * or remove a user (newRole=null).
  *
  * @param ctx - The Azure Functions execution context, including bindings and response helpers.
  * @returns A Promise that resolves to a HTTP response indicating the result of the operation.
  * @throws 401 Unauthorized when the caller’s identity cannot be determined or the caller is deleted.
- * @throws 403 Forbidden when the caller is not an Admin.
+ * @throws 403 Forbidden when the caller’s role is insufficient for the requested change.
  * @throws 400 BadRequest when Graph token retrieval fails or the target user cannot be found.
  */
 const changeUserRole: AzureFunction = withErrorHandler(
@@ -58,17 +62,35 @@ const changeUserRole: AzureFunction = withErrorHandler(
       if (caller.deletedAt) {
         return unauthorized(ctx, "Caller has been deleted");
       }
-      if (caller.role !== "Admin") {
-        return forbidden(ctx, "Only Admin may change roles");
+
+      // Supervisors may only assign Employee; only Admin may do all others
+      if (caller.role === "Supervisor") {
+        await withBodyValidation(schema)(ctx, async () => {
+          const { newRole } = ctx.bindings.validatedBody as {
+            userEmail: string;
+            newRole: "Supervisor" | "Admin" | "Employee" | null;
+          };
+          if (newRole !== "Employee") {
+            return forbidden(ctx, "Supervisors may only assign Employee role");
+          }
+        });
+      } else if (caller.role !== "Admin") {
+        return forbidden(ctx, "Only Admin or Supervisor may change roles");
       }
 
+      // From here on out, Admins handle full logic; Supervisors only reach this point
+      // if they requested newRole="Employee"
       await withBodyValidation(schema)(ctx, async () => {
         const { userEmail, newRole } = ctx.bindings
-          .validatedBody as { userEmail: string; newRole: "Supervisor" | "Admin" | "Employee" | null };
+          .validatedBody as {
+          userEmail: string;
+          newRole: "Supervisor" | "Admin" | "Employee" | null;
+        };
 
         // fetch existing record, may be undefined
         const before = await getUserByEmail(userEmail);
 
+        // get Graph token
         let graphToken: string;
         try {
           graphToken = await getGraphToken();
@@ -76,6 +98,7 @@ const changeUserRole: AzureFunction = withErrorHandler(
           return badRequest(ctx, `Graph token error: ${err.message}`);
         }
 
+        // resolve service principal ID
         let spId = process.env.SERVICE_PRINCIPAL_OBJECT_ID;
         if (!spId) {
           const clientId = process.env.APP_CLIENT_ID || config.azureClientId;
@@ -101,7 +124,7 @@ const changeUserRole: AzureFunction = withErrorHandler(
           targetAdId = fallback.data.value[0].id;
         }
 
-        // remove any existing app roles
+        // remove existing app roles
         await removeAllAppRolesFromUser(graphToken, spId!, targetAdId);
 
         // if newRole is null, delete only if record existed
@@ -122,8 +145,8 @@ const changeUserRole: AzureFunction = withErrorHandler(
         // assign new app-role
         const roleIdMap: Record<string, string> = {
           Supervisor: process.env.SUPERVISORS_GROUP_ID!,
-          Admin:      process.env.ADMINS_GROUP_ID!,
-          Employee:   process.env.EMPLOYEES_GROUP_ID!,
+          Admin: process.env.ADMINS_GROUP_ID!,
+          Employee: process.env.EMPLOYEES_GROUP_ID!,
         };
         const roleId = roleIdMap[newRole];
         await assignAppRoleToPrincipal(graphToken, spId!, targetAdId, roleId);
@@ -140,7 +163,7 @@ const changeUserRole: AzureFunction = withErrorHandler(
           /* ignore */
         }
 
-        // upsert in our DB (will create if missing)
+        // upsert in our DB
         const after: { id: string } | null = await upsertUserRole(
           userEmail,
           targetAdId,
@@ -148,7 +171,7 @@ const changeUserRole: AzureFunction = withErrorHandler(
           newRole,
         );
 
-          await logAudit({
+        await logAudit({
           entity: "User",
           entityId: after!.id,
           action: "ROLE_CHANGE" as AuditAction,

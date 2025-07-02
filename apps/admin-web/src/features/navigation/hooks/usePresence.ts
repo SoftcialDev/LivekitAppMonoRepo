@@ -1,5 +1,3 @@
-// src/features/navigation/hooks/usePresence.ts
-
 import { useState, useEffect, useCallback, useRef } from "react"
 import type { UserStatus } from "../types/types"
 import { fetchPresence } from "../services/presenceApi"

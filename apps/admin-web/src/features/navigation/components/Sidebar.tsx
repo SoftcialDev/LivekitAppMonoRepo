@@ -29,6 +29,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     ? [rolesClaim]
     : [];
 
+
   const isAdmin = roles.includes("Admin");
   const isSupervisor = roles.includes("Supervisor");
 

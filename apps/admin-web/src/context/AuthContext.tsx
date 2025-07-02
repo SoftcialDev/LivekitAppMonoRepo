@@ -11,54 +11,51 @@ import { InteractionRequiredAuthError } from '@azure/msal-browser';
 
 interface AuthContextValue {
   /**
-   * Signed-in account information from MSAL cache.
-   * Null when there is no authenticated session.
+   * The currently signed-in account, or null if there is no active session.
    */
   account: AccountInfo | null;
 
   /**
-   * Indicates that MSAL has completed checking local cache for an existing session.
+   * True once MSAL has initialized and account state is set.
    */
   initialized: boolean;
 
   /**
-   * Triggers MSAL popup login flow requesting only identity scopes.
-   * @returns Promise resolving to AuthenticationResult after successful login.
-   * @throws Error if login fails.
+   * Opens a popup to sign in the user with identity scopes.
+   * @returns The AuthenticationResult containing id token claims.
    */
   login: () => Promise<AuthenticationResult>;
 
   /**
-   * Triggers MSAL logout popup flow and clears local account state.
+   * Logs the user out via a popup and clears the local account state.
    */
   logout: () => void;
 
   /**
-   * Acquires an access token for the backend API.
-   * Uses silent-first, falls back to popup if interaction required.
-   *
-   * Environment variable VITE_AZURE_AD_API_SCOPE_URI must be set to the full scope,
-   * e.g. "api://<API_CLIENT_ID>/access_as_user".
-   *
-   * @returns Promise resolving to the access token string.
-   * @throws Error if there is no signed-in account or token acquisition fails irrecoverably.
+   * Retrieves an access token for your API.
+   * Tries silently first, then falls back to a popup if interaction is required.
+   * @returns An access token string.
    */
   getApiToken: () => Promise<string>;
+
+  /**
+   * Force-refreshes the ID token to pick up any updated roles or claims.
+   * @returns The AuthenticationResult with fresh id token claims.
+   */
+  refreshRoles: () => Promise<AuthenticationResult>;
 }
 
 export const AuthContext = createContext<AuthContextValue>({
   account: null,
   initialized: false,
   login: async () => { throw new Error('login not implemented'); },
-  logout: () => { /* no-op */ },
+  logout: () => {},
   getApiToken: async () => { throw new Error('getApiToken not implemented'); },
+  refreshRoles: async () => { throw new Error('refreshRoles not implemented'); },
 });
 
 /**
- * AuthProvider component.
- * Wraps children with MSAL provider and internal authentication context.
- *
- * @param props.children ReactNode children to render under authentication context.
+ * Wraps the app in MsalProvider and provides authentication context.
  */
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => (
   <MsalProvider instance={msalInstance}>
@@ -67,10 +64,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 );
 
 /**
- * InnerAuthProvider component.
- * Manages authentication state based on MSAL hooks and provides context values.
- *
- * @param props.children ReactNode children to render when context is available.
+ * Manages MSAL account state and exposes login, logout, token acquisition, and role refresh.
  */
 const InnerAuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { instance, accounts } = useMsal();
@@ -80,86 +74,74 @@ const InnerAuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [initialized, setInitialized] = useState(false);
 
   useEffect(() => {
-    // After MSAL checks cache, set account state
-    if (isAuthenticated && accounts.length > 0) {
-      setAccount(accounts[0]);
-    } else {
-      setAccount(null);
-    }
+    // Update account when MSAL cache changes
+    setAccount(isAuthenticated && accounts.length > 0 ? accounts[0] : null);
     setInitialized(true);
   }, [isAuthenticated, accounts]);
 
   /**
-   * login: Opens MSAL login popup requesting only identity scopes.
-   * Do not include API scope here; request API scope later via getApiToken().
-   *
-   * @returns AuthenticationResult containing idTokenClaims.
-   * @throws Error if login fails.
+   * login: Opens MSAL login popup requesting identity scopes.
    */
   const login = async (): Promise<AuthenticationResult> => {
-    const loginRequest: PopupRequest = {
-      scopes: ['openid', 'profile'],
-      prompt: 'select_account',
-    };
-    const result = await instance.loginPopup(loginRequest);
+    const result = await instance.loginPopup({ scopes: ['openid', 'profile'], prompt: 'select_account' } as PopupRequest);
+    setAccount(result.account);
     return result;
   };
 
   /**
-   * logout: Opens MSAL logout popup and clears the local account state.
+   * logout: Opens MSAL logout popup and clears account state.
    */
-  const logout = (): void => {
-    instance.logoutPopup({
-      postLogoutRedirectUri: import.meta.env.VITE_AZURE_AD_REDIRECT_URI as string,
-    });
-    setAccount(null);
-  };
+const logout = async (): Promise<void> => {
+  // fire-and-forget: Azure will sign you out in the popup but won’t redirect anywhere
+  instance.logoutPopup({ account });
+  // immediately clear local state and go to login page
+  setAccount(null);
+  window.location.href = '/login';
+};
+
 
   /**
-   * getApiToken: Acquires an access token for the backend API.
-   * First tries silent acquisition; if interaction required, falls back to popup.
-   *
-   * @returns Access token string.
-   * @throws Error if no signed-in account or VITE_AZURE_AD_API_SCOPE_URI not defined or acquisition fails.
+   * getApiToken: Retrieves an API access token silently or via popup fallback.
    */
   const getApiToken = async (): Promise<string> => {
-    if (!account) {
-      throw new Error('No signed-in account');
-    }
+    if (!account) throw new Error('No signed-in account');
     const apiScope = import.meta.env.VITE_AZURE_AD_API_SCOPE_URI as string;
-    if (!apiScope) {
-      throw new Error('VITE_AZURE_AD_API_SCOPE_URI is not defined');
-    }
-    const silentRequest: SilentRequest = {
-      account,
-      scopes: [apiScope],
-      forceRefresh: false,
-    };
+    if (!apiScope) throw new Error('API scope is not defined');
+
     try {
-      const silentResult = await instance.acquireTokenSilent(silentRequest);
+      const silentResult = await instance.acquireTokenSilent({ account, scopes: [apiScope], forceRefresh: false } as SilentRequest);
       return silentResult.accessToken;
     } catch (err: any) {
-      // If interaction is required, fallback to popup
-      if (
-        err instanceof InteractionRequiredAuthError ||
-        err.errorCode === 'interaction_required' ||
-        err.errorCode === 'consent_required' ||
-        err.errorCode === 'login_required'
-      ) {
-        const popupRequest: PopupRequest = {
-          account,
-          scopes: [apiScope],
-        };
-        const popupResult = await instance.acquireTokenPopup(popupRequest);
+      if (err instanceof InteractionRequiredAuthError || ['interaction_required','consent_required','login_required'].includes(err.errorCode)) {
+        const popupResult = await instance.acquireTokenPopup({ account, scopes: [apiScope] } as PopupRequest);
         return popupResult.accessToken;
       }
-      // Other errors: propagate
       throw err;
     }
   };
 
+  /**
+   * refreshRoles: Force-refreshes the ID token to update role claims.
+   */
+  const refreshRoles = async (): Promise<AuthenticationResult> => {
+    if (!account) throw new Error('No signed-in account');
+
+    const request: SilentRequest = { account, scopes: ['openid', 'profile'], forceRefresh: true };
+
+    try {
+      const result = await instance.acquireTokenSilent(request);
+      setAccount(result.account);
+      return result;
+    } catch (err: any) {
+      // Fallback to popup if silent fails
+      const popupResult = await instance.acquireTokenPopup({ scopes: ['openid', 'profile'], prompt: 'none' } as PopupRequest);
+      setAccount(popupResult.account);
+      return popupResult;
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ account, initialized, login, logout, getApiToken }}>
+    <AuthContext.Provider value={{ account, initialized, login, logout, getApiToken, refreshRoles }}>
       {children}
     </AuthContext.Provider>
   );

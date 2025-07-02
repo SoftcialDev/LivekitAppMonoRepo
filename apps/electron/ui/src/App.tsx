@@ -10,7 +10,6 @@ import { AuthProvider }   from './context/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 
 import { LoginPage }      from './pages/LoginPage';
-import ForbiddenPage      from './pages/ForbiddenPage';
 import DashboardPage      from './pages/Dashboard';
 
 import { setTokenGetter } from './services/apiClient';
@@ -44,7 +43,6 @@ function Gate() {
     <Routes>
       {/* rutas públicas */}
       <Route path="/login"     element={<LoginPage />} />
-      <Route path="/forbidden" element={<ForbiddenPage />} />
 
       {/* rutas protegidas */}
       <Route

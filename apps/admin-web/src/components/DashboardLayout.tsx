@@ -61,23 +61,6 @@ const Layout: React.FC = () => {
   );
   usePresenceWebSocket({ currentEmail, onPresence: handlePresencePush });
 
-  /**
-   * Sends a Play or Stop command for a given user.
-   *
-   * @param email  The target user’s email
-   * @param action "PLAY" to start streaming, "STOP" to end streaming
-   */
-  const handleToggle = async (email: string, action: "PLAY" | "STOP") => {
-    try {
-      if (action === "PLAY") {
-        await cameraClient.start(email);
-      } else {
-        await cameraClient.stop(email);
-      }
-    } catch (err) {
-      console.error("Failed to send camera command", err);
-    }
-  };
 
   return (
     <HeaderProvider>
@@ -85,8 +68,6 @@ const Layout: React.FC = () => {
         <Sidebar
           onlineUsers={onlineUsers}
           offlineUsers={offlineUsers}
-          streamingMap={streamingMap}
-          onToggle={handleToggle}
         />
 
         <div className="flex flex-col min-h-0">

@@ -6,14 +6,13 @@
  * - Injects API access token into the Axios client once the user is authenticated.  
  * - Defines all application routes with role-based access control:
  *   - `/login`        → LoginPage (public)
- *   - `/forbidden`    → ForbiddenPage (public)
  *   - `/admins`       → AdminsPage (Admin only)
  *   - `/supervisors`  → SupervisorsPage (Admin & Supervisor)
  *   - `/supervisors/:id` → SupervisorDetailPage (Admin & Supervisor)
  *   - `/dashboard`    → PSOsVideoPage (Admin & Supervisor)
  *   - `/videos/:username` → UserVideoPage (Admin & Supervisor)
- *   - `/psos`         → PsoDashboard (Employee only)
- *   - Fallback: redirect any unknown path to `/psos`
+ *   - `/psosDashboard` → PsoDashboard (Employee only)
+ *   - Fallback: redirect any unknown path to `/login`
  */
 
 import React, { useEffect } from 'react';
@@ -30,19 +29,14 @@ import { ProtectedRoute } from './features/auth/components/ProtectedRoute';
 import { setTokenGetter } from './services/apiClient';
 
 import { LoginPage } from './features/auth/pages/LoginPage';
-import ForbiddenPage from './features/auth/pages/ForbiddenPage';
 import Layout from './components/DashboardLayout';
-
 import AdminsPage from './features/userManagement/AdminsPage';
 import SupervisorsPage from './features/userManagement/SupervisorsPage';
 import SupervisorDetailPage from './features/userManagement/AddPsoToSupervisorPage';
-
 import PSOsVideoPage from './features/videoDashboard/pages/PSOsVideoPage';
 import UserVideoPage from './features/videoDashboard/pages/UserVideoPage';
 import PSOsListPage from './features/userManagement/PsoListPage';
-
 import PsoDashboard from './hooks/PsoDashboard';
-
 import { ToastProvider } from './components/ToastContext';
 
 /**
@@ -83,48 +77,82 @@ function App(): JSX.Element {
         <TokenInjector />
         <ToastProvider>
           <Routes>
-            {/* public */}
+            {/* Public routes */}
             <Route path="/login" element={<LoginPage />} />
-            <Route path="/forbidden" element={<ForbiddenPage />} />
 
             {/* Admin & Supervisor-only routes */}
             <Route
               element={
-                <ProtectedRoute allowedRoles={['Admin', 'Supervisor']}>
+                <ProtectedRoute allowedRoles={[ 'Admin', 'Supervisor' ]}>
                   <Layout />
                 </ProtectedRoute>
               }
             >
-              {/* Admin-only */}
+              {/* Admin only */}
               <Route
                 path="/admins"
                 element={
-                  <ProtectedRoute allowedRoles={['Admin']}>
+                  <ProtectedRoute allowedRoles={[ 'Admin' ]}>
                     <AdminsPage />
                   </ProtectedRoute>
                 }
               />
 
               {/* Supervisor & Admin */}
-              <Route path="/supervisors" element={<SupervisorsPage />} />
-              <Route path="/supervisors/:id" element={<SupervisorDetailPage />} />
-              <Route path="/dashboard" element={<PSOsVideoPage />} />
-              <Route path="/videos/:email" element={<UserVideoPage />} />
-              <Route path="/psos" element={<PSOsListPage />} />
+              <Route
+                path="/supervisors"
+                element={
+                  <ProtectedRoute allowedRoles={[ 'Admin', 'Supervisor' ]}>
+                    <SupervisorsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/supervisors/:id"
+                element={
+                  <ProtectedRoute allowedRoles={[ 'Admin', 'Supervisor' ]}>
+                    <SupervisorDetailPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/dashboard"
+                element={
+                  <ProtectedRoute allowedRoles={[ 'Admin', 'Supervisor' ]}>
+                    <PSOsVideoPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/videos/:email"
+                element={
+                  <ProtectedRoute allowedRoles={[ 'Admin', 'Supervisor' ]}>
+                    <UserVideoPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/psos"
+                element={
+                  <ProtectedRoute allowedRoles={[ 'Admin', 'Supervisor' ]}>
+                    <PSOsListPage />
+                  </ProtectedRoute>
+                }
+              />
             </Route>
 
-            {/* catch-all → PSOs dashboard */}
-            <Route path="/" element={<Navigate to="/psos" replace />} />
-            <Route path="*" element={<Navigate to="/psos" replace />} />
-
-            
-            {/* Employee-only PSOs dashboard */}
+            {/* Employee-only route */}
             <Route
               path="/psosDashboard"
               element={
+                <ProtectedRoute allowedRoles={[ 'Employee' ]}>
                   <PsoDashboard />
+                </ProtectedRoute>
               }
             />
+
+            {/* Fallback: redirect any unknown path to /login */}
+            <Route path="*" element={<Navigate to="/login" replace />} />
           </Routes>
         </ToastProvider>
       </BrowserRouter>
