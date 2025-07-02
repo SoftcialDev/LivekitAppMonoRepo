@@ -31,7 +31,7 @@ export function useVideoActions() {
       try {
         await commandClient.start(email);
         console.log('START command sent for', email);
-        showToast(`Started stream for ${email}`, 'success');
+        showToast(`Sending start stream command for ${email}`, 'success');
       } catch (err: any) {
         console.error('Failed to send START command for', email, err);
         showToast(`Failed to start stream for ${email}`, 'error');

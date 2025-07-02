@@ -1,5 +1,3 @@
-// src/services/webpubsubClient.ts
-
 import apiClient from './apiClient';
 import {
   WebPubSubClient,

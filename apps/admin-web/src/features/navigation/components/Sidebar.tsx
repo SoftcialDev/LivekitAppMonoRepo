@@ -29,13 +29,11 @@ const Sidebar: React.FC<SidebarProps> = ({
     ? [rolesClaim]
     : [];
 
-
   const isAdmin = roles.includes("Admin");
   const isSupervisor = roles.includes("Supervisor");
 
-  const linkBase =
-    "block py-2 pl-14 pr-3 rounded-md text-gray-300 transition-colors hover:text-[var(--color-secondary-hover)]";
-  const activeLink = "text-white font-semibold";
+  const linkBase    = "block py-2 pl-14 pr-3 rounded-md text-gray-300 hover:text-white";
+  const activeLink  = "text-white font-semibold";
 
   const shortName = (u: UserStatus) => {
     const parts = (u.fullName ?? u.name ?? "").trim().split(/\s+/);
@@ -72,30 +70,28 @@ const Sidebar: React.FC<SidebarProps> = ({
             <NavLink
               to="/admins"
               className={({ isActive }) =>
-                `${linkBase} ${isActive ? activeLink : ""}`
+                `${linkBase} ${isActive ? activeLink : ""}`  
               }
             >
               Admins
             </NavLink>
           )}
 
-          {/* Supervisors may see Supervisors link */}
           {(isAdmin || isSupervisor) && (
             <NavLink
               to="/supervisors"
               className={({ isActive }) =>
-                `${linkBase} ${isActive ? activeLink : ""}`
+                `${linkBase} ${isActive ? activeLink : ""}`  
               }
             >
               Supervisors
             </NavLink>
           )}
 
-          {/* Everyone sees PSOs */}
           <NavLink
             to="/psos"
             className={({ isActive }) =>
-              `${linkBase} ${isActive ? activeLink : ""}`
+              `${linkBase} ${isActive ? activeLink : ""}`  
             }
           >
             PSOs
@@ -110,12 +106,12 @@ const Sidebar: React.FC<SidebarProps> = ({
             textSize="text-xs font-semibold"
             className="flex items-center px-6 py-4"
           >
-            Monitor
+            PSOs Streaming
           </IconWithLabel>
           <NavLink
             to="/dashboard"
             className={({ isActive }) =>
-              `${linkBase} ${isActive ? activeLink : ""}`
+              `${linkBase} ${isActive ? activeLink : ""}`  
             }
           >
             PSOs streaming

@@ -8,11 +8,31 @@ import {
   RemoteVideoTrack,
 } from 'livekit-client'
 import type { VideoCardProps } from '../types/VideoCardProps'
+import { usePresenceStore } from '@/stores/usePresenceStore'
 
+/**
+ * VideoCard
+ *
+ * Renders a LiveKit video stream for a single user, with Play/Stop and Chat controls.
+ * Buttons and the online indicator are driven by the global WebSocket presence state.
+ *
+ * @param name           Display name of the user
+ * @param email          Email address used as the LiveKit identity
+ * @param onPlay         Callback when the first video frame arrives
+ * @param onChat         Callback to open a chat with this user
+ * @param showHeader     Whether to render the header section with user info
+ * @param className      Additional CSS classes for the container
+ * @param accessToken    LiveKit access token for connecting
+ * @param roomName       LiveKit room name
+ * @param livekitUrl     LiveKit server URL
+ * @param disableControls If true, always disable Play/Stop button
+ * @param shouldStream   Whether the UI should currently attempt streaming
+ * @param connecting     True while LiveKit connect is in progress
+ * @param onToggle       Callback for Play/Stop button
+ */
 const VideoCard: React.FC<VideoCardProps & { livekitUrl?: string }> = ({
   name,
   email,
-  onStop,
   onPlay,
   onChat,
   showHeader = true,
@@ -20,101 +40,83 @@ const VideoCard: React.FC<VideoCardProps & { livekitUrl?: string }> = ({
   accessToken,
   roomName,
   livekitUrl,
+  disableControls = false,
   shouldStream = false,
-  connecting = false,   // nueva prop para desactivar botón
+  connecting = false,
   onToggle,
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null)
   const roomRef  = useRef<Room | null>(null)
 
+  // Read real-time connection state from store
+  const streamingMap = usePresenceStore(s => s.streamingMap)
+  const isConnected  = Boolean(streamingMap[email])
+
   useEffect(() => {
-
     if (!shouldStream && !accessToken && !roomName && !livekitUrl) {
-      return}
+      return
+    }
 
-      console.log(`[VideoCard:${email}] useEffect`, { shouldStream, accessToken, roomName, livekitUrl })
-
-    // 1) Si admin quita el stream, desconecta y salimos
     if (!shouldStream) {
-      console.log(`[VideoCard:${email}] shouldStream=false → disconnecting`)
       roomRef.current?.disconnect()
       roomRef.current = null
       return
     }
 
-    // 2) Si aún no tenemos token/URL, esperamos
     if (!accessToken || !roomName || !livekitUrl) {
-      console.log(`[VideoCard:${email}] waiting for credentials`, { accessToken, roomName, livekitUrl })
       return
     }
 
-    console.log(`[VideoCard:${email}] credentials ok & shouldStream → connecting`)
-
-    const vid = videoRef.current!
     let lkRoom: Room | null = null
     let canceled = false
     let started = false
+    const vid = videoRef.current!
 
     function attachIfVideo(pub: any) {
       const track = pub.track
       if (pub.kind === 'video' && pub.isSubscribed && track) {
-        console.log(`[VideoCard:${email}] attaching track`, pub.sid)
         ;(track as RemoteVideoTrack).attach(vid)
         if (!started) {
           started = true
-          console.log(`[VideoCard:${email}] first frame → onPlay`)
           onPlay(email)
         }
       }
     }
 
     function setupParticipant(p: RemoteParticipant) {
-      console.log(`[VideoCard:${email}] setupParticipant for`, p.identity)
-      // pistas ya publicadas
       for (const pub of p.getTrackPublications().values()) {
         attachIfVideo(pub)
       }
-      // nuevas pistas
       p.on(ParticipantEvent.TrackSubscribed, attachIfVideo)
-      // **quitamos** el onStop en unsubscribed/unpublished
     }
 
     async function connectAndWatch() {
-      console.log(`[VideoCard:${email}] connectAndWatch →`, livekitUrl)
       const room = new Room()
       try {
         await room.connect(livekitUrl as string, accessToken as string)
-        console.log(`[VideoCard:${email}] livekit connected`)
-      } catch (e) {
-        console.warn(`[VideoCard:${email}] connection error`, e)
+      } catch {
+        // ignore
       }
       if (canceled) {
-        console.log(`[VideoCard:${email}] canceled → disconnect`)
         room.disconnect()
         return
       }
       lkRoom = room
       roomRef.current = room
-
-      // **quitamos**: room.on(RoomEvent.Disconnected, () => onStop(email))
       room.on(RoomEvent.Disconnected, () => {
-        console.log(`[VideoCard:${email}] RoomEvent.Disconnected → internal stop`)
+        // no-op
       })
-
-      // subscribe a todos los participantes
       room.remoteParticipants.forEach(p => {
         if (p.identity === roomName) setupParticipant(p)
       })
       room.on(RoomEvent.ParticipantConnected, p => {
         if (p.identity === roomName) setupParticipant(p)
       })
-      // **quitamos**: ParticipantDisconnected → onStop
     }
 
     connectAndWatch()
 
     return () => {
-      console.log(`[VideoCard:${email}] cleanup effect`)
       canceled = true
       lkRoom?.disconnect()
       roomRef.current = null
@@ -125,15 +127,18 @@ const VideoCard: React.FC<VideoCardProps & { livekitUrl?: string }> = ({
     }
   }, [shouldStream, accessToken, roomName, livekitUrl, email, onPlay])
 
-  // Label + disabled during connecting
+  // Determine button label
   const label = connecting
     ? 'Connecting…'
     : shouldStream
       ? 'Stop'
       : 'Play'
 
+  // Final disable logic: respect global connection, local flag, and explicit disableControls
+    const isDisabled = disableControls || connecting
+
   return (
-    <div className={`flex flex-col bg-[var(--color-primary-dark)] rounded-xl overflow-hidden ${className} `}>
+    <div className={`flex flex-col bg-[var(--color-primary-dark)] rounded-xl overflow-hidden ${className}`}>
       {showHeader && (
         <div className="flex items-center px-2 py-1">
           <UserIndicator
@@ -141,8 +146,8 @@ const VideoCard: React.FC<VideoCardProps & { livekitUrl?: string }> = ({
               email,
               name,
               fullName: name,
-              status: (shouldStream || Boolean(accessToken)) ? 'online' : 'offline',
-              azureAdObjectId: roomName,
+              status: isDisabled ? 'online' : 'offline',
+              azureAdObjectId: roomName ?? null,
             }}
             outerClass="w-5 h-5"
             innerClass="w-4 h-4"
@@ -153,9 +158,8 @@ const VideoCard: React.FC<VideoCardProps & { livekitUrl?: string }> = ({
         </div>
       )}
 
-      {/* Fixed 16:9 video box */}
-      <div className="relative w-full pb-[50.25%] bg-black  rounded-xl">
-        { (shouldStream || Boolean(accessToken)) ? (
+      <div className="relative w-full pb-[50.25%] bg-black rounded-xl">
+        {(shouldStream || Boolean(accessToken)) ? (
           <video
             ref={videoRef}
             autoPlay
@@ -174,7 +178,7 @@ const VideoCard: React.FC<VideoCardProps & { livekitUrl?: string }> = ({
       <div className="flex space-x-2 mt-2">
         <button
           onClick={() => onToggle?.(email)}
-          disabled={connecting}
+          disabled={isDisabled}
           className="flex-1 py-2 bg-white text-[var(--color-primary-dark)] rounded-xl disabled:opacity-50"
         >
           {label}

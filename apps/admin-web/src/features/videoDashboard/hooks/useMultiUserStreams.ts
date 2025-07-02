@@ -1,43 +1,34 @@
 // src/features/video/hooks/useMultiUserStreams.ts
 import { useState, useRef, useCallback, useEffect } from 'react';
-import {
-  WebPubSubClientService,
-  MessageHandler,
-} from '@/services/webpubsubClient';
+import { WebPubSubClientService } from '@/services/webpubsubClient';
 import { fetchStreamingSessions } from '@/services/streamingStatusClient';
 import { getLiveKitToken, RoomWithToken } from '@/services/livekitClient';
-import { usePresenceWebSocket } from '@/features/navigation/hooks/usePresenceWebSocket';
-import type { UserStatus } from '@/features/navigation/types/types';
+import { usePresenceStore } from '@/stores/usePresenceStore';
 
 interface StreamCreds {
   accessToken?: string;
-  roomName?: string;
-  livekitUrl?: string;
-  loading: boolean;
+  roomName?:    string;
+  livekitUrl?:  string;
+  loading:      boolean;
 }
 export type CredsMap = Record<string, StreamCreds>;
 
 /**
- * Custom hook to maintain LiveKit credentials for many PSOs:
- * 1) Subscribes to presence updates (online/offline).
- * 2) On each PSO-online, opens a WebPubSub client to their group,
- *    listens for START/STOP commands, and fetches tokens.
- * 3) On mount & whenever `emails` changes, triggers an initial fetch
- *    for any already‐online PSOs.
+ * Custom hook to maintain LiveKit credentials for multiple PSOs,
+ * reacting only when their streaming state truly changes.
  */
 export function useMultiUserStreams(
   viewerEmail: string,
-  emails: string[],    // lowercase PSO emails that are "online"
+  emails: string[],
 ): CredsMap {
   const [credsMap, setCredsMap] = useState<CredsMap>({});
-  // One WebPubSubService per PSO:
   const servicesRef = useRef<Record<string, WebPubSubClientService>>({});
+  const prevStreamingRef = useRef<Record<string, boolean>>({});
 
-  /**
-   * Fetch LiveKit creds for one PSO via REST.
-   */
+  const streamingMap = usePresenceStore(s => s.streamingMap);
+
+  // REST-fetch helper
   const fetchFor = useCallback(async (email: string) => {
-    console.log(`[multiStream][${email}] fetching creds…`);
     setCredsMap(prev => ({
       ...prev,
       [email]: { ...prev[email], loading: true }
@@ -53,14 +44,12 @@ export function useMultiUserStreams(
         ...prev,
         [email]: {
           accessToken: entry.token,
-          roomName: sess.userId,
+          roomName:    sess.userId,
           livekitUrl,
-          loading: false,
+          loading:     false,
         }
       }));
-      console.log(`[multiStream][${email}] creds ready`);
-    } catch (err) {
-      console.warn(`[multiStream][${email}] fetch error:`, err);
+    } catch {
       setCredsMap(prev => ({
         ...prev,
         [email]: { loading: false }
@@ -68,87 +57,57 @@ export function useMultiUserStreams(
     }
   }, []);
 
-  /**
-   * Handle a presence event for one PSO.
-   * - online → spin up a WS, subscribe, listen for START/STOP, and initial fetch.
-   * - offline → tear down WS and clear creds.
-   */
-  const handlePresence = useCallback(
-    (user: UserStatus, status: 'online' | 'offline') => {
-      const email = user.email.toLowerCase();
-      if (!emails.includes(email)) return;
+  // Effect: watch for *transitions* in streamingMap[email]
+  useEffect(() => {
+    const prev = prevStreamingRef.current;
+    const next: Record<string, boolean> = {};
 
-      if (status === 'online') {
-        console.log(`[multiStream][${email}] ONLINE detected`);
-        const svc = new WebPubSubClientService();
-        servicesRef.current[email] = svc;
+    emails.forEach(email => {
+      const isStreaming = Boolean(streamingMap[email]);
+      next[email] = isStreaming;
 
-        svc.connect(viewerEmail)
+      const wasStreaming = Boolean(prev[email]);
+      // started streaming
+      if (isStreaming && !wasStreaming) {
+        const client = new WebPubSubClientService();
+        servicesRef.current[email] = client;
+        client.connect(viewerEmail)
+          .then(() => client.joinGroup(email))
           .then(() => {
-            console.log(`[multiStream][${email}] WS connected`);
-            return svc.joinGroup(email);
-          })
-          .then(() => {
-            console.log(`[multiStream][${email}] joined group`);
-            svc.onMessage<{ email: string; status: 'started'|'stopped' }>(msg => {
+            client.onMessage<{ email: string; status: 'started'|'stopped' }>(msg => {
               if (msg.email.toLowerCase() !== email) return;
-              console.log(`[multiStream][${email}] command ${msg.status}`);
-              if (msg.status === 'started') {
-                fetchFor(email);
-              } else {
-                console.log(`[multiStream][${email}] clearing creds`);
-                setCredsMap(prev => ({
-                  ...prev,
-                  [email]: { loading: false }
-                }));
-              }
+              if (msg.status === 'started') fetchFor(email);
+              else setCredsMap(p => ({
+                ...p,
+                [email]: { loading: false }
+              }));
             });
-            // initial fetch in case they were already live
+            // initial fetch
             fetchFor(email);
           })
-          .catch(err => {
-            console.error(`[multiStream][${email}] setup failed:`, err);
-          });
-      } else {
-        console.log(`[multiStream][${email}] OFFLINE detected`);
-        servicesRef.current[email]?.disconnect();
+          .catch(err => console.error(`[multiStream][${email}]`, err));
+      }
+
+      // stopped streaming
+      if (!isStreaming && wasStreaming) {
+        const svc = servicesRef.current[email];
+        svc?.disconnect();
         delete servicesRef.current[email];
-        setCredsMap(prev => ({
-          ...prev,
+        setCredsMap(p => ({
+          ...p,
           [email]: { loading: false }
         }));
       }
-    },
-    [emails, viewerEmail, fetchFor]
-  );
+    });
 
-  // Subscribe to presence WS:
-  usePresenceWebSocket({
-    currentEmail: viewerEmail,
-    onPresence: handlePresence,
-  });
+    prevStreamingRef.current = next;
 
-  // **Initial pass** on mount & whenever `emails` changes:
-  // for each PSO currently online, trigger the same logic as if we just saw them come online.
-  useEffect(() => {
-    for (const email of emails) {
-      handlePresence({ 
-        email, 
-        name: email, 
-        fullName: email, 
-        azureAdObjectId: null, 
-        status: 'online' 
-      }, 'online');
-    }
-  }, [emails, handlePresence]);
-
-  // Cleanup _all_ WS clients on unmount:
-  useEffect(() => {
+    // cleanup on unmount
     return () => {
       Object.values(servicesRef.current).forEach(svc => svc.disconnect());
       servicesRef.current = {};
     };
-  }, []);
+  }, [streamingMap, emails, viewerEmail, fetchFor]);
 
   return credsMap;
 }

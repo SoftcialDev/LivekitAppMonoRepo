@@ -192,3 +192,21 @@ export async function changeSupervisor(
   );
   return res.data.updatedCount;
 }
+
+/**
+ * Fetches the list of PSO email addresses the current user may view.
+ *
+ * Calls GET `/api/MyPsos` and returns the array of lower-cased email strings.
+ *
+ * @returns Promise resolving to an array of PSO emails.
+ *
+ * @example
+ * ```ts
+ * const myPsos = await getMyPsos();
+ * // ["alice@example.com", "bob@example.com", …]
+ * ```
+ */
+export async function getMyPsos(): Promise<string[]> {
+  const response = await apiClient.get<{ psos: string[] }>('/api/GetPsosBySupervisor');
+  return response.data.psos;
+}
