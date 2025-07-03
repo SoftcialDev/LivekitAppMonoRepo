@@ -56,8 +56,7 @@ const Layout: React.FC<LayoutProps> = () => {
       <div className="grid grid-cols-[350px_1fr] min-h-screen">
         <Sidebar
           onlineUsers={onlineUsers}
-          offlineUsers={offlineUsers}
-        />
+          offlineUsers={offlineUsers} loading={false}        />
         <div className="flex flex-col min-h-0">
           <Header />
           <main className="flex-1 overflow-hidden bg-[var(--color-primary-dark)]">

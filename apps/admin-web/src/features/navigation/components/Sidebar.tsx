@@ -172,6 +172,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             </div>
           ) : (
             <>
+            
               <div className="text-xs font-semibold mb-2">Online</div>
               {onlineUsers.length === 0 ? (
                 <div className="text-xs font-semibold text-[var(--color-tertiary)]">

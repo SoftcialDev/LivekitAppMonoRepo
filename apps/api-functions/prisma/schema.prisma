@@ -113,17 +113,16 @@ model StreamingSessionHistory {
 }
 
 /// 5. Auditoría de cambios
-
 model AuditLog {
-  id            String    @id @default(uuid()) @db.Uuid
-  entity        String    // e.g. "User", "PendingCommand", "StreamingSession"
-  entityId      String    // UUID of the affected record
-  action        String    // "CREATE" | "UPDATE" | "DELETE" | "ROLE_CHANGE" | …
-  changedById   String    @db.Uuid
-  changedBy     User      @relation("UserAuditLogs", fields: [changedById], references: [id])
-  timestamp     DateTime  @default(now())
-  dataBefore    Json?     // snapshot JSON before change
-  dataAfter     Json?     // snapshot JSON after change
+  id           String   @id @default(uuid()) @db.Uuid
+  entity       String
+  entityId     String
+  action       String
+  changedById  String   @db.Uuid
+  changedBy    User     @relation("UserAuditLogs", fields: [changedById], references: [id], onDelete: Cascade)
+  timestamp    DateTime @default(now())
+  dataBefore   Json?
+  dataAfter    Json?
 
   @@index([entity, entityId])
   @@index([changedById])
