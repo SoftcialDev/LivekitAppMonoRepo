@@ -114,6 +114,7 @@ const getWebsocketPresenceStatuses: AzureFunction = withErrorHandler(
             email:           true,
             fullName:        true,
             azureAdObjectId: true,
+            role:            true,   
             presence: { select: { status: true, lastSeenAt: true } },
           },
           orderBy: { email: "asc" },
@@ -125,6 +126,7 @@ const getWebsocketPresenceStatuses: AzureFunction = withErrorHandler(
           fullName:        u.fullName ?? "",
           azureAdObjectId: u.azureAdObjectId,
           status:          u.presence?.status   ?? "offline",
+          role:            u.role,   
           lastSeenAt:      u.presence?.lastSeenAt?.toISOString() ?? null,
         }));
 

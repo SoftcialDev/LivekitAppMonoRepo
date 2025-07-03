@@ -2,24 +2,38 @@ import React from 'react'
 import type { UserStatus } from '../../navigation/types/types'
 import UserIndicator from '../../../components/UserIndicator'
 
+/**
+ * Props for UserItem.
+ */
 export interface UserItemProps {
   /** The user to display */
   user: UserStatus
   /** Callback when the Chat button is clicked */
   onChat: (email: string) => void
+  /**
+   * If true, disables navigation link around the user's name/avatar.
+   * Admins and Supervisors should set this to true.
+   */
+  disableLink?: boolean
 }
 
 /**
  * UserItem
  *
  * Renders a row for a user, showing:
- * - A larger online indicator via UserIndicator, or an offline SVG icon
- * - The user’s display name
- * - A Chat button with the Microsoft brand icon and tertiary color
+ * - A presence indicator via UserIndicator (optional link disabling)
+ * - An offline SVG icon if the user is offline
+ * - The user’s display name (bold white when online)
+ * - A Chat button with the Microsoft Teams icon
+ *
+ * @param props.user         The user to display.
+ * @param props.onChat       Called with the user’s email when Chat is clicked.
+ * @param props.disableLink  When true, disables navigation link around name.
  */
-export const UserItem: React.FC<UserItemProps> = ({
+const UserItem: React.FC<UserItemProps> = ({
   user,
   onChat,
+  disableLink = false,
 }) => {
   // Microsoft Teams brand chat icon
   const brandIcon = (
@@ -43,6 +57,7 @@ export const UserItem: React.FC<UserItemProps> = ({
     </svg>
   )
 
+  // Offline presence icon
   const offlineIcon = (
     <svg
       viewBox="0 0 20 20"
@@ -63,22 +78,28 @@ export const UserItem: React.FC<UserItemProps> = ({
     </svg>
   )
 
+  // Determine name styling: bold white if online, tertiary otherwise
+  const nameStyles = user.status === 'online'
+    ? 'font-light text-white truncate'
+    : 'text-[var(--color-tertiary)] truncate'
+
   return (
     <div className="flex items-center justify-between py-1">
       <div className="flex items-center space-x-2">
         {user.status === 'online' ? (
           <UserIndicator
             user={user}
+            disableLink={disableLink}
             outerClass="w-8 h-8"
             innerClass="w-4 h-4"
             bgClass="bg-[var(--color-secondary)]"
             borderClass="border-2 border-[var(--color-primary-dark)]"
-            nameClass="truncate text-[var(--color-tertiary)] hover:text-[var(--color-secondary-hover)] cursor-pointer"
+            nameClass={`${nameStyles} hover:text-[var(--color-secondary-hover)]`}
           />
         ) : (
           <>
             <span className="w-6 h-6 flex-shrink-0">{offlineIcon}</span>
-            <span className="truncate text-[var(--color-tertiary)] hover:text-[var(--color-secondary-hover)] cursor-pointer">
+            <span className={`${nameStyles} hover:text-[var(--color-secondary-hover)] cursor-pointer`}>
               {user.name}
             </span>
           </>
@@ -94,12 +115,8 @@ export const UserItem: React.FC<UserItemProps> = ({
           rounded cursor-pointer transition-colors
         "
       >
-        <span className="flex-shrink-0">
-          {brandIcon}
-        </span>
-        <span className="text-[var(--color-tertiary)]">
-          Chat
-        </span>
+        <span className="flex-shrink-0">{brandIcon}</span>
+        <span className="text-[var(--color-tertiary)]">Chat</span>
       </button>
     </div>
   )

@@ -1,0 +1,48 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AZURE_CLIENT_ID": "your-azure-client-id",
+    "AZURE_CLIENT_SECRET": "your-azure-client-secret",
+    "AZURE_TENANT_ID": "your-azure-tenant-id",
+
+    "AzureWebJobsDashboard": "DefaultEndpointsProtocol=https;AccountName=yourstorage;AccountKey=your-account-key;EndpointSuffix=core.windows.net",
+    "AzureWebJobsStorage":   "DefaultEndpointsProtocol=https;AccountName=yourstorage;AccountKey=your-account-key;EndpointSuffix=core.windows.net",
+
+    "DATABASE_URL": "postgresql://user:password@host:5432/yourdb?schema=your-schema&sslmode=disable",
+
+    "FUNCTIONS_EXTENSION_VERSION": "~4",
+    "FUNCTIONS_WORKER_RUNTIME": "node",
+
+    "LIVEKIT_API_KEY": "your-livekit-api-key",
+    "LIVEKIT_API_SECRET": "your-livekit-api-secret",
+    "LIVEKIT_API_URL": "wss://your-livekit-endpoint",
+
+    "ADMINS_GROUP_ID":       "your-admins-group-id",
+    "EMPLOYEES_GROUP_ID":    "your-employees-group-id",
+    "SUPERVISORS_GROUP_ID":  "your-supervisors-group-id",
+    "SERVICE_PRINCIPAL_OBJECT_ID": "your-service-principal-object-id",
+
+    "AZURE_AD_API_IDENTIFIER_URI": "api://your-identifier-uri/livekit-app-api",
+
+    "NODE_ENV": "Development",
+
+    "SERVICE_BUS_CONNECTION": "Endpoint=sb://your-servicebus.servicebus.windows.net/;SharedAccessKeyName=your-policy;SharedAccessKey=your-key",
+    "SERVICE_BUS_TOPIC_NAME": "your-topic",
+    "COMMANDS_SUBSCRIPTION_NAME": "your-subscription",
+    "COMMAND_EXPIRY_MINUTES": "5",
+
+    "WEBPUBSUB_ENDPOINT":   "https://your-webpubsub.webpubsub.azure.com",
+    "WEBPUBSUB_KEY":        "your-webpubsub-key",
+    "WEBPUBSUB_NAME":       "your-webpubsub-name",
+    "WEBPUBSUB_HUB":        "your-hub-name",
+    "WEBPUBSUB_CONNECTION": "Endpoint=https://your-webpubsub.webpubsub.azure.com;AccessKey=your-key;Version=1.0;",
+
+    "WEBSITE_CONTENTAZUREFILECONNECTIONSTRING": "DefaultEndpointsProtocol=https;AccountName=yourstorage;AccountKey=your-account-key;EndpointSuffix=core.windows.net",
+    "WEBSITE_CONTENTSHARE": "your-content-share",
+    "WEBSITE_RUN_FROM_PACKAGE": "1"
+  },
+  "Host": {
+    "CORS": "http://localhost:3000,http://localhost:4200,http://localhost:8080",
+    "CORS_AllowedOrigins": "http://localhost:3000,http://localhost:4200,http://localhost:8080"
+  }
+}

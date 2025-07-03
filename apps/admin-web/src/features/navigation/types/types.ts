@@ -5,4 +5,5 @@ export interface UserStatus {
   email: string
   name:  string
   lastSeenAt?: string;  
+  role?:           'Admin' | 'Supervisor' | 'Employee'; 
 }

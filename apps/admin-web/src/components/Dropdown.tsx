@@ -83,7 +83,9 @@ export const Dropdown: React.FC<DropdownProps> = ({
     bg-[var(--color-tertiary)]
     text-[var(--color-white)]
     rounded-lg
-    focus:outline-none focus:ring-2 focus:ring-[var(--color-secondary)]
+    focus:outline-none focus:ring-2 focus:ring-[var(--color-secondary)]  
+    focus:ring-0
+    focus:border-transparent
   `,
   menuClassName = `
     absolute left-0 mt-1 w-48
@@ -113,15 +115,15 @@ export const Dropdown: React.FC<DropdownProps> = ({
       <button
         type="button"
         className={`
-          text-[var(--color-primary-dark)] hover:bg--[var(--color-dark)] focus:ring-4 focus:outline-none
+          text-[var(--color-primary-dark)] hover:bg--[var(--color-dark)] focus:ring-0 focus:outline-none
           font-medium rounded-full text-l px-5 py-2.5 text-center inline-flex items-center
-          ${buttonClassName} w-11/12 w-58 bg-[var(--color-tertiary)]
+          ${buttonClassName} w-11/12 w-58 bg-[var(--color-tertiary)]   focus:border-transparent
         `}
         onClick={() => setIsOpen(prev => !prev)}
       >
         {selected}
         <svg
-          className="w-2.5 h-2.5 ms-3 ml-10"
+          className="w-2.5 h-2.5 ms-3 ml-auto"
           aria-hidden="true"
           xmlns="http://www.w3.org/2000/svg"
           fill="none"

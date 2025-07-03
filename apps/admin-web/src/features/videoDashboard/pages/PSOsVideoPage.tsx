@@ -134,7 +134,7 @@ const PSOsPage: React.FC = () => {
           
         />
         <Dropdown
-          options={LAYOUT_OPTIONS.map(n => ({ label: `${n} cams`, value: n }))}
+          options={LAYOUT_OPTIONS.map(n => ({ label: `Layout ${n} - cams`, value: n }))}
           value={layout}
           onSelect={v => setLayout(Number(v) as typeof LAYOUT_OPTIONS[number])}
           className=""

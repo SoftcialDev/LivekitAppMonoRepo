@@ -1,39 +1,41 @@
-/**
- * Sidebar.tsx
- *
- * The application sidebar for In Contact. Displays navigation links for
- * Admins, Supervisors, PSOs, and PSOs Streaming pages, and shows real-time
- * presence lists of online and offline users with the ability to start a chat.
- */
-
-import React from "react";
+import React, { useState, useMemo } from "react";
 import { NavLink } from "react-router-dom";
 import IconWithLabel from "../../../components/IconWithLabel";
 import camaraLogo from "@assets/InContact_logo.png";
 import monitorIcon from "@assets/icon-monitor.png";
-import managementIcon from '@assets/manage_icon_sidebar.png';
+import managementIcon from "@assets/manage_icon_sidebar.png";
 import UserItem from "../../auth/components/UserItem";
 import Loading from "@/components/Loading";
 import { useAuth } from "../../auth/hooks/useAuth";
 import type { UserStatus } from "../types/types";
 import { useVideoActions } from "@/features/videoDashboard/hooks/UseVideoAction";
+import { Dropdown } from "@/components/Dropdown";
 
 ////////////////////////////////////////////////////////////////////////////////
 // Types
 ////////////////////////////////////////////////////////////////////////////////
 
 /**
- * Properties for the Sidebar component.
- *
- * @property onlineUsers  - Array of users currently online.
- * @property offlineUsers - Array of users currently offline.
- * @property loading      - Whether the presence data is still loading.
+ * Props for the Sidebar component.
  */
 export interface SidebarProps {
-  onlineUsers:  UserStatus[];
+  /** List of currently online users. */
+  onlineUsers: UserStatus[];
+  /** List of currently offline users. */
   offlineUsers: UserStatus[];
-  loading:      boolean;
+  /** Whether the presence data is still loading. */
+  loading: boolean;
 }
+
+/**
+ * Role‐filter dropdown options.
+ */
+const ROLE_OPTIONS = [
+  { label: "All users",   value: "" },
+  { label: "Admins",      value: "Admin" },
+  { label: "Supervisors", value: "Supervisor" },
+  { label: "PSOs",        value: "Employee" },
+] as const;
 
 ////////////////////////////////////////////////////////////////////////////////
 // Component
@@ -42,53 +44,87 @@ export interface SidebarProps {
 /**
  * Sidebar
  *
- * Renders the main application sidebar with branding, navigation links,
- * and real-time presence lists. Shows:
- *   - In Contact logo
- *   - Links to Admins, Supervisors, PSOs, and PSOs Streaming (conditional)
- *   - A loading spinner while presence data is loading
- *   - Lists of online and offline users, each with a chat icon
+ * Displays:
+ * - Branding/logo
+ * - Navigation links (Admins, Supervisors, PSOs, Dashboard)
+ * - Presence filters (search + role dropdown)
+ * - Lists of online and offline users
  *
- * @param props - SidebarProps
- * @returns JSX.Element
+ * @param props.onlineUsers   Array of online UserStatus objects.
+ * @param props.offlineUsers  Array of offline UserStatus objects.
+ * @param props.loading       Boolean flag: presence data loading.
  */
 const Sidebar: React.FC<SidebarProps> = ({
   onlineUsers,
   offlineUsers,
   loading,
 }) => {
-  const { account }    = useAuth();
+  // ─── Auth & Roles ──────────────────────────────────────────────────────────
+
+  const { account } = useAuth();
   const { handleChat } = useVideoActions();
 
-  // Extract roles from MSAL idTokenClaims
-  const claims     = (account?.idTokenClaims ?? {}) as Record<string, any>;
-  const rolesClaim = claims.roles ?? claims.role;
-  const roles: string[] = Array.isArray(rolesClaim)
-    ? rolesClaim
-    : typeof rolesClaim === "string"
-    ? [rolesClaim]
-    : [];
+  // Extract roles from MSAL token claims
+  const claims = (account?.idTokenClaims ?? {}) as Record<string, any>;
+  const rawRoles = claims.roles ?? claims.role;
+  const roles: string[] = Array.isArray(rawRoles)
+    ? rawRoles
+    : typeof rawRoles === "string"
+      ? [rawRoles]
+      : [];
 
   const isAdmin      = roles.includes("Admin");
   const isSupervisor = roles.includes("Supervisor");
 
-  const linkBase   = "block py-2 pl-14 pr-3 rounded-md text-gray-300 hover:text-white";
-  const activeLink = "text-white font-semibold";
+  // ─── Search & Filter State ────────────────────────────────────────────────
+
+  const [searchTerm, setSearchTerm] = useState("");
+  const [roleFilter, setRoleFilter] = useState<string>("");
+
+  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(e.target.value);
+  };
+
+  // ─── Filtered Lists ───────────────────────────────────────────────────────
+
+  /**
+   * Filters a list of users by search term and role.
+   *
+   * @param list - Array of UserStatus to filter.
+   */
+  const filterUsers = (
+    list: UserStatus[]
+  ): UserStatus[] =>
+    list.filter(u => {
+      if (roleFilter && u.role !== roleFilter) return false;
+      const text = (u.fullName ?? u.name ?? u.email).toLowerCase();
+      return text.includes(searchTerm.toLowerCase());
+    });
+
+  const filteredOnline  = useMemo(() => filterUsers(onlineUsers), [onlineUsers, searchTerm, roleFilter]);
+  const filteredOffline = useMemo(() => filterUsers(offlineUsers), [offlineUsers, searchTerm, roleFilter]);
+
+  // ─── Utility: Shorten Name ────────────────────────────────────────────────
 
   /**
    * Returns the first two words of the user's full name,
-   * or falls back to the email if no name is set.
-   *
-   * @param u - The user status object.
-   * @returns The shortened display name.
+   * falling back to email if none.
    */
   const shortName = (u: UserStatus): string => {
     const parts = (u.fullName ?? u.name ?? "").trim().split(/\s+/);
     return parts.slice(0, 2).join(" ");
   };
 
+  // ─── CSS Helpers ─────────────────────────────────────────────────────────
+
+  const linkBase   = "block py-2 pl-14 pr-3 rounded-md text-gray-300 hover:text-white";
+  const activeLink = "text-white font-semibold";
+
+  // ─── Render ───────────────────────────────────────────────────────────────
+
   return (
     <aside className="flex flex-col bg-[var(--color-primary)] text-white border-r border-black">
+      {/* Logo */}
       <div className="border-b border-black">
         <IconWithLabel
           src={camaraLogo}
@@ -101,7 +137,9 @@ const Sidebar: React.FC<SidebarProps> = ({
         </IconWithLabel>
       </div>
 
+      {/* Navigation */}
       <nav className="flex-1 overflow-y-auto">
+        {/* Manage */}
         <div className="border-b border-black">
           <IconWithLabel
             src={managementIcon}
@@ -114,37 +152,29 @@ const Sidebar: React.FC<SidebarProps> = ({
           </IconWithLabel>
 
           {isAdmin && (
-            <NavLink
-              to="/admins"
-              className={({ isActive }) =>
-                `${linkBase} ${isActive ? activeLink : ""}`
-              }
-            >
+            <NavLink to="/admins" className={({ isActive }) =>
+              `${linkBase} ${isActive ? activeLink : ""}`
+            }>
               Admins
             </NavLink>
           )}
 
           {(isAdmin || isSupervisor) && (
-            <NavLink
-              to="/supervisors"
-              className={({ isActive }) =>
-                `${linkBase} ${isActive ? activeLink : ""}`
-              }
-            >
+            <NavLink to="/supervisors" className={({ isActive }) =>
+              `${linkBase} ${isActive ? activeLink : ""}`
+            }>
               Supervisors
             </NavLink>
           )}
 
-          <NavLink
-            to="/psos"
-            className={({ isActive }) =>
-              `${linkBase} ${isActive ? activeLink : ""}`
-            }
-          >
+          <NavLink to="/psos" className={({ isActive }) =>
+            `${linkBase} ${isActive ? activeLink : ""}`
+          }>
             PSOs
           </NavLink>
         </div>
 
+        {/* Dashboard */}
         <div className="border-b border-black">
           <IconWithLabel
             src={monitorIcon}
@@ -155,16 +185,15 @@ const Sidebar: React.FC<SidebarProps> = ({
           >
             PSOs Streaming
           </IconWithLabel>
-          <NavLink
-            to="/dashboard"
-            className={({ isActive }) =>
-              `${linkBase} ${isActive ? activeLink : ""}`
-            }
-          >
+
+          <NavLink to="/dashboard" className={({ isActive }) =>
+            `${linkBase} ${isActive ? activeLink : ""}`
+          }>
             PSOs streaming
           </NavLink>
         </div>
 
+        {/* Presence Filters & Lists */}
         <div className="px-6 py-4">
           {loading ? (
             <div className="flex justify-center py-4">
@@ -172,41 +201,77 @@ const Sidebar: React.FC<SidebarProps> = ({
             </div>
           ) : (
             <>
-            
+              {/* Filters */}
+              <IconWithLabel
+                src={monitorIcon}
+                alt="Users"
+                imgSize="h-4 w-4"
+                textSize="text-xs font-semibold"
+                className="flex items-center mb-2"
+              >
+                Users
+              </IconWithLabel>
+
+              {/* Search box */}
+              <div className="mb-4">
+                <input
+                  type="text"
+                  placeholder="Search..."
+                  value={searchTerm}
+                  onChange={handleSearch}
+                  className="
+                    w-full px-4 py-2
+                    bg-[var(--color-primary)]
+                    text-white border border-white rounded-full
+                    focus:outline-none focus:ring-0
+                  "
+                />
+              </div>
+
+              {/* Role dropdown */}
+              <div className="mb-2">
+                <Dropdown
+                  options={ROLE_OPTIONS.map(r => ({ label: r.label, value: r.value }))}
+                  value={roleFilter}
+                  onSelect={v => setRoleFilter(String(v))}
+                  className="w-full"
+                  buttonClassName="w-full text-left text-sm bg-[var(--color-secondary)]"
+                  menuClassName="bg-[var(--color-tertiary)] text-sm"
+                />
+              </div>
+
+              {/* Online users */}
               <div className="text-xs font-semibold mb-2">Online</div>
-              {onlineUsers.length === 0 ? (
+              {filteredOnline.length === 0 ? (
                 <div className="text-xs font-semibold text-[var(--color-tertiary)]">
                   No users online
                 </div>
               ) : (
-                onlineUsers.map(orig => {
-                  const name = shortName(orig);
-                  return (
-                    <UserItem
-                      key={orig.email}
-                      user={{ ...orig, name, fullName: name }}
-                      onChat={handleChat}
-                    />
-                  );
-                })
+                filteredOnline.map(u => (
+                  <UserItem
+                    key={u.email}
+                    user={{ ...u, fullName: shortName(u), name: shortName(u) }}
+                    onChat={handleChat}
+                    disableLink={u.role === "Admin" || u.role === "Supervisor"}
+                  />
+                ))
               )}
 
+              {/* Offline users */}
               <div className="text-xs font-semibold mt-4 mb-2">Offline</div>
-              {offlineUsers.length === 0 ? (
-                <div className="text-xs text-[var(--color-tertiary)]">
+              {filteredOffline.length === 0 ? (
+                <div className="text-xs font-semibold text-[var(--color-tertiary)]">
                   No users offline
                 </div>
               ) : (
-                offlineUsers.map(orig => {
-                  const name = shortName(orig);
-                  return (
-                    <UserItem
-                      key={orig.email}
-                      user={{ ...orig, name, fullName: name }}
-                      onChat={handleChat}
-                    />
-                  );
-                })
+                filteredOffline.map(u => (
+                  <UserItem
+                    key={u.email}
+                    user={{ ...u, fullName: shortName(u), name: shortName(u) }}
+                    onChat={handleChat}
+                    disableLink={u.role === "Admin" || u.role === "Supervisor"}
+                  />
+                ))
               )}
             </>
           )}

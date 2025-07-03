@@ -3,7 +3,7 @@
 /* 2. Luego importa Tailwind */
 @import "tailwindcss";
 
-/* 3. Tus variables CSS */
+
 :root {
   --color-primary:        #764E9F;
   --color-primary-dark:   #542187;

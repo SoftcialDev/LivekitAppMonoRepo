@@ -1,4 +1,3 @@
-// src/features/presence/services/presenceApi.ts
 import apiClient from '../../../services/apiClient'
 import type { UserStatus } from '../types/types'
 
@@ -8,6 +7,7 @@ interface PresenceItem {
   fullName:   string
   status:     'online' | 'offline'
   lastSeenAt: string
+  role?:         'Admin' | 'Supervisor' | 'Employee';
 }
 
 /** Shape of the paged presence response */
@@ -60,6 +60,7 @@ export async function fetchPresence(): Promise<{
       status:     u.status,
       lastSeenAt: u.lastSeenAt,
       name:       u.fullName, 
+      role:            u.role,  
       azureAdObjectId: (u as any).azureAdObjectId ?? null,
     }))
 
@@ -71,6 +72,7 @@ export async function fetchPresence(): Promise<{
       status:     u.status,
       lastSeenAt: u.lastSeenAt,
       name:       u.fullName, 
+      role:            u.role,  
       azureAdObjectId: (u as any).azureAdObjectId ?? null,
     }))
 
