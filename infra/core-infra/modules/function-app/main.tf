@@ -73,9 +73,11 @@ resource "azurerm_function_app" "function_app" {
     SERVICE_BUS_CONNECTION = "@Microsoft.KeyVault(SecretUri=${var.secret_uris["service_bus_connection"]})"
     WEBPUBSUB_KEY          = "@Microsoft.KeyVault(SecretUri=${var.secret_uris["webpubsub_key"]})"
     DATABASE_URL           = "@Microsoft.KeyVault(SecretUri=${var.secret_uris["postgres_connection"]})"
+    WEBPUBSUB_CONNECTION = "@Microsoft.KeyVault(SecretUri=${var.secret_uris["webpubsub_connection_string"]})"
     AZURE_AD_API_IDENTIFIER_URI = var.AZURE_AD_API_IDENTIFIER_URI
     SERVICE_PRINCIPAL_OBJECT_ID = data.azuread_service_principal.api_sp.object_id
     COMMANDS_SUBSCRIPTION_NAME  = var.commands_subscription_name
+    WEBPUBSUB_HUB = var.webpubsub_hub
   }
 }
 

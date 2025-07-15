@@ -1,7 +1,7 @@
 variable "bootstrap_rg_name" {
   description = "Name of the resource group for storing Terraform state"
   type        = string
-  default     = "tfstate-rg-livekit"
+  default     = "tfstate-rg-in-contact-app"
 }
 
 variable "bootstrap_rg_location" {
@@ -13,7 +13,7 @@ variable "bootstrap_rg_location" {
 variable "storage_account_base_name" {
   description = "Base name of the storage account (must be 3–11 lowercase alphanumeric)"
   type        = string
-  default     = "tfstateacctprod"
+  default     = "tfstateaccount"
 }
 
 variable "storage_account_tier" {

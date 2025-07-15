@@ -21,3 +21,13 @@ output "function_app_url" {
   value       = "https://${azurerm_function_app.function_app.default_hostname}/api"
 }
 
+
+output "function_app_name" {
+  description = "The name of the Function App"
+  value       = azurerm_function_app.function_app.name
+}
+
+output "function_app_resource_group_name" {
+  description = "The resource group where the Function App lives"
+  value       = azurerm_function_app.function_app.resource_group_name
+}

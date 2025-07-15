@@ -14,6 +14,22 @@ variable "region" {
   default     = "eastus"
 }
 
+variable "github_repo" {
+  description = "GitHub repo for OIDC: format ORG/REPO"
+  type        = string
+}
+
+variable "github_branch" {
+  description = "Branch name to trust for OIDC"
+  type        = string
+  default     = "main"
+}
+
+variable "aad_desktop_redirect_uris" {
+  description = "List of redirect URIs for the SPA (e.g., http://localhost:5173, https://prod-domain/.../auth)"
+  type        = list(string)
+}
+
 variable "tags" {
   description = "Map of tags to apply to all Azure resources."
   type        = map(string)
@@ -48,11 +64,6 @@ variable "node_env" {
 # AKS (Azure Kubernetes Service) Module
 ########################################
 
-variable "aks_node_count" {
-  description = "Number of nodes to provision in the AKS cluster."
-  type        = number
-  default     = 2
-}
 
 variable "aks_price_tier" {
   description = "Pricing tier for the AKS cluster nodes, e.g., 'Standard'."
@@ -134,16 +145,6 @@ variable "aad_admins_group_members" {
   type        = list(string)
 }
 
-variable "aad_employees_group_members" {
-  description = "List of user principal names (UPNs) to add to the Employees group."
-  type        = list(string)
-}
-
-variable "aad_supervisors_group_members" {
-  description = "List of user principal names (UPNs) to add to the Supervisors group."
-  type        = list(string)
-}
-
 
 variable "aad_enable_directory_role_assignment" {
   description = "Whether to assign directory roles (e.g., 'User Administrator') to the Admins group."
@@ -151,32 +152,10 @@ variable "aad_enable_directory_role_assignment" {
   default     = false
 }
 
-variable "redirect_url_for_invited_users" {
-  description = "Redirect URL used for invited users after sign-in."
-  type        = string
-}
-
-
 ########################################
 # Static Web App (SWA) Module
 ########################################
 
-variable "swa_repository_url" {
-  description = "GitHub repository URL used to deploy the Azure Static Web App."
-  type        = string
-}
-
-variable "swa_repository_branch" {
-  description = "Git branch to deploy for the Static Web App."
-  type        = string
-  default     = "main"
-}
-
-variable "swa_repository_token" {
-  description = "GitHub Personal Access Token for Static Web App deployment authentication."
-  type        = string
-  sensitive   = true
-}
 
 variable "swa_sku_tier" {
   description = "SKU tier for the Static Web App, e.g., 'Free' or 'Standard'."

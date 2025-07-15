@@ -1,5 +1,5 @@
 resource "azurerm_storage_account" "storage_account" {
-  name                     = "livekitstorage"
+  name                     = "incontactstorage3425"
   resource_group_name      = var.resource_group_name
   location                 = var.location
   account_tier             = var.account_tier
@@ -13,5 +13,3 @@ resource "azurerm_storage_account" "storage_account" {
     CreatedBy = "terraform-simple-storage"
   }
 }
-
-

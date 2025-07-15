@@ -1,6 +1,6 @@
 ﻿import React, { useEffect } from 'react';
 import {
-  BrowserRouter,
+  HashRouter as Router,
   Routes,
   Route,
   Navigate,
@@ -16,9 +16,12 @@ import { setTokenGetter } from './services/apiClient';
 import { useAuth }        from './hooks/useAuth';
 
 /**
- * Inyecta el token Bearer en cada petición axios
+ * Injects the Bearer token into every Axios request.
+ *
+ * @remarks
+ * Uses the `getApiToken` from AuthContext once initialization is complete.
  */
-function TokenInjector() {
+function TokenInjector(): null {
   const { getApiToken, account, initialized } = useAuth();
 
   useEffect(() => {
@@ -31,20 +34,22 @@ function TokenInjector() {
 }
 
 /**
- * Espera a que MSAL haya procesado cualquier hash #code=…
- * antes de renderizar las rutas, evitando el hash_empty_error.
+ * Waits for MSAL to process any redirect hash (#code=…) before rendering routes.
+ *
+ * @remarks
+ * Prevents the `hash_empty_error` by holding off on route rendering until AuthContext is ready.
  */
-function Gate() {
+function Gate(): JSX.Element {
   const { initialized } = useAuth();
   if (!initialized) {
-    return <div />;  // aquí podrías mostrar un loader si quieres
+    return <div />;  // You can replace this with a spinner or splash screen if desired
   }
   return (
     <Routes>
-      {/* rutas públicas */}
-      <Route path="/login"     element={<LoginPage />} />
+      {/* Public routes */}
+      <Route path="/login" element={<LoginPage />} />
 
-      {/* rutas protegidas */}
+      {/* Protected routes */}
       <Route
         path="/dashboard"
         element={
@@ -54,23 +59,27 @@ function Gate() {
         }
       />
 
-      {/* catch-all */}
-      <Route path="/"    element={<Navigate to="/dashboard" replace />} />
-      <Route path="*"    element={<Navigate to="/dashboard" replace />} />
+      {/* Redirect all other paths to dashboard */}
+      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+      <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );
 }
 
 /**
- * Punto de entrada de la app.
+ * Application entry point.
+ *
+ * @remarks
+ * Wraps the entire app in authentication context and uses HashRouter
+ * to ensure client-side routing works under file:// protocol.
  */
-export default function App() {
+export default function App(): JSX.Element {
   return (
     <AuthProvider>
-      <BrowserRouter>
+      <Router>
         <TokenInjector />
         <Gate />
-      </BrowserRouter>
+      </Router>
     </AuthProvider>
   );
 }

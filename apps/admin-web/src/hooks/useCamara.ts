@@ -113,6 +113,12 @@ export function useStreamingDashboard() {
   const startStream = useCallback(async () => {
     if (streamingRef.current) return;
 
+    if (!pubSubService.isConnected()) {
+    await pubSubService.connect(userEmail);
+    await presenceClient.setOnline();
+    await pubSubService.joinGroup('presence');
+  }
+
     try {
       await ensureCameraPermission();
     } catch {

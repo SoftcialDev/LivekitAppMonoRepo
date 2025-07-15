@@ -74,6 +74,10 @@ variable "secret_uris" {
   type        = map(string)
 }
 
+variable "webpubsub_hub" {
+  description = "webpusub hub name"
+  type = string
+}
 # Non-sensitive settings
 variable "azure_tenant_id" {
   description = "Azure AD Tenant ID"

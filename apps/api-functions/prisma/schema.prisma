@@ -1,4 +1,4 @@
-// 1. Datasource & Generator
+/// 1. Datasource & Generator
 
 datasource db {
   provider = "postgresql"
@@ -50,6 +50,9 @@ model User {
 
   streamingSessions StreamingSessionHistory[]
   auditLogs         AuditLog[]       @relation("UserAuditLogs")
+
+  // Relation to ChatParticipant for Teams/Graph chats
+  chatParticipants  ChatParticipant[]
 
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
@@ -127,4 +130,39 @@ model AuditLog {
   @@index([entity, entityId])
   @@index([changedById])
   @@index([timestamp])
+}
+
+/**
+ * Represents a Teams/Graph chat conversation.
+ */
+model Chat {
+  /// The Teams/Graph chat identifier (e.g., "19:abcd1234...@thread.v2").
+  id          String         @id @db.VarChar(100)
+  /// A human-readable topic, e.g., "InContactApp".
+  topic       String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  /// Participants in this chat.
+  members     ChatParticipant[]
+
+  @@map("chats")
+}
+
+/**
+ * Links a Chat with a User as a participant.
+ */
+model ChatParticipant {
+  /// The chat identifier.
+  chatId      String   @db.VarChar(100)
+  /// The user identifier.
+  userId      String   @db.Uuid
+  joinedAt    DateTime @default(now())
+
+  /// Relation to the Chat.
+  chat        Chat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  /// Relation to the User.
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([chatId, userId])
+  @@map("chat_participants")
 }

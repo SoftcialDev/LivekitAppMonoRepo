@@ -18,12 +18,14 @@ contextBridge.exposeInMainWorld('persistedStorage', {
       });
     }
   },
+  clear: () => {
+    // Limpia localStorage
+    localStorage.clear();
+    // Pide al main process que borre el store de electron-store
+    ipcRenderer.send('storage-clear');
+  },
 });
 
-// restore storage before React/MSAL boots, and save on exit
-window.addEventListener('DOMContentLoaded', () => {
-  window.persistedStorage.load();
-});
-window.addEventListener('beforeunload', () => {
-  window.persistedStorage.save();
-});
+// restore on load, save on exit
+window.addEventListener('DOMContentLoaded', () => window.persistedStorage.load());
+window.addEventListener('beforeunload', () => window.persistedStorage.save());

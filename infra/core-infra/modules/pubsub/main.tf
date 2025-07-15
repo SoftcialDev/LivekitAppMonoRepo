@@ -7,6 +7,10 @@ resource "azurerm_web_pubsub" "web_pubsub" {
   resource_group_name = var.resource_group_name
   sku                 = var.sku
   capacity            = var.unit_count
+
+    identity {
+    type = "SystemAssigned"
+  }
 }
 
 # Defines a default hub under the Web PubSub service

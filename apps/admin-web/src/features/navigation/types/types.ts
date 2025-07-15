@@ -6,4 +6,5 @@ export interface UserStatus {
   name:  string
   lastSeenAt?: string;  
   role?:           'Admin' | 'Supervisor' | 'Employee'; 
+  
 }

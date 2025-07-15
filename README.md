@@ -41,7 +41,7 @@ Each subfolder contains its own detailed `README.md`—see below for links.
 ### 1. Clone the Repository
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/SoftcialDev/InContactApplication.git
 cd LiveKitAppMonoRepo
 ```
 
@@ -57,7 +57,7 @@ cd LiveKitAppMonoRepo
    terraform apply
    ```
 2. **Configure core-infra backend**
-   Create `infra/core-infra/backend.tf` pointing at the storage account/container you just created.
+   Go to `infra/core-infra/backend.tf`  and point at the storage account/container you just created.
 3. **Populate `*.tfvars`**
    Copy and edit `infra/core-infra/variables.tf` into `infra/environment/{dev,prod}/terraform.tfvars`.
 4. **Apply core infrastructure**

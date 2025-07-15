@@ -154,3 +154,105 @@ export async function upsertUserRole(
     select: { id: true },
   });
 }
+
+
+/**
+ * Finds the supervisor for a given PSO identified by email, id, or Azure AD OID.
+ *
+ * @param identifier
+ *   - a User.id (UUID)  
+ *   - or a User.azureAdObjectId (UUID)  
+ *   - or an email address (UPN)
+ * @returns
+ *   - the `User` record of the supervisor if one is assigned  
+ *   - the string `"No supervisor assigned"` if the PSO exists but has no supervisor  
+ *   - the string `"PSO not found"` if no matching Employee is found  
+ *   - the string `"User is not an Employee"` if the found user is not role=Employee
+ */
+export async function findSupervisorByIdentifier(
+  identifier: string
+): Promise<User | "No supervisor assigned" | "PSO not found" | "User is not an Employee"> {
+  let pso = null;
+
+  if (isUuid(identifier)) {
+    pso = await prisma.user.findUnique({ where: { id: identifier } })
+        ?? await prisma.user.findUnique({ where: { azureAdObjectId: identifier } });
+  } else if (identifier.includes("@")) {
+    pso = await prisma.user.findUnique({
+      where: { email: identifier.toLowerCase() },
+    });
+  } else {
+    return "PSO not found";
+  }
+
+  if (!pso) {
+    return "PSO not found";
+  }
+  if (pso.role !== "Employee") {
+    return "User is not an Employee";
+  }
+  if (!pso.supervisorId) {
+    return "No supervisor assigned";
+  }
+
+  const sup = await prisma.user.findUnique({ where: { id: pso.supervisorId } });
+  return sup ?? "No supervisor assigned";
+}
+
+/**
+ * Looks up the supervisor of a given PSO (Employee).
+ *
+ * Accepts any of:
+ *  - a Prisma `User.id` (UUID)
+ *  - a `User.azureAdObjectId` (UUID)
+ *  - an email address (string)
+ *
+ * @param identifier
+ *   The PSO’s identifier:  
+ *   • `id` (UUID)  
+ *   • `azureAdObjectId` (UUID)  
+ *   • or email address (case‐insensitive)
+ *
+ * @returns
+ *   - a `User` record for the supervisor, if one exists  
+ *   - the string `"No supervisor assigned"` if the PSO exists but has no supervisor  
+ *   - the string `"PSO not found"` if no matching Employee is found  
+ *   - the string `"User is not an Employee"` if the matched user isn’t role=`Employee`
+ *
+ * @throws Error if any passed UUID is invalid
+ */
+export async function getSupervisorForPso(
+  identifier: string
+): Promise<User | "No supervisor assigned" | "PSO not found" | "User is not an Employee"> {
+  // 1) Resolve PSO by id/oid or email
+  let pso = null;
+  if (isUuid(identifier)) {
+    pso =
+      (await prisma.user.findUnique({ where: { id: identifier } })) ??
+      (await prisma.user.findUnique({ where: { azureAdObjectId: identifier } }));
+  } else if (identifier.includes("@")) {
+    pso = await prisma.user.findUnique({
+      where: { email: identifier.toLowerCase() },
+    });
+  } else {
+    return "PSO not found";
+  }
+
+  if (!pso) {
+    return "PSO not found";
+  }
+  if (pso.role !== "Employee") {
+    return "User is not an Employee";
+  }
+
+  // 2) Check supervisorId
+  if (!pso.supervisorId) {
+    return "No supervisor assigned";
+  }
+
+  // 3) Load and return supervisor
+  const sup = await prisma.user.findUnique({
+    where: { id: pso.supervisorId },
+  });
+  return sup ?? "No supervisor assigned";
+}

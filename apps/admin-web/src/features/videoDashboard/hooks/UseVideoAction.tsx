@@ -2,6 +2,7 @@ import { useCallback, useMemo } from 'react';
 import { useAuth } from '../../auth/hooks/useAuth';
 import { CameraCommandClient } from '../../../services/camaraCommandClient';
 import { useToast } from '../../../components/ToastContext';
+import { getOrCreateChat, openChatWindow } from '@/services/chatClient';
 
 /**
  * useVideoActions hook
@@ -60,18 +61,33 @@ export function useVideoActions() {
   );
 
   /**
-   * Open a brand-new, blank Microsoft Teams chat
-   * between the session user and the PSO’s email.
-   * @param email The PSO’s email address.
+   * Opens (or reuses) the InContact Teams chat window for a PSO.
+   *
+   * @param email
+   *   The PSO’s email address.
+   *
+   * @example
+   * ```ts
+   * await handleChat("pso@example.com");
+   * // → backend returns chatId, then opens/focuses the same Teams window
+   * ```
    */
   const handleChat = useCallback(
-    (email: string) => {
-      const participants = encodeURIComponent(`${currentUser},${email}`);
-      const topicName = encodeURIComponent(`New chat ${Date.now()}`);
-      const url = `https://teams.microsoft.com/l/chat/0/0?users=${participants}&topicName=${topicName}`;
-      window.open(url, '_blank');
+    async (email: string) => {
+      try {
+        // 1) Call your API to find or create the chat and get back its chatId
+        const chatId = await getOrCreateChat({ psoEmail: email });
+
+        // 2) Open (or focus) the named Teams window
+        openChatWindow(chatId);
+
+        showToast(`Opened InContact chat with ${email}`, "success");
+      } catch (err: any) {
+        console.error("Failed to open chat for", email, err);
+        showToast(`Failed to open InContact chat for ${email}`, "error");
+      }
     },
-    [currentUser]
+    [showToast]
   );
 
   return { handlePlay, handleStop, handleChat };

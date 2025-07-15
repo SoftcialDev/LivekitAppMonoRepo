@@ -4,7 +4,7 @@ import axios, { AxiosInstance } from 'axios'
  * Axios instance pre-configured to interact with the backend API.
  * 
  * The Authorization token is dynamically injected by a request interceptor,
- * using a callback setter provided externally from auth context).
+ * using a callback setter provided externally (from your auth context).
  */
 const apiClient: AxiosInstance = axios.create({
   baseURL: import.meta.env.VITE_API_URL,

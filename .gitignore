@@ -1,7 +1,7 @@
 # Terraform files
 *.tfstate
 *.tfstate.*
-*.tfvars
+terraform.tfvars
 *.tfvars.json
 .terraform/
 .terraform.lock.hcl
@@ -28,7 +28,7 @@ local.settings.json
 *.swp
 *.swo
 *~
-
+tf-outputs.json
 # OS generated files
 .DS_Store
 .DS_Store?
@@ -45,3 +45,9 @@ kubeconfig.yaml
 dist/
 node_modules/
 apps/api-functions/local.settings.json
+apps/electron/daemon/incontactservice.xml
+apps/electron/daemon/incontactservice.out.log
+apps/electron/daemon/incontactservice.exe.config
+apps/electron/daemon/incontactservice.err.log
+apps/electron/daemon/incontactservice.wrapper.log
+apps/electron/daemon/incontactservice.exe

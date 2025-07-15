@@ -22,8 +22,14 @@ output "webpubsub_hub_name" {
   value       = azurerm_web_pubsub_hub.default_hub.name
 }
 
+
 # The resource ID of the Web PubSub hub (useful for RBAC or other references)
 output "webpubsub_hub_id" {
   description = "Resource ID of the Web PubSub hub"
-  value       = azurerm_web_pubsub_hub.default_hub.id
+  value       = azurerm_web_pubsub_hub.default_hub.web_pubsub_id
+}
+
+output "system_identity_principal_id" {
+  description = "System identity principal id assigned to this resource"
+  value = azurerm_web_pubsub.web_pubsub.identity[0].principal_id
 }

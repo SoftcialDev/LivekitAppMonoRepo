@@ -30,5 +30,3 @@ variable "access_tier" {
   type        = string
   default     = "Hot"
 }
-
-

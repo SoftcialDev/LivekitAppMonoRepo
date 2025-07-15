@@ -18,6 +18,11 @@ variable "key_vault_sku_name" {
   description = "Key vault sku name"
 }
 
+variable "webpubsub_connection_string" {
+  type = string
+  description = "webpubsub connection string"
+}
+
 
 variable "livekit_api_key" {
   description = "LiveKit API key"

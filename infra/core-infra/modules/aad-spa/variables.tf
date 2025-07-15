@@ -10,6 +10,11 @@ variable "aad_redirect_uris" {
   type        = list(string)
 }
 
+variable "aad_desktop_redirect_uris" {
+  description = "List of redirect URIs for the SPA (e.g., http://localhost:5173, https://prod-domain/.../auth)"
+  type        = list(string)
+}
+
 # URIs to which Azure AD will redirect users after they sign out of the SPA.
 variable "aad_logout_uris" {
   description = "List of post-logout redirect URIs for the SPA"
@@ -35,4 +40,16 @@ variable "aad_supervisors_group_members" {
   description = "List of user object IDs (GUIDs) for initial SuperAdmins"
   type        = list(string)
   default     = []
+}
+
+
+variable "github_repo" {
+  description = "GitHub repo for OIDC: format ORG/REPO"
+  type        = string
+}
+
+variable "github_branch" {
+  description = "Branch name to trust for OIDC"
+  type        = string
+  default     = "main"
 }

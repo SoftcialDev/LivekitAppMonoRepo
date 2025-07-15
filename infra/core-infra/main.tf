@@ -66,8 +66,8 @@ module "pip_egress" {
   region              = var.region
 }
 
-# 5. Redis module
-module "redis" {
+# 5. Redis module, currently is not necessary
+/*module "redis" {
   source         = "./modules/redis"
   # Naming prefix for the Redis instance
   name_prefix    = var.name_prefix
@@ -81,7 +81,7 @@ module "redis" {
   capacity       = var.redis_capacity
   # Use the egress public IP if Redis requires outbound connectivity
   egress_public_ip = module.pip_egress.public_ip_address
-}
+}*/
 
 # 6. AAD SPA (Single Page App) registration module
 module "aad_spa" {
@@ -89,13 +89,17 @@ module "aad_spa" {
   # Name for the Azure AD application
   aad_app_name                  = var.aad_app_name
   # Redirect URIs for authentication flows
-  aad_redirect_uris             = var.aad_redirect_uris
+  aad_redirect_uris = concat(
+    var.aad_redirect_uris
+  )
   aad_logout_uris               = var.aad_logout_uris
   # Reuse the same URIs for the API application
   aad_api_redirect_uris         = var.aad_redirect_uris
   # Group object IDs granted admin rights to manage the app
   aad_admins_group_members      = var.aad_admins_group_members
   aad_supervisors_group_members = var.aad_admins_group_members
+  aad_desktop_redirect_uris = var.aad_desktop_redirect_uris
+ github_repo                 =               var.github_repo
 }
 
 # 7. AKS cluster module
@@ -110,7 +114,6 @@ module "aks" {
   # Subnet ID provided by the network module for VNet integration
   vnet_subnet_id      = module.network.subnet_id
   # Node pool size and VM SKU for cluster nodes
-  aks_node_count      = var.aks_node_count
   vm_sku              = var.vm_sku
   aks_price_tier      = var.aks_price_tier
 
@@ -152,6 +155,7 @@ module "function_app" {
   name_prefix             = var.name_prefix
   resource_group_name     = azurerm_resource_group.main-rg.name
   location                = var.region
+  
 
   # Link to the Storage Account for function code and state
   storage_account_name           = module.storage.storage_account_name
@@ -180,6 +184,7 @@ module "function_app" {
   webpubsub_hub_name          = module.web_pubsub.webpubsub_hub_name
   service_bus_topic_name      = var.servicebus_topic_name
   commands_subscription_name   = module.service_bus.commands_subscription_name
+  webpubsub_hub                = module.web_pubsub.webpubsub_hub_name
 
   # CORS settings for the Static Web App and local development
   cors_allowed_origins        = [
@@ -197,6 +202,39 @@ module "function_app" {
   # Ensure Key Vault exists before deploying the Function App
   depends_on = [ module.keyvault,
   module.aad_spa ]
+}
+
+data "azurerm_role_definition" "contributor" {
+  name = "Contributor"
+}
+
+resource "azurerm_role_assignment" "pubsub_to_function" {
+  scope              = module.function_app.function_app_id
+  role_definition_id = data.azurerm_role_definition.contributor.id
+  principal_id       = module.web_pubsub.system_identity_principal_id
+}
+
+data "azurerm_function_app_host_keys" "host_keys" {
+  name                = module.function_app.function_app_name
+  resource_group_name = module.function_app.function_app_resource_group_name
+
+  depends_on = [ module.function_app ]
+}  
+
+
+resource "azurerm_web_pubsub_hub" "with_handler" {
+  name          = module.web_pubsub.webpubsub_hub_name
+  web_pubsub_id = module.web_pubsub.webpubsub_hub_id
+
+  event_handler {
+    url_template = "https://${module.function_app.function_default_hostname}/runtime/webhooks/webpubsub?code=${data.azurerm_function_app_host_keys.host_keys.webpubsub_extension_key}"
+    system_events                 = ["connect", "connected", "disconnected"]
+  }
+  depends_on = [ 
+    module.function_app,
+    module.web_pubsub
+   ]
+
 }
 
 # 11. PostgreSQL database module
@@ -250,5 +288,6 @@ module "keyvault" {
   webpubsub_key         = module.web_pubsub.primary_key
   key_vault_sku_name = var.key_vault_sku_name 
   postgres_database_url = module.postgres.database_url
+  webpubsub_connection_string = module.web_pubsub.primary_connection_string
   depends_on = [ module.aad_spa , module.postgres]
 }

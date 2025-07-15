@@ -29,7 +29,7 @@ import { ProtectedRoute } from './features/auth/components/ProtectedRoute';
 import { setTokenGetter } from './services/apiClient';
 
 import { LoginPage } from './features/auth/pages/LoginPage';
-import Layout from './components/DashboardLayout';
+import Layout from './layouts/DashboardLayout';
 import AdminsPage from './features/userManagement/AdminsPage';
 import SupervisorsPage from './features/userManagement/SupervisorsPage';
 import SupervisorDetailPage from './features/userManagement/AddPsoToSupervisorPage';

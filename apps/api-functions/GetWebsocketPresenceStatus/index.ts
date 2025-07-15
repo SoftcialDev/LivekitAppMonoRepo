@@ -6,30 +6,31 @@ import { ok, badRequest, unauthorized, forbidden } from "../shared/utils/respons
 import prisma from "../shared/services/prismaClienService";
 import { JwtPayload } from "jsonwebtoken";
 
-/**
- * Schema for validating pagination query parameters:
- * - `page`: 1-based page number (string of digits)
- * - `pageSize`: number of items per page (string of digits, max 100)
- */
-const querySchema = z.object({
-  page:     z.string().regex(/^\d+$/).optional(),
-  pageSize: z.string().regex(/^\d+$/).optional(),
-});
+////////////////////////////////////////////////////////////////////////////////
+// Types
+////////////////////////////////////////////////////////////////////////////////
 
 /**
- * Represents a single user's presence status in the paginated response.
+ * A single user’s presence status in the paginated response,
+ * including their supervisor’s email and name if assigned.
  */
 interface PresenceItem {
-  /** User's email address */
+  /** User’s email address */
   email: string;
-  /** User's full name (empty string if null) */
+  /** User’s full name (empty string if null) */
   fullName: string;
   /** Azure AD object ID */
   azureAdObjectId: string;
-  /** Presence status, e.g. "online", "offline", etc. */
+  /** User role, e.g. "Admin", "Supervisor", or "Employee" */
+  role: string;
+  /** Presence status, e.g. "online" or "offline" */
   status: string;
   /** ISO timestamp of last seen, or null if unavailable */
   lastSeenAt: string | null;
+  /** Supervisor’s email address, or null if none assigned */
+  supervisorEmail: string | null;
+  /** Supervisor’s full name, or null if none assigned */
+  supervisorName: string | null;
 }
 
 /**
@@ -46,22 +47,30 @@ interface PaginatedPresence {
   items: PresenceItem[];
 }
 
+////////////////////////////////////////////////////////////////////////////////
+// Validation schema
+////////////////////////////////////////////////////////////////////////////////
+
+const querySchema = z.object({
+  page:     z.string().regex(/^\d+$/).optional(),
+  pageSize: z.string().regex(/^\d+$/).optional(),
+});
+
+////////////////////////////////////////////////////////////////////////////////
+// Function
+////////////////////////////////////////////////////////////////////////////////
+
 /**
- * HTTP-triggered Azure Function that returns a paginated list of presence statuses for all users.
+ * HTTP‐triggered Azure Function that returns a paginated list of presence
+ * statuses for all users, including each user’s supervisor info.
  *
  * - **Admin** callers see all users.
- * - **Supervisor** callers see only their direct reports.
+ * - **Supervisor** callers see only their direct reports on the client side,
+ *   but this endpoint returns everyone.
  *
- * @param {Context} ctx - Azure Functions execution context.
- * @param {HttpRequest} ctx.req - HTTP request object.
- * @param {string} [ctx.req.query.page] - 1-based page number as string (default "1").
- * @param {string} [ctx.req.query.pageSize] - Number of items per page as string (default "50", max 100).
- *
- * @returns {Promise<import("../shared/utils/response").Response>}  
- *   - 200 OK with PaginatedPresence on success.  
- *   - 400 Bad Request if parameters are invalid or a DB error occurs.  
- *   - 401 Unauthorized if caller identity is missing or user is deleted.  
- *   - 403 Forbidden if caller lacks Admin or Supervisor role.
+ * @param ctx  Azure Functions execution context
+ * @param ctx.req  HTTP request with optional `page` and `pageSize` query params
+ * @returns 200 OK with PaginatedPresence, or 4xx on error
  */
 const getWebsocketPresenceStatuses: AzureFunction = withErrorHandler(
   async (ctx: Context) => {
@@ -98,40 +107,51 @@ const getWebsocketPresenceStatuses: AzureFunction = withErrorHandler(
         return forbidden(ctx, "Insufficient privileges");
       }
 
-      // 4) Build base filter to include all non-deleted users
-      const baseWhere = { deletedAt: null };
-
       try {
-        // 5) Count total matching users
-        const total = await prisma.user.count({ where: baseWhere });
+        // 4) Count total matching users
+        const total = await prisma.user.count({
+          where: { deletedAt: null },
+        });
 
-        // 6) Fetch paginated users with their presence
+        // 5) Fetch paginated users with presence + supervisor
         const users = await prisma.user.findMany({
-          where: baseWhere,
+          where: { deletedAt: null },
           skip: (p - 1) * size,
           take: size,
+          orderBy: { email: "asc" },
           select: {
             email:           true,
             fullName:        true,
             azureAdObjectId: true,
-            role:            true,   
-            presence: { select: { status: true, lastSeenAt: true } },
+            role:            true,
+            presence: {
+              select: { status: true, lastSeenAt: true },
+            },
+            supervisor: {
+              select: { email: true, fullName: true },
+            },
           },
-          orderBy: { email: "asc" },
         });
 
-        // 7) Map database records to response items
+        // 6) Map database records to response items
         const items: PresenceItem[] = users.map(u => ({
           email:           u.email,
           fullName:        u.fullName ?? "",
           azureAdObjectId: u.azureAdObjectId,
+          role:            u.role,
           status:          u.presence?.status   ?? "offline",
-          role:            u.role,   
           lastSeenAt:      u.presence?.lastSeenAt?.toISOString() ?? null,
+          supervisorEmail: u.supervisor?.email   ?? null,
+          supervisorName:  u.supervisor?.fullName ?? null,
         }));
 
-        // 8) Return paginated presence
-        const response: PaginatedPresence = { total, page: p, pageSize: size, items };
+        // 7) Return paginated presence
+        const response: PaginatedPresence = {
+          total,
+          page:     p,
+          pageSize: size,
+          items,
+        };
         return ok(ctx, response);
       } catch (err: any) {
         ctx.log.error("Fetch presence statuses error:", err);

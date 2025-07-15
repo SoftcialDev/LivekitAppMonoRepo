@@ -1,10 +1,20 @@
 /**
  * @file SupervisorsPage.tsx
  * @description
- * The SupervisorsPage component displays a list of current Supervisors
- * and, for Admin users, allows adding or removing Supervisors.
- * It uses real-time data from the backend and shows Toast notifications
- * on success or failure.
+ * Renders the Supervisors management interface:
+ * - **Admins** see:
+ *   - “Add Supervisor” button to promote Employees/Tenants to Supervisors  
+ *   - Per-row Trash buttons to remove a Supervisor (except themselves)  
+ * - **Supervisors** see:
+ *   - Per-row “Transfer PSOs” buttons to reassign all of their PSOs to another Supervisor  
+ * - **Others** see a read-only list.
+ *
+ * Uses:
+ * - `getUsersByRole` for paged listing  
+ * - `changeUserRole` to add/remove Supervisor roles  
+ * - `transferPsos` to bulk-reassign a Supervisor’s PSOs  
+ * - Toast notifications on success/failure  
+ * - `TableComponent` for tabular UI  
  */
 
 import React, { useEffect, useState, useMemo } from 'react';
@@ -13,9 +23,14 @@ import { useHeader } from '../../context/HeaderContext';
 import { TableComponent, Column } from '../../components/TableComponent';
 import AddButton from '../../components/Buttons/AddButton';
 import TrashButton from '../../components/Buttons/TrashButton';
+import TransferPSOsButton from '@/components/Buttons/TransferPSOsButton';
 import AddModal from '@/components/ModalComponent';
 import managementIcon from '@assets/manage_icon_sidebar.png';
-import { getUsersByRole, changeUserRole } from '../../services/userClient';
+import {
+  getUsersByRole,
+  changeUserRole,
+  transferPsos,
+} from '../../services/userClient';
 import { useAuth } from '../auth/hooks/useAuth';
 import { useToast } from '../../components/ToastContext';
 
@@ -32,97 +47,93 @@ export interface CandidateUser {
 /**
  * SupervisorsPage
  *
- * Renders a table of supervisors for Admins and non-editable list for others.
- * Admins can add new Supervisors by selecting from Employee/Tenant candidates,
- * or remove existing Supervisors via the trash button.
+ * Displays and manages the list of Supervisors.
  *
- * @returns A React.FC that displays the supervisors management UI.
+ * - **Admins** can:
+ *   - Add new Supervisors via the “Add Supervisor” modal  
+ *   - Remove Supervisors via Trash buttons  
+ * - **Supervisors** can:
+ *   - Transfer all PSOs under their supervision to another Supervisor  
+ * - **Other users** see a read-only list.
+ *
+ * @returns The Supervisors management UI.
  */
 const SupervisorsPage: React.FC = () => {
   const { initialized, account } = useAuth();
-  const navigate = useNavigate();
-  const currentEmail = account?.username ?? '';
-  const { showToast } = useToast();
+  const navigate                 = useNavigate();
+  const currentEmail             = account?.username ?? '';
+  const { showToast }            = useToast();
 
-  // Determine if the current user has Admin role
-  const claims = (account?.idTokenClaims ?? {}) as Record<string, any>;
-  const rolesClaim = claims.roles ?? claims.role;
-  const roles: string[] = Array.isArray(rolesClaim)
-    ? rolesClaim
-    : typeof rolesClaim === 'string'
-    ? [rolesClaim]
-    : [];
-  const isAdmin = roles.includes('Admin');
+  // Determine roles of current user
+  const claims   = (account?.idTokenClaims ?? {}) as any;
+  const rawRoles = claims.roles ?? claims.role;
+  const roles: string[] = Array.isArray(rawRoles)
+    ? rawRoles
+    : typeof rawRoles === 'string'
+      ? [rawRoles]
+      : [];
+  const isAdmin      = roles.includes('Admin');
+  const isSupervisor = roles.includes('Supervisor');
 
-  const [supervisors, setSupervisors] = useState<CandidateUser[]>([]);
-  const [supervisorsLoading, setSupervisorsLoading] = useState(false);
+  // State for supervisors list
+  const [supervisors, setSupervisors]       = useState<CandidateUser[]>([]);
+  const [supervisorsLoading, setSupLoading] = useState(false);
 
-  const [candidates, setCandidates] = useState<CandidateUser[]>([]);
-  const [candidatesLoading, setCandidatesLoading] = useState(false);
-
-  const [isModalOpen, setModalOpen] = useState(false);
+  // State for “Add Supervisor” modal
+  const [candidates, setCandidates]         = useState<CandidateUser[]>([]);
+  const [candidatesLoading, setCandLoading] = useState(false);
+  const [isModalOpen, setModalOpen]         = useState(false);
   const [selectedEmails, setSelectedEmails] = useState<string[]>([]);
 
+  // Set page header
   useHeader({
     title:   'Supervisors',
     iconSrc: managementIcon,
     iconAlt: 'Supervisors',
   });
 
-  /**
-   * Fetch the list of current Supervisors from the API.
-   * Shows a loading spinner and displays a toast on failure.
-   */
-  const fetchSupervisors = async (): Promise<void> => {
-    setSupervisorsLoading(true);
+  /** Fetches current Supervisors */
+  const fetchSupervisors = async () => {
+    setSupLoading(true);
     try {
-      const res = await getUsersByRole('Supervisor', 1, 1000);
-      setSupervisors(res.users);
-    } catch (err: any) {
+      const { users } = await getUsersByRole('Supervisor', 1, 1000);
+      setSupervisors(users);
+    } catch {
       showToast('Failed to load supervisors', 'error');
     } finally {
-      setSupervisorsLoading(false);
+      setSupLoading(false);
     }
   };
 
-  /**
-   * Fetch the list of candidate users (Employees & pure Tenants)
-   * who can be promoted to Supervisors.
-   * Shows a loading spinner and displays a toast on failure.
-   */
-  const fetchCandidates = async (): Promise<void> => {
-    setCandidatesLoading(true);
+  /** Fetches candidate users for promotion */
+  const fetchCandidates = async () => {
+    setCandLoading(true);
     try {
-      const res = await getUsersByRole('Employee,Tenant', 1, 1000);
-      setCandidates(res.users);
-    } catch (err: any) {
+      const { users } = await getUsersByRole('Employee,Tenant', 1, 1000);
+      setCandidates(users);
+    } catch {
       showToast('Failed to load candidate users', 'error');
     } finally {
-      setCandidatesLoading(false);
+      setCandLoading(false);
     }
   };
 
+  // Initial load on mount
   useEffect(() => {
     if (!initialized) return;
-    fetchSupervisors();
+    void fetchSupervisors();
   }, [initialized]);
 
-  /**
-   * Opens the Add Supervisor modal
-   * and resets selection state.
-   */
-  const handleOpenModal = (): void => {
+  /** Opens the “Add Supervisor” modal */
+  const handleOpenModal = () => {
     setSelectedEmails([]);
     setModalOpen(true);
-    fetchCandidates();
+    void fetchCandidates();
   };
 
-  /**
-   * Confirms the addition of selected users
-   * as Supervisors. Shows a toast on success or failure.
-   */
-  const handleConfirmAdd = async (): Promise<void> => {
-    setSupervisorsLoading(true);
+  /** Confirms adding selected candidates as Supervisors */
+  const handleConfirmAdd = async () => {
+    setSupLoading(true);
     try {
       await Promise.all(
         selectedEmails.map(email =>
@@ -132,37 +143,48 @@ const SupervisorsPage: React.FC = () => {
       setModalOpen(false);
       await fetchSupervisors();
       showToast(`${selectedEmails.length} supervisor(s) added`, 'success');
-    } catch (err: any) {
+    } catch {
       showToast('Failed to add supervisors', 'error');
     } finally {
-      setSupervisorsLoading(false);
+      setSupLoading(false);
     }
   };
 
   /**
-   * Removes a Supervisor by email.
-   * Prevents self-removal. Shows a toast on success or failure.
-   *
-   * @param email - The email of the Supervisor to remove.
+   * Removes a Supervisor.
+   * Prevents self-removal.
    */
-  const handleRemoveSupervisor = async (email: string): Promise<void> => {
+  const handleRemoveSupervisor = async (email: string) => {
     if (email === currentEmail) {
       showToast("You cannot remove yourself", 'warning');
       return;
     }
-    setSupervisorsLoading(true);
+    setSupLoading(true);
     try {
       await changeUserRole({ userEmail: email, newRole: null });
       await fetchSupervisors();
       showToast(`Removed supervisor: ${email}`, 'success');
-    } catch (err: any) {
+    } catch {
       showToast(`Failed to remove supervisor: ${email}`, 'error');
     } finally {
-      setSupervisorsLoading(false);
+      setSupLoading(false);
     }
   };
 
-  // Define columns for the supervisors table
+  /**
+   * Supervisor-only action:
+   * Transfers *all* PSOs under the current user to `newSupEmail`.
+   */
+  const handleTransferPsos = async (newSupEmail: string) => {
+    try {
+      const moved = await transferPsos(newSupEmail);
+      showToast(`Transferred your PSOs to ${newSupEmail}`, 'success');
+    } catch {
+      showToast('Failed to transfer PSOs', 'error');
+    }
+  };
+
+  // Base table columns
   const baseSupervisorColumns: Column<CandidateUser>[] = [
     { key: 'email',      header: 'Email'      },
     {
@@ -181,25 +203,47 @@ const SupervisorsPage: React.FC = () => {
     { key: 'role',       header: 'Role'       },
   ];
 
-  // Conditionally add the Actions column for Admins
-  const supervisorColumns = useMemo<Column<CandidateUser>[]>(
-    () => isAdmin
-      ? [
-          ...baseSupervisorColumns,
-          {
-            key:    'actions',
-            header: 'Actions',
-            render: row =>
-              row.email !== currentEmail ? (
-                <TrashButton onClick={() => handleRemoveSupervisor(row.email)} />
-              ) : null,
-          },
-        ]
-      : baseSupervisorColumns,
-    [isAdmin, currentEmail]
-  );
+  // Extended columns with per-row action buttons
+  const supervisorColumns = useMemo(() => {
+    if (isAdmin) {
+      // Admin: Trash
+      return [
+        ...baseSupervisorColumns,
+        {
+          key:    'actions',
+          header: 'Actions',
+          render: row => row.email !== currentEmail ? (
+            <div className="flex justify-center">
+              <TrashButton onClick={() => handleRemoveSupervisor(row.email)} />
+            </div>
+          ) : null,
+        },
+      ];
+    }
 
-  // Define columns for the Add Supervisor modal
+    if (isSupervisor) {
+      // Supervisor: Transfer PSOs
+      return [
+        ...baseSupervisorColumns,
+        {
+          key:    'actions',
+          header: 'Actions',
+          render: row => row.email !== currentEmail ? (
+            <div className="flex">
+              <TransferPSOsButton
+                onClick={() => handleTransferPsos(row.email)}
+              />
+            </div>
+          ) : null,
+        },
+      ];
+    }
+
+    // Others: no actions
+    return baseSupervisorColumns;
+  }, [isAdmin, isSupervisor, currentEmail]);
+
+  // Columns for “Add Supervisor” modal
   const candidateColumns: Column<CandidateUser>[] = [
     {
       key: 'select',
@@ -239,7 +283,9 @@ const SupervisorsPage: React.FC = () => {
         data={supervisors}
         pageSize={9}
         addButton={
-          isAdmin ? <AddButton label="Add Supervisor" onClick={handleOpenModal} /> : null
+          isAdmin
+            ? <AddButton label="Add Supervisor" onClick={handleOpenModal} />
+            : null
         }
         loading={supervisorsLoading}
         loadingAction="Loading supervisors"

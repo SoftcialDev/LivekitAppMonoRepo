@@ -176,7 +176,7 @@ terraform init
 terraform plan -var-file=../environment/prod/terraform.tfvars
 
 # Apply
-terraform apply -var-file=../environment/prod/terraform.tfvars
+terraform apply -var-file="../environment/prod/terraform.tfvars"
 ```
 
 **On success**, you’ll see outputs for AD App IDs, connection strings, resource names, etc.

@@ -37,6 +37,16 @@ resource "azurerm_postgresql_flexible_server" "postgres_server" {
   }
 }
 
+resource "azurerm_postgresql_flexible_server_firewall_rule" "allow_azure_services" {
+  name      = "${var.name_prefix}-fw-azure-services"
+  server_id = azurerm_postgresql_flexible_server.postgres_server.id
+
+  # "0.0.0.0" to "0.0.0.0" is the special range for Azure services
+  start_ip_address = "0.0.0.0"
+  end_ip_address   = "0.0.0.0"
+}
+
+
 # Define firewall rules to allow public access from specific IPs
 resource "azurerm_postgresql_flexible_server_firewall_rule" "postgres_firewall" {
   # Only create rules when public access is enabled
@@ -48,8 +58,10 @@ resource "azurerm_postgresql_flexible_server_firewall_rule" "postgres_firewall" 
   server_id = azurerm_postgresql_flexible_server.postgres_server.id
 
   # Each rule opens a single IP (start == end)
-  start_ip_address = var.allowed_ips[count.index]
-  end_ip_address   = var.allowed_ips[count.index]
+  //start_ip_address = var.allowed_ips[count.index]
+  //end_ip_address   = var.allowed_ips[count.index]
+  start_ip_address = "0.0.0.0"
+  end_ip_address   = "255.255.255.255"
 }
 
 # create a default database on the server

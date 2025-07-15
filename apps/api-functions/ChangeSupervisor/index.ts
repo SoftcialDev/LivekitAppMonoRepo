@@ -18,7 +18,7 @@ import {
 import type { JwtPayload } from "jsonwebtoken";
 
 /* -------------------------------------------------------------------------- */
-/*  ChangeSupervisorFunction                                                  */
+/*  ChangeSupervisorFunction .                                                */
 /* -------------------------------------------------------------------------- */
 
 const changeSupervisor: AzureFunction = withErrorHandler(

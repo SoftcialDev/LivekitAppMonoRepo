@@ -1,6 +1,29 @@
 ﻿import { RoomServiceClient, AccessToken } from 'livekit-server-sdk';
 import { config } from '../config';
 
+/**
+ * Error thrown when a LiveKit service operation fails unexpectedly.
+ * Wraps the original error and exposes any HTTP status code or details.
+ */
+export class LiveKitServiceError extends Error {
+  /** HTTP status code returned by the LiveKit API, if available. */
+  public readonly code?: number;
+  /** Any additional error details or payload. */
+  public readonly details?: unknown;
+
+  /**
+   * @param message – Human-readable description of what went wrong.
+   * @param code – HTTP status code (e.g. 500, 404) if returned by LiveKit.
+   * @param details – Raw error payload or object for deeper inspection.
+   */
+  constructor(message: string, code?: number, details?: unknown) {
+    super(message);
+    this.name = 'LiveKitServiceError';
+    this.code = code;
+    this.details = details;
+  }
+}
+
 /** 
  * LiveKit admin client for interacting with the REST API.
  * @internal
@@ -13,72 +36,111 @@ const adminClient = new RoomServiceClient(
 
 /**
  * Ensures that a LiveKit room exists with no auto-delete timeout.
- * If a room with the given name already exists, the 409 conflict error is ignored.
+ * If a room with the given name already exists, the 409 Conflict error is ignored.
  *
  * @param roomName - The unique name for the room to create or verify.
  * @returns A promise that resolves once the room is ensured to exist.
- * @throws Any error other than a 409 conflict.
+ * @throws LiveKitServiceError for any error other than HTTP 409.
  */
 export async function ensureRoom(roomName: string): Promise<void> {
+  console.debug(`[LiveKit] ensureRoom: creating room "${roomName}"`);
   try {
-    await adminClient.createRoom({
-      name:         roomName,
-      emptyTimeout: 0,
-    });
+    await adminClient.createRoom({ name: roomName, emptyTimeout: 0 });
+    console.info(`[LiveKit] ensureRoom: room "${roomName}" created`);
   } catch (err: any) {
-    if (err.code !== 409) throw err;
+    const code = err.code ?? err.statusCode ?? err.status;
+    if (code === 409) {
+      console.warn(`[LiveKit] ensureRoom: room "${roomName}" already exists (409)`);
+      return;
+    }
+    console.error(`[LiveKit] ensureRoom: unexpected error for "${roomName}"`, {
+      message: err.message,
+      code,
+      details: err.data ?? err.details ?? err,
+    });
+    throw new LiveKitServiceError(
+      `Failed to ensure room "${roomName}": ${err.message}`,
+      code,
+      err,
+    );
   }
 }
 
 /**
  * Retrieves a list of all existing LiveKit rooms.
  *
- * @returns A promise that resolves to an array of room identifiers. 
- *          If a room has a name, that name is used; otherwise, its SID is returned.
+ * @returns A promise resolving to an array of room identifiers:
+ *          uses the room’s name if present, otherwise its SID.
+ * @throws LiveKitServiceError if the operation fails.
  */
 export async function listRooms(): Promise<string[]> {
-  const rooms = await adminClient.listRooms();
-  return rooms.map(r => r.name ?? r.sid);
+  console.debug('[LiveKit] listRooms: fetching rooms');
+  try {
+    const rooms = await adminClient.listRooms();
+    console.info(`[LiveKit] listRooms: retrieved ${rooms.length} rooms`);
+    return rooms.map(r => r.name ?? r.sid);
+  } catch (err: any) {
+    const code = err.code ?? err.statusCode ?? err.status;
+    console.error('[LiveKit] listRooms: failed to fetch rooms', {
+      message: err.message,
+      code,
+      details: err,
+    });
+    throw new LiveKitServiceError(
+      `Failed to list rooms: ${err.message}`,
+      code,
+      err,
+    );
+  }
 }
 
 /**
  * Generates a JWT access token for a participant to join a LiveKit room.
  *
- * The token grants:
- *  - For an admin/supervisor: join and subscribe permissions, but cannot publish.
- *  - For a regular employee: join, subscribe, and publish permissions.
+ * - Admin users can join and subscribe, but not publish.
+ * - Regular users can join, subscribe, and publish.
  *
- * @param identity - A unique identifier for the user (e.g., an Azure AD object ID).
- * @param isAdmin  - Whether the token should grant admin-level permissions.
- * @param room     - The name or ID of the room the token applies to.
+ * @param identity - A unique identifier for the user (e.g., Azure AD object ID).
+ * @param isAdmin  - Whether to grant admin-level permissions (no publishing).
+ * @param room      - The name or ID of the room the token applies to.
  * @returns A promise that resolves to the signed JWT access token.
+ * @throws LiveKitServiceError if token generation fails.
  */
 export async function generateToken(
   identity: string,
   isAdmin: boolean,
   room: string,
 ): Promise<string> {
-  const at = new AccessToken(
-    config.livekitApiKey,
-    config.livekitApiSecret,
-    { identity },
+  console.debug(
+    `[LiveKit] generateToken: identity=${identity}, isAdmin=${isAdmin}, room=${room}`
   );
+  try {
+    const at = new AccessToken(
+      config.livekitApiKey,
+      config.livekitApiSecret,
+      { identity },
+    );
 
-  if (isAdmin) {
-    at.addGrant({
+    const grant = {
       roomJoin:     true,
       room,
       canSubscribe: true,
-      canPublish:   false,
+      canPublish:   !isAdmin, // admins cannot publish
+    };
+    at.addGrant(grant);
+
+    const token = await at.toJwt();
+    console.info('[LiveKit] generateToken: token generated successfully');
+    return token;
+  } catch (err: any) {
+    console.error('[LiveKit] generateToken: failed to create token', {
+      message: err.message,
+      details: err,
     });
-  } else {
-    at.addGrant({
-      roomJoin:     true,
-      room,
-      canSubscribe: true,
-      canPublish:   true,
-    });
+    throw new LiveKitServiceError(
+      `Failed to generate token for "${identity}": ${err.message}`,
+      undefined,
+      err,
+    );
   }
-
-  return at.toJwt();
 }

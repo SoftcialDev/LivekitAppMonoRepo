@@ -6,22 +6,25 @@ resource "azurerm_kubernetes_cluster" "aks-cluster" {
   dns_prefix          = var.name_prefix
   sku_tier            = var.aks_price_tier
 
-  default_node_pool {
-    name           = "default"
-    node_count     = var.aks_node_count
-    vm_size        = var.vm_sku
-    vnet_subnet_id = var.vnet_subnet_id
+default_node_pool {
+  name                = "default"
+  vm_size             = var.vm_sku           # e.g. "Standard_B4ms"
+  enable_auto_scaling = true
+  min_count           = 2    # minimum number of nodes
+  max_count           = 3    # maximum number of nodes
+  vnet_subnet_id      = var.vnet_subnet_id
 
-    # Control upgrade behavior for the node pool
-    upgrade_settings {
-      # Time to wait for node drains (minutes)
-      drain_timeout_in_minutes      = 0
-      # Maximum surge of nodes during upgrade
-      max_surge                     = "10%"
-      # Time nodes remain in ready state before upgrades
-      node_soak_duration_in_minutes = 0
-    }
+  # Upgrade settings for the node pool
+  upgrade_settings {
+    # Time to wait for node drains (in minutes)
+    drain_timeout_in_minutes      = 0
+    # Maximum surge of nodes allowed during an upgrade
+    # e.g. "10%" allows one extra node in a 10-node pool during rolling upgrades
+    max_surge                     = "10%"
+    # Time nodes remain in ready state before upgrades
+    node_soak_duration_in_minutes = 0
   }
+}
 
   # Prevent Terraform from resetting the image cleaner settings
   lifecycle {

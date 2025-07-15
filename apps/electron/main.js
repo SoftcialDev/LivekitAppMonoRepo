@@ -2,7 +2,7 @@
 const { app, BrowserWindow, session, ipcMain, Tray, Menu } = require('electron');
 const path = require('path');
 const fs   = require('fs');
-const Service = require('electron-windows-service');
+// Service import removed; now using node-windows dynamically below
 
 const APP_NAME       = 'InContact';
 const SERVICE_NAME   = 'InContactService';
@@ -20,20 +20,49 @@ let tray       = null;
 let allowQuit  = false;
 
 // ----------------------------------------
-// 1) Service install/uninstall handling
+// 1) Service install/uninstall handling (using node-windows)
 // ----------------------------------------
+
+/**
+ * Installs the Electron application as a Windows service.
+ *
+ * @remarks
+ * This block runs when the process is launched with `--install-service`.
+ * It dynamically loads `node-windows`, creates a Service instance,
+ * installs it, and starts it immediately upon installation.
+ */
 if (process.argv.includes('--install-service')) {
-  Service.install({
+  const { Service } = require('node-windows');
+  /** @type {import('node-windows').Service} */
+  const svc = new Service({
     name:        SERVICE_NAME,
     description: SERVICE_DESC,
-    script:      process.execPath,
-    args:        ['--hidden'],
+    script:      path.join(__dirname, 'main.js'),
+    // args: ['--hidden'], // you can uncomment if you need to pass flags
   });
+
+  svc.on('install', () => svc.start());
+  svc.install();
   return;
 }
 
+/**
+ * Uninstalls the Windows service created by this Electron app.
+ *
+ * @remarks
+ * This block runs when the process is launched with `--uninstall-service`.
+ * It dynamically loads `node-windows`, references the service by name,
+ * and removes it from the system.
+ */
 if (process.argv.includes('--uninstall-service')) {
-  Service.uninstall(SERVICE_NAME);
+  const { Service } = require('node-windows');
+  /** @type {import('node-windows').Service} */
+  const svc = new Service({ name: SERVICE_NAME });
+
+  svc.on('uninstall', () => {
+    console.log(`${SERVICE_NAME} has been uninstalled.`);
+  });
+  svc.uninstall();
   return;
 }
 
@@ -51,6 +80,13 @@ async function setupPersistence() {
     evt.returnValue = store.get('localStorage') || {};
   });
 }
+
+ipcMain.on('storage-clear', () => {
+  if (store) {
+    store.clear();          // Borra todo el contenido del electron-store
+    console.log('✅ Electron store cleared');
+  }
+});
 
 // ----------------------------------------
 // 3) Express static server in production
@@ -78,7 +114,7 @@ async function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1024,
     height: 768,
-    icon: path.join(__dirname, 'assets', 'icon-tray.ico'),
+    icon: path.join(__dirname, 'assets', 'icon.ico'),
     closable: false,
     webPreferences: {
       contextIsolation: true,
@@ -87,11 +123,11 @@ async function createWindow() {
       nativeWindowOpen:true,
     },
   });
-
+  console.log('Loading:', START_URL);
   mainWindow.loadURL(START_URL);
 
   session.defaultSession.setPermissionRequestHandler((_, perm, cb) =>
-    cb(perm === 'media')
+    cb(perm === 'media') 
   );
 
   if (!IS_PROD) {
@@ -106,7 +142,7 @@ async function createWindow() {
 
   // system tray menu
   try {
-    const trayIcon = path.join(__dirname, 'assets', 'icon-tray.ico');
+    const trayIcon = path.join(__dirname, 'assets', 'icon.ico');
     if (!fs.existsSync(trayIcon)) throw new Error('Tray icon not found');
     tray = new Tray(trayIcon);
     const menu = Menu.buildFromTemplate([

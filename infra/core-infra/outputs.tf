@@ -129,6 +129,12 @@ output "postgres_database_url" {
 ########################################
 
 # Resource ID of the Function App
+output "api_url" {
+  description = "Resource ID of the Function App from the function-app module"
+  value       = module.function_app.function_app_url
+}
+
+# Resource ID of the Function App
 output "function_app_id" {
   description = "Resource ID of the Function App from the function-app module"
   value       = module.function_app.function_app_id
@@ -150,7 +156,7 @@ output "function_principal_id" {
 ########################################
 # Redis Module Outputs in Root
 ########################################
-
+/*
 # Hostname endpoint of the Azure Cache for Redis instance
 output "redis_hostname" {
   description = "Hostname of the Redis cache from the redis module"
@@ -163,7 +169,7 @@ output "redis_primary_key" {
   value       = module.redis.redis_primary_key
   sensitive = true
 }
-
+*/
 
 ########################################
 # Service Bus Module Outputs in Root

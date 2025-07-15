@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { useAuth } from '../../auth/hooks/useAuth';
 import { useHeader } from '../../../context/HeaderContext';
@@ -8,25 +8,23 @@ import UserIndicator from '../../../components/UserIndicator';
 import VideoCard from '../components/VideoCard';
 import { usePresenceStore } from '@/stores/usePresenceStore';
 import Loading from '@/components/Loading';
+import { getSupervisorForPso } from '@/services/userClient';
 
 type RouteParams = { email?: string };
 
 /**
  * UserVideoPage
  *
- * Displays a single user’s live video stream if they are currently streaming.
+ * - Reads `:email` from the route and the current viewer’s email from context.
+ * - Loads a one-time presence snapshot and opens a WebSocket for live updates.
+ * - Determines whether the target is currently streaming.
+ * - Fetches LiveKit credentials via `useUserStream`.
+ * - Looks up the target’s supervisor (if any) via `getSupervisorForPso`.
+ * - Updates the header to display “<userEmail> (Supervisor Name)” when available,
+ *   and shows a live/offline status dot via `UserIndicator`.
+ * - Renders a `<VideoCard>` with play/stop controls and disables them if offline.
  *
- * Responsibilities:
- * 1. Reads the `:email` route param as the target’s email.
- * 2. Loads a one-time presence snapshot and opens a WebSocket
- *    connection for real-time streaming presence via the global store.
- * 3. Reads `streamingMap[targetEmail]` from the store to determine if the user
- *    is connected and streaming.
- * 4. Subscribes to LiveKit credentials with `useUserStream` for play/stop.
- * 5. Renders `<VideoCard>` with controls disabled if the target is offline,
- *    and updates the header with a `<UserIndicator>` reflecting live/offline status.
- *
- * @returns JSX element for the user video page
+ * @returns A React element rendering the user’s video page with header and content.
  */
 const UserVideoPage: React.FC = () => {
   const { email: paramEmail } = useParams<RouteParams>();
@@ -34,29 +32,40 @@ const UserVideoPage: React.FC = () => {
   const { account }           = useAuth();
   const viewerEmail           = account?.username ?? '';
 
-  // Presence store selectors
+  const [supervisorName, setSupervisorName] = useState<string | null>(null);
+
   const loadSnapshot        = usePresenceStore(s => s.loadSnapshot);
   const connectWebSocket    = usePresenceStore(s => s.connectWebSocket);
   const disconnectWebSocket = usePresenceStore(s => s.disconnectWebSocket);
   const streamingMap        = usePresenceStore(s => s.streamingMap);
   const presenceLoading     = usePresenceStore(s => s.loading);
-  const onlineUsers  = usePresenceStore(s => s.onlineUsers);
-  const isConnected  = onlineUsers.some(u => u.email === targetEmail);
+  const onlineUsers         = usePresenceStore(s => s.onlineUsers);
+  const isConnected         = onlineUsers.some(u => u.email === targetEmail);
   const presenceError       = usePresenceStore(s => s.error);
 
-  // Initialize presence on mount
+  // Fetch initial presence and open WebSocket
   useEffect(() => {
     loadSnapshot();
     connectWebSocket(viewerEmail);
-    return () => {
-      disconnectWebSocket();
-    };
+    return () => void disconnectWebSocket();
   }, [loadSnapshot, connectWebSocket, disconnectWebSocket, viewerEmail]);
 
-  // Determine if target is live (connected via WS)
+  // Lookup the PSO’s supervisor once on mount
+  useEffect(() => {
+    if (!targetEmail) return;
+    getSupervisorForPso(targetEmail)
+      .then(res => {
+        if ('supervisor' in res) {
+          setSupervisorName(res.supervisor.fullName);
+        }
+      })
+      .catch(() => {
+        // ignore lookup failures
+      });
+  }, [targetEmail]);
+
   const isLiveNow = Boolean(streamingMap[targetEmail]);
 
-  // LiveKit credentials for play/stop
   const {
     accessToken,
     roomName,
@@ -64,27 +73,35 @@ const UserVideoPage: React.FC = () => {
     loading: tokenLoading,
   } = useUserStream(viewerEmail, targetEmail);
 
-  // Update header with user status indicator
+  // Compose header title: include supervisor if present
+  const headerTitle = useMemo(
+    () => supervisorName
+      ? `${targetEmail} - supervisor ${supervisorName}`
+      : targetEmail,
+    [targetEmail, supervisorName]
+  );
+
+  // Provide header config to context
   const headerProps = useMemo(() => ({
-    title: targetEmail,
+    title: headerTitle,
     iconNode: (
       <UserIndicator
         user={{
           email:           targetEmail,
-          name:            targetEmail,
-          fullName:        targetEmail,
+          name:            headerTitle,
+          fullName:        headerTitle,
           status:          isLiveNow ? 'online' : 'offline',
           azureAdObjectId: null,
         }}
         nameClass={isLiveNow ? 'text-green-400 font-bold' : 'text-white font-bold'}
       />
     ),
-  }), [targetEmail, isLiveNow]);
+  }), [headerTitle, targetEmail, isLiveNow]);
   useHeader(headerProps);
 
   const { handlePlay, handleStop, handleChat } = useVideoActions();
 
- return (
+  return (
     <div className="flex flex-col flex-1 min-h-0 bg-[var(--color-primary-dark)] p-20 h-full">
       {presenceLoading ? (
         <div className="flex flex-1 items-center justify-center">
@@ -96,9 +113,9 @@ const UserVideoPage: React.FC = () => {
         <div className="flex flex-col flex-1 h-full p-10">
           <div className="flex flex-col flex-1 min-h-0">
             <div className="flex flex-grow items-center justify-center p-4">
-              <div className="w-11/12 h-full mb-15">
+              <div className="w-full h-full mb-15">
                 <VideoCard
-                  name            ={targetEmail}
+                  name            ={headerTitle}
                   email           ={targetEmail}
                   accessToken     ={accessToken}
                   roomName        ={roomName}
@@ -107,9 +124,7 @@ const UserVideoPage: React.FC = () => {
                   disableControls ={!isConnected}
                   connecting      ={tokenLoading}
                   onToggle        ={() =>
-                    accessToken
-                      ? handleStop(targetEmail)
-                      : handlePlay(targetEmail)
+                    accessToken ? handleStop(targetEmail) : handlePlay(targetEmail)
                   }
                   onPlay          ={handlePlay}
                   onStop          ={handleStop}

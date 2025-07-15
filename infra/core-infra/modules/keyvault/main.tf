@@ -64,4 +64,9 @@ resource "azurerm_key_vault_secret" "postgres_connection" {
   key_vault_id = azurerm_key_vault.keyvault.id
 }
 
+resource "azurerm_key_vault_secret" "webpubsub_connection" {
+  name         = "WEBPUBSUB-CONNECTION"
+  value        = var.webpubsub_connection_string
+  key_vault_id = azurerm_key_vault.keyvault.id
+}
 

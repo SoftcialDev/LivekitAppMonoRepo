@@ -2,44 +2,43 @@
 import { config } from "../config";
 
 /**
- * Options to customize the behavior of the error handler middleware.
+ * Configuration options for the error handler middleware.
  */
 export interface ErrorHandlerOptions {
   /**
-   * Generic message to return in the response body when an unexpected error occurs.
-   * Defaults to "Internal Server Error".
+   * Message to return in the response body for unexpected (500) errors.
+   * @default "Internal Server Error"
    */
   genericMessage?: string;
+
   /**
-   * Whether to include the error stack in the response when not in production..
-   * Defaults to false.
+   * Include the error stack trace in the JSON response when running
+   * outside of production.
+   * @default false
    */
   showStackInDev?: boolean;
+
   /**
    * Function to determine if the current environment is production.
-   * Defaults to checking process.env.NODE_ENV === "production".
+   * By default, checks `config.node_env === "production"`.
    */
   isProd?: () => boolean;
 }
 
 /**
- * A custom error type for expected/domain errors (e.g., validation failures).
- * Handlers can throw instances of this to return a controlled 4xx response.
+ * Represents a controlled, expected error that maps to a 4xx response.
+ * Throw this from your handlers to return a customization of status code and details.
  */
 export class ExpectedError extends Error {
-  /**
-   * HTTP status code to use for this expected error (e.g., 400 for validation).
-   */
+  /** The HTTP status code to use (4xx). */
   public readonly statusCode: number;
-  /**
-   * Any additional details to include in the response body.
-   */
+  /** Optional additional details to include in the response. */
   public readonly details?: unknown;
 
   /**
-   * @param message - Error message to return.
-   * @param statusCode - HTTP status code (4xx) to use.
-   * @param details - Optional extra details (e.g., validation errors).
+   * @param message - Human‐readable error message to return in the response.
+   * @param statusCode - HTTP 4xx status code (e.g. 400 for bad request).
+   * @param details - Optional extra details (e.g. validation error object).
    */
   constructor(message: string, statusCode: number = 400, details?: unknown) {
     super(message);
@@ -50,45 +49,53 @@ export class ExpectedError extends Error {
 }
 
 /**
- * Wraps an Azure Function handler to catch and handle unexpected errors.
+ * Wraps an Azure Function handler to catch and format both expected (4xx)
+ * and unexpected (5xx) errors, without leaking stack traces in production.
  *
- * @typeParam Args - Additional argument tuple types after Context.
- * @param fn - The original handler function. Receives Context and optionally other arguments
- *             (e.g., HttpRequest if you extract from context, or custom args).
- *             Should throw ExpectedError for controlled 4xx errors, or other errors for 5xx.
- * @param options - Optional settings:
- *   - genericMessage: message to return on 500 responses.
- *   - showStackInDev: whether to include stack in non-production.
- *   - isProd: override to detect production environment.
- * @returns A new async function that:
- *   1. Invokes the original handler (`fn(ctx, ...args)`).
- *   2. If an ExpectedError is thrown, logs at warning level and returns that status/message.
- *   3. If an unexpected error is thrown:
- *      - Logs at error level.
- *      - For HTTP triggers (detected via `ctx.req`), sets a 500 response (unless already set).
- *      - For non-HTTP triggers, rethrows to let Azure runtime mark failure.
+ * @typeParam Args - Additional argument tuple types after `Context`.
+ *
+ * @param fn - The original handler function. It must return a Promise.
+ *             Throw `ExpectedError` for controlled 4xx errors;
+ *             throw other `Error` types for 5xx.
+ * @param options - Optional customization:
+ *   - `genericMessage`: message for 500 responses.
+ *   - `showStackInDev`: include stack in non‐production.
+ *   - `isProd`: override to detect production environment.
+ *
+ * @returns A new async function with identical signature that:
+ *   1. Invokes `fn(ctx, ...args)`.
+ *   2. If `ExpectedError` is thrown:
+ *      - Logs a warning with its message, status code, and details.
+ *      - For HTTP triggers (`ctx.req` present), sets `ctx.res` to the specified 4xx.
+ *      - Returns without rethrowing.
+ *   3. If other error is thrown:
+ *      - Logs as an error (including stack).
+ *      - For HTTP triggers, sets `ctx.res` to 500 (unless already set),
+ *        including stack if `showStackInDev && !isProd()`.
+ *      - For non‐HTTP triggers, rethrows to let Azure mark function as failed.
  *
  * @example
  * ```ts
- * // handlers/myFunction.ts
- * import { AzureFunction, Context, HttpRequest } from "@azure/functions";
- * import { withErrorHandler, ExpectedError } from "../middleware/withErrorHandler";
+ * import { AzureFunction, Context } from "@azure/functions";
+ * import {
+ *   withErrorHandler,
+ *   ExpectedError,
+ * } from "../middleware/withErrorHandler";
  *
- * const myFunction: AzureFunction = async function (context: Context): Promise<void> {
- *   const req = context.req as HttpRequest;
+ * const hello: AzureFunction = async (ctx: Context) => {
+ *   const req = ctx.req as HttpRequest;
  *   const name = req.query.name;
  *   if (!name) {
- *     // Throwing ExpectedError leads to 400 response with message and optional details.
- *     throw new ExpectedError("Query parameter 'name' is required", 400);
+ *     throw new ExpectedError("Name is required", 400);
  *   }
- *   context.res = {
+ *   ctx.res = {
  *     status: 200,
- *     body: { greeting: `Hello, ${name}!` },
+ *     body: { message: `Hello, ${name}` },
  *   };
  * };
  *
- * export default withErrorHandler(myFunction, {
- *   genericMessage: "Something went wrong on the server",
+ * export default withErrorHandler(hello, {
+ *   genericMessage: "Something went wrong",
  *   showStackInDev: true,
  * });
  * ```
@@ -105,24 +112,23 @@ export function withErrorHandler<Args extends any[]>(
 
   return async function (ctx: Context, ...args: Args): Promise<void> {
     try {
-       await fn(ctx, ...args);
+      await fn(ctx, ...args);
     } catch (err: unknown) {
-      // Determine if this is an ExpectedError (controlled 4xx)
+      // Handle expected (4xx) errors
       if (err instanceof ExpectedError) {
-        // Log a warning for expected/domain errors
         ctx.log.warn(
           {
-            message: "Expected error in function",
-            error: err.message,
+            event: "ExpectedError",
+            message: err.message,
             statusCode: err.statusCode,
             details: err.details,
-          }
+          },
+          "Expected error thrown by handler"
         );
-        // If HTTP trigger, set response accordingly
+
         if (ctx.req) {
-          // Avoid overwriting if already set to a response with a status
-          if (!ctx.res || typeof ctx.res.status === "undefined") {
-            const body: any = { error: err.message };
+          if (!ctx.res?.status) {
+            const body: Record<string, unknown> = { error: err.message };
             if (err.details !== undefined) {
               body.details = err.details;
             }
@@ -132,48 +138,54 @@ export function withErrorHandler<Args extends any[]>(
               body,
             };
           } else {
-            ctx.log.warn("Response was already set before ExpectedError; skipping setting response.");
+            ctx.log.warn(
+              "Response already populated before ExpectedError; skipping override"
+            );
           }
         }
-        // For non-HTTP triggers, swallow or rethrow? Here, we consider it handled.
         return;
       }
 
-      // Unexpected error: log at error level with structure
+      // Handle unexpected (5xx) errors
       if (err instanceof Error) {
-        ctx.log.error({
-          message: "Unhandled error in function",
-          error: err.message,
-          stack: err.stack,
-        });
+        ctx.log.error(
+          {
+            event: "UnhandledError",
+            message: err.message,
+            stack: err.stack,
+          },
+          "Unhandled exception in function"
+        );
       } else {
-        ctx.log.error({
-          message: "Unhandled non-Error exception in function",
-          error: String(err),
-        });
+        ctx.log.error(
+          {
+            event: "UnhandledNonError",
+            error: String(err),
+          },
+          "Non-Error thrown in function"
+        );
       }
 
-      // If HTTP trigger (ctx.req exists), return 500 response if not already set
       if (ctx.req) {
-        // Prepare response body
-        const body: any = { error: genericMessage };
-        if (!isProd() && showStackInDev && err instanceof Error) {
-          body.stack = err.stack;
-        }
-        if (!ctx.res || typeof ctx.res.status === "undefined") {
+        if (!ctx.res?.status) {
+          const body: Record<string, unknown> = { error: genericMessage };
+          if (showStackInDev && !isProd() && err instanceof Error) {
+            body.stack = err.stack;
+          }
           ctx.res = {
             status: 500,
             headers: { "Content-Type": "application/json" },
             body,
           };
         } else {
-          ctx.log.warn("Error occurred after response was already set; skipping setting 500 response.");
+          ctx.log.warn(
+            "Response already populated; skipping setting 500 response"
+          );
         }
-        // Do not rethrow, as response is set
         return;
       }
 
-      // Non-HTTP trigger: rethrow so runtime can mark failure
+      // For non-HTTP triggers, rethrow so Azure marks function as failed
       throw err;
     }
   };
