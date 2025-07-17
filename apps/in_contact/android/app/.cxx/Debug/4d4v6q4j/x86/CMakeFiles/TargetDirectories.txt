@@ -1,2 +1,0 @@
-C:/Development/ColletteHealth/mobile-app/in_contact/android/app/.cxx/Debug/4d4v6q4j/x86/CMakeFiles/edit_cache.dir
-C:/Development/ColletteHealth/mobile-app/in_contact/android/app/.cxx/Debug/4d4v6q4j/x86/CMakeFiles/rebuild_cache.dir
