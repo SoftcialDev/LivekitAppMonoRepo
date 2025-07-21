@@ -158,23 +158,37 @@ useEffect(() => {
 }, [allPsos, psosLoading, presenceLoading]);
 
   /* ------------------------------------------------------------------ */
-  /* 6️⃣ Compute display list                                             */
-  /* ------------------------------------------------------------------ */
-  const displayList = useMemo(() => {
-    if (fixedEmails.length > 0) {
-      return allPsos.filter(p => fixedEmails.includes(p.email)).slice(0, layout);
-    }
-    return allPsos.slice(0, layout);
-  }, [allPsos, fixedEmails, layout]);
-
-  /* ------------------------------------------------------------------ */
-  /* 7️⃣ LiveKit credentials & handlers                                  */
+  /* 6️⃣ LiveKit credentials & handlers                                  */
   /* ------------------------------------------------------------------ */
   const credsMap = useMultiUserStreams(
     viewerEmail,
-    displayList.map(p => p.email.toLowerCase())
+    fixedEmails.length > 0
+      ? allPsos.filter(p => fixedEmails.includes(p.email)).map(p => p.email.toLowerCase())
+      : allPsos.map(p => p.email.toLowerCase())
   );
   const { handlePlay, handleStop, handleChat } = useVideoActions();
+
+  /* ------------------------------------------------------------------ */
+  /* 7️⃣ Compute display list                                             */
+  /* ------------------------------------------------------------------ */
+const displayList = useMemo(() => {
+  // 1️⃣ Selecciona fijos o todos
+  const base = fixedEmails.length > 0
+    ? allPsos.filter(p => fixedEmails.includes(p.email))
+    : allPsos;
+
+  // 2️⃣ Ordena por quienes tienen token de stream primero
+  const sortedByStreaming = [...base].sort((a, b) => {
+    const aLive = Boolean(credsMap[a.email.toLowerCase()]?.accessToken);
+    const bLive = Boolean(credsMap[b.email.toLowerCase()]?.accessToken);
+    if (aLive && !bLive) return -1;
+    if (!aLive && bLive) return 1;
+    return 0;
+  });
+
+  // 3️⃣ Toma solo los primeros `layout`
+  return sortedByStreaming.slice(0, layout);
+}, [allPsos, fixedEmails, layout, credsMap]);
 
   const renderCard = (u: PSOWithStatus) => {
     const key        = u.email.toLowerCase();
