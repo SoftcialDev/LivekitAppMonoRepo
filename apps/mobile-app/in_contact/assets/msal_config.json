@@ -1,0 +1,16 @@
+{
+  "client_id": "9880433c-29f6-4522-a215-7bac089aa27c",
+  "authorization_user_agent": "DEFAULT",
+  "redirect_uri": "msal9880433c-29f6-4522-a215-7bac089aa27c://auth",
+  "broker_redirect_uri_registered": false,
+  "account_mode": "SINGLE",
+  "authorities": [
+    {
+      "type": "AAD",
+      "audience": {
+        "type": "AzureADandPersonalMicrosoftAccount",
+        "tenant_id": "a080ad22-43aa-4696-b40b-9b68b702c9f3"
+      }
+    }
+  ]
+}

@@ -51,3 +51,61 @@ apps/electron/daemon/incontactservice.exe.config
 apps/electron/daemon/incontactservice.err.log
 apps/electron/daemon/incontactservice.wrapper.log
 apps/electron/daemon/incontactservice.exe
+
+# FLUTTER
+*.properties
+*.jks
+
+build/
+.dart_tool/
+.packages
+.flutter-plugins
+.flutter-plugins-dependencies
+.melos_tool/
+
+# Android
+android/.gradle/
+android/app/.cxx/
+android/app/build/
+*.iml
+.idea/
+
+# macOS
+macos/Flutter/ephemeral/
+
+# Xcode
+ios/Pods/
+ios/Flutter/Generated.xcconfig
+ios/Flutter/ephemeral/
+ios/Runner.xcworkspace/
+
+# Flutter & Dart
+build/
+.dart_tool/
+.packages
+.pub-cache/
+.flutter-plugins
+.flutter-plugins-dependencies
+.melos_tool/
+
+# Android
+**/android/.gradle/
+**/android/app/.cxx/
+**/android/app/build/
+**/android/local.properties
+*.iml
+.idea/
+
+# iOS & macOS
+ios/Pods/
+ios/Flutter/ephemeral/
+ios/.symlinks/
+macos/Flutter/ephemeral/
+macos/Pods/
+
+# VSCode
+.vscode/
+*.code-workspace
+
+# General
+*.log
