@@ -1,31 +1,37 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getMyPsos } from '../../../services/userClient';
+import { getMyPsos, PsoWithSupervisor } from '../../../services/userClient';
 
 /**
- * Hook to fetch the list of PSOs the current user is authorized to view.
+ * Hook to fetch the list of PSOs the current user is authorized to view,
+ * each with their supervisor’s full name.
  *
  * - On mount, calls `getMyPsos()`.
  * - Provides loading and error states.
  * - Exposes a `refetch` function to reload the list.
  *
  * @returns An object containing:
- *  - `psos`: Array of lower-cased PSO emails
- *  - `loading`: True while the request is in flight
- *  - `error`: Error message, or null if none
+ *  - `psos`: Array of {@link PsoWithSupervisor}
+ *  - `loading`: `true` while the request is in flight
+ *  - `error`: Error message, or `null` if none
  *  - `refetch`: Function to re-trigger the fetch
  *
  * @example
  * ```ts
  * const { psos, loading, error, refetch } = useMyPsos();
+ * if (!loading && !error) {
+ *   psos.forEach(p => {
+ *     console.log(p.email, '→ Supervisor:', p.supervisorName);
+ *   });
+ * }
  * ```
  */
 export function useMyPsos(): {
-  psos: string[];
+  psos: PsoWithSupervisor[];
   loading: boolean;
   error: string | null;
   refetch: () => void;
 } {
-  const [psos, setPsos] = useState<string[]>([]);
+  const [psos, setPsos] = useState<PsoWithSupervisor[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 

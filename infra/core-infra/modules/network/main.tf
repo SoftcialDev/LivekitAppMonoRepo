@@ -15,9 +15,3 @@ resource "azurerm_subnet" "main-subnet" {
   address_prefixes         = ["${var.vnet_ip}${var.subnet_mask}"] 
 }
 
-# Associate NAT Gateway with Subnet if nat_gateway_id is provided
-resource "azurerm_subnet_nat_gateway_association" "main" {
-  count          = 1
-  subnet_id           = azurerm_subnet.main-subnet.id
-  nat_gateway_id      = var.nat_gateway_id
-}

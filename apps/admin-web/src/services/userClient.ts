@@ -72,6 +72,17 @@ export interface Supervisor {
 }
 
 /**
+ * Represents a PSO (employee) together with their supervisor’s full name.
+ */
+export interface PsoWithSupervisor {
+  /** The PSO’s email address, always lower‑cased. */
+  email: string;
+  /** The full name of this PSO’s supervisor (e.g. "Ana Gómez"). */
+  supervisorName: string;
+
+}
+
+/**
  * Response from GetSupervisorByIdentifier.
  * - If a supervisor is assigned, `supervisor` will be present.
  * - If no supervisor is assigned, `message` will be present.
@@ -216,23 +227,35 @@ export async function changeSupervisor(
 }
 
 /**
- * Fetches the list of PSO email addresses the current user may view.
+ * Fetches the list of PSOs (employees) the current user may view,
+ * each annotated with that employee’s supervisor full name.
  *
- * Calls GET `/api/MyPsos` and returns the array of lower-cased email strings.
+ * Calls GET `/api/MyPsos` (Azure Function) which returns:
+ * ```json
+ * {
+ *   "psos": [
+ *     { "email": "alice@example.com", "supervisorName": "Carlos Pérez" },
+ *     { "email": "bob@example.com",   "supervisorName": "María Rodríguez" }
+ *   ]
+ * }
+ * ```
  *
- * @returns Promise resolving to an array of PSO emails.
+ * @returns Promise resolving to an array of {@link PsoWithSupervisor}.
  *
  * @example
  * ```ts
- * const myPsos = await getMyPsos();
- * // ["alice@example.com", "bob@example.com", …]
+ * const list = await getMyPsos();
+ * // [
+ * //   { email: "alice@example.com", supervisorName: "Carlos Pérez" },
+ * //   { email: "bob@example.com",   supervisorName: "María Rodríguez" }
+ * // ]
  * ```
+ * @throws Will propagate any network or parsing error from axios.
  */
-export async function getMyPsos(): Promise<string[]> {
-  const response = await apiClient.get<{ psos: string[] }>('/api/GetPsosBySupervisor');
+export async function getMyPsos(): Promise<PsoWithSupervisor[]> {
+  const response = await apiClient.get<{ psos: PsoWithSupervisor[] }>('/api/GetPsosBySupervisor');
   return response.data.psos;
 }
-
 
 /**
  * Fetches the supervisor for a given PSO identifier.

@@ -6,23 +6,32 @@ import prisma from "../shared/services/prismaClienService";
 import { getUserByAzureOid } from "../shared/services/userService";
 import type { JwtPayload } from "jsonwebtoken";
 
+export interface PsoWithSupervisor {
+  /** The PSO’s email address, always lower‑cased */
+  email: string;
+  /** The full name of this PSO’s supervisor (e.g. "Ana Gómez") */
+  supervisorName: string;
+}
+
 /**
- * GET /api/MyPsos
+ * GET /api/GetPsosBySupervisor
  *
- * Returns the canonical, lower‐cased email addresses of the PSOs
- * that the calling user is allowed to see.
+ * Returns the list of PSOs (employees) the caller is allowed to see,
+ * each with their supervisor’s full name.
  *
- * - If caller is Admin → returns every Employee’s email.
- * - If caller is Supervisor → returns only those users whose
- *   `supervisorId` matches the caller’s User.id.
+ * Behavior:
+ * - If caller.role === "Admin":
+ *   • returns every Employee’s email + that employee’s supervisor fullName.
+ * - If caller.role === "Supervisor":
+ *   • returns only those Employees whose supervisorId === caller.id,
+ *     and each entry carries the caller’s own fullName as supervisorName.
  *
- * Response JSON shape:
+ * Response JSON:
  * ```json
  * {
  *   "psos": [
- *     "alice@example.com",
- *     "bob@example.com",
- *     …
+ *     { "email": "alice@example.com", "supervisorName": "Carlos Pérez" },
+ *     { "email": "bob@example.com",   "supervisorName": "María Rodrí­guez" }
  *   ]
  * }
  * ```
@@ -36,38 +45,44 @@ const GetPsosBySupervisor: AzureFunction = withErrorHandler(
         return unauthorized(ctx, "Cannot determine caller OID");
       }
 
-      // 1) Lookup our User record
+      // 1) Lookup caller in our Users table
       const caller = await getUserByAzureOid(oid as string);
       if (!caller) {
         return unauthorized(ctx, "User not found in application database");
       }
 
-      let psos: string[];
+      // 2) Build base filter for Employees only
+      const baseWhere: Record<string, any> = {
+        role:      "Employee",
+        deletedAt: null,
+      };
 
-      if (caller.role === "Admin") {
-        // Admin sees all Employees
-        const employees = await prisma.user.findMany({
-          where: { role: "Employee", deletedAt: null },
-          select: { email: true },
-        });
-        psos = employees.map(e => e.email);
-      } else if (caller.role === "Supervisor") {
-        // Supervisor sees only their own
-        const myTeam = await prisma.user.findMany({
-          where: {
-            supervisorId: caller.id,
-            role:         "Employee",
-            deletedAt:    null,
-          },
-          select: { email: true },
-        });
-        psos = myTeam.map(e => e.email);
-      } else {
+      // 3) If Supervisor, restrict to their team
+      if (caller.role === "Supervisor") {
+        baseWhere.supervisorId = caller.id;
+      } else if (caller.role !== "Admin") {
         return unauthorized(ctx, "Insufficient privileges");
       }
 
-      // Always lower-case for canonical lookups
-      psos = psos.map(e => e.toLowerCase());
+      // 4) Fetch matching Users plus their supervisor’s fullName
+      const employees = await prisma.user.findMany({
+        where: baseWhere,
+        select: {
+          email:      true,
+          supervisor: {
+            select: { fullName: true }
+          }
+        }
+      });
+
+      // 5) Map to DTO shape
+      const psos: PsoWithSupervisor[] = employees.map(e => ({
+        email: e.email.toLowerCase(),
+        supervisorName: e.supervisor
+          ? e.supervisor.fullName
+          : ""
+      }));
+
       return ok(ctx, { psos });
     });
   }

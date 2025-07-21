@@ -23,11 +23,6 @@ module "network" {
   region      = var.region
   # Associate this network with the resource group we just created
   resource_group  = azurerm_resource_group.main-rg.name
-  # Use the NAT gateway ID from pip_egress for outbound connectivity
-  nat_gateway_id = module.pip_egress.nat_gateway_id
-
-  # Ensure the NAT gateway exists before provisioning the network
-  depends_on = [ module.pip_egress ]
 }
 
 # 3. Static Web App module
@@ -55,16 +50,6 @@ module "static_web_app" {
   tags = var.tags
 }
 
-# 4. Public IP for egress traffic
-module "pip_egress" {
-  source              = "./modules/public-ip"
-  # Naming prefix for the public IP resource
-  name_prefix         = var.name_prefix
-  # Label this IP for egress use cases
-  purpose             = "egress"
-  resource_group_name = azurerm_resource_group.main-rg.name
-  region              = var.region
-}
 
 # 5. Redis module, currently is not necessary
 /*module "redis" {

@@ -31,8 +31,3 @@ variable "subnet_mask" {
   type        = string
   default     = "/20"
 }
-variable "nat_gateway_id" {
-  description = "ID del NAT Gateway para asignar a la Subnet"
-  type        = string
-  default     = ""
-}

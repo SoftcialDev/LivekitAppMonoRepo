@@ -9,7 +9,6 @@ resource "azurerm_kubernetes_cluster" "aks-cluster" {
 default_node_pool {
   name                = "default"
   vm_size             = var.vm_sku           # e.g. "Standard_B4ms"
-  enable_auto_scaling = true
   min_count           = 2    # minimum number of nodes
   max_count           = 3    # maximum number of nodes
   vnet_subnet_id      = var.vnet_subnet_id
