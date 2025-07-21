@@ -279,7 +279,7 @@ useEffect(() => {
           )}
           {displayList.length >= 5 && (
             <div
-              className="grid flex-grow gap-4"
+              className="grid gap-4"
               style={{ gridTemplateColumns:'repeat(3,1fr)', gridAutoRows:'1fr' }}
             >
               {displayList.map((p,i) => {
