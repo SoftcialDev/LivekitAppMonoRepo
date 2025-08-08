@@ -12,24 +12,43 @@ const wpsClient = new WebPubSubServiceClient(
 );
 
 /**
+ * Options for generating a client access token.
+ */
+export interface WebPubSubTokenOptions {
+  /** Unique identifier for this client (will become the Web PubSub userId) */
+  userId: string;
+  /** List of groups this client should join */
+  groups: string[];
+}
+
+/**
  * Generates a client access token for a user to connect to Web PubSub.
  *
- * @param groupName - The identifier for the group and userId (e.g., an employee's email).
+ * @param opts.userId - The normalized user identifier (e.g. an employee email).
+ * @param opts.groups - The list of group names to subscribe to.
  * @returns A Promise that resolves to a JWT token string for authentication.
  * @throws Propagates any errors from the Web PubSub SDK.
  */
 export async function generateWebPubSubToken(
-  groupName: string
+  opts: WebPubSubTokenOptions
 ): Promise<string> {
-  const normalized = groupName.trim().toLowerCase();
+  const normalizedUser = opts.userId.trim().toLowerCase();
+  const normalizedGroups = opts.groups.map(g => g.trim().toLowerCase());
+
+  const wpsClient = new WebPubSubServiceClient(
+    config.webPubSubEndpoint,
+    new AzureKeyCredential(config.webPubSubKey),
+    config.webPubSubHubName
+  );
+
   const tokenResponse = await wpsClient.getClientAccessToken({
-    roles: ["webpubsub.joinLeaveGroup", "webpubsub.receive"],
-    userId: normalized,
-    groups: [normalized, "presence"],
+    roles:  ["webpubsub.joinLeaveGroup", "webpubsub.receive"],
+    userId: normalizedUser,
+    groups: normalizedGroups,
   });
+
   return tokenResponse.token;
 }
-
 /**
  * Broadcasts a JSON-serializable payload to all clients in the specified group.
  *

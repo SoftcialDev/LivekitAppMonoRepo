@@ -1,4 +1,4 @@
-import { Context } from "@azure/functions";
+import { AzureFunction, Context } from "@azure/functions";
 import prisma from "../shared/services/prismaClienService";
 import { withAuth } from "../shared/middleware/auth";
 import { withErrorHandler } from "../shared/middleware/errorHandler";
@@ -8,46 +8,70 @@ import { JwtPayload } from "jsonwebtoken";
 import { config } from "../shared/config/index";
 
 /**
- * Issues a Web PubSub client access token scoped to a group determined
- * by the authenticated user's role.
+ * HTTP-triggered function that issues a client access token for Azure Web PubSub.
  *
- * @param ctx - Azure Functions execution context, containing bindings and logger.
- * @returns A HTTP 200 response with JSON `{ token, endpoint, hubName }`.
- * @throws 401 Unauthorized if authentication fails or the user's role is not permitted.
+ * Based on the caller’s role, the token will allow them to join:
+ * - **All roles**: the `"presence"` group (so everyone’s online/offline shows up)
+ * - **Employees** additionally:
+ *    - their personal group (`user.email`)
+ *    - the `"cm-status-updates"` group (to receive Contact-Manager status broadcasts)
+ *
+ * @remarks
+ * - Caller must be authenticated via `withAuth`.
+ * - If the user record is missing or deleted, replies 401.
+ * - Otherwise returns `{ token, endpoint, hubName }`.
+ *
+ * @param ctx - Azure Functions execution context,
+ *              with `ctx.bindings.user` populated by `withAuth`.
  */
-export default withErrorHandler(async (ctx: Context) => {
-  await withAuth(ctx, async () => {
-    const claims = ctx.bindings.user as JwtPayload;
-    const azureAdId = (claims.oid ?? claims.sub) as string | undefined;
-    if (!azureAdId) {
-      unauthorized(ctx, "Cannot determine user identity");
-      return;
-    }
+const issueWebPubSubToken: AzureFunction = withErrorHandler(
+  async (ctx: Context) => {
+    await withAuth(ctx, async () => {
+      const claims = ctx.bindings.user as JwtPayload;
+      const oid = (claims.oid ?? claims.sub) as string | undefined;
+      if (!oid) {
+        return unauthorized(ctx, "Cannot determine user identity");
+      }
 
-    const user = await prisma.user.findUnique({ where: { azureAdObjectId: azureAdId } });
-    if (!user || user.deletedAt) {
-      unauthorized(ctx, "User not found or deleted");
-      return;
-    }
+      const user = await prisma.user.findUnique({
+        where: { azureAdObjectId: oid }
+      });
+      if (!user || user.deletedAt) {
+        return unauthorized(ctx, "User not found or deleted");
+      }
 
-    const role = user.role;
-    let groupName: string;
+      const normalizedEmail = user.email.trim().toLowerCase();
+      const role = user.role;
 
-    if (role === "Employee") {
-      groupName = user.email.trim().toLowerCase();
-    } else if (role === "Admin" || role === "Supervisor") {
-      groupName = "presence";
-    } else {
-      unauthorized(ctx, "Access denied: insufficient role");
-      return;
-    }
+      // Always include the global presence channel
+      const groups: string[] = ["presence"];
 
-    const token = await generateWebPubSubToken(groupName);
+      if (role === "Employee") {
+        // Employees also need:
+        // 1) their personal group for commands
+        // 2) the CM‐status‐updates channel
+        groups.unshift(normalizedEmail);
+        groups.push("cm-status-updates");
+      }
+      // Admins, Supervisors, ContactManagers remain on "presence"
 
-    ok(ctx, {
-      token,
-      endpoint: config.webPubSubEndpoint,
-      hubName:  config.webPubSubHubName,
+      // Generate token scoped to the chosen groups
+      const token = await generateWebPubSubToken({
+        userId: normalizedEmail,
+        groups,
+      });
+
+      return ok(ctx, {
+        token,
+        endpoint: config.webPubSubEndpoint,
+        hubName:  config.webPubSubHubName,
+      });
     });
-  });
-});
+  },
+  {
+    genericMessage: "Internal error issuing Web PubSub token",
+    showStackInDev: true,
+  }
+);
+
+export default issueWebPubSubToken;

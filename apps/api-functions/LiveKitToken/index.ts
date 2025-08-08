@@ -1,6 +1,4 @@
-﻿// src/functions/LiveKitToken/index.ts
-
-import { Context } from "@azure/functions";
+﻿import { Context } from "@azure/functions";
 import { withAuth } from "../shared/middleware/auth";
 import { withErrorHandler } from "../shared/middleware/errorHandler";
 import { ok, badRequest, unauthorized } from "../shared/utils/response";

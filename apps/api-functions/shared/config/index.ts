@@ -19,7 +19,8 @@ export const config = {
   employeesGroupId : process.env.EMPLOYEES_GROUP_ID!,
   azureAdApiIdentifierUri : process.env.AZURE_AD_API_IDENTIFIER_URI!,
   servicePrincipalObjectId : process.env.SERVICE_PRINCIPAL_OBJECT_ID!,
-  commandsSubscriptionName: process.env.COMMANDS_SUBSCRIPTION_NAME || "commands-sub"
+  commandsSubscriptionName: process.env.COMMANDS_SUBSCRIPTION_NAME || "commands-sub",
+  contactManagerAppRoleId : process.env.CONTACT_MANAGER_GROUP_ID!,
 };
 
 if (!config.databaseUrl) throw new Error("DATABASE_URL is required");
@@ -40,4 +41,5 @@ if (!config.azureAdApiIdentifierUri) throw new Error("AZURE_AD_API_IDENTIFIER_UR
 if (!config.servicePrincipalObjectId) throw new Error("SERVICE_PRINCIPAL_OBJECT_ID is required");
 if (!config.supervisorsGroupId) throw new Error("SUPERVISORS_GROUP_ID is required");
 if (!config.employeesGroupId) throw new Error("EMPLOYEES_GROUP_ID is required");
+if (!config.contactManagerAppRoleId) throw new Error("CONTACT_MANAGER_GROUP_ID is required");
 if (!config.commandsSubscriptionName) throw new Error("COMMANDS_SUBSCRIPTION_NAME is required");

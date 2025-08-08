@@ -1,5 +1,4 @@
 /// 1. Datasource & Generator
-
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
@@ -13,54 +12,155 @@ generator client {
 
 // 2. Enumerations
 
+/**
+ * The application roles for users.
+ */
 enum UserRole {
-  Supervisor  // users with highest privileges
-  Admin       // managers or intermediate-level admins
-  Employee    // standard users who stream video
+  Supervisor      // users with highest privileges
+  Admin           // managers or intermediate-level admins
+  Employee        // standard users who stream video
+  ContactManager  // Contact Manager role
 }
 
+/// Possible statuses for a Contact Manager during their shift.
+enum ContactManagerStatus {
+  /// The Contact Manager is not on duty.
+  Unavailable
+
+  /// The Contact Manager is on duty and ready to help.
+  Available
+
+  /// The Contact Manager is taking a break.
+  OnBreak
+
+  /// The Contact Manager is assisting another task or user.
+  OnAnotherTask
+}
+
+/// Types of forms that can be submitted to the Contact Managers group chat
+enum FormType {
+  /// “Disconnections” form
+  Disconnections
+
+  /// “Admissions” form
+  Admissions
+
+  /// “Assistance with Acute Patient Assessment” form
+  Assistance
+}
+
+/**
+ * Presence states for connected users.
+ */
 enum Status {
-  online      // user is connected and ready
-  offline     // user is not connected
+  online   // user is connected and ready
+  offline  // user is not connected
 }
 
+/**
+ * Types of commands that can be sent to an employee.
+ */
 enum CommandType {
-  START       // begin streaming session
-  STOP        // end streaming session
+  START  // begin streaming session
+  STOP   // end streaming session
 }
 
 // 3. Models
 
+/**
+ * Stores profile information for users with the ContactManager role,
+ * including their current status and a history of status changes.
+ */
+model ContactManagerProfile {
+  /// Unique UUID for this profile
+  id         String                           @id @default(uuid()) @db.Uuid
+  /// Foreign key to the User with role = ContactManager
+  userId     String                           @unique @db.Uuid
+  user       User                             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Current status of the contact manager
+  status     ContactManagerStatus
+  /// Timestamp when this profile was created
+  createdAt  DateTime                         @default(now())
+  /// Timestamp when this profile was last updated
+  updatedAt  DateTime                         @updatedAt
+  /// History of status changes for this contact manager
+  history    ContactManagerStatusHistory[]
+
+  @@map("contact_manager_profiles")
+}
+
+/**
+ * Logs each change of status for a ContactManagerProfile,
+ * recording the previous and new statuses, the actor who made the change,
+ * and when it occurred.
+ */
+model ContactManagerStatusHistory {
+  /// Unique UUID for this history record
+  id             String                   @id @default(uuid()) @db.Uuid
+  /// Foreign key to the related ContactManagerProfile
+  profileId      String                   @db.Uuid
+  profile        ContactManagerProfile    @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  /// Status before the change
+  previousStatus ContactManagerStatus
+  /// Status after the change
+  newStatus      ContactManagerStatus
+  /// ID of the User (typically an Admin) who made the change
+  changedById    String                   @db.Uuid
+  changedBy      User                     @relation(fields: [changedById], references: [id], onDelete: Cascade)
+  /// When the change was made
+  timestamp      DateTime                 @default(now())
+
+  @@map("contact_manager_status_history")
+}
+
+/**
+ * Represents a user of the system, with roles, supervisor relationships,
+ * streaming session history, chat memberships, snapshots taken, and auditing.
+ */
 model User {
-  id              String            @id @default(uuid()) @db.Uuid
-  azureAdObjectId String            @unique
-  email           String            @unique
-  fullName        String
-  role            UserRole
-  roleChangedAt   DateTime?         // timestamp when the role was last updated
-  supervisorId    String?           @db.Uuid
-  assignedAt      DateTime?
+  id                   String                      @id @default(uuid()) @db.Uuid
+  azureAdObjectId      String                      @unique
+  email                String                      @unique
+  fullName             String
+  role                 UserRole
+  roleChangedAt        DateTime?                   // timestamp when the role was last updated
+  supervisorId         String?                     @db.Uuid
+  assignedAt           DateTime?
+  /// Optional one-to-one relation only for ContactManager users
+  contactProfile       ContactManagerProfile?      @relation
 
-  supervisor      User?             @relation("SupervisorToEmployees", fields: [supervisorId], references: [id], onDelete: Cascade)
-  employees       User[]            @relation("SupervisorToEmployees")
+  supervisor           User?                       @relation("SupervisorToEmployees", fields: [supervisorId], references: [id], onDelete: Cascade)
+  employees            User[]                      @relation("SupervisorToEmployees")
 
-  presence        Presence?
-  presenceHistory PresenceHistory[]
-  commands        PendingCommand[]  @relation("EmployeeCommands")
+  supervisorSnapshots  Snapshot[]                  @relation("SupervisorSnapshots")
+  psoSnapshots         Snapshot[]                  @relation("PsoSnapshots")
 
-  streamingSessions StreamingSessionHistory[]
-  auditLogs         AuditLog[]       @relation("UserAuditLogs")
+  presence             Presence?
+  presenceHistory      PresenceHistory[]
+  commands             PendingCommand[]            @relation("EmployeeCommands")
 
-  // Relation to ChatParticipant for Teams/Graph chats
-  chatParticipants  ChatParticipant[]
+  streamingSessions    StreamingSessionHistory[]
+  auditLogs            AuditLog[]                  @relation("UserAuditLogs")
 
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
-  deletedAt       DateTime?
+  // Teams/Graph chat memberships
+  chatParticipants     ChatParticipant[]
+
+  createdAt            DateTime                    @default(now())
+    /// Forms this user has submitted to the Contact Managers chat
+  contactManagerForms  ContactManagerForm[]
+
+  updatedAt            DateTime                    @updatedAt
+  deletedAt            DateTime?
+
+  /// Inverse relation for status history (optional convenience)
+  ContactManagerStatusHistory ContactManagerStatusHistory[]
 
   @@index([supervisorId])
 }
 
+/**
+ * Tracks real-time presence status for a user.
+ */
 model Presence {
   userId     String   @id @db.Uuid
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -71,6 +171,9 @@ model Presence {
   @@index([status])
 }
 
+/**
+ * Historical log of a user's presence over time.
+ */
 model PresenceHistory {
   id             String   @id @default(uuid()) @db.Uuid
   userId         String   @db.Uuid
@@ -83,6 +186,9 @@ model PresenceHistory {
   @@index([connectedAt])
 }
 
+/**
+ * Pending commands sent to employees (e.g., to start/stop streaming).
+ */
 model PendingCommand {
   id              String      @id @default(uuid()) @db.Uuid
   employeeId      String      @db.Uuid
@@ -102,6 +208,9 @@ model PendingCommand {
   @@index([expiresAt])
 }
 
+/**
+ * Records the history of streaming sessions per user.
+ */
 model StreamingSessionHistory {
   id            String    @id @default(uuid()) @db.Uuid
   userId        String    @db.Uuid
@@ -115,7 +224,9 @@ model StreamingSessionHistory {
   @@index([startedAt])
 }
 
-/// 5. Auditoría de cambios
+/**
+ * General audit log for any entity changes in the system.
+ */
 model AuditLog {
   id           String   @id @default(uuid()) @db.Uuid
   entity       String
@@ -137,13 +248,13 @@ model AuditLog {
  */
 model Chat {
   /// The Teams/Graph chat identifier (e.g., "19:abcd1234...@thread.v2").
-  id          String         @id @db.VarChar(100)
+  id        String         @id @db.VarChar(100)
   /// A human-readable topic, e.g., "InContactApp".
-  topic       String?
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
+  topic     String?
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
   /// Participants in this chat.
-  members     ChatParticipant[]
+  members   ChatParticipant[]
 
   @@map("chats")
 }
@@ -165,4 +276,51 @@ model ChatParticipant {
 
   @@id([chatId, userId])
   @@map("chat_participants")
+}
+
+/**
+ * Stores snapshot reports taken by supervisors on PSOs,
+ * including reason, timestamp, and a link to the stored image.
+ */
+model Snapshot {
+  id           String   @id @default(uuid()) @db.Uuid
+  supervisorId String   @db.Uuid
+  psoId        String   @db.Uuid
+  reason       String
+  takenAt      DateTime @default(now())
+  imageUrl     String
+
+  supervisor   User     @relation("SupervisorSnapshots", fields: [supervisorId], references: [id], onDelete: Cascade)
+  pso          User     @relation("PsoSnapshots",        fields: [psoId],        references: [id], onDelete: Cascade)
+
+  @@index([supervisorId])
+  @@index([psoId])
+  @@map("snapshots")
+}
+
+
+/// Records each form submission sent to the Contact Managers chat,
+/// including its type, who sent it, optional image URL, and all form fields as JSON.
+model ContactManagerForm {
+  /// Unique UUID for this form record
+  id        String    @id @default(uuid()) @db.Uuid
+
+  /// Which form was submitted
+  formType  FormType
+
+  /// The user who submitted this form
+  senderId  String    @db.Uuid
+  sender    User      @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  /// Optional publicly-accessible URL (or SAS URL) for an image attachment
+  imageUrl  String?
+
+  /// All submitted fields, serialized as JSON (keys depend on formType)
+  data      Json
+
+  /// When this form was received
+  createdAt DateTime  @default(now())
+
+  /// When this record was last updated
+  updatedAt DateTime  @updatedAt
 }

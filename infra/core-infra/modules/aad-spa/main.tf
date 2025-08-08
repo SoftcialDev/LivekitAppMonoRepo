@@ -7,6 +7,7 @@ resource "random_uuid" "app_role_admin"      {}
 resource "random_uuid" "app_role_supervisor" {}
 resource "random_uuid" "app_role_employee"   {}
 resource "random_uuid" "api_scope_id"        {}
+resource "random_uuid" "app_role_contact_manager"        {}
 
 ###########################################################
 # 1) Get the current tenant info (used for building identifier_uris)
@@ -40,8 +41,6 @@ locals {
     "Chat.ReadWrite.All",
     "ChatMember.Read",
     "ChatMember.ReadWrite",
-    "ChatMessage.Read",
-    "ChatMessage.Send"
   ]
   # Map each permission name to its role-ID GUID
   graph_app_role_map = {
@@ -89,8 +88,7 @@ locals {
     "Chat.ReadWrite.All",
     "ChatMember.Read",
     "ChatMember.ReadWrite",
-    "ChatMessage.Read",
-    "ChatMessage.Send"
+
   ]
   graph_delegated_scope_map = {
     "Group.Read.All"      = "7ab1d382-f21e-4acd-a863-ba3e13f7da61"
@@ -209,6 +207,15 @@ resource "azuread_application" "spa_app" {
     enabled              = true
   }
 
+    app_role {
+    id                   = random_uuid.app_role_contact_manager.result
+    allowed_member_types = ["User"]
+    display_name         = "Contact Manager"
+    description          = "Users in this role have contact manager access"
+    value                = "Contact Manager"
+    enabled              = true
+  }
+
   # Grant the SPA access to the backend API scope
   required_resource_access {
     resource_app_id = azuread_application.api_app.object_id
@@ -257,6 +264,12 @@ resource "azuread_group" "employees_group" {
   mail_enabled     = false
 }
 
+resource "azuread_group" "contact_manager_group" {
+  display_name     = "${var.aad_app_name}-Contact-Manager"
+  security_enabled = true
+  mail_enabled     = false
+}
+
 ###########################################################
 # 6) Assign existing users to the security groups
 ###########################################################
@@ -291,6 +304,12 @@ resource "azuread_app_role_assignment" "supervisors_assignment" {
 resource "azuread_app_role_assignment" "employees_assignment" {
   principal_object_id = azuread_group.employees_group.object_id
   app_role_id         = azuread_application.spa_app.app_role_ids["Employee"]
+  resource_object_id  = azuread_service_principal.spa_sp.object_id
+}
+
+resource "azuread_app_role_assignment" "contact_manager_assignment" {
+  principal_object_id = azuread_group.employees_group.object_id
+  app_role_id         = azuread_application.spa_app.app_role_ids["Contact Manager"]
   resource_object_id  = azuread_service_principal.spa_sp.object_id
 }
 

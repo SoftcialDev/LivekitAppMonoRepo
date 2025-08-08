@@ -14,3 +14,8 @@ output "storage_account_primary_access_key" {
   value       = azurerm_storage_account.storage_account.primary_access_key
   sensitive   = true
 }
+
+output "snapshot_container_name" {
+  description = "Name of the Blob container for snapshots"
+  value       = azurerm_storage_container.snapshots.name
+}

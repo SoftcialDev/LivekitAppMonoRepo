@@ -1,7 +1,6 @@
 import { AzureFunction, Context, HttpRequest } from "@azure/functions";
 import { withAuth }           from "../shared/middleware/auth";
 import { withErrorHandler }   from "../shared/middleware/errorHandler";
-import { withBodyValidation } from "../shared/middleware/validate";
 import { ok, unauthorized, badRequest } from "../shared/utils/response";
 
 import prisma from "../shared/services/prismaClienService";
@@ -28,7 +27,7 @@ interface CandidateUser {
   email:           string;
   firstName:       string;
   lastName:        string;
-  role:            "Admin" | "Supervisor" | "Employee" | null;
+  role:            "ContactManager" | "Admin" | "Supervisor" | "Employee" | null;
   supervisorAdId?: string;
   supervisorName?: string;
 }
@@ -119,6 +118,7 @@ if (includeTenant) {
     fetchAppRoleMemberIds(token, spId, process.env.SUPERVISORS_GROUP_ID!),
     fetchAppRoleMemberIds(token, spId, process.env.ADMINS_GROUP_ID!),
     fetchAppRoleMemberIds(token, spId, process.env.EMPLOYEES_GROUP_ID!),
+    fetchAppRoleMemberIds(token, spId, process.env.CONTACT_MANAGER_GROUP_ID!)
   ]);
 
   // fetch all tenant users once

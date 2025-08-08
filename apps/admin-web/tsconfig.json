@@ -15,9 +15,16 @@
     "esModuleInterop": true,
     "baseUrl": ".",                
     "paths": {
-      "@/*": ["src/*"],           
-      "@assets/*": ["src/assets/*"],
-      "@components/*": ["src/components/*"]
+      "@/*": ["src/*"],       
+      "@app/*": ["app/*"],
+      "@pages/*": ["pages/*"],
+      "@shared/*": ["shared/*"],
+      "@ui/*": ["shared/ui/*"],
+      "@api/*": ["shared/api/*"],
+      "@assets/*": ["shared/assets/*"],
+      "@auth/*": ["shared/auth/*"],
+      "@presence/*": ["shared/presence/*"],
+      "@types/*": ["shared/types/*"]
     },
     "types": [
       "vite/client",

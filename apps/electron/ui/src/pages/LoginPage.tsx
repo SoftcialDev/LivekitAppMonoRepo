@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
-import logoSrc from '@assets/ColletteHealth_logo.png';
-import camaraLogo from '@assets/InContact_logo.png';
+import logoSrc from '@/shared/assets/ColletteHealth_logo.png';
+import camaraLogo from '@/shared/assets/InContact_logo.png';
 import { SignInButton } from '../components/SignInButton';
 import IconWithLabel from '@components/IconWithLabel';
 import type { AuthenticationResult } from '@azure/msal-browser';

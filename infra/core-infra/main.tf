@@ -146,6 +146,7 @@ module "function_app" {
   storage_account_name           = module.storage.storage_account_name
   storage_account_access_key     = module.storage.storage_account_primary_access_key
   storage_account_connection_string = module.storage.storage_account_primary_connection_string
+  storage_account_snapshot_container_name = module.storage.snapshot_container_name
 
   # Authentication and identity configuration
   aad_app_client_id           = module.aad_spa.api_application_client_id
@@ -160,6 +161,7 @@ module "function_app" {
   admins_group_id             = module.aad_spa.spa_app_role_admin_id
   employees_group_id          = module.aad_spa.spa_app_role_employee_id
   supervisors_group_id        = module.aad_spa.spa_app_role_supervisor_id
+  contact_manager_group_id    = module.aad_spa.spa_app_role_contact_manager_id
 
   # External service endpoints and configuration
   livekit_api_url             = var.livekit_url

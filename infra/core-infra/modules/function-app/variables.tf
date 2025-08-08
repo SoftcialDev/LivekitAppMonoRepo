@@ -31,6 +31,9 @@ variable "function_plan_sku_size" {
   default     = "Y1"
 }
 
+variable "storage_account_snapshot_container_name" {
+  type = string
+}
 variable "storage_account_name" {
   description = "Name of an existing Storage Account for the Function App"
   type        = string
@@ -129,6 +132,11 @@ variable "admins_group_id" {
 
 variable "employees_group_id" {
   description = "Azure AD object ID of the Employees group"
+  type        = string
+}
+
+variable "contact_manager_group_id" {
+  description = "Azure AD object ID of the contact manager group"
   type        = string
 }
 

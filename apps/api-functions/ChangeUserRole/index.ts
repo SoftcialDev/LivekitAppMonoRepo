@@ -147,6 +147,7 @@ const changeUserRole: AzureFunction = withErrorHandler(
           Supervisor: process.env.SUPERVISORS_GROUP_ID!,
           Admin: process.env.ADMINS_GROUP_ID!,
           Employee: process.env.EMPLOYEES_GROUP_ID!,
+          ContactManager: process.env.CONTACT_MANAGER_GROUP_ID!,
         };
         const roleId = roleIdMap[newRole];
         await assignAppRoleToPrincipal(graphToken, spId!, targetAdId, roleId);

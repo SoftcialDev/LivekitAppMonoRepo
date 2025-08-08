@@ -56,6 +56,13 @@ output "employees_group_id" {
   value       = module.aad_spa.employees_group_id
 }
 
+# Object ID of the Employees security group
+output "contact_manager_group_id" {
+  description = "Object ID of the Employees group created in aad-spa module"
+  value       = module.aad_spa.contact_manager_group_id
+}
+
+
 output "supervisors_groups_id" {
   description = "Object ID of the Supervisors group created in aad-spa module"
   value       = module.aad_spa.supervisors_groups_id

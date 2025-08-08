@@ -14,6 +14,7 @@
     "@azure/functions": "^3.0.0",
     "@azure/identity": "^4.10.2",
     "@azure/service-bus": "^7.0.0",
+    "@azure/storage-blob": "^12.27.0",
     "@azure/web-pubsub": "^1.2.0",
     "@microsoft/microsoft-graph-client": "^3.0.7",
     "@prisma/client": "^6.11.1",

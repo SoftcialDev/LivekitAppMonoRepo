@@ -7,7 +7,6 @@ import { withErrorHandler }   from "../shared/middleware/errorHandler";
 import { withBodyValidation } from "../shared/middleware/validate";
 import { ok, badRequest, unauthorized }
   from "../shared/utils/response";
-
 import {
   getUserByAzureOid,
   getUserByEmail

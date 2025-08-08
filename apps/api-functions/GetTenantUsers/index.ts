@@ -19,21 +19,18 @@ interface GraphUser {
 }
 
 /**
- * Representation of a tenant user who has no App Role assigned,
- * with first and last name split out.
+ * Representation of a tenant user with their current App-Role.
  */
 interface TenantUser {
   azureAdObjectId: string;
   email: string;
   firstName: string;
   lastName: string;
+  role: "Supervisor" | "Admin" | "Employee" | "ContactManager" | "None";
 }
 
 /**
  * Splits a full display name into firstName and lastName.
- *
- * - firstName: the first word of the fullName
- * - lastName: the remainder (joined by spaces), or empty string
  */
 function splitName(fullName: string): { firstName: string; lastName: string } {
   const parts = fullName.trim().split(/\s+/);
@@ -44,14 +41,13 @@ function splitName(fullName: string): { firstName: string; lastName: string } {
 }
 
 /**
- * Handles an HTTP request to list all tenant users without any of the
- * Supervisor, Admin, or Employee App Roles assigned.
+ * Handles an HTTP request to list every tenant user along with their current App-Role.
  */
 async function getTenantUsersHandler(
   ctx: Context,
   req: HttpRequest
 ): Promise<void> {
-  ctx.log.info("[GetTenantUsers] Entry — listing unassigned users");
+  ctx.log.info("[GetTenantUsers] Entry — listing all users with their role");
 
   // 1. Acquire Graph token
   let token: string;
@@ -67,36 +63,40 @@ async function getTenantUsersHandler(
     return;
   }
 
-  // 2. Read App Role and SP IDs from environment
-  const supRoleId = process.env.SUPERVISORS_GROUP_ID!;
-  const adminRoleId = process.env.ADMINS_GROUP_ID!;
-  const empRoleId = process.env.EMPLOYEES_GROUP_ID!;
-  const servicePrincipalId = process.env.SERVICE_PRINCIPAL_OBJECT_ID!;
-  if (!supRoleId || !adminRoleId || !empRoleId || !servicePrincipalId) {
-    ctx.log.error("[GetTenantUsers] Missing role or SP ID in environment");
+  // 2. Read App-Role IDs and Service Principal ID from environment
+  const supRoleId            = process.env.SUPERVISORS_GROUP_ID!;
+  const adminRoleId          = process.env.ADMINS_GROUP_ID!;
+  const empRoleId            = process.env.EMPLOYEES_GROUP_ID!;
+  const cmRoleId             = process.env.CONTACT_MANAGER_GROUP_ID!;
+  const servicePrincipalId   = process.env.SERVICE_PRINCIPAL_OBJECT_ID!;
+
+  if (
+    !supRoleId ||
+    !adminRoleId ||
+    !empRoleId ||
+    !cmRoleId ||
+    !servicePrincipalId
+  ) {
+    ctx.log.error("[GetTenantUsers] Missing App-Role or SP ID in environment");
     ctx.res = {
       status: 400,
+      headers: { "Content-Type": "application/json" },
       body: { error: "Configuration error: missing App Role or SP IDs" },
     };
     return;
   }
 
-  // 3. Fetch App Role member IDs
-  let supIds: Set<string>, adminIds: Set<string>, empIds: Set<string>;
+  // 3. Fetch all App-Role assignments in parallel
+  let supIds: Set<string>, adminIds: Set<string>, empIds: Set<string>, cmIds: Set<string>;
   try {
-    supIds = await fetchAppRoleMemberIds(token, servicePrincipalId, supRoleId);
-    adminIds = await fetchAppRoleMemberIds(
-      token,
-      servicePrincipalId,
-      adminRoleId
-    );
-    empIds = await fetchAppRoleMemberIds(
-      token,
-      servicePrincipalId,
-      empRoleId
-    );
+    [supIds, adminIds, empIds, cmIds] = await Promise.all([
+      fetchAppRoleMemberIds(token, servicePrincipalId, supRoleId),
+      fetchAppRoleMemberIds(token, servicePrincipalId, adminRoleId),
+      fetchAppRoleMemberIds(token, servicePrincipalId, empRoleId),
+      fetchAppRoleMemberIds(token, servicePrincipalId, cmRoleId),
+    ]);
   } catch (err: any) {
-    ctx.log.error("[GetTenantUsers] Error fetching App Role members", err);
+    ctx.log.error("[GetTenantUsers] Error fetching App-Role members", err);
     ctx.res = {
       status: 502,
       headers: { "Content-Type": "application/json" },
@@ -119,49 +119,43 @@ async function getTenantUsersHandler(
     return;
   }
 
-  // 5. Filter out users who have any of the roles or are disabled/no-email
-  const unassigned: TenantUser[] = [];
-  for (const u of allUsers) {
-    if (u.accountEnabled === false) continue;
-    const id = u.id;
-    if (supIds.has(id) || adminIds.has(id) || empIds.has(id)) continue;
+  // 5. Map each Graph user to TenantUser, determining their role
+  const users: TenantUser[] = allUsers
+    // optional: skip disabled accounts
+    .filter(u => u.accountEnabled !== false)
+    .map(u => {
+      const id    = u.id;
+      const email = u.mail ?? u.userPrincipalName ?? "";
+      const name  = u.displayName ?? "";
+      const { firstName, lastName } = splitName(name);
 
-    const email = u.mail || u.userPrincipalName || "";
-    if (!email) {
-      ctx.log.warn(`[GetTenantUsers] Skipping ${id}: no mail or UPN`);
-      continue;
-    }
+      // Determine role
+      let role: TenantUser["role"] = "None";
+      if (supIds.has(id))       role = "Supervisor";
+      else if (adminIds.has(id)) role = "Admin";
+      else if (empIds.has(id))   role = "Employee";
+      else if (cmIds.has(id))    role = "ContactManager";
 
-    // split the display name into first/last
-    const displayName = u.displayName || "";
-    const { firstName, lastName } = splitName(displayName);
-
-    unassigned.push({ azureAdObjectId: id, email, firstName, lastName });
-  }
+      return { azureAdObjectId: id, email, firstName, lastName, role };
+    })
+    // optional: skip users without any email/UPN
+    .filter(u => u.email);
 
   // 6. Return results
-  if (unassigned.length === 0) {
-    ctx.res = { status: 204, body: null };
-  } else {
-    ctx.res = {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-      body: { count: unassigned.length, users: unassigned },
-    };
-  }
+  ctx.res = {
+    status: 200,
+    headers: { "Content-Type": "application/json" },
+    body: { total: users.length, users },
+  };
 }
 
 /**
  * Azure Function: GetTenantUsers
- *
- * Entry point for listing tenant users without any App Roles.
+ * Entry point for listing tenant users and their App-Roles.
  */
 const getTenantUsers: AzureFunction = withErrorHandler(
   async (ctx: Context, req: HttpRequest) => {
     await withAuth(ctx, async () => {
-      if (ctx.res && typeof (ctx.res as any).status === "number" && ctx.res.status >= 400) {
-        return;
-      }
       await getTenantUsersHandler(ctx, req);
     });
   },

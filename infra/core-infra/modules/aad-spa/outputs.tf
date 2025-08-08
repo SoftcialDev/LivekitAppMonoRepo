@@ -46,6 +46,12 @@ output "spa_app_role_supervisor_id" {
   value       = azuread_application.spa_app.app_role_ids["Supervisor"]
 }
 
+# Supervisor role ID
+output "spa_app_role_contact_manager_id" {
+  description = "UUID for the SPA App Role: Supervisor"
+  value       = azuread_application.spa_app.app_role_ids["Contact Manager"]
+}
+
 # Employee role ID
 output "spa_app_role_employee_id" {
   description = "UUID for the SPA App Role: Employee"
@@ -68,6 +74,11 @@ output "admins_group_id" {
 output "employees_group_id" {
   description = "Object ID of the Employees security group"
   value       = azuread_group.employees_group.object_id
+}
+
+output "contact_manager_group_id" {
+  description = "Object ID of the Employees security group"
+  value       = azuread_group.contact_manager_group.object_id
 }
 
 # Object ID of the “Supervisors” security group in Azure AD.
