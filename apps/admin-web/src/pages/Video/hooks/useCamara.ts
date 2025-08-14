@@ -5,58 +5,44 @@ import {
   LocalAudioTrack,
   createLocalVideoTrack,
   createLocalAudioTrack,
+  RoomEvent,
+  ParticipantEvent,
+  RemoteParticipant,
+  RemoteAudioTrack,
 } from 'livekit-client';
 import { useAuth } from '@/shared/auth/useAuth';
 import { PendingCommand, PendingCommandsClient } from '@/shared/api/pendingCommandsClient';
 import { PresenceClient } from '@/shared/api/presenceClient';
 import { StreamingClient } from '@/shared/api/streamingClient';
-import { WebPubSubClientService } from '@/shared/api/webpubsubClient';
+import { webPubSubClient as pubSubService } from '@/shared/api/webpubsubClient';
 import { getLiveKitToken } from '@/shared/api/livekitClient';
 
 /**
- * Feature switches
- * - KEEP_AWAKE_WHEN_IDLE keeps the tab awake even when not streaming, which greatly reduces
- *   the chance that the browser throttles timers or disconnects WebSocket when the OS powers down the screen.
+ * Feature switches.
+ *
+ * @remarks
+ * KEEP_AWAKE_WHEN_IDLE keeps the tab awake even when not streaming, which reduces the chance
+ * that the browser throttles timers or disconnects WebSocket when the OS powers down the screen.
  */
 const KEEP_AWAKE_WHEN_IDLE = true;
 
-/**
- * Basic wake lock sentinel typing for browsers that expose navigator.wakeLock.
- */
+/** Basic wake lock sentinel typing for browsers that expose navigator.wakeLock. */
 type WakeLockSentinelAny = any;
 
 /**
  * Requests camera and microphone permission once so that later track creation
- * does not trigger new permission prompts. If the user denies access, it shows
- * a list of detected cameras with guidance to enable permissions and refresh.
- * If the default device is busy (e.g., in use by another app), it logs a warning
- * and returns so the caller can attempt alternative devices.
+ * does not trigger new permission prompts.
  *
  * @remarks
- * - This function stops all acquired media tracks immediately after permission
- *   is granted; it is only meant to prime permissions, not to keep a live stream.
- * - It distinguishes between `NotAllowedError` (permission denied) and
- *   `NotReadableError` (device busy).
+ * - Immediately stops acquired tracks; this is only to prime permissions.
+ * - Distinguishes `NotAllowedError` (permission denied) and `NotReadableError` (device busy).
  *
- * @returns {Promise<void>} Resolves when permission is confirmed or the busy-device
- * condition is handled; rejects for permission denial or unexpected errors.
- *
- * @throws {DOMException} Throws when the user denies permission (`NotAllowedError`)
- * and rethrows any unexpected error types. For `NotReadableError`, it does not throw.
- *
- * @example
- * ```ts
- * try {
- *   await ensureCameraPermission();
- *   // Safe to call createLocalVideoTrack/createLocalAudioTrack now
- * } catch (e) {
- *   // Handle explicit permission denial or unexpected errors
- * }
- * ```
+ * @throws {DOMException} Re-throws `NotAllowedError` and any unexpected errors.
  */
 async function ensureCameraPermission(): Promise<void> {
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    //const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
     stream.getTracks().forEach((t) => t.stop());
   } catch (err: any) {
     if (err?.name === 'NotAllowedError') {
@@ -78,40 +64,17 @@ async function ensureCameraPermission(): Promise<void> {
   }
 }
 
-
 /**
- * Attempts to create a `LocalVideoTrack` by prioritizing specific cameras,
- * falling back when a device is busy or unavailable.
- *
- * The selection order is:
- *  1. Camera with label containing `"Logi C270 HD"`
- *  2. Any other camera except those matching `"Logitech C930e"`
- *  3. The browser's default camera
+ * Creates a `LocalVideoTrack` by prioritizing specific cameras and falling back gracefully.
  *
  * @remarks
+ * Order:
+ *  1) Camera with label containing "Logi C270 HD"
+ *  2) Any other camera except those matching "Logitech C930e"
+ *  3) Default camera
+ *
  * - Filters out Logitech C930e devices from all attempts.
- * - If a camera fails with a `NotReadableError` (device busy), the next
- *   available camera in the list is tried.
- * - Any other error type is rethrown immediately.
- * - If all prioritized devices fail, a default camera is requested with no
- *   device ID constraint.
- *
- * @param cameras - Array of `MediaDeviceInfo` objects representing available
- *                  video input devices.
- *
- * @returns {Promise<LocalVideoTrack>} Resolves with the first successfully
- * created `LocalVideoTrack` according to the priority rules.
- *
- * @throws {DOMException} Throws if all prioritized devices fail for reasons
- * other than `NotReadableError`.
- *
- * @example
- * ```ts
- * const devices = await navigator.mediaDevices.enumerateDevices();
- * const cams = devices.filter(d => d.kind === 'videoinput');
- * const track = await createVideoTrackWithFallback(cams);
- * track.attach(videoElement);
- * ```
+ * - If a camera is busy (`NotReadableError`), tries the next one.
  */
 async function createVideoTrackWithFallback(cameras: MediaDeviceInfo[]): Promise<LocalVideoTrack> {
   const filtered = cameras.filter((c) => !/Logi(?:tech)? C930e/i.test(c.label));
@@ -135,21 +98,22 @@ async function createVideoTrackWithFallback(cameras: MediaDeviceInfo[]): Promise
   return createLocalVideoTrack();
 }
 
-
 /**
  * useStreamingDashboard
  * ---------------------
- * Responsibilities
- * - Acquire media permissions once and gracefully handle busy devices
- * - Choose preferred camera and publish tracks to a LiveKit room
- * - Maintain presence and handle START/STOP commands via WebPubSub
- * - Keep the tab awake during streaming and (optionally) when idle
- * - Recover cleanly after OS/browser sleep using visibility/network hooks and a drift detector
+ * End-to-end hook for streaming and control-plane orchestration.
  *
- * Returns
- * - videoRef: attach this to a <video> element to render the local camera
- * - audioRef: reserved for future local audio rendering (not required to publish)
- * - isStreaming: UI-friendly boolean state
+ * Responsibilities:
+ * - Acquire media permissions once and handle busy devices.
+ * - Choose preferred camera and publish tracks to a LiveKit room.
+ * - Maintain presence and handle START/STOP commands via WebPubSub.
+ * - Keep the tab awake during streaming and (optionally) when idle.
+ * - Recover cleanly after OS/browser sleep using visibility/network hooks and a drift detector.
+ *
+ * Returns:
+ * - `videoRef`: attach to a `<video>` element for local preview
+ * - `audioRef`: reserved for future local audio rendering
+ * - `isStreaming`: UI-friendly boolean state
  */
 export function useStreamingDashboard() {
   // Media & room state
@@ -166,7 +130,6 @@ export function useStreamingDashboard() {
   const pendingClient = useRef(new PendingCommandsClient()).current;
   const presenceClient = useRef(new PresenceClient()).current;
   const streamingClient = useRef(new StreamingClient()).current;
-  const pubSubService = useRef(new WebPubSubClientService()).current;
 
   // Wake lock management
   const wakeLockRef = useRef<WakeLockSentinelAny | null>(null);
@@ -208,48 +171,40 @@ export function useStreamingDashboard() {
   }, []);
 
 /**
- * Initiates the streaming session by:
- * 1. Ensuring a connection to the WebPubSub service and joining the presence group.
- * 2. Requesting camera and microphone permissions.
- * 3. Selecting and publishing a prioritized video track.
- * 4. Connecting to a LiveKit room and publishing both video and (optionally) audio tracks.
- * 5. Acquiring a screen wake lock to prevent the device from sleeping while streaming.
- * 6. Updating presence and streaming state in the backend.
+ * Starts a streaming session:
+ * - Ensures WS connection and required groups.
+ * - Primes camera/mic permissions.
+ * - Selects a camera with fallback and connects to LiveKit.
+ * - Publishes local video (and best-effort local mic).
+ * - Attaches **remote audio** tracks to `audioRef` so the employee can hear talkback.
+ * - Requests a screen wake lock and marks the session active on the backend.
  *
  * @remarks
- * - If streaming is already active (`streamingRef.current` is true), the function exits early.
- * - Skips publishing audio if microphone access fails.
- * - Uses `createVideoTrackWithFallback` to prefer specific cameras over others.
- * - Attaches the video track to the provided `videoRef` element for local preview.
- * - Wake lock is requested immediately after publishing the video track.
- * - Presence and streaming status are updated through the respective API clients.
+ * This function is idempotent: it returns immediately if a stream is already active.
+ * It also installs listeners to attach any remote audio that is already present or that
+ * joins later, and it enables autoplay on the hidden `<audio>` element.
  *
- * @async
- * @returns {Promise<void>} Resolves when the streaming session is fully started and presence is updated.
- *
- * @throws Will propagate any unexpected errors during LiveKit connection or track publication.
- *
- * @example
- * ```ts
- * await startStream();
- * // The local video preview will appear and presence will be marked as active.
- * ```
+ * @throws Propagates unexpected errors during device enumeration/LiveKit connection/publish.
  */
 const startStream = useCallback(async () => {
   if (streamingRef.current) return;
 
+  // 1) Ensure PubSub + presence
   if (!pubSubService.isConnected()) {
     await pubSubService.connect(userEmail);
     await presenceClient.setOnline();
     await pubSubService.joinGroup('presence');
+    await pubSubService.joinGroup(`commands:${userEmail}`);
   }
 
+  // 2) Prime camera/mic permissions (stops tracks immediately)
   try {
     await ensureCameraPermission();
   } catch {
     return;
   }
 
+  // 3) Choose camera (with fallback)
   let videoTrack: LocalVideoTrack;
   try {
     const devices = await navigator.mediaDevices.enumerateDevices();
@@ -261,303 +216,324 @@ const startStream = useCallback(async () => {
     return;
   }
 
+  // 4) Connect to LiveKit
   const { rooms, livekitUrl } = await getLiveKitToken();
   const room = new Room();
-  await room.connect(livekitUrl, rooms[0].token);
+  try {
+    await room.connect(livekitUrl, rooms[0].token);
+  } catch (err) {
+    console.error('[WS] LiveKit connect failed', err);
+    try {
+      videoTrack?.stop();
+      videoTrack?.detach();
+    } catch {}
+    return;
+  }
+
   roomRef.current = room;
   console.info('[WS] LiveKit connected');
 
+  /**
+   * Attach any subscribed/coming audio tracks of a remote participant to the `<audio>` element.
+   *
+   * @param p - Remote participant whose audio should be rendered locally.
+   */
+  const attachAudioFrom = (p: RemoteParticipant) => {
+    // Attach already-subscribed audio
+    p.getTrackPublications().forEach((pub: any) => {
+      if (pub?.kind === 'audio' && pub.isSubscribed && pub.audioTrack && audioRef.current) {
+        (pub.audioTrack as RemoteAudioTrack).attach(audioRef.current);
+        audioRef.current.muted = false;
+        audioRef.current.play?.().catch(() => {});
+      }
+    });
+
+    // New audio subscriptions
+    p.on(ParticipantEvent.TrackSubscribed, (track) => {
+      const kind = (track as any)?.kind;
+      if (kind === 'audio' && audioRef.current) {
+        (track as RemoteAudioTrack).attach(audioRef.current);
+        audioRef.current.muted = false;
+        audioRef.current.play?.().catch(() => {});
+      }
+    });
+
+    // Audio unsubscriptions
+    p.on(ParticipantEvent.TrackUnsubscribed, (track) => {
+      const kind = (track as any)?.kind;
+      if (kind === 'audio' && audioRef.current) {
+        try {
+          (track as RemoteAudioTrack).detach(audioRef.current);
+        } catch {}
+      }
+    });
+  };
+
+  // Attach audio for participants already in the room (exclude self)
+  room.remoteParticipants.forEach((p) => {
+    if (p.sid !== room.localParticipant.sid) attachAudioFrom(p);
+  });
+
+  // Attach audio for participants that join later (exclude self)
+  room.on(RoomEvent.ParticipantConnected, (p) => {
+    if (p.sid !== room.localParticipant.sid) attachAudioFrom(p);
+  });
+
+  // 5) Publish local video (and best-effort local mic)
   tracksRef.current.video = videoTrack;
   await room.localParticipant.publishTrack(videoTrack);
   videoTrack.attach(videoRef.current!);
 
   await requestWakeLock();
-
+/*
   try {
     const audioTrack = await createLocalAudioTrack();
     tracksRef.current.audio = audioTrack;
     await room.localParticipant.publishTrack(audioTrack);
-    // Not attaching local audio element by default; publish is enough.
   } catch (err) {
     console.warn('[Stream] mic setup failed, continuing without audio', err);
   }
-
+*/
   streamingRef.current = true;
   setIsStreaming(true);
   console.info('[Streaming] ACTIVE');
   await streamingClient.setActive();
-}, [
-  streamingClient,
-  pubSubService,
-  presenceClient,
-  userEmail,
-  requestWakeLock,
-]);
-
+}, [userEmail, requestWakeLock, streamingClient]);
 /**
- * Stops the active streaming session by:
- * 1. Stopping and detaching the published video track.
- * 2. Stopping the published audio track (without detaching, as it's not attached to a DOM element).
- * 3. Clearing track references to free memory.
- * 4. Optionally releasing the screen wake lock if the application is not configured
- *    to keep the device awake while idle (`KEEP_AWAKE_WHEN_IDLE` is false).
- * 5. Disconnecting from the LiveKit room.
- * 6. Updating internal state flags and notifying the backend that streaming is inactive.
+ * Stops an active streaming session.
  *
  * @remarks
- * - If no active streaming session exists (`streamingRef.current` is false), the function exits immediately.
- * - The audio track is never detached because it is not bound to an audio element for local playback.
- * - When `KEEP_AWAKE_WHEN_IDLE` is `true`, the wake lock will persist after stopping the stream,
- *   preventing the device from sleeping while the user remains online.
+ * Order of operations is important:
+ *  1) Unpublish local tracks (best-effort) so the server stops forwarding media.
+ *  2) Stop & detach the local tracks and clear DOM media elements.
+ *  3) Optionally release the wake lock (if not keeping the tab awake while idle).
+ *  4) Disconnect from the LiveKit room.
+ *  5) Flip local state and notify the backend.
  *
- * @async
- * @returns {Promise<void>} Resolves once tracks are stopped, the room is disconnected,
- * and the inactive state is reported to the backend.
- *
- * @example
- * ```ts
- * await stopStream();
- * // The camera and microphone will stop, the LiveKit room will disconnect,
- * // and the user's streaming status will be set to inactive.
- * ```
+ * The function is idempotent: it returns immediately if no stream is active.
  */
 const stopStream = useCallback(async () => {
   if (!streamingRef.current) return;
 
+  // Snapshot room + tracks (they might get nulled during cleanup)
+  const room = roomRef.current;
   const { video, audio } = tracksRef.current;
-  video?.stop();
-  video?.detach();
-  audio?.stop(); // do not call detach on audio
+
+  // 1) Best-effort unpublish before stopping, to stop server forwarding ASAP
+  try {
+    if (room && video) {
+      try { room.localParticipant.unpublishTrack(video, /*stopOnUnpublish*/ false); } catch {}
+    }
+    if (room && audio) {
+      try { room.localParticipant.unpublishTrack(audio, /*stopOnUnpublish*/ true); } catch {}
+    }
+  } catch {
+    // Ignore unpublish errors; we still stop/clear locally below
+  }
+
+  // 2) Stop local tracks & detach DOM sinks
+  try {
+    video?.detach();
+    video?.stop();
+  } catch {}
+  try {
+    audio?.stop(); // no detach needed (we don't attach local mic to an <audio/> here)
+  } catch {}
   tracksRef.current = {};
 
+  // Clear media elements to be extra safe
+  try {
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+      videoRef.current.src = '';
+    }
+    if (audioRef.current) {
+      audioRef.current.pause?.();
+      audioRef.current.srcObject = null;
+      audioRef.current.src = '';
+    }
+  } catch {}
+
+  // 3) Release wake lock if we don't keep the tab awake while idle
   if (!KEEP_AWAKE_WHEN_IDLE) {
     await releaseWakeLock();
   }
 
-  await roomRef.current?.disconnect();
-  roomRef.current = null;
+  // 4) Disconnect room
+  try {
+    await room?.disconnect();
+  } finally {
+    roomRef.current = null;
+  }
 
+  // 5) Flip state & notify backend
   streamingRef.current = false;
   setIsStreaming(false);
   console.info('[Streaming] INACTIVE');
   await streamingClient.setInactive();
-}, [streamingClient, releaseWakeLock]);
+}, [releaseWakeLock, streamingClient]);
 
 /**
- * Processes an incoming pending command and executes the corresponding
- * streaming action (`START` or `STOP`). If the command contains a valid `id`,
- * it will be acknowledged back to the pending command service.
+ * Handles a single START/STOP command and, if present, acknowledges it.
  *
  * @remarks
- * - Supported commands are:
- *   - `"START"`: initiates the streaming session via {@link startStream}.
- *   - `"STOP"`: terminates the streaming session via {@link stopStream}.
- * - Any other command string is treated as `"STOP"` by default in this implementation.
- * - Acknowledgement is only sent if `cmd.id` is truthy.
- * - Errors during acknowledgement are caught and logged as warnings without throwing.
- *
- * @param cmd - The {@link PendingCommand} object containing:
- *   - `command`: `"START"` or `"STOP"`.
- *   - `timestamp`: When the command was issued (for logging/debugging).
- *   - `id` (optional): Identifier used for acknowledging the command.
- *
- * @returns {Promise<void>} Resolves once the command has been processed and, if applicable,
- * the acknowledgement has been sent. Does not reject on acknowledgement errors.
- *
- * @example
- * ```ts
- * await handleCommand({ command: 'START', timestamp: Date.now(), id: '123' });
- * // → Starts streaming and acknowledges the command with ID '123'.
- *
- * await handleCommand({ command: 'STOP', timestamp: Date.now() });
- * // → Stops streaming without sending any acknowledgement (no id present).
- * ```
+ * - Guards against overlapping actions by serializing start/stop execution.
+ * - Unknown commands are treated as STOP (defensive default).
+ * - Acknowledgement is best-effort and does not throw.
  */
 const handleCommand = useCallback(
   async (cmd: PendingCommand) => {
     console.info(`[WS Cmd] "${cmd.command}" @ ${cmd.timestamp}`);
-    if (cmd.command === 'START') {
-      await startStream();
-    } else {
-      await stopStream();
-    }
-    if (cmd.id) {
-      try {
-        await pendingClient.acknowledge([cmd.id]);
-        console.debug(`[WS Cmd] acknowledged ${cmd.id}`);
-      } catch (err) {
-        console.warn(`Failed to acknowledge ${cmd.id}`, err);
+
+    // Normalize and serialize execution
+    const action = (cmd.command || '').toString().trim().toUpperCase();
+    try {
+      if (action === 'START') {
+        await startStream();
+      } else if (action === 'STOP') {
+        await stopStream();
+      } else {
+        // Defensive default: treat unknown commands as STOP
+        await stopStream();
+      }
+    } finally {
+      if (cmd.id) {
+        try {
+          await pendingClient.acknowledge([cmd.id]);
+          console.debug(`[WS Cmd] acknowledged ${cmd.id}`);
+        } catch (err) {
+          console.warn(`Failed to acknowledge ${cmd.id}`, err);
+        }
       }
     }
   },
-  [pendingClient, startStream, stopStream],
+  [startStream, stopStream, pendingClient],
 );
 
-/**
- * Initializes and manages the WebSocket (Web PubSub) connection, presence tracking,
- * wake lock handling, and restoration of recent streaming sessions when the component mounts.
- *
- * @remarks
- * This effect:
- * 1. Connects to the Web PubSub service using the authenticated user's email.
- * 2. Marks the user as online in the presence service.
- * 3. Requests a wake lock if {@link KEEP_AWAKE_WHEN_IDLE} is enabled and no active stream exists.
- * 4. Checks the most recent streaming session:
- *    - If it stopped less than 5 minutes ago, automatically resumes streaming.
- * 5. Subscribes to WebSocket events:
- *    - **Disconnected:** Marks the user offline and stops streaming.
- *    - **Connected:** Rejoins the `"presence"` group, marks online, and re-requests wake lock if needed.
- *    - **Message:** Parses incoming JSON messages and executes {@link handleCommand} if the command is `"START"` or `"STOP"`.
- * 6. Fetches and processes any missed commands on mount.
- *
- * @dependency
- * - {@link pubSubService} for WS connection and message handling.
- * - {@link presenceClient} for updating presence status.
- * - {@link streamingClient} for retrieving last session details.
- * - {@link handleCommand} to process START/STOP commands.
- * - {@link startStream} / {@link stopStream} to manage streaming state.
- * - {@link requestWakeLock} to keep device awake.
- *
- * @triggers
- * - Runs when `initialized` or `userEmail` changes.
- *
- * @cleanup
- * - Marks the component as unmounted.
- * - Disconnects the WebSocket.
- * - Disconnects from the LiveKit room if active.
- * - Sets the user offline in the presence service.
- *
- * @example
- * ```ts
- * useEffect(() => {
- *   // Will connect WS, set presence online, restore streaming if needed,
- *   // and handle reconnection events automatically.
- * }, [initialized, userEmail]);
- * ```
- */
-useEffect(() => {
-  if (!initialized || !userEmail) return;
-  let mounted = true;
+  /**
+   * Bootstraps WS connection, presence, auto-resume, event handlers and sleep-recovery.
+   *
+   * @remarks
+   * - Uses a singleton WebPubSub client, with resilient reconnect at the service level.
+   * - Subscribes to `commands:${userEmail}` and handles START/STOP.
+   * - Updates presence on connect/reconnect/visibility/network changes.
+   * - Detects tab sleep via timer drift and triggers a reconnect attempt.
+   */
+  useEffect(() => {
+    if (!initialized || !userEmail) return;
+    let mounted = true;
 
-  (async () => {
-    console.debug('[WS] connecting…');
-    await pubSubService.connect(userEmail);
-    console.info(`[WS] connected to "${userEmail}"`);
-    await presenceClient.setOnline();
+    // Unsubscribe holders for WS events
+    let offMsg: (() => void) | undefined;
+    let offConn: (() => void) | undefined;
+    let offDisc: (() => void) | undefined;
 
-    if (KEEP_AWAKE_WHEN_IDLE && !streamingRef.current) {
-      await requestWakeLock();
-    }
-
-    try {
-      const last = await streamingClient.fetchLastSession();
-      const stoppedAt = last.stoppedAt ? new Date(last.stoppedAt) : null;
-      if (!stoppedAt || Date.now() - stoppedAt.getTime() < 5 * 60_000) {
-        console.info('[Streaming] resuming');
-        await startStream();
-      }
-    } catch {}
-
-    pubSubService.onDisconnected(async () => {
-      if (!mounted) return;
-      console.warn('[WS] disconnected');
-      await presenceClient.setOffline();
-      await stopStream();
-    });
-
-    pubSubService.onConnected(async () => {
-      if (!mounted) return;
-      console.info('[WS] reconnected');
+    (async () => {
+      console.debug('[WS] connecting…');
+      await pubSubService.connect(userEmail);
       await pubSubService.joinGroup('presence');
+      await pubSubService.joinGroup(`commands:${userEmail}`);
+      console.info(`[WS] connected to "${userEmail}"`);
       await presenceClient.setOnline();
-      if (KEEP_AWAKE_WHEN_IDLE || streamingRef.current) {
+
+      if (KEEP_AWAKE_WHEN_IDLE && !streamingRef.current) {
         await requestWakeLock();
       }
-    });
 
-    pubSubService.onMessage(async (raw) => {
-      let msg: any;
       try {
-        msg = typeof raw === 'string' ? JSON.parse(raw) : raw;
-      } catch {
-        return;
-      }
-      if (msg.command === 'START' || msg.command === 'STOP') {
-        await handleCommand(msg as PendingCommand);
-      }
-    });
+        const last = await streamingClient.fetchLastSession();
+        const stoppedAt = last.stoppedAt ? new Date(last.stoppedAt) : null;
+        if (!stoppedAt || Date.now() - stoppedAt.getTime() < 5 * 60_000) {
+          console.info('[Streaming] resuming');
+          await startStream();
+        }
+      } catch {}
 
-    const missed = await pendingClient.fetch();
-    console.info(`[WS] fetched ${missed.length} commands`);
-    for (const cmd of missed) {
-      if (!mounted) break;
-      await handleCommand(cmd);
+      // Disconnected → go offline & stop stream
+      offDisc = pubSubService.onDisconnected(() => {
+        if (!mounted) return;
+        console.warn('[WS] disconnected');
+        void presenceClient.setOffline();
+        void stopStream();
+      });
+
+      // Connected → restore presence & wakelock
+      offConn = pubSubService.onConnected(async () => {
+        if (!mounted) return;
+        console.info('[WS] reconnected');
+        await pubSubService.joinGroup('presence');
+        await pubSubService.joinGroup(`commands:${userEmail}`);
+        await presenceClient.setOnline();
+        if (KEEP_AWAKE_WHEN_IDLE || streamingRef.current) {
+          await requestWakeLock();
+        }
+      });
+
+      // Commands
+      offMsg = pubSubService.onMessage((msg: any) => {
+      if (msg?.employeeEmail && msg.employeeEmail.toLowerCase() !== userEmail) return;
+
+      if (msg?.command === 'START' || msg?.command === 'STOP') {
+        void handleCommand(msg as PendingCommand);
+      }
+      });
+
+      // Missed commands
+      const missed = await pendingClient.fetch();
+      console.info(`[WS] fetched ${missed.length} commands`);
+      for (const cmd of missed) {
+        if (!mounted) break;
+        await handleCommand(cmd);
+      }
+    })();
+
+    /**
+     * Re-acquires wake lock and restores presence when the page becomes visible.
+     */
+    const onVisible = async (): Promise<void> => {
+      if (document.visibilityState !== 'visible') return;
+      try {
+        await pubSubService.joinGroup('presence');
+        await pubSubService.joinGroup(`commands:${userEmail}`);
+        await presenceClient.setOnline();
+        if (KEEP_AWAKE_WHEN_IDLE || streamingRef.current) {
+          await requestWakeLock();
+        }
+      } catch (e) {
+        console.warn('[WS] onVisible handler failed', e);
+      }
     }
-  })();
 
-   /**
- * Handles the `visibilitychange` event to re-acquire wake lock and restore presence
- * when the page becomes visible again after being hidden.
- *
- * @remarks
- * - Only triggers actions when `document.visibilityState` is `"visible"`.
- * - Re-requests a wake lock if {@link KEEP_AWAKE_WHEN_IDLE} is enabled
- *   or a stream is currently active (`streamingRef.current`).
- * - Ensures the user rejoins the `"presence"` group and is marked online
- *   in the presence service.
- *
- * @returns {Promise<void>} Resolves when wake lock and presence updates are completed.
- */
-const onVisible = async (): Promise<void> => {
-  if (document.visibilityState === 'visible') {
+    /**
+     * When the browser regains connectivity, refresh wake lock and presence.
+     */
+    const onOnline = async (): Promise<void> => {
+      try {
+        await pubSubService.joinGroup('presence');
+        await pubSubService.joinGroup(`commands:${userEmail}`);
+        await presenceClient.setOnline();
+    if (KEEP_AWAKE_WHEN_IDLE || streamingRef.current) {
+      await requestWakeLock();
+      }
+    } catch (e) {
+    console.warn('[WS] onOnline handler failed', e);
+    }
+    };
+
+    /**
+     * On bfcache restore, refresh wake lock and presence.
+     */
+    const onPageShow = async (): Promise<void> => {
+  try {
+    await pubSubService.joinGroup('presence');
+    await pubSubService.joinGroup(`commands:${userEmail}`);
+    await presenceClient.setOnline();
     if (KEEP_AWAKE_WHEN_IDLE || streamingRef.current) {
       await requestWakeLock();
     }
-    await pubSubService.joinGroup('presence');
-    await presenceClient.setOnline();
+  } catch (e) {
+    console.warn('[WS] onPageShow handler failed', e);
   }
-};
-
-/**
- * Handles the `online` event (browser regains network connectivity) to
- * re-acquire wake lock and restore presence after a connectivity loss.
- *
- * @remarks
- * - Re-requests a wake lock if {@link KEEP_AWAKE_WHEN_IDLE} is enabled
- *   or a stream is currently active (`streamingRef.current`).
- * - Ensures the user rejoins the `"presence"` group and is marked online
- *   in the presence service.
- *
- * @returns {Promise<void>} Resolves when wake lock and presence updates are completed.
- */
-const onOnline = async (): Promise<void> => {
-  if (KEEP_AWAKE_WHEN_IDLE || streamingRef.current) {
-    await requestWakeLock();
-  }
-  await pubSubService.joinGroup('presence');
-  await presenceClient.setOnline();
-};
-
-/**
- * Handles the `pageshow` event (page is restored from the bfcache or session history)
- * to re-acquire wake lock and restore presence.
- *
- * @remarks
- * - This event can fire when navigating back to the page or restoring it from
- *   the browser's Back/Forward Cache (bfcache).
- * - Re-requests a wake lock if {@link KEEP_AWAKE_WHEN_IDLE} is enabled
- *   or a stream is currently active (`streamingRef.current`).
- * - Ensures the user rejoins the `"presence"` group and is marked online
- *   in the presence service.
- *
- * @returns {Promise<void>} Resolves when wake lock and presence updates are completed.
- */
-const onPageShow = async (): Promise<void> => {
-  if (KEEP_AWAKE_WHEN_IDLE || streamingRef.current) {
-    await requestWakeLock();
-  }
-  await pubSubService.joinGroup('presence');
-  await presenceClient.setOnline();
 };
 
     window.addEventListener('visibilitychange', onVisible);
@@ -571,12 +547,8 @@ const onPageShow = async (): Promise<void> => {
       const delta = now - lastTick;
       lastTick = now;
       if (delta > 60_000) {
-        console.warn('[WS] sleep detected, forcing rejoin');
-        try {
-          await pubSubService.disconnect();
-        } catch {}
-        await pubSubService.connect(userEmail);
-        await pubSubService.joinGroup('presence');
+        console.warn('[WS] sleep detected, forcing reconnect');
+        await pubSubService.reconnect();
         await presenceClient.setOnline();
         if (KEEP_AWAKE_WHEN_IDLE || streamingRef.current) {
           await requestWakeLock();
@@ -593,15 +565,16 @@ const onPageShow = async (): Promise<void> => {
       console.debug('[App] cleanup');
       (async () => {
         await releaseWakeLock();
-        pubSubService.disconnect();
         roomRef.current?.disconnect();
-        presenceClient.setOffline();
+        await presenceClient.setOffline();
+        offMsg?.();
+        offConn?.();
+        offDisc?.();
       })();
     };
   }, [
     initialized,
     userEmail,
-    pubSubService,
     presenceClient,
     pendingClient,
     streamingClient,

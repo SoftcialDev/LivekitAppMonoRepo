@@ -13,7 +13,7 @@ override.tf
 override.tf.json
 *_override.tf
 *_override.tf.json
-
+real-blobstorage-secret.yaml
 # Ignore CLI configuration files
 .terraformrc
 terraform.rc

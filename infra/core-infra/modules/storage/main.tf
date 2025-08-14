@@ -19,3 +19,9 @@ resource "azurerm_storage_container" "snapshots" {
   storage_account_name  = azurerm_storage_account.storage_account.name
   container_access_type = "container"
 }
+
+resource "azurerm_storage_container" "recordings" {
+  name                  = "recordings"
+  storage_account_name  = azurerm_storage_account.storage_account.name
+  container_access_type = "private" 
+}

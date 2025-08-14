@@ -14,7 +14,8 @@ import { useMyPsos } from './Video/hooks/useMyPsos';
 import { useVideoActions } from './Video/hooks/UseVideoAction';
 
 
-const LAYOUT_OPTIONS = [1,2,3,4,5,6,7,8,9,12,15,18,20,30,40,50] as const;
+const LAYOUT_OPTIONS = [1,2,3,4,5,6,9,12,20,200] as const;
+
 
 /* ------------------------------------------------------------------ */
 /* LocalStorage helpers: persist dropdown selection + layout          */
@@ -213,6 +214,7 @@ const displayList = useMemo(() => {
         onChat={handleChat}
         className="w-full h-full"
       />
+      
     );
   };
 

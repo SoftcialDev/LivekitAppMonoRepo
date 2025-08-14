@@ -192,6 +192,17 @@ const Sidebar: React.FC<SidebarProps> = ({
               </NavLink>
             )}
 
+             {/* {isAdmin && (
+              <NavLink
+                to="/recordingReport"
+                className={({ isActive }) =>
+                  `${linkBase} ${isActive ? activeLink : ""}`
+                }
+              >
+                Recording Report
+              </NavLink>
+            )} */}
+
             {isAdmin && (
               <NavLink
                 to="/contactManager"

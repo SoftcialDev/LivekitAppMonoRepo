@@ -13,6 +13,15 @@ variable "location" {
   type        = string
 }
 
+
+variable "storage_account_recordings_container_name" {
+  description = "Name of the Blob container for LiveKit recordings"
+  type        = string
+}
+variable "storage_account_recordings_container_url" {
+  description = "Full URL of the Blob container for LiveKit recordings"
+  type        = string
+}
 variable "commands_subscription_name" {
   description = "Name of the Service Bus subscription for commands topic"
   type        = string

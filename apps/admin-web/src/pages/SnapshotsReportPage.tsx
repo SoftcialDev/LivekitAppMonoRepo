@@ -198,6 +198,7 @@ const handleDownload = async (url: string) => {
         onClose={() => setPreviewOpen(false)}
         onConfirm={() => setPreviewOpen(false)}
         hideFooter={true}
+        className='w-fit'
       >
         <div className="flex items-center justify-center min-h-[40vh]">
           {preview && (
@@ -217,6 +218,7 @@ const handleDownload = async (url: string) => {
         onClose={() => setDeleteOpen(false)}
         onConfirm={handleConfirmDelete}
         confirmLabel="Delete"
+        className='w-fit'
       >
         <p className="text-white">
           Are you sure you want to delete this snapshot?

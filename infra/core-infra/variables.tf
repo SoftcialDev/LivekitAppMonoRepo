@@ -14,6 +14,11 @@ variable "region" {
   default     = "eastus"
 }
 
+variable "database_url" {
+  description = "Database connection URL"
+  type        = string
+}
+
 variable "github_repo" {
   description = "GitHub repo for OIDC: format ORG/REPO"
   type        = string
@@ -204,6 +209,7 @@ variable "simple_storage_access_tier" {
 ########################################
 # PostgreSQL Module
 ########################################
+/*
 
 variable "postgres_admin_username" {
   description = "Administrator username for PostgreSQL Flexible Server."
@@ -251,7 +257,7 @@ variable "postgres_allowed_ips" {
   type        = list(string)
   default     = []
 }
-
+*/
 
 ########################################
 # Function App Module

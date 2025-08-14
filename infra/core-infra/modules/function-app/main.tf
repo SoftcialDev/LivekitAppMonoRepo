@@ -66,6 +66,9 @@ resource "azurerm_function_app" "function_app" {
     EMPLOYEES_GROUP_ID          = var.employees_group_id
     SUPERVISORS_GROUP_ID        = var.supervisors_group_id
     CONTACT_MANAGER_GROUP_ID    = var.contact_manager_group_id
+    RECORDINGS_CONTAINER_NAME    = var.storage_account_recordings_container_name
+    RECORDINGS_CONTAINER_URL     = var.storage_account_recordings_container_url
+    AZURE_STORAGE_ACCOUNT = var.storage_account_name
     FUNCTIONS_EXTENSION_VERSION = "~4"
     WEBSITE_NODE_DEFAULT_VERSION = "~20"
     AZURE_STORAGE_CONNECTION_STRING = var.storage_account_connection_string

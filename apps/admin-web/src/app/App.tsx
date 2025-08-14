@@ -40,6 +40,7 @@ import UserVideoPage from '@/pages/UserVideoPage';
 import PSOsListPage from '@/pages/PsoListPage';
 import ContactManagerDashboard from '@/pages/ContactManager';
 import PsoDashboard from '@/pages/PsoDashboardPage';
+import RecordingsReportPage from '@/pages/RecordingsReportPage';
 
 
 
@@ -106,6 +107,14 @@ function App(): JSX.Element {
                 element={
                   <ProtectedRoute allowedRoles={['Admin']}>
                     <SnapshotsReportPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/recordingReport"
+                element={
+                  <ProtectedRoute allowedRoles={['Admin']}>
+                    <RecordingsReportPage />
                   </ProtectedRoute>
                 }
               />

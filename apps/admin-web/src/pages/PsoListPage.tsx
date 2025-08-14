@@ -36,31 +36,30 @@ export interface CandidateUser {
 /**
  * PSOsListPage
  *
- * - Displays current PSOs (users with "Employee" role) in a paged table.
- * - “Add PSO” opens a modal listing tenant-user candidates (no App Role).
- * - Modal table shows only Select, Email, First Name, Last Name.
- * - Confirming assigns the "Employee" role to selected users.
- *
- * @returns PSO management UI.
+ * Strategy: fetch-all + client-side pagination.
+ * - Fetch up to API_PAGE_SIZE users once and cache in memory.
+ * - Render with a small UI_PAGE_SIZE so the table paginates locally.
+ * - After mutations (add/remove), refetch to stay fresh.
  */
 const PSOsListPage: React.FC = () => {
   const { initialized, account } = useAuth();
   const currentEmail = account?.username ?? '';
   const { showToast } = useToast();
 
+  /** Max items fetched from API (bring-all). */
+  const API_PAGE_SIZE = 1000;
+  /** Rows per page in the table UI (local pagination). */
+  const UI_PAGE_SIZE = 8;
+
   // State for PSO list page
   const [psos, setPsos]               = useState<CandidateUser[]>([]);
-  const [total, setTotal]             = useState(0);
-  const [page, setPage]               = useState(1);
-  const [pageSize]                    = useState(8);
   const [psosLoading, setPsosLoading] = useState(false);
-  const [hasFetched, setHasFetched] = useState(false);
 
   // State for candidate modal
-  const [candidates, setCandidates]                   = useState<CandidateUser[]>([]);
-  const [candidatesLoading, setCandidatesLoading]     = useState(false);
-  const [isModalOpen, setModalOpen]                   = useState(false);
-  const [selectedEmails, setSelectedEmails]           = useState<string[]>([]);
+  const [candidates, setCandidates]               = useState<CandidateUser[]>([]);
+  const [candidatesLoading, setCandidatesLoading] = useState(false);
+  const [isModalOpen, setModalOpen]               = useState(false);
+  const [selectedEmails, setSelectedEmails]       = useState<string[]>([]);
 
   useHeader({
     title:   'PSOs',
@@ -69,12 +68,13 @@ const PSOsListPage: React.FC = () => {
   });
 
   /**
-   * Fetch one page of PSOs (Employee role).
+   * Fetch all PSOs (role=Employee) in one call (fetch-all).
+   * The UI will paginate in-memory via TableComponent.
    */
-  const fetchPsos = async (pageNumber = 1): Promise<void> => {
+  const fetchPsos = async (): Promise<void> => {
     setPsosLoading(true);
     try {
-      const res = await getUsersByRole('Employee', pageNumber, pageSize);
+      const res = await getUsersByRole('Employee', 1, API_PAGE_SIZE);
       const mapped: CandidateUser[] = res.users.map(u => ({
         azureAdObjectId: u.azureAdObjectId,
         email:           u.email,
@@ -85,24 +85,21 @@ const PSOsListPage: React.FC = () => {
         supervisorName:  u.supervisorName,
       }));
       setPsos(mapped);
-      setTotal(res.total);
-      setPage(res.page);
     } catch (err: any) {
       console.error('Failed to load PSOs:', err);
       showToast('Failed to load PSOs', 'error');
     } finally {
       setPsosLoading(false);
-      setHasFetched(true);
     }
   };
 
   /**
-   * Fetch all tenant-user candidates.
+   * Fetch tenant-user candidates for the add-modal (fetch-all as well).
    */
   const fetchCandidates = async (): Promise<void> => {
     setCandidatesLoading(true);
     try {
-      const res = await getUsersByRole('Tenant', 1, 1000);
+      const res = await getUsersByRole('Tenant', 1, API_PAGE_SIZE);
       const mapped: CandidateUser[] = res.users.map(u => ({
         azureAdObjectId: u.azureAdObjectId,
         email:           u.email,
@@ -119,15 +116,13 @@ const PSOsListPage: React.FC = () => {
     }
   };
 
-  // On mount (when auth ready), load first page
+  // On mount (when auth ready), load list
   useEffect(() => {
     if (!initialized || !account) return;
-    fetchPsos(1);
+    fetchPsos();
   }, [initialized, account]);
 
-  /**
-   * Opens "Add PSO" modal, resets selection, and fetches candidates.
-   */
+  /** Open modal and load candidates. */
   const handleOpenModal = (): void => {
     setSelectedEmails([]);
     setModalOpen(true);
@@ -135,7 +130,7 @@ const PSOsListPage: React.FC = () => {
   };
 
   /**
-   * Assign "Employee" role to selected users and refresh.
+   * Assign "Employee" role to selected users and refresh the list.
    */
   const handleConfirmAdd = async (): Promise<void> => {
     setPsosLoading(true);
@@ -146,7 +141,7 @@ const PSOsListPage: React.FC = () => {
         )
       );
       setModalOpen(false);
-      await fetchPsos(page);
+      await fetchPsos();
       showToast(
         `${selectedEmails.length} user${selectedEmails.length > 1 ? 's' : ''} added`,
         'success'
@@ -170,7 +165,7 @@ const PSOsListPage: React.FC = () => {
     setPsosLoading(true);
     try {
       await changeUserRole({ userEmail: email, newRole: null });
-      await fetchPsos(page);
+      await fetchPsos();
       showToast(`Removed ${email}`, 'success');
     } catch (err: any) {
       console.error('Error removing PSO:', err);
@@ -231,15 +226,14 @@ const PSOsListPage: React.FC = () => {
 
   return (
     <div className="flex flex-col flex-1 min-h-0 bg-[var(--color-primary-dark)] p-4">
-      {/* Main PSO table with loading indicator */}
+      {/* Main PSO table (client-side pagination with small UI page size) */}
       <TableComponent<CandidateUser>
         columns={psoColumns}
         data={psos}
-        pageSize={pageSize}
+        pageSize={UI_PAGE_SIZE}
         addButton={<AddButton label="Add PSO" onClick={handleOpenModal} />}
         loading={psosLoading}
         loadingAction="Loading PSOs"
-    
       />
 
       {/* Modal for selecting new PSOs */}

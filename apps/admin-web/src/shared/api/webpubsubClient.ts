@@ -5,270 +5,363 @@ import {
 } from "@azure/web-pubsub-client";
 
 /**
- * Callback type invoked when a PubSub group message arrives.
- * @template T - Type of the parsed message payload.
- * @param data - Parsed JSON payload.
+ * Shape returned by your negotiate endpoint.
+ */
+interface NegotiateResponse {
+  /** JWT or SAS token for client access (already audience-scoped). */
+  token: string;
+  /** Service endpoint, e.g. https://<res>.webpubsub.azure.com */
+  endpoint: string;
+  /** Hub to connect to (used to compose the client URL). */
+  hubName: string;
+}
+
+/**
+ * Callback invoked when a message arrives (already JSON-parsed).
+ * @template T Payload type
  */
 export type MessageHandler<T = unknown> = (data: T) => void;
 
 /**
- * Callback type invoked when the Web PubSub connection closes.
+ * Callback invoked on connection lifecycle transitions.
  */
-export type DisconnectHandler = () => void;
+export type VoidHandler = () => void;
 
 /**
- * Manages an Azure Web PubSub connection, group subscriptions, and resilient reconnection.
+ * A resilient, app-wide singleton wrapper for Azure Web PubSub client sockets.
  *
- * @remarks
- * - Fetches a fresh access token for each connection attempt.
- * - Automatically re-joins the user’s personal group and the `"presence"` group on every connect/reconnect.
- * - Implements exponential backoff with jitter for reconnection attempts.
- * - Provides lifecycle hooks for `connected` and `disconnected` events.
+ * ## Key features
+ * - **Singleton**: one socket per app; multiple hooks/components can subscribe.
+ * - **Multi-listener fan-out**: supports many `onMessage`/`onConnected`/`onDisconnected`
+ *   listeners without overwriting each other. Returns **unsubscribe** functions.
+ * - **Idempotent connect**: repeated `connect(email)` is safe; concurrent calls coalesce.
+ * - **Group memory**: every `joinGroup()` is remembered and automatically rejoined
+ *   on **every** reconnect, including custom groups (e.g., `commands:<email>`, `cm-status-updates`).
+ * - **Exponential backoff** with jitter for reconnect attempts.
+ * - **Online event** handling is installed **once** and removed on `disconnect()`.
+ * - **Clean parsing** of text/ArrayBuffer messages and robust error isolation.
  */
 export class WebPubSubClientService {
+  // === Connection state ===
   private client?: WebPubSubClient;
-  private hubName!: string;
-  private personalGroup!: string;
-  private connected = false;
+  private currentUserEmail: string | null = null;
+  private hubName: string | null = null;
 
-  // Reconnect state
+  /** True while the socket is open and authenticated. */
+  private connected = false;
+  /** True while a connect() is in progress. Used to coalesce concurrent calls. */
+  private connecting = false;
+  /** Promise shared by concurrent connect() callers (idempotent connect). */
+  private connectPromise: Promise<void> | null = null;
+
+  // === Auto-reconnect state ===
   private shouldReconnect = false;
   private reconnectTimer: any = null;
-  private backoffMs = 1000; // initial backoff
-  private readonly maxBackoffMs = 30_000; // cap backoff
+  private backoffMs = 1000;            // initial backoff
+  private readonly maxBackoffMs = 30_000;
+
+  // === Group memory (rejoin on every connect) ===
+  private joinedGroups = new Set<string>();
+
+  // === App-level listener registries (persist across client recreation) ===
+  private messageHandlers = new Set<MessageHandler<any>>();
+  private connectedHandlers = new Set<VoidHandler>();
+  private disconnectedHandlers = new Set<VoidHandler>();
+
+  // === Global "online" listener ref (so we can uninstall it) ===
+  private onlineListener?: () => void;
 
   /**
-   * Returns true when the client is connected and has an active WebSocket instance.
+   * Returns whether the underlying socket is currently connected.
    */
   public isConnected(): boolean {
     return this.connected && !!this.client;
   }
 
   /**
-   * Ensures there is a live connection. If disconnected and auto-reconnect is enabled,
-   * schedules an immediate reconnect attempt.
+   * Connects (or ensures a connection) for a given user email.
    *
-   * @returns Promise that resolves after scheduling an immediate reconnect if needed.
-   */
-  public async ensureConnected(): Promise<void> {
-    if (!this.isConnected() && this.shouldReconnect) {
-      this.scheduleReconnect("ensureConnected()", true);
-    }
-  }
-
-  /**
-   * Connects to Azure Web PubSub using a freshly-fetched token and sets the personal group name.
-   * Auto-reconnect is enabled until {@link disconnect} is called.
+   * - **Idempotent**: if already connected/connecting for the same email, returns the
+   *   existing promise.
+   * - **Switch user**: if you pass a different email than the active one, the client
+   *   disconnects, clears groups, and connects fresh.
    *
-   * @param userEmail - Normalized email used as the personal group name.
-   * @returns Promise that resolves after an initial connection attempt (success or scheduled retry).
+   * Auto-reconnect remains enabled until you call {@link disconnect}.
+   *
+   * @param userEmail Normalized email identifying the client connection
    */
   public async connect(userEmail: string): Promise<void> {
-    this.personalGroup = userEmail.trim().toLowerCase();
-    this.shouldReconnect = true;
+    const email = userEmail.trim().toLowerCase();
 
-    try {
-      await this.startFreshClient();
-      this.resetBackoff();
-    } catch (err) {
-      this.connected = false;
-      this.scheduleReconnect("initial connect failed");
+    // Switch user scenario
+    if (this.currentUserEmail && this.currentUserEmail !== email) {
+      this.disconnect();                 // clean state
+      this.joinedGroups.clear();         // do not leak previous user's groups
     }
 
-    if (typeof window !== "undefined") {
-      const onOnline = () => {
+    // Idempotent connect coalescing
+    if (this.connecting && this.currentUserEmail === email && this.connectPromise) {
+      return this.connectPromise;
+    }
+    if (this.connected && this.currentUserEmail === email) {
+      // Already connected for this identity
+      return;
+    }
+
+    this.currentUserEmail = email;
+    this.shouldReconnect = true;
+
+    // Ensure default groups are always present (they will be joined on 'connected')
+    this.joinedGroups.add(email);        // "personal group"
+    this.joinedGroups.add("presence");
+
+    this.connecting = true;
+    this.connectPromise = (async () => {
+      try {
+        await this.startFreshClient();   // creates client, hooks events, and starts
+        this.resetBackoff();
+      } catch (err) {
+        // First connection failed → schedule retry
+        this.connected = false;
+        this.scheduleReconnect("initial connect failed");
+        throw err;
+      } finally {
+        this.connecting = false;
+      }
+    })();
+
+    // Install a single 'online' handler (first connect only)
+    if (typeof window !== "undefined" && !this.onlineListener) {
+      this.onlineListener = () => {
         if (!this.isConnected() && this.shouldReconnect) {
           this.scheduleReconnect("online event", true);
         }
       };
-      window.addEventListener("online", onOnline, { passive: true });
-      // Optional: add a corresponding removeEventListener in a dispose() if needed by the caller.
+      window.addEventListener("online", this.onlineListener, { passive: true });
     }
+
+    return this.connectPromise;
   }
 
   /**
-   * Registers a handler to run on every `connected` event.
-   *
-   * @param handler - Invoked when the socket connects or reconnects.
-   * @throws Error if called before {@link connect}.
+   * Explicitly triggers a reconnect using the current identity and remembered groups.
+   * Safe to call even if connected; the client will be recreated.
    */
-  public onConnected(handler: () => void): void {
-    if (!this.client) throw new Error("Not connected. Call connect() first.");
-    this.client.on("connected", () => {
-      this.connected = true;
-      handler();
-    });
+  public async reconnect(): Promise<void> {
+    if (!this.currentUserEmail) return;
+    this.scheduleReconnect("explicit reconnect", true);
   }
 
   /**
-   * Joins an additional PubSub group on the current connection.
-   *
-   * @param groupName - Group name to join; normalized to lowercase.
-   * @throws Error if not currently connected.
-   */
-  public async joinGroup(groupName: string): Promise<void> {
-    if (!this.client) throw new Error("Not connected. Call connect() first.");
-    await this.client.joinGroup(groupName.trim().toLowerCase());
-  }
-
-  /**
-   * Leaves a previously joined PubSub group.
-   *
-   * @param groupName - Group name to leave; normalized to lowercase.
-   * @throws Error if not currently connected.
-   */
-  public async leaveGroup(groupName: string): Promise<void> {
-    if (!this.client) throw new Error("Not connected. Call connect() first.");
-    await this.client.leaveGroup(groupName.trim().toLowerCase());
-  }
-
-  /**
-   * Registers a handler for incoming group messages. Safely parses JSON and guards
-   * against handler exceptions so they do not crash the application.
-   *
-   * @template T - Expected payload type after JSON parsing.
-   * @param handler - Callback invoked with each parsed message payload.
-   * @throws Error if not currently connected.
-   */
-  public onMessage<T = unknown>(handler: MessageHandler<T>): void {
-    if (!this.client) throw new Error("Not connected. Call connect() first.");
-
-    this.client.on("group-message", (e) => {
-      let text: string;
-      const raw = e.message.data;
-
-      if (typeof raw === "string") {
-        text = raw;
-      } else if (raw instanceof ArrayBuffer) {
-        text = new TextDecoder().decode(raw);
-      } else if (ArrayBuffer.isView(raw)) {
-        text = new TextDecoder().decode(raw.buffer as ArrayBuffer);
-      } else {
-        return;
-      }
-
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(text);
-      } catch {
-        return;
-      }
-
-      try {
-        handler(parsed as T);
-      } catch {
-        // swallow handler errors to avoid breaking the WS loop
-      }
-    });
-  }
-
-  /**
-   * Registers a handler that fires when the connection closes unexpectedly.
-   *
-   * @param handler - Called on connection close.
-   * @throws Error if not currently connected.
-   */
-  public onDisconnected(handler: DisconnectHandler): void {
-    if (!this.client) throw new Error("Not connected. Call connect() first.");
-    this.client.on("disconnected", () => {
-      this.connected = false;
-      handler();
-    });
-  }
-
-  /**
-   * Gracefully stops the client and disables auto-reconnect.
-   * After calling this, the instance will not attempt to reconnect
-   * until {@link connect} is invoked again.
+   * Gracefully stops the client, disables auto-reconnect, removes global handlers,
+   * and clears the socket reference. Listener registries remain intact so you can
+   * `connect()` again and keep your subscriptions.
    */
   public disconnect(): void {
     this.shouldReconnect = false;
     this.clearReconnectTimer();
+
+    if (this.onlineListener) {
+      window.removeEventListener("online", this.onlineListener);
+      this.onlineListener = undefined;
+    }
+
     if (this.client) {
-      try {
-        this.client.stop();
-      } catch {
-        // no-op
-      }
+      try { this.client.stop(); } catch { /* no-op */ }
       this.client = undefined;
     }
+
     this.connected = false;
+    this.connecting = false;
+    this.connectPromise = null;
   }
 
   /**
-   * Creates a new WebSocket client with a fresh token and attaches lifecycle handlers.
-   * Re-joins required groups on every (re)connection.
+   * Joins a PubSub group **and remembers it** for automatic rejoin on future reconnects.
+   * Calling this more than once for the same group is harmless.
    *
-   * @returns Promise that resolves after the client starts and required groups are joined.
-   * @throws Error if token acquisition or client start fails.
+   * @param groupName Group name to join; normalized to lowercase
+   */
+  public async joinGroup(groupName: string): Promise<void> {
+    const g = groupName.trim().toLowerCase();
+    this.joinedGroups.add(g);
+    if (!this.client) return; // Will be joined after connect
+    await this.client.joinGroup(g);
+  }
+
+  /**
+   * Leaves a PubSub group and removes it from the rejoin memory.
+   *
+   * @param groupName Group name to leave; normalized to lowercase
+   */
+  public async leaveGroup(groupName: string): Promise<void> {
+    const g = groupName.trim().toLowerCase();
+    this.joinedGroups.delete(g);
+    if (!this.client) return;
+    await this.client.leaveGroup(g);
+  }
+
+  /**
+   * Registers a message handler that will receive **all** group/server messages
+   * for this socket. You should **filter by your channel/group marker**
+   * inside the payload (e.g., `msg.channel === "cm-status-updates"`).
+   *
+   * The handler persists across reconnects and client recreation.
+   *
+   * @param handler Function invoked with each JSON-parsed message payload
+   * @returns Unsubscribe function
+   */
+  public onMessage<T = unknown>(handler: MessageHandler<T>): () => void {
+    this.messageHandlers.add(handler as MessageHandler<any>);
+    return () => this.messageHandlers.delete(handler as MessageHandler<any>);
+  }
+
+  /**
+   * Registers a callback for the "connected" lifecycle event.
+   * The handler persists across reconnects and client recreation.
+   *
+   * @param handler Callback invoked after a successful (re)connection
+   * @returns Unsubscribe function
+   */
+  public onConnected(handler: VoidHandler): () => void {
+    this.connectedHandlers.add(handler);
+    return () => this.connectedHandlers.delete(handler);
+  }
+
+  /**
+   * Registers a callback for the "disconnected" lifecycle event.
+   * The handler persists across reconnects and client recreation.
+   *
+   * @param handler Callback invoked when the socket disconnects
+   * @returns Unsubscribe function
+   */
+  public onDisconnected(handler: VoidHandler): () => void {
+    this.disconnectedHandlers.add(handler);
+    return () => this.disconnectedHandlers.delete(handler);
+  }
+
+  // ------------------------------------------------------------------------------------
+  // Internals
+  // ------------------------------------------------------------------------------------
+
+  /**
+   * Creates a fresh low-level client, wires internal bridges to app-level
+   * handler registries, starts the connection, and performs group rejoin.
+   *
+   * @throws If negotiate/start fails
    */
   private async startFreshClient(): Promise<void> {
+    // Stop previous client (if any)
     if (this.client) {
-      try {
-        this.client.stop();
-      } catch {
-        // no-op
-      }
+      try { this.client.stop(); } catch { /* no-op */ }
       this.client = undefined;
     }
 
-    const { data } = await apiClient.get<{
-      token: string;
-      endpoint: string;
-      hubName: string;
-    }>("/api/WebPubSubToken");
-
+    // Negotiate token/URL
+    const { data } = await apiClient.get<NegotiateResponse>("/api/WebPubSubToken");
     const { token, endpoint, hubName } = data;
     this.hubName = hubName;
 
     const wssUrl = endpoint.replace(/^https?:\/\//, "wss://");
-    const clientUrl = `${wssUrl}/client/hubs/${hubName}?access_token=${encodeURIComponent(
-      token
-    )}`;
+    const clientUrl = `${wssUrl}/client/hubs/${hubName}?access_token=${encodeURIComponent(token)}`;
 
+    // Create client with JSON subprotocol
     const wsClient = new WebPubSubClient(clientUrl, {
       protocol: WebPubSubJsonProtocol(),
     });
     this.client = wsClient;
 
+    // Bridge: messages → fan-out to app-level handlers (persist across client recreation)
+    // NOTE: NoImplicitAny fix — annotate `e: any`
+    wsClient.on("group-message", (e: any) => this.dispatchMessage(e));
+    wsClient.on("server-message", (e: any) => this.dispatchMessage(e)); // ← replaces invalid "message"
+
+    // Lifecycle: connected/disconnected → update flags, backoff, and fan-out
     wsClient.on("connected", async () => {
       this.connected = true;
       this.clearReconnectTimer();
       this.resetBackoff();
-      await wsClient.joinGroup(this.personalGroup);
-      await wsClient.joinGroup("presence");
+
+      // Ensure default groups exist in memory
+      if (this.currentUserEmail) {
+        this.joinedGroups.add(this.currentUserEmail);
+      }
+      this.joinedGroups.add("presence");
+
+      // Re-join **all** remembered groups
+      for (const g of this.joinedGroups) {
+        try { await wsClient.joinGroup(g); } catch { /* swallow to avoid loop breaks */ }
+      }
+
+      // Notify external subscribers
+      for (const h of this.connectedHandlers) {
+        try { h(); } catch { /* isolate handler errors */ }
+      }
     });
 
     wsClient.on("disconnected", () => {
       this.connected = false;
+
+      for (const h of this.disconnectedHandlers) {
+        try { h(); } catch { /* isolate handler errors */ }
+      }
+
       if (this.shouldReconnect) {
         this.scheduleReconnect("ws disconnected");
       }
     });
 
+    // Start the client (handshake). Control returns once the socket is ready.
     await wsClient.start();
-    await wsClient.joinGroup(this.personalGroup);
-    await wsClient.joinGroup("presence");
-
-    this.connected = true;
   }
 
   /**
-   * Schedules a reconnect attempt with exponential backoff and jitter.
-   *
-   * @param reason - Human-readable reason used for logging/diagnostics.
-   * @param forcedImmediate - If true, attempts reconnect without delay.
+   * Parses an incoming event payload (string/ArrayBuffer) and fans it out
+   * to all registered message handlers. Handler errors are isolated.
    */
-  private scheduleReconnect(reason: string, forcedImmediate = false): void {
+  private dispatchMessage(e: any): void {
+    // Azure events can surface as { message: { data } } or directly { data }.
+    const raw = e?.message?.data ?? e?.data ?? e;
+    let text: string | undefined;
+
+    if (typeof raw === "string") {
+      text = raw;
+    } else if (raw instanceof ArrayBuffer) {
+      text = new TextDecoder().decode(raw);
+    } else if (ArrayBuffer.isView(raw)) {
+      text = new TextDecoder().decode(raw.buffer as ArrayBuffer);
+    } else {
+      // Unknown payload type — ignore silently
+      return;
+    }
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      // Non-JSON messages are ignored
+      return;
+    }
+
+    for (const h of this.messageHandlers) {
+      try { h(parsed); } catch { /* isolate handler errors */ }
+    }
+  }
+
+  /**
+   * Schedules a reconnect attempt using exponential backoff plus jitter.
+   *
+   * @param reason Human-readable reason for diagnostics
+   * @param immediate If true, attempts reconnect without delay
+   */
+  private scheduleReconnect(reason: string, immediate = false): void {
     this.clearReconnectTimer();
 
     const jitter = Math.floor(Math.random() * 400);
-    const delay = forcedImmediate
-      ? 0
-      : Math.min(this.backoffMs + jitter, this.maxBackoffMs);
+    const delay = immediate ? 0 : Math.min(this.backoffMs + jitter, this.maxBackoffMs);
 
     this.reconnectTimer = setTimeout(async () => {
-      if (!this.shouldReconnect) return;
+      if (!this.shouldReconnect || !this.currentUserEmail) return;
       try {
         await this.startFreshClient();
         this.resetBackoff();
@@ -279,23 +372,17 @@ export class WebPubSubClientService {
     }, delay);
   }
 
-  /**
-   * Resets the reconnect backoff to the initial value.
-   */
+  /** Resets the reconnect backoff to its initial value. */
   private resetBackoff(): void {
     this.backoffMs = 1000;
   }
 
-  /**
-   * Increases the reconnect backoff up to a maximum cap.
-   */
+  /** Increases the reconnect backoff up to a maximum cap. */
   private bumpBackoff(): void {
     this.backoffMs = Math.min(this.backoffMs * 2, this.maxBackoffMs);
   }
 
-  /**
-   * Clears any scheduled reconnect timer.
-   */
+  /** Clears any scheduled reconnect timer. */
   private clearReconnectTimer(): void {
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
@@ -303,3 +390,11 @@ export class WebPubSubClientService {
     }
   }
 }
+
+/**
+ * App-wide singleton instance.
+ *
+ * Import and reuse this instance everywhere instead of creating new clients:
+ * `import { webPubSubClient as pubsub } from "@/shared/api/webpubsubClient"`
+ */
+export const webPubSubClient = new WebPubSubClientService();

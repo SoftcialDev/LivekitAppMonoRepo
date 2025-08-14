@@ -1,6 +1,7 @@
 import { AzureFunction, Context } from "@azure/functions";
 import { setUserOnline, setUserOffline } from "../services/presenceService";
 import { stopStreamingSession } from "../services/streamingService";
+import { LiveKitRecordingService } from "../services/livekitRecordingService";
 
 ////////////////////////////////////////////////////////////////////////////////
 // Helpers
@@ -98,7 +99,11 @@ export const presenceAndStreamingHandler: AzureFunction = async (
         context.log.verbose(`→ stopStreamingSession("${userId}")`);
         await stopStreamingSession(userId);
 
-        context.log.info(`✅ User OFFLINE & stream stopped (${userId})`);
+        context.log.verbose(`→ stopAll recordings for user "${userId}"`);
+        const summary = await LiveKitRecordingService.stopAllForUser(userId, 60);
+        context.log.info(
+          `✅ Recordings stop summary: ${summary.completed}/${summary.total} completed (user=${userId})`
+        );
         break;
       }
 

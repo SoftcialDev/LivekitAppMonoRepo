@@ -5,6 +5,7 @@ import { BlobServiceClient, ContainerClient } from "@azure/storage-blob";
  */
 class BlobService {
   private containerClient: ContainerClient;
+  private recordingsContainer?: ContainerClient;
 
   /**
    * Initializes the BlobService using environment configuration.
@@ -56,6 +57,34 @@ class BlobService {
       chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
     }
     return Buffer.concat(chunks);
+  }
+
+  /**
+   * Deletes a **recording** blob by its relative path within the recordings container.
+   *
+   * This method targets the container defined by the `RECORDINGS_CONTAINER_NAME` environment variable,
+   * which is typically different from the snapshots container.
+   *
+   * @param blobPath - Relative path to the recording blob (e.g., "user/2025/08/13/room-123.mp4").
+   * @returns `true` if the blob existed and was deleted, `false` if it did not exist.
+   * @throws Error if the recordings container is not configured or the delete operation fails unexpectedly.
+   */
+  async deleteRecordingByPath(blobPath: string): Promise<boolean> {
+    const connStr = process.env.AZURE_STORAGE_CONNECTION_STRING;
+    const recordingsContainerName = process.env.RECORDINGS_CONTAINER_NAME;
+    if (!connStr || !recordingsContainerName) {
+      throw new Error("Azure Storage connection string or recordings container name is not defined in environment variables.");
+    }
+
+    // Lazily initialize the recordings container client the first time this method is called.
+    if (!this.recordingsContainer) {
+      const svc = BlobServiceClient.fromConnectionString(connStr);
+      this.recordingsContainer = svc.getContainerClient(recordingsContainerName);
+    }
+
+    const client = this.recordingsContainer.getBlockBlobClient(blobPath);
+    const res = await client.deleteIfExists();
+    return Boolean(res.succeeded);
   }
 }
 

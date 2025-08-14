@@ -1,31 +1,30 @@
-# Create an Azure Kubernetes Service (AKS) cluster with system-assigned identity
+###############################################
+# 1) AKS Cluster - fixed default system pool
+###############################################
 resource "azurerm_kubernetes_cluster" "aks-cluster" {
-  name                = "${var.name_prefix}-k8s"
-  location            = var.region
-  resource_group_name = var.resource_group
-  dns_prefix          = var.name_prefix
-  sku_tier            = var.aks_price_tier
+  # Basic cluster details
+  name                = "${var.name_prefix}-k8s"   # Cluster name
+  location            = var.region                 # Azure region
+  resource_group_name = var.resource_group         # Resource Group
+  dns_prefix          = var.name_prefix            # DNS prefix for AKS API
+  sku_tier            = var.aks_price_tier         # e.g. "Free" or "Paid"
 
-default_node_pool {
-  name                = "default"
-  vm_size             = var.vm_sku           # e.g. "Standard_B4ms"
-  min_count           = 2    # minimum number of nodes
-  max_count           = 3    # maximum number of nodes
-  vnet_subnet_id      = var.vnet_subnet_id
+  # Default system node pool (non-autoscaling)
+  default_node_pool {
+    name           = "systempool"                  # Node pool name
+    vm_size        = var.vm_sku             # Small SKU for system components
+    node_count     = 1                              # Always 1 node for system workloads
+    vnet_subnet_id = var.vnet_subnet_id
 
-  # Upgrade settings for the node pool
-  upgrade_settings {
-    # Time to wait for node drains (in minutes)
-    drain_timeout_in_minutes      = 0
-    # Maximum surge of nodes allowed during an upgrade
-    # e.g. "10%" allows one extra node in a 10-node pool during rolling upgrades
-    max_surge                     = "10%"
-    # Time nodes remain in ready state before upgrades
-    node_soak_duration_in_minutes = 0
+    # Rolling upgrade settings
+    upgrade_settings {
+      drain_timeout_in_minutes      = 0
+      max_surge                     = "10%"
+      node_soak_duration_in_minutes = 0
+    }
   }
-}
 
-  # Prevent Terraform from resetting the image cleaner settings
+  # Ignore internal Azure image cleaner settings
   lifecycle {
     ignore_changes = [
       image_cleaner_enabled,
@@ -33,13 +32,34 @@ default_node_pool {
     ]
   }
 
-  # Use a system-assigned managed identity for cluster control plane
+  # Managed identity for the control plane
   identity {
     type = "SystemAssigned"
   }
 
-  # Use Azure CNI networking for pod IP assignment
+  # Networking configuration (Azure CNI)
   network_profile {
     network_plugin = "azure"
   }
+}
+
+#####################################################
+# 2) User node pool for workloads (with autoscaling)
+#####################################################
+resource "azurerm_kubernetes_cluster_node_pool" "livekit-pool" {
+  name                  = "livekit"                               # Pool name
+  kubernetes_cluster_id = azurerm_kubernetes_cluster.aks-cluster.id
+  vm_size               = var.vm_sku                      # VM SKU for LiveKit workloads
+  min_count             = 1                                       # Minimum nodes
+  max_count             = 3                                       # Maximum nodes
+  auto_scaling_enabled = true
+  vnet_subnet_id        = var.vnet_subnet_id
+  mode                  = "User"                                  # User workloads
+
+  # Optional: labels to target pods in YAML
+  node_labels = {
+    workload = "livekit"
+  }
+
+
 }

@@ -12,27 +12,27 @@ import { usePresenceStore } from '@/shared/presence/usePresenceStore'
 import UserIndicator from '@/shared/ui/UserIndicator'
 import { VideoCardProps } from '@/shared/types/VideoCardProps'
 import AddModal from '@/shared/ui/ModalComponent'
-
+import { useRecording } from '../hooks/useRecording'
+import { useTalkback } from '../hooks/useTalkback'
 
 /**
  * VideoCard
+ * ----------
+ * Displays a LiveKit video/audio stream for one remote user and provides:
+ * - Play/Stop (connect/disconnect viewing of the remote stream)
+ * - Chat
+ * - Mute/Unmute (local playback of the remote user's audio)
+ * - Snapshot (open a modal to capture and report a frame)
+ * - Talk/Stop Talk (publish/unpublish local mic to speak to the remote user)
+ * - Start/Stop Rec (start/stop recording for this participant)
  *
- * Renders a LiveKit video (and audio) stream for a single remote user.
- * Provides Play/Stop, Chat, Mute/Unmute, and Snapshot controls.
- *
- * @param name            Display name of the remote participant.
- * @param email           Email/identity used to join the LiveKit room.
- * @param onPlay          Callback when the first video frame arrives.
- * @param onChat          Callback to open chat with this user.
- * @param showHeader      Whether to render the header with user info.
- * @param className       Additional CSS classes for the outer container.
- * @param accessToken     LiveKit access token.
- * @param roomName        LiveKit room name (should match participant identity).
- * @param livekitUrl      URL of the LiveKit server.
- * @param disableControls If true, always disable Play/Stop button.
- * @param shouldStream    Whether the UI should attempt streaming.
- * @param connecting      True while LiveKit connection is in progress.
- * @param onToggle        Callback when Play/Stop is clicked.
+ * Key rules:
+ * - **Recording is optional**. It does **not** auto-start on first video frame.
+ * - **Stop order**: when stopping stream while recording or talking,
+ *   first stop recording (if active), then stop talkback (if active), then toggle the stream.
+ * - **Disabled states**:
+ *   - **Talk** is disabled when there is no active video (not in Play) or while connecting.
+ *   - **Start Rec** is also disabled (greyed out) when there is no active video or while connecting.
  */
 const VideoCard: React.FC<VideoCardProps & { livekitUrl?: string }> = ({
   name,
@@ -52,19 +52,43 @@ const VideoCard: React.FC<VideoCardProps & { livekitUrl?: string }> = ({
   const roomRef  = useRef<Room | null>(null)
   const audioRef = useRef<HTMLAudioElement>(null)
 
-  // Local state to mute/unmute remote audio
+  /** Local playback mute toggle for the remote audio. */
   const [isAudioMuted, setIsAudioMuted] = useState(true)
 
-  // Apply mute state to the <audio> element
+  /**
+   * Per-card recording controller.
+   * NOTE: Must be stopped prior to stopping the stream to avoid backend/API errors.
+   * Recording does NOT auto-start; it is explicitly user-triggered.
+   */
+  const {
+    isRecording,
+    loading: recordingLoading,
+    toggleRecording,
+  } = useRecording(roomName!, email!)
+
+  /**
+   * Two-way audio (talkback): publish/unpublish the local mic to the same room.
+   * Also stopped before stopping the stream.
+   */
+  const {
+    isTalking,
+    loading: talkLoading,
+    start: startTalk,
+    stop: stopTalk,
+  } = useTalkback({ roomRef, targetIdentity: roomName })
+
+  /** Reflect mute state in the hidden <audio> element. */
   useEffect(() => {
     if (audioRef.current) {
       audioRef.current.muted = isAudioMuted
     }
   }, [isAudioMuted])
 
-  // Snapshot hook provides videoRef, modal state & handlers
+  /**
+   * Snapshot helpers (provides `videoRef` used to capture frames).
+   */
   const {
-    videoRef,       // <-- use the hook’s ref for snapshot
+    videoRef,
     isModalOpen,
     screenshot,
     reason,
@@ -75,67 +99,61 @@ const VideoCard: React.FC<VideoCardProps & { livekitUrl?: string }> = ({
     confirm,
   } = useSnapshot(email)
 
-  // Global presence map (not directly used for audio)
+  /** Optional presence indicator for this user. */
   const streamingMap = usePresenceStore(s => s.streamingMap)
   const isConnected  = Boolean(streamingMap[email])
 
+  /**
+   * Connect to LiveKit and subscribe to the target participant.
+   * - Attaches video/audio tracks on subscription.
+   * - Calls `onPlay` on the first video attachment (no auto-recording).
+   * - Cleans up on unmount or when streaming stops.
+   */
   useEffect(() => {
-    // If we shouldn’t stream, disconnect and clean up
     if (!shouldStream) {
       roomRef.current?.disconnect()
       roomRef.current = null
       return
     }
-    // Require valid credentials to connect
     if (!accessToken || !roomName || !livekitUrl) {
       return
     }
 
     let lkRoom: Room | null = null
     let canceled = false
-    let started = false
+    let firstFrameFired = false
 
-    /**
-     * Attach video and audio tracks to their respective elements.
-     */
-    function attachTrack(pub: any) {
+    const attachTrack = (pub: any) => {
       const { track, kind, isSubscribed } = pub
       if (!isSubscribed || !track) return
 
       if (kind === 'video') {
-        ;(track as RemoteVideoTrack).attach(videoRef.current!)
-        if (!started) {
-          started = true
+        (track as RemoteVideoTrack).attach(videoRef.current!)
+        if (!firstFrameFired) {
+          firstFrameFired = true
           onPlay(email)
         }
-      }
-      if (kind === 'audio') {
-        ;(track as RemoteAudioTrack).attach(audioRef.current!)
+      } else if (kind === 'audio') {
+        (track as RemoteAudioTrack).attach(audioRef.current!)
         if (audioRef.current) {
           audioRef.current.muted = isAudioMuted
         }
       }
     }
 
-    /**
-     * Set up a participant: attach existing tracks and listen for new ones.
-     */
-    function setupParticipant(p: RemoteParticipant) {
+    const setupParticipant = (p: RemoteParticipant) => {
       for (const pub of p.getTrackPublications().values()) {
         attachTrack(pub)
       }
       p.on(ParticipantEvent.TrackSubscribed, attachTrack)
     }
 
-    /**
-     * Connect to LiveKit and subscribe to the target participant.
-     */
-    async function connectAndWatch() {
+    const connectAndWatch = async () => {
       const room = new Room()
       try {
         await room.connect(livekitUrl!, accessToken!)
       } catch {
-        // ignore connection errors
+        // Parent can reflect "connecting" externally; ignore here.
       }
       if (canceled) {
         room.disconnect()
@@ -158,14 +176,14 @@ const VideoCard: React.FC<VideoCardProps & { livekitUrl?: string }> = ({
       })
     }
 
-    connectAndWatch()
+    void connectAndWatch()
 
     return () => {
       canceled = true
       lkRoom?.disconnect()
       roomRef.current = null
 
-      // Clean up video/audio elements
+      // Clean elements
       if (videoRef.current) {
         videoRef.current.srcObject = null
         videoRef.current.src = ''
@@ -182,18 +200,36 @@ const VideoCard: React.FC<VideoCardProps & { livekitUrl?: string }> = ({
     livekitUrl,
     email,
     onPlay,
-    // Do NOT include isAudioMuted here, so toggling mute
-    // doesn’t reconnect the room—only updates the audio element.
+    // intentionally NOT depending on isAudioMuted to avoid reconnects on mute toggle
   ])
 
-  // Determine Play/Stop button label
-  const playLabel = connecting
-    ? 'Connecting…'
-    : shouldStream
-      ? 'Stop'
-      : 'Play'
+  /**
+   * Safety net: if an external change flips shouldStream true → false,
+   * stop recording first and then stop talkback before teardown.
+   */
+  const prevShouldRef = useRef<boolean>(shouldStream)
+  useEffect(() => {
+    const prev = prevShouldRef.current
+    prevShouldRef.current = shouldStream
+    if (prev && !shouldStream) {
+      if (isRecording) {
+        void toggleRecording() // stop recording first
+      }
+      if (isTalking) {
+        void stopTalk()        // then stop talkback
+      }
+    }
+  }, [shouldStream, isRecording, isTalking, stopTalk, toggleRecording])
 
-  const isDisabled = disableControls || connecting
+  /** Media is available when actively streaming and not connecting. */
+  const mediaReady = shouldStream && !connecting
+
+  // Labels and disabled states
+  const playLabel      = connecting ? 'Connecting…' : (shouldStream ? 'Stop' : 'Play')
+  const isPlayDisabled = disableControls || connecting
+  const talkLabel      = isTalking ? 'Stop Talk' : 'Talk'
+  const talkDisabled   = !mediaReady || talkLoading
+  const recordDisabled = !mediaReady || recordingLoading  // <- greyed out if no video or connecting
 
   return (
     <>
@@ -205,7 +241,7 @@ const VideoCard: React.FC<VideoCardProps & { livekitUrl?: string }> = ({
                 email,
                 name,
                 fullName: name,
-                status: isDisabled ? 'online' : 'offline',
+                status: isPlayDisabled ? 'online' : 'offline',
                 azureAdObjectId: roomName ?? null,
               }}
               outerClass="w-5 h-5"
@@ -217,14 +253,14 @@ const VideoCard: React.FC<VideoCardProps & { livekitUrl?: string }> = ({
           </div>
         )}
 
-        {/* Video container (16:9) */}
+        {/* Video (16:9) */}
         <div className="relative w-full pb-[56.25%] bg-black rounded-xl">
           {(shouldStream || Boolean(accessToken)) ? (
             <video
-              ref={videoRef}      // <-- now using the hook’s ref
+              ref={videoRef}
               autoPlay
               playsInline
-              muted           // keep local playback muted
+              muted
               controls={false}
               className="absolute inset-0 w-full h-full object-contain"
             />
@@ -235,40 +271,77 @@ const VideoCard: React.FC<VideoCardProps & { livekitUrl?: string }> = ({
           )}
 
           {/* Hidden audio element for remote mic */}
-          <audio
-            ref={audioRef}
-            autoPlay
-            className="hidden"
-          />
+          <audio ref={audioRef} autoPlay className="hidden" />
         </div>
 
-        {/* Control buttons */}
-        <div className="flex space-x-2 mt-2">
+        {/* Controls */}
+        <div className="flex flex-wrap gap-2 mt-2">
+          {/* Play / Stop — enforce: stop recording -> stop talk -> toggle */}
           <button
-            onClick={() => onToggle?.(email)}
-            disabled={isDisabled}
+            onClick={async () => {
+              if (shouldStream) {
+                if (isRecording && !recordingLoading) {
+                  await toggleRecording()
+                }
+                if (isTalking) {
+                  await stopTalk()
+                }
+              }
+              onToggle?.(email)
+            }}
+            disabled={isPlayDisabled || recordingLoading || talkLoading}
             className="flex-1 py-2 bg-white text-[var(--color-primary-dark)] rounded-xl disabled:opacity-50"
+            title={shouldStream ? 'Stop stream' : 'Start stream'}
           >
-            {playLabel}
+            {recordingLoading || talkLoading ? '...' : playLabel}
           </button>
+
           <button
             onClick={() => onChat(email)}
             className="flex-1 py-2 bg-[var(--color-secondary)] text-[var(--color-primary-dark)] rounded-xl"
           >
             Chat
           </button>
-          {/* <button
+
+          {/*  <button
             onClick={() => setIsAudioMuted(prev => !prev)}
             className="flex-1 py-2 bg-gray-700 text-white rounded-xl"
           >
             {isAudioMuted ? 'Unmute' : 'Mute'}
           </button> */}
+
+          {/* Talkback 
+          <button
+            onClick={async () => {
+              if (isTalking) {
+                await stopTalk()
+              } else {
+                await startTalk()
+              }
+            }}
+            disabled={talkDisabled}
+            className="flex-1 py-2 rounded-xl bg-indigo-600 text-white disabled:opacity-50"
+            title="Publish your microphone to this user"
+          >
+            {talkLoading ? '...' : talkLabel}
+          </button>*/}
+
           <button
             onClick={openModal}
             className="flex-1 py-2 bg-yellow-400 rounded-xl"
           >
             Snapshot
           </button>
+
+          {/* Recording — greyed out if no active video or while connecting
+          <button
+            onClick={toggleRecording}
+            disabled={recordDisabled}
+            className={`flex-1 py-2 rounded-xl ${isRecording ? 'bg-red-500 text-white' : 'bg-[#BBA6CF] text-white'} disabled:opacity-50`}
+            title={!mediaReady ? 'Recording is available only while streaming' : undefined}
+          >
+            {recordingLoading ? '...' : isRecording ? 'Stop' : 'Record'}
+          </button> */}
         </div>
       </div>
 
@@ -280,6 +353,7 @@ const VideoCard: React.FC<VideoCardProps & { livekitUrl?: string }> = ({
         onConfirm={confirm}
         confirmLabel="Send"
         loading={isSubmitting}
+        className="w-fit"
         loadingAction="Sending…"
       >
         <div className="space-y-4 text-white overflow-y-auto w-full max-h-96 mx-auto">

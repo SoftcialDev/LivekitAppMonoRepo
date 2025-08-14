@@ -112,48 +112,52 @@ model ContactManagerStatusHistory {
 
   @@map("contact_manager_status_history")
 }
-
 /**
  * Represents a user of the system, with roles, supervisor relationships,
  * streaming session history, chat memberships, snapshots taken, and auditing.
  */
 model User {
-  id                   String                      @id @default(uuid()) @db.Uuid
-  azureAdObjectId      String                      @unique
-  email                String                      @unique
-  fullName             String
-  role                 UserRole
-  roleChangedAt        DateTime?                   // timestamp when the role was last updated
-  supervisorId         String?                     @db.Uuid
-  assignedAt           DateTime?
+  id                           String                      @id @default(uuid()) @db.Uuid
+  azureAdObjectId              String                      @unique
+  email                        String                      @unique
+  fullName                     String
+  role                         UserRole
+  roleChangedAt                DateTime?                   // timestamp when the role was last updated
+  supervisorId                 String?                     @db.Uuid
+  assignedAt                   DateTime?
+
   /// Optional one-to-one relation only for ContactManager users
-  contactProfile       ContactManagerProfile?      @relation
+  contactProfile               ContactManagerProfile?      @relation
 
-  supervisor           User?                       @relation("SupervisorToEmployees", fields: [supervisorId], references: [id], onDelete: Cascade)
-  employees            User[]                      @relation("SupervisorToEmployees")
+  recordingSessionsSubjectOf   RecordingSession[]          @relation("RecordingSubjectUser")
 
-  supervisorSnapshots  Snapshot[]                  @relation("SupervisorSnapshots")
-  psoSnapshots         Snapshot[]                  @relation("PsoSnapshots")
+  // set null on delete
+  supervisor                   User?                       @relation("SupervisorToEmployees", fields: [supervisorId], references: [id], onDelete: SetNull)
+  employees                    User[]                      @relation("SupervisorToEmployees")
 
-  presence             Presence?
-  presenceHistory      PresenceHistory[]
-  commands             PendingCommand[]            @relation("EmployeeCommands")
+  supervisorSnapshots          Snapshot[]                  @relation("SupervisorSnapshots")
+  psoSnapshots                 Snapshot[]                  @relation("PsoSnapshots")
 
-  streamingSessions    StreamingSessionHistory[]
-  auditLogs            AuditLog[]                  @relation("UserAuditLogs")
+  presence                     Presence?
+  presenceHistory              PresenceHistory[]
+  recordingSessions            RecordingSession[]
+  commands                     PendingCommand[]            @relation("EmployeeCommands")
+
+  streamingSessions            StreamingSessionHistory[]
+  auditLogs                    AuditLog[]                  @relation("UserAuditLogs")
 
   // Teams/Graph chat memberships
-  chatParticipants     ChatParticipant[]
+  chatParticipants             ChatParticipant[]
 
-  createdAt            DateTime                    @default(now())
-    /// Forms this user has submitted to the Contact Managers chat
-  contactManagerForms  ContactManagerForm[]
+  createdAt                    DateTime                    @default(now())
+  /// Forms this user has submitted to the Contact Managers chat
+  contactManagerForms          ContactManagerForm[]
 
-  updatedAt            DateTime                    @updatedAt
-  deletedAt            DateTime?
+  updatedAt                    DateTime                    @updatedAt
+  deletedAt                    DateTime?
 
   /// Inverse relation for status history (optional convenience)
-  ContactManagerStatusHistory ContactManagerStatusHistory[]
+  ContactManagerStatusHistory  ContactManagerStatusHistory[]
 
   @@index([supervisorId])
 }
@@ -323,4 +327,52 @@ model ContactManagerForm {
 
   /// When this record was last updated
   updatedAt DateTime  @updatedAt
+}
+
+/**
+ * Tracks an active or past recording session linked to a LiveKit egress process,
+ * including Azure Blob Storage target details and timestamps.
+ */
+model RecordingSession {
+  id         String   @id @default(uuid()) @db.Uuid
+  roomName   String
+  roomId     String?
+  egressId   String   @unique
+
+  // Final blob URL (if reported by the worker or constructed)
+  blobUrl    String?
+
+  /// Route inside the container (e.g. "alice/2025/08/13/room-123.mp4")
+  blobPath   String?  @db.Text
+
+  /// User who initiates/owns the session
+  userId     String   @db.Uuid
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// User being recorded (derived from roomName).
+  subjectUserId String?  @db.Uuid
+  subjectUser    User?   @relation("RecordingSubjectUser", fields: [subjectUserId], references: [id], onDelete: SetNull)
+
+  /// Human-readable label used for the folder (username/name/email/id)
+  subjectLabel String?
+
+  status     RecordingStatus @default(Active)
+  startedAt  String?
+  stoppedAt  String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([roomName])
+  @@index([userId])
+  @@index([subjectUserId])
+}
+
+
+/**
+ * Status of a recording session.
+ */
+enum RecordingStatus {
+  Active
+  Completed
+  Failed
 }

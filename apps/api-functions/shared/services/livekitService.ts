@@ -93,18 +93,32 @@ export async function listRooms(): Promise<string[]> {
     );
   }
 }
-
 /**
  * Generates a JWT access token for a participant to join a LiveKit room.
  *
- * - Admin users can join and subscribe, but not publish.
- * - Regular users can join, subscribe, and publish.
+ * Permissions are granted as follows:
+ * - Admin users can join, subscribe, and publish only audio (microphone).
+ * - Regular users can join, subscribe, and publish audio, video, and screen share.
  *
  * @param identity - A unique identifier for the user (e.g., Azure AD object ID).
- * @param isAdmin  - Whether to grant admin-level permissions (no publishing).
- * @param room      - The name or ID of the room the token applies to.
+ * @param isAdmin  - Whether to grant admin-level permissions (audio only publishing).
+ * @param room     - The name or ID of the room the token applies to.
+ *
  * @returns A promise that resolves to the signed JWT access token.
- * @throws LiveKitServiceError if token generation fails.
+ *
+ * @throws LiveKitServiceError
+ * Thrown when token generation fails due to an internal error or invalid parameters.
+ *
+ * @example
+ * ```ts
+ * const token = await generateToken("user-123", false, "room-1");
+ * // => JWT string for a regular user with full publishing permissions
+ * ```
+ *
+ * @remarks
+ * This method uses the LiveKit `AccessToken` API to sign a token with
+ * specific room join and publishing permissions. Admin tokens are restricted
+ * to microphone publishing to allow voice-only broadcasting without video.
  */
 export async function generateToken(
   identity: string,
@@ -121,12 +135,17 @@ export async function generateToken(
       { identity },
     );
 
-    const grant = {
-      roomJoin:     true,
+    const grant: any = {
+      roomJoin: true,
       room,
       canSubscribe: true,
-      canPublish:   !isAdmin, // admins cannot publish
+      canPublish: true,
+      canPublishData: true,
+      publishSources: isAdmin
+        ? ['microphone'] // Admin can only publish audio
+        : ['camera', 'microphone', 'screen_share', 'screen_share_audio'],
     };
+
     at.addGrant(grant);
 
     const token = await at.toJwt();

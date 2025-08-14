@@ -66,7 +66,7 @@ data:
   redis-config: |
     bind 0.0.0.0
 ---
-# Livekit server
+# Livekit server config
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -74,7 +74,7 @@ metadata:
 data:
   config.yaml: |
     keys:
-      YOUR_CUSTOM_API_KEY: YOUR_CUSTOM_API_SECRET
+      access_token: secret
     log_level: debug
     port: 7880
     redis:
@@ -84,11 +84,11 @@ data:
       port_range_start: 50000
       tcp_port: 7801
       turn_servers:
-      - credential: pass-1
-        host: 57.152.21.196
-        port: 3478
-        protocol: udp
-        username: user-1
+        - credential: pass-1
+          host: 134.33.230.77
+          port: 3478
+          protocol: udp
+          username: user-1
       use_external_ip: false
     turn:
       enabled: false
@@ -144,7 +144,7 @@ spec:
       terminationGracePeriodSeconds: 18000 # 5 hours
       containers:
         - name: livekit-server
-          image: "livekit/livekit-server:v1.8.2"
+          image: livekit/livekit-server:latest
           imagePullPolicy: IfNotPresent
           env:
             - name: LIVEKIT_CONFIG
@@ -152,6 +152,13 @@ spec:
                 configMapKeyRef:
                   name: livekit-server
                   key: config.yaml
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "512Mi"
+            limits:
+              cpu: "2000m"
+              memory: "2Gi"
           ports:
             - name: http
               containerPort: 7880
@@ -173,10 +180,10 @@ spec:
   ingressClassName: nginx
   tls:
     - hosts:
-        - livekit2.xyzhub.pw
+        - livekit.xyzhub.pw
       secretName: livekit-tls
   rules:
-    - host: livekit2.xyzhub.pw
+    - host: livekit.xyzhub.pw
       http:
         paths:
           - path: /
@@ -201,3 +208,80 @@ spec:
     - backendRefs:
         - name: livekit-server
           namespace: default
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: livekit-server-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: livekit-server
+  minReplicas: 1
+  maxReplicas: 3
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 80
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: livekit-egress
+data:
+  config.yaml: |
+    ws_url: wss://livekit.xyzhub.pw
+    api_key: access_token
+    api_secret: secret
+    redis:
+      address: redis:6379
+    azure:
+      container_name: recordings
+    log_level: info
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: livekit-egress
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: livekit-egress
+  template:
+    metadata:
+      labels:
+        app: livekit-egress
+    spec:
+      containers:
+        - name: livekit-egress
+          image: livekit/egress:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: EGRESS_CONFIG_FILE
+              value: /config/config.yaml
+            - name: AZURE_STORAGE_ACCOUNT
+              valueFrom:
+                secretKeyRef:
+                  name: livekit-blobstorage-secret
+                  key: AZURE_STORAGE_ACCOUNT
+            - name: AZURE_STORAGE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: livekit-blobstorage-secret
+                  key: AZURE_STORAGE_KEY
+          securityContext:
+            capabilities:
+              add: ["SYS_ADMIN"]
+          volumeMounts:
+            - name: config
+              mountPath: /config
+      volumes:
+        - name: config
+          configMap:
+            name: livekit-egress
