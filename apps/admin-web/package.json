@@ -5,7 +5,9 @@
   "main": "index.js",
   "scripts": {
     "dev": "vite",
+    "dev:electron": "vite --mode electron",
     "build": "vite build",
+    "build:electron": "vite build --mode electron",
     "preview": "vite preview"
   },
   "keywords": [],

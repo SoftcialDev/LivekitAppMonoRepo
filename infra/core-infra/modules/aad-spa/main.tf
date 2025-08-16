@@ -8,6 +8,7 @@ resource "random_uuid" "app_role_supervisor" {}
 resource "random_uuid" "app_role_employee"   {}
 resource "random_uuid" "api_scope_id"        {}
 resource "random_uuid" "app_role_contact_manager"        {}
+resource "random_uuid" "app_role_super_admin"        {}
 
 ###########################################################
 # 1) Get the current tenant info (used for building identifier_uris)
@@ -216,6 +217,15 @@ resource "azuread_application" "spa_app" {
     enabled              = true
   }
 
+      app_role {
+    id                   = random_uuid.app_role_super_admin.result
+    allowed_member_types = ["User"]
+    display_name         = "Super Admin"
+    description          = "Users in this role have super admin access"
+    value                = "Super Admin"
+    enabled              = true
+  }
+
   # Grant the SPA access to the backend API scope
   required_resource_access {
     resource_app_id = azuread_application.api_app.object_id
@@ -270,6 +280,12 @@ resource "azuread_group" "contact_manager_group" {
   mail_enabled     = false
 }
 
+resource "azuread_group" "super_admins_group" {
+  display_name     = "${var.aad_app_name}-Super-Admins"
+  security_enabled = true
+  mail_enabled     = false
+}
+
 ###########################################################
 # 6) Assign existing users to the security groups
 ###########################################################
@@ -310,6 +326,12 @@ resource "azuread_app_role_assignment" "employees_assignment" {
 resource "azuread_app_role_assignment" "contact_manager_assignment" {
   principal_object_id = azuread_group.employees_group.object_id
   app_role_id         = azuread_application.spa_app.app_role_ids["Contact Manager"]
+  resource_object_id  = azuread_service_principal.spa_sp.object_id
+}
+
+resource "azuread_app_role_assignment" "super_admin_assignment" {
+  principal_object_id = azuread_group.super_admins_group.object_id
+  app_role_id         = azuread_application.spa_app.app_role_ids["Super Admin"]
   resource_object_id  = azuread_service_principal.spa_sp.object_id
 }
 

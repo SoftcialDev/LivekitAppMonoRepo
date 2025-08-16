@@ -1,13 +1,13 @@
 {
-  "name": "livekitwrapper",
+  "name": "in-contact-app",
   "version": "1.0.0",
   "main": "main.js",
   "author": "Softcial",
   "description": "In Contact Electron App for Collette Health",
   "scripts": {
     "start": "concurrently \"npm:ui:dev\" \"wait-on http://localhost:5173 && electron .\"",
-    "ui:dev": "cd ui && npm run dev",
-    "ui:build": "cd ui && npm run build",
+    "ui:dev": "npm --prefix ../admin-web run dev",
+    "ui:build": "npm --prefix ../admin-web run build:electron",
     "start:prod": "npm run ui:build && cross-env NODE_ENV=production electron .",
     "postinstall": "electron . --install-service",
     "postuninstall": "electron . --uninstall-service",
@@ -35,7 +35,7 @@
   },
   "build": {
     "appId": "com.example.livekitwrapper",
-    "productName": "LiveKitWrapper",
+    "productName": "In Contact App",
     "icon": "icon",
     "directories": {
       "output": "dist"
@@ -43,19 +43,21 @@
     "files": [
       "main.js",
       "preload.js",
-      "ui/dist/**/*"
+      "assets/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "../admin-web/dist",
+        "to": "admin-web",
+        "filter": ["**/*"]
+      }
     ],
     "win": {
-      "target": [
-        "nsis",
-        "msi"
-      ],
+      "target": ["nsis", "msi"],
       "protocols": [
         {
           "name": "MyApp Protocol",
-          "schemes": [
-            "myapp"
-          ]
+          "schemes": ["myapp"]
         }
       ]
     }

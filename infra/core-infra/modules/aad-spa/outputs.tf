@@ -46,10 +46,15 @@ output "spa_app_role_supervisor_id" {
   value       = azuread_application.spa_app.app_role_ids["Supervisor"]
 }
 
-# Supervisor role ID
+# Contact Manager role ID
 output "spa_app_role_contact_manager_id" {
-  description = "UUID for the SPA App Role: Supervisor"
+  description = "UUID for the SPA App Role: Contact Manager"
   value       = azuread_application.spa_app.app_role_ids["Contact Manager"]
+}
+
+output "spa_app_role_super_admin_id" {
+  description = "UUID for the SPA App Role: Super Admin"
+  value       = azuread_application.spa_app.app_role_ids["Super Admin"]
 }
 
 # Employee role ID

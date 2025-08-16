@@ -1,6 +1,0 @@
-az rest --method PATCH --url https://graph.microsoft.com/v1.0/applications/50828a13-00cb-49ef-af2a-c6f4fde2556f --headers Content-Type=application/json --body "{\"api\":{\"requestedAccessTokenVersion\":2}}"
-
-
-
-admin consent headers
-https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationMenuBlade/~/CallAnAPI/appId/875c2631-358c-4324-a128-1de60fb894a4/isMSAApp~/false

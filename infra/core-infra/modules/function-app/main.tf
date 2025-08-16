@@ -65,6 +65,7 @@ resource "azurerm_function_app" "function_app" {
     ADMINS_GROUP_ID              = var.admins_group_id
     EMPLOYEES_GROUP_ID          = var.employees_group_id
     SUPERVISORS_GROUP_ID        = var.supervisors_group_id
+    SUPER_ADMINS_GROUP_ID      = var.super_admin_group_id
     CONTACT_MANAGER_GROUP_ID    = var.contact_manager_group_id
     RECORDINGS_CONTAINER_NAME    = var.storage_account_recordings_container_name
     RECORDINGS_CONTAINER_URL     = var.storage_account_recordings_container_url

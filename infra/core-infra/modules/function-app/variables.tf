@@ -153,3 +153,8 @@ variable "supervisors_group_id" {
   description = "Azure AD object ID of the Supervisors group"
   type        = string
 }
+
+variable "super_admin_group_id" {
+  description = "Azure AD object ID of the Super Admins group"
+  type        = string
+}

@@ -164,6 +164,7 @@ module "function_app" {
   employees_group_id          = module.aad_spa.spa_app_role_employee_id
   supervisors_group_id        = module.aad_spa.spa_app_role_supervisor_id
   contact_manager_group_id    = module.aad_spa.spa_app_role_contact_manager_id
+  super_admin_group_id       = module.aad_spa.spa_app_role_super_admin_id
 
   # External service endpoints and configuration
   livekit_api_url             = var.livekit_url
