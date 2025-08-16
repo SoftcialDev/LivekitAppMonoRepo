@@ -1,183 +1,263 @@
 /**
- * @file Main process for an Electron app that:
- *  - Can install/uninstall itself as a Windows service (via node-windows)
- *  - Persists renderer localStorage to disk (via electron-store)
- *  - Serves a built UI in production (or defers to a dev server in development)
- *  - Creates a single hidden-on-close window and a system tray with a guarded Quit option
+ * @file Electron main process (with verbose logging).
+ *
+ * @overview
+ * In development:
+ *   - Loads Vite dev server at http://localhost:5173
+ *
+ * In production (packaged MSI/EXE):
+ *   - Starts an internal Express server on an available port (prefers 3000)
+ *   - Serves static files from:
+ *       • <app>/resources/admin-web   (copied via electron-builder extraResources)
+ *       • Fallback (for local prod runs): ../admin-web/dist
+ *   - Chooses the correct start URL and opens it in the BrowserWindow
+ *
+ * Extras:
+ *   - node-windows service hooks (install/uninstall)
+ *   - persisted storage bridge (electron-store)
+ *   - tray with guarded Quit
+ *   - detailed logging to console and to a file (userData/main.log)
  */
 
 const { app, BrowserWindow, session, ipcMain, Tray, Menu } = require('electron');
 const path = require('path');
-const fs   = require('fs');
-// Service import intentionally omitted; loaded dynamically in service branches below.
+const fs = require('fs');
 
-const APP_NAME       = 'InContact';
-const SERVICE_NAME   = 'InContactService';
-const SERVICE_DESC   = 'InContact background service';
-const PORT           = 3000;
-const DIST_FOLDER    = path.join(__dirname, 'ui', 'dist');
-const HAS_DIST       = fs.existsSync(DIST_FOLDER);
-const IS_PROD        = process.env.NODE_ENV === 'production' || HAS_DIST;
-/** Start URL: file:// index.html in prod, Vite at localhost in dev. */
-const START_URL = `http://localhost:${PORT}`;
+// ----------------------------- Logging ---------------------------------
+
+/** Buffered logger that writes to console and (once ready) to a file. */
+let logFilePath = null;
+const logBuffer = [];
+
+/** Formats and writes a log line. */
+function writeLogLine(level, args) {
+  const ts = new Date().toISOString();
+  const msg = `[${ts}] [${level}] ${args.map(String).join(' ')}`;
+  // Console
+  if (level === 'ERROR') console.error(msg);
+  else console.log(msg);
+  // File (if available) or buffer
+  if (logFilePath) {
+    try { fs.appendFileSync(logFilePath, msg + '\n'); } catch {}
+  } else {
+    logBuffer.push(msg);
+  }
+}
+const log = (...a) => writeLogLine('INFO', a);
+const warn = (...a) => writeLogLine('WARN', a);
+const error = (...a) => writeLogLine('ERROR', a);
+
+/** Attach file sink once app is ready and userData is available. */
+function attachFileLogger() {
+  try {
+    logFilePath = path.join(app.getPath('userData'), 'main.log');
+    // Flush buffer
+    for (const line of logBuffer) {
+      try { fs.appendFileSync(logFilePath, line + '\n'); } catch {}
+    }
+    logBuffer.length = 0;
+    log('📝 Log file:', logFilePath);
+  } catch (e) {
+    warn('Could not attach file logger:', e?.message || e);
+  }
+}
+
+// --------------------------- Constants ---------------------------------
+
+const APP_NAME = 'InContact';
+const SERVICE_NAME = 'InContactService';
+const SERVICE_DESC = 'InContact background service';
+
+const DEV_PORT = 5173; // Vite
+const PREF_PROD_PORT = 3000; // Express preferred
+
+// Static roots for production (packaged vs local fallback)
+const ADMIN_WEB_DIST_PROD  = path.join(process.resourcesPath, 'admin-web');
+const ADMIN_WEB_DIST_LOCAL = path.join(__dirname, '..', 'admin-web', 'dist');
+
+// ✅ Robust production detection: packaged binaries always true
+const IS_PROD = app.isPackaged || process.env.NODE_ENV === 'production';
 
 let mainWindow = null;
-let tray       = null;
-/** Set to true by the tray "Quit" action to allow process exit. */
-let allowQuit  = false;
+let tray = null;
+let allowQuit = false;
 
-// -------------------------------------------------------------------------------------------------
-// 1) Windows service install/uninstall (node-windows)
-// -------------------------------------------------------------------------------------------------
+// --------------------- Service install/uninstall -----------------------
 
-/**
- * Install this Electron app as a Windows service.
- * Trigger by launching the executable with `--install-service`.
- *
- * Notes:
- * - The service is configured to run `main.js` and will start immediately after installation.
- * - Pass extra flags via `args` if the service should run headless/hidden.
- */
 if (process.argv.includes('--install-service')) {
   const { Service } = require('node-windows');
-  /** @type {import('node-windows').Service} */
   const svc = new Service({
-    name:        SERVICE_NAME,
+    name: SERVICE_NAME,
     description: SERVICE_DESC,
-    script:      path.join(__dirname, 'main.js'),
-    // args: ['--hidden'], // Uncomment if you need to pass flags to the service run
+    script: path.join(__dirname, 'main.js'),
   });
-
   svc.on('install', () => svc.start());
   svc.install();
+  // Do not continue running in foreground
   return;
 }
 
-/**
- * Uninstall the Windows service created above.
- * Trigger by launching the executable with `--uninstall-service`.
- */
 if (process.argv.includes('--uninstall-service')) {
   const { Service } = require('node-windows');
-  /** @type {import('node-windows').Service} */
   const svc = new Service({ name: SERVICE_NAME });
-
-  svc.on('uninstall', () => {
-    console.log(`${SERVICE_NAME} has been uninstalled.`);
-  });
+  svc.on('uninstall', () => log(`${SERVICE_NAME} has been uninstalled.`));
   svc.uninstall();
   return;
 }
 
-// -------------------------------------------------------------------------------------------------
-// 2) Persistence (electron-store) — mirror renderer localStorage to disk
-// -------------------------------------------------------------------------------------------------
+// ------------------------- Persistence (IPC) ---------------------------
 
-/** Electron-store instance; created lazily in `setupPersistence()`. */
-let store;
+let store; // electron-store instance
 
-/**
- * Initialize persistence IPC handlers and store instance.
- * - `storage-save`: stores the full snapshot under key `localStorage`
- * - `storage-load`: returns the snapshot synchronously (used by preload's sendSync)
- */
 async function setupPersistence() {
   const { default: Store } = await import('electron-store');
   store = new Store();
 
   ipcMain.on('storage-save', (_evt, data) => {
+    log('IPC storage-save received, keys:', Object.keys(data || {}).length);
     store.set('localStorage', data);
   });
 
   ipcMain.on('storage-load', (evt) => {
-    evt.returnValue = store.get('localStorage') || {};
+    const snapshot = store.get('localStorage') || {};
+    log('IPC storage-load returning, keys:', Object.keys(snapshot).length);
+    evt.returnValue = snapshot;
+  });
+
+  ipcMain.on('storage-clear', () => {
+    if (store) {
+      store.clear(); // or store.delete('localStorage')
+      log('✅ Electron store cleared via IPC');
+    }
   });
 }
 
+// ---------------------- Static server (production) ---------------------
+
 /**
- * Clear the persisted data. Note: `store.clear()` wipes the entire store,
- * not just the `localStorage` key. Use `store.delete('localStorage')` if
- * you want to limit the scope.
+ * Resolves the static root (packaged vs local fallback) and validates index.html.
+ * @returns {{ staticRoot: string, indexPath: string, ok: boolean }}
  */
-ipcMain.on('storage-clear', () => {
-  if (store) {
-    store.clear();
-    console.log('✅ Electron store cleared');
+function resolveStaticRoot() {
+  const candidate = fs.existsSync(ADMIN_WEB_DIST_PROD)
+    ? ADMIN_WEB_DIST_PROD
+    : ADMIN_WEB_DIST_LOCAL;
+
+  const indexPath = path.join(candidate, 'index.html');
+  const ok = fs.existsSync(indexPath);
+  if (!ok) {
+    error('❌ index.html NOT found at:', indexPath);
+    error('   Expected admin-web dist at:', ADMIN_WEB_DIST_PROD, 'or', ADMIN_WEB_DIST_LOCAL);
+  } else {
+    log('📦 Serving admin-web from:', candidate);
+    log('✅ index.html found:', indexPath);
   }
-});
-
-// -------------------------------------------------------------------------------------------------
-// 3) Static server in production (serves the built UI)
-// -------------------------------------------------------------------------------------------------
-
-if (IS_PROD) {
-  const express = require('express');
-  const server  = express();
-
-  server.use(express.static(DIST_FOLDER));
-  server.get('*', (_req, res) => res.sendFile(path.join(DIST_FOLDER, 'index.html')));
-
-  server.listen(PORT, () => {
-    console.log(`✔️  UI (build) served at http://localhost:${PORT}`);
-  });
-} else {
-  console.log('🛠  Dev — waiting on Vite…');
+  return { staticRoot: candidate, indexPath, ok };
 }
 
-// -------------------------------------------------------------------------------------------------
-// 4) Main BrowserWindow
-// -------------------------------------------------------------------------------------------------
+/**
+ * Starts Express on the preferred port, with retry on EADDRINUSE.
+ * @param {string} staticRoot
+ * @param {string} indexPath
+ * @returns {Promise<string>} The final base URL (e.g., http://localhost:3000)
+ */
+function startExpress(staticRoot, indexPath) {
+  return new Promise((resolve) => {
+    const express = require('express');
+    const server  = express();
+
+    server.use((req, _res, next) => { log('HTTP', req.method, req.url); next(); });
+    server.use(express.static(staticRoot));
+    server.get('*', (_req, res) => res.sendFile(indexPath));
+
+    const tryListen = (port) => {
+      const s = server.listen(port, () => {
+        const url = `http://localhost:${port}`;
+        log(`✔️ UI (build) served at ${url}`);
+        resolve(url);
+      });
+      s.on('error', (err) => {
+        if (err && err.code === 'EADDRINUSE') {
+          warn(`Port ${port} in use, retrying on a random port...`);
+          const fallback = server.listen(0, () => {
+            const used = fallback.address().port;
+            const url = `http://localhost:${used}`;
+            log(`✔️ UI (build) served at ${url} (fallback)`);
+            resolve(url);
+          });
+          fallback.on('error', (e2) => error('Express fallback listen error:', e2));
+        } else {
+          error('Express listen error:', err?.message || err);
+        }
+      });
+    };
+
+    tryListen(PREF_PROD_PORT);
+  });
+}
+
+// --------------------------- BrowserWindow -----------------------------
 
 /**
- * Create the main application window, wire up permissions, tray, and lifecycle.
+ * Creates the BrowserWindow and wires up logs.
+ * @param {string} startUrl
  */
-async function createWindow() {
+async function createWindow(startUrl) {
   await setupPersistence();
 
   mainWindow = new BrowserWindow({
     width: 1024,
     height: 768,
+    show: true,
     icon: path.join(__dirname, 'assets', 'icon.ico'),
-    // Prevent the close button from actually closing the app; we’ll minimize instead.
+    // Minimize-to-tray behavior
     closable: false,
     webPreferences: {
       contextIsolation: true,
-      nodeIntegration:  false,
-      preload:          path.join(__dirname, 'preload.js'),
+      nodeIntegration: false,
+      preload: path.join(__dirname, 'preload.js'),
       nativeWindowOpen: true,
     },
   });
 
-  console.log('Loading:', START_URL);
-  mainWindow.loadURL(START_URL);
+  // Renderer console -> main logs
+  mainWindow.webContents.on('console-message', (_, level, message, line, sourceId) => {
+    const tag = ['log', 'warn', 'error'][level] || 'log';
+    writeLogLine(`RENDERER-${tag.toUpperCase()}`, [`${message} (${sourceId}:${line})`]);
+  });
 
-  /**
-   * Permission gate: allow only 'media' (camera/microphone) requests.
-   * All other permission requests are denied.
-   */
-  session.defaultSession.setPermissionRequestHandler((_, perm, cb) => cb(perm === 'media'));
+  mainWindow.webContents.on('did-fail-load', (_e, ec, desc, url, isMain) => {
+    error('did-fail-load:', ec, desc, 'url=', url, 'isMain=', isMain);
+  });
+  mainWindow.webContents.on('did-finish-load', () => log('did-finish-load'));
+  mainWindow.webContents.on('did-start-navigation', (_e, url, isInPlace, isMain) => {
+    log('did-start-navigation ->', url, 'isMain=', isMain, 'inPlace=', isInPlace);
+  });
+  mainWindow.webContents.on('did-navigate', (_e, url) => log('did-navigate ->', url));
+  mainWindow.webContents.on('did-navigate-in-page', (_e, url) => log('did-navigate-in-page ->', url));
 
-  // Open devtools in development for debugging.
+  log('Loading:', startUrl);
+  mainWindow.loadURL(startUrl);
+
+  // Permission gate (only allow media)
+  session.defaultSession.setPermissionRequestHandler((wc, perm, cb) => {
+    log('Permission request:', perm, 'fromURL=', wc?.getURL?.());
+    cb(perm === 'media');
+  });
+
   if (!IS_PROD) {
     mainWindow.webContents.openDevTools({ mode: 'detach' });
   }
 
-  /**
-   * Never quit on window close: minimize to tray instead.
-   * This keeps the background service feel even when the UI is dismissed.
-   */
   mainWindow.on('close', (e) => {
     e.preventDefault();
+    log('Window close intercepted -> minimize to tray');
     mainWindow.minimize();
   });
 
-  /**
-   * System tray menu with guarded Quit action.
-   * Note: The "Quit (Admin only)" label is cosmetic—no admin check is enforced here.
-   */
   try {
     const trayIcon = path.join(__dirname, 'assets', 'icon.ico');
-    if (!fs.existsSync(trayIcon)) throw new Error('Tray icon not found');
+    if (!fs.existsSync(trayIcon)) throw new Error('Tray icon not found at ' + trayIcon);
 
     tray = new Tray(trayIcon);
     const menu = Menu.buildFromTemplate([
@@ -186,63 +266,67 @@ async function createWindow() {
       { label: 'Show', click: () => mainWindow.show() },
       {
         label: 'Quit (Admin only)',
-        click: () => {
-          allowQuit = true;
-          app.quit();
-        },
+        click: () => { allowQuit = true; app.quit(); },
       },
     ]);
-
     tray.setToolTip(APP_NAME);
     tray.setContextMenu(menu);
   } catch (err) {
-    console.warn('[Tray] failed to set up tray icon:', err.message);
+    warn('[Tray] setup failed:', err?.message || err);
   }
 
-  // Hide the window once the renderer tells us login succeeded.
   ipcMain.on('login-success', () => {
+    log('IPC login-success -> hiding main window');
     mainWindow.hide();
   });
 }
 
-// -------------------------------------------------------------------------------------------------
-// 5) App lifecycle
-// -------------------------------------------------------------------------------------------------
+// ------------------------------ Lifecycle ------------------------------
 
-app.whenReady().then(() => {
-  /**
-   * Auto-start at user login on Windows (unless launched with --hidden).
-   * This only applies when not running as a service.
-   */
+app.whenReady().then(async () => {
+  attachFileLogger(); // enable file logging
+  log('App ready. isPackaged=', app.isPackaged, 'NODE_ENV=', process.env.NODE_ENV || '(unset)');
+  log('Paths:', 'resourcesPath=', process.resourcesPath, 'userData=', app.getPath('userData'));
+
+  // Auto-start on login (non-service)
   if (process.platform === 'win32' && !process.argv.includes('--hidden')) {
-    app.setLoginItemSettings({
-      openAtLogin: true,
-      path: process.execPath,
-      args: ['--hidden'],
-    });
+    app.setLoginItemSettings({ openAtLogin: true, path: process.execPath, args: ['--hidden'] });
+    log('LoginItemSettings set (openAtLogin=true)');
   }
 
-  createWindow();
+  let startUrl;
+  if (IS_PROD) {
+    const { staticRoot, indexPath, ok } = resolveStaticRoot();
+    if (!ok) {
+      // Launch a minimal error page to avoid a blank window
+      const html = encodeURIComponent(
+        `<h1>UI bundle missing</h1><p>Expected at:<br>${staticRoot}<br>index: ${indexPath}</p>`
+      );
+      startUrl = `data:text/html;charset=utf-8,${html}`;
+      error('Aborting Express startup due to missing index.html');
+    } else {
+      startUrl = await startExpress(staticRoot, indexPath);
+    }
+  } else {
+    startUrl = `http://localhost:${DEV_PORT}`;
+  }
+
+  await createWindow(startUrl);
 });
 
-/**
- * Block programmatic quits unless the tray "Quit" was used.
- */
 app.on('before-quit', (e) => {
-  if (!allowQuit) e.preventDefault();
+  if (!allowQuit) {
+    e.preventDefault();
+    warn('Blocked programmatic quit (use tray -> Quit)');
+  }
 });
 
-/**
- * macOS: re-create a window on dock icon click if none exists.
- */
 app.on('activate', () => {
-  if (!mainWindow) createWindow();
+  if (!mainWindow) void createWindow(IS_PROD ? `http://localhost:${PREF_PROD_PORT}` : `http://localhost:${DEV_PORT}`);
   else mainWindow.show();
 });
 
-/**
- * Keep the app alive even when all windows are closed (typical for tray apps).
- */
 app.on('window-all-closed', () => {
-  // no-op
+  // keep alive for tray apps
+  log('All windows closed (no-op)');
 });

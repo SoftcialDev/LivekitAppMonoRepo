@@ -40,18 +40,14 @@
     "directories": {
       "output": "dist"
     },
-    "files": [
-      "main.js",
-      "preload.js",
-      "assets/**/*"
-    ],
-    "extraResources": [
-      {
-        "from": "../admin-web/dist",
-        "to": "admin-web",
-        "filter": ["**/*"]
-      }
-    ],
+  "files": [
+    "main.js",
+    "preload.js",
+    "assets/**/*"
+  ],
+  "extraResources": [
+    { "from": "../admin-web/dist", "to": "admin-web", "filter": ["**/*"] }
+  ],
     "win": {
       "target": ["nsis", "msi"],
       "protocols": [
