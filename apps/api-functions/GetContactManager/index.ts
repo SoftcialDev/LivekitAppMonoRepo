@@ -39,11 +39,6 @@ const getAll: AzureFunction = withErrorHandler(
         return forbidden(ctx, "Caller not found in database");
       }
 
-      // 3. Only Admins may list
-      if (caller.role !== "Admin" && caller.role !== "Employee") {
-        return forbidden(ctx, "Only Admins and Employees may list Contact Managers");
-      }
-
       // 4. Fetch and return
       const items = await listContactManagers();
       return ok(ctx, { contactManagers: items });

@@ -10,7 +10,7 @@ import { ok, unauthorized, badRequest, forbidden } from "../shared/utils/respons
 import {
   getGraphToken,
   getServicePrincipalObjectId,
-  removeAllAppRolesFromUser,
+  removeAllAppRolesFromPrincipalOnSp,
   assignAppRoleToPrincipal,
 } from "../shared/services/graphService";
 import { config } from "../shared/config";
@@ -74,7 +74,7 @@ const changeUserRole: AzureFunction = withErrorHandler(
             return forbidden(ctx, "Supervisors may only assign Employee role");
           }
         });
-      } else if (caller.role !== "Admin") {
+      } else if (caller.role !== "Admin" && caller.role !== "SuperAdmin") {
         return forbidden(ctx, "Only Admin or Supervisor may change roles");
       }
 
@@ -125,7 +125,7 @@ const changeUserRole: AzureFunction = withErrorHandler(
         }
 
         // remove existing app roles
-        await removeAllAppRolesFromUser(graphToken, spId!, targetAdId);
+        await removeAllAppRolesFromPrincipalOnSp(graphToken, spId!, targetAdId);
 
         // if newRole is null, delete only if record existed
         if (newRole === null) {

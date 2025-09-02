@@ -41,8 +41,7 @@ type WakeLockSentinelAny = any;
  */
 async function ensureCameraPermission(): Promise<void> {
   try {
-    //const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-    const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+    const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
     stream.getTracks().forEach((t) => t.stop());
   } catch (err: any) {
     if (err?.name === 'NotAllowedError') {
@@ -285,7 +284,7 @@ const startStream = useCallback(async () => {
   videoTrack.attach(videoRef.current!);
 
   await requestWakeLock();
-/*
+
   try {
     const audioTrack = await createLocalAudioTrack();
     tracksRef.current.audio = audioTrack;
@@ -293,7 +292,7 @@ const startStream = useCallback(async () => {
   } catch (err) {
     console.warn('[Stream] mic setup failed, continuing without audio', err);
   }
-*/
+
   streamingRef.current = true;
   setIsStreaming(true);
   console.info('[Streaming] ACTIVE');

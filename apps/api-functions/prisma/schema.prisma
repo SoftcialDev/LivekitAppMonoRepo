@@ -20,6 +20,7 @@ enum UserRole {
   Admin           // managers or intermediate-level admins
   Employee        // standard users who stream video
   ContactManager  // Contact Manager role
+  SuperAdmin      // users with the highest privileges
 }
 
 /// Possible statuses for a Contact Manager during their shift.

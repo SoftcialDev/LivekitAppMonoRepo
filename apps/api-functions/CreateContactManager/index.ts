@@ -53,7 +53,7 @@ const create: AzureFunction = withErrorHandler(
       if (!caller) {
         return forbidden(ctx, "Caller not found");
       }
-      if (caller.role !== "Admin") {
+      if (caller.role !== "Admin" && caller.role !== "SuperAdmin") {
         return forbidden(ctx, "Only Admin may add Contact Managers");
       }
 

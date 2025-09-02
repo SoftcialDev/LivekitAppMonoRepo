@@ -2,7 +2,7 @@ import prisma from "./prismaClienService";
 import {
   getGraphToken,
   assignAppRoleToPrincipal,
-  removeAllAppRolesFromUser,
+  removeAllAppRolesFromPrincipalOnSp,
   fetchAllUsers,
 } from "./graphService";
 import { config } from "../config";
@@ -103,7 +103,7 @@ export async function addContactManager(
   const token = await getGraphToken();
   const spId = config.servicePrincipalObjectId!;
   const roleId = config.contactManagerAppRoleId!;
-  await removeAllAppRolesFromUser(token, spId, user.azureAdObjectId);
+  await removeAllAppRolesFromPrincipalOnSp(token, spId, user.azureAdObjectId);
   await assignAppRoleToPrincipal(token, spId, user.azureAdObjectId, roleId);
 
   // 4) Promote in our DB schema (update role and timestamp)
@@ -215,7 +215,7 @@ export async function revokeContactManager(profileId: string): Promise<void> {
   // 2) Revoke all App Role assignments for the user in Azure AD
   const token = await getGraphToken();
   const servicePrincipalObjectId = config.servicePrincipalObjectId!;
-  await removeAllAppRolesFromUser(
+  await removeAllAppRolesFromPrincipalOnSp(
     token,
     servicePrincipalObjectId,
     profileWithUser.user.azureAdObjectId

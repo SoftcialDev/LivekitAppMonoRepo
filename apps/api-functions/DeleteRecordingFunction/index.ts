@@ -28,7 +28,7 @@ const deleteRecordingFunction: AzureFunction = withErrorHandler(
 
       const caller = await UserRepository.findByAzureAdOid(oid);
       if (!caller) return forbidden(ctx, "Caller not found in database");
-      if (!["Admin", "Supervisor"].includes((caller as any).role as string)) {
+      if (!["SuperAdmin"].includes((caller as any).role as string)) {
         return forbidden(ctx, "Insufficient permissions");
       }
 

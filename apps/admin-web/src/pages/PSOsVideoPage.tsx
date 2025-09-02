@@ -20,6 +20,8 @@ const LAYOUT_OPTIONS = [1,2,3,4,5,6,9,12,20,200] as const;
 /* ------------------------------------------------------------------ */
 /* LocalStorage helpers: persist dropdown selection + layout          */
 /* ------------------------------------------------------------------ */
+
+  
 const LS_PREFIX = 'psoDash';
 const lsKey = (viewer: string, what: 'layout' | 'fixed') =>
   `${LS_PREFIX}:${what}:${viewer || 'anon'}`;

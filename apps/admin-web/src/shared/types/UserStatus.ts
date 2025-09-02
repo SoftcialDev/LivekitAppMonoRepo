@@ -1,3 +1,5 @@
+import { ManagerStatus } from "@/pages/ContactManager/hooks/useContactManagerStatus"
+
 export interface UserStatus {
   azureAdObjectId: any
   status: string
@@ -5,6 +7,7 @@ export interface UserStatus {
   email: string
   name:  string
   lastSeenAt?: string;  
-  role?:           'Admin' | 'Supervisor' | 'Employee' | 'ContactManager'; 
+  role?:           'Admin' | 'Supervisor' | 'Employee' | 'ContactManager' | 'SuperAdmin'; 
+  cmStatus?: ManagerStatus;
   
 }

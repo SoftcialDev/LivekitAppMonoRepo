@@ -103,9 +103,7 @@ const getWebsocketPresenceStatuses: AzureFunction = withErrorHandler(
       if (!caller || caller.deletedAt) {
         return unauthorized(ctx, "Caller not found or deleted");
       }
-      if (caller.role !== "Admin" && caller.role !== "Supervisor"  && caller.role !== "ContactManager") {
-        return forbidden(ctx, "Insufficient privileges. Current role: " + caller.role);
-      }
+
 
       try {
         // 4) Count total matching users

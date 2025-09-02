@@ -23,6 +23,7 @@ export const config = {
   contactManagerAppRoleId : process.env.CONTACT_MANAGER_GROUP_ID!,
   accountName: process.env.AZURE_STORAGE_ACCOUNT!,
   accountKey: process.env.AZURE_STORAGE_KEY!,
+  superAdminAppRoleId: process.env.SUPER_ADMIN_GROUP_ID
 };
 
 if (!config.databaseUrl) throw new Error("DATABASE_URL is required");
@@ -47,3 +48,4 @@ if (!config.contactManagerAppRoleId) throw new Error("CONTACT_MANAGER_GROUP_ID i
 if (!config.commandsSubscriptionName) throw new Error("COMMANDS_SUBSCRIPTION_NAME is required");
 if (!config.accountName) throw new Error("AZURE_STORAGE_ACCOUNT is required");
 if (!config.accountKey) throw new Error("AZURE_STORAGE_KEY is required");
+if (!config.superAdminAppRoleId) throw new Error("SUPER_ADMIN_GROUP_ID is required");

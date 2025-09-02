@@ -40,7 +40,7 @@ const removeHandler: AzureFunction = withErrorHandler(
       }
 
       // 3) Only Admins may revoke
-      if (caller.role !== "Admin") {
+      if (caller.role !== "Admin" && caller.role !== "SuperAdmin") {
         return forbidden(ctx, "Only Admin may remove Contact Managers");
       }
 

@@ -1,4 +1,3 @@
-// shared/repositories/userRepo.ts
 import prisma from "../services/prismaClienService";
 
 /**

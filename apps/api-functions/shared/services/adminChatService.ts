@@ -4,7 +4,7 @@ import {
   TokenCredentialAuthenticationProvider
 } from "@microsoft/microsoft-graph-client/authProviders/azureTokenCredentials";
 import prisma from "./prismaClienService";
-import { ChatParticipant } from "@prisma/client";
+import { ChatParticipant, UserRole } from "@prisma/client";
 
 /**
  * Payload for sending a chat message to the Administrators chat.
@@ -43,7 +43,11 @@ export class AdminChatService {
   async getOrSyncChat(userAssertion: string): Promise<string> {
     const topic = "InContactApp – Administrators";
 
-    const admins = await prisma.user.findMany({ where: { role: "Admin" } });
+    const admins = await prisma.user.findMany({
+    where: {
+      role: { in: [UserRole.Admin, UserRole.SuperAdmin] },
+    },
+  });
     const desired = admins.map(a => ({
       userId: a.id,
       oid:    a.azureAdObjectId.toLowerCase()

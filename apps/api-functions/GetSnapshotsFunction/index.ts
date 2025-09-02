@@ -36,7 +36,7 @@ const getSnapshotsFunction: AzureFunction = withErrorHandler(
 
       // 2) Load caller record and enforce Admin role
       const caller = await prisma.user.findUnique({ where: { azureAdObjectId: oid } });
-      if (!caller || caller.role !== "Admin") {
+      if (!caller || caller.role !== "Admin" && caller.role !== "SuperAdmin") {
         return unauthorized(ctx, "Admins only");
       }
 

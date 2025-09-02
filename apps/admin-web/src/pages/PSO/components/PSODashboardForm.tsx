@@ -67,7 +67,7 @@ export const PsoDashboardForm: React.FC<PsoDashboardFormProps> = ({
       <button
         onClick={open}
         className="px-8 py-2 bg-[var(--color-secondary)] text-[var(--color-primary-dark)]
-                   font-semibold rounded-full hover:bg-[var(--color-secondary-hover)] transition-colors"
+                   font-semibold rounded-full hover:bg-[var(--color-tertiary)] transition-colors"
       >
         Show Reports Forms
       </button>

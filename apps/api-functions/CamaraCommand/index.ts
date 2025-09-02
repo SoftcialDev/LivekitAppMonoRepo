@@ -54,7 +54,7 @@ export default withErrorHandler(async (ctx: Context) => {
     if (!caller || caller.deletedAt) {
       return unauthorized(ctx, "Caller not found or deleted");
     }
-    if (caller.role !== "Admin" && caller.role !== "Supervisor") {
+    if (caller.role !== "Admin" && caller.role !== "Supervisor" && caller.role !== "SuperAdmin") {
       return unauthorized(ctx, "Insufficient privileges");
     }
 

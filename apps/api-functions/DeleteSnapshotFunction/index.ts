@@ -43,7 +43,7 @@ const deleteSnapshotFunction: AzureFunction = withErrorHandler(
       }
 
       // 3) Enforce Admin role
-      if (caller.role !== "Admin") {
+      if (caller.role !== "Admin" && caller.role !== "SuperAdmin") {
         return unauthorized(ctx, "Admins only");
       }
 

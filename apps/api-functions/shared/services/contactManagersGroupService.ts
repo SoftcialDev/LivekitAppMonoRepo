@@ -42,7 +42,7 @@ export class ContactManagersGroupService {
 
     // 1) Load all relevant users from DB
     const cms = await prisma.user.findMany({
-      where: { role: { in: ["Employee", "Admin", "ContactManager"] } }
+      where: { role: { in: ["Employee", "Admin", "ContactManager","SuperAdmin"] } }
     });
     const desired = cms.map(u => ({ userId: u.id, oid: u.azureAdObjectId.toLowerCase() }));
 

@@ -27,7 +27,7 @@ interface CandidateUser {
   email:           string;
   firstName:       string;
   lastName:        string;
-  role:            "ContactManager" | "Admin" | "Supervisor" | "Employee" | null;
+  role:            "ContactManager" | "Admin" | "Supervisor" | "Employee" | "SuperAdmin" |null;
   supervisorAdId?: string;
   supervisorName?: string;
 }
@@ -56,7 +56,7 @@ const getRoleCandidates: AzureFunction = withErrorHandler(
         (callerUpn && (await prisma.user.findUnique({ where: { email: callerUpn.toLowerCase() } }))) ??
         (await findOrCreateAdmin(oid, callerUpn ?? `${oid}@tenant`, callerName));
 
-      if (!caller || typeof caller !== "object" || caller.role !== "Admin" && caller.role !== "Supervisor") {
+      if (!caller || typeof caller !== "object" || caller.role !== "Admin" && caller.role !== "Supervisor" && caller.role !== "SuperAdmin") {
         return unauthorized(ctx, "Insufficient privileges");
       }
 
@@ -65,8 +65,8 @@ const getRoleCandidates: AzureFunction = withErrorHandler(
       const requested    = rawRoleParam ? rawRoleParam.split(",").map(r => r.trim()) : ["All"];
 
       const prismaRoles = requested.filter(r =>
-        ["Admin", "Supervisor", "Employee"].includes(r)
-      ) as Array<"Admin" | "Supervisor" | "Employee">;
+        ["Admin","ContactManager","SuperAdmin", "Supervisor", "Employee"].includes(r)
+      ) as Array<"Admin" | "Supervisor" | "Employee" | "SuperAdmin" | "ContactManager">;
 
       const includeTenant = requested.includes("Tenant") || requested.includes("All");
 
@@ -118,7 +118,8 @@ if (includeTenant) {
     fetchAppRoleMemberIds(token, spId, process.env.SUPERVISORS_GROUP_ID!),
     fetchAppRoleMemberIds(token, spId, process.env.ADMINS_GROUP_ID!),
     fetchAppRoleMemberIds(token, spId, process.env.EMPLOYEES_GROUP_ID!),
-    fetchAppRoleMemberIds(token, spId, process.env.CONTACT_MANAGER_GROUP_ID!)
+    fetchAppRoleMemberIds(token, spId, process.env.CONTACT_MANAGER_GROUP_ID!),
+    fetchAppRoleMemberIds(token, spId, process.env.SUPER_ADMIN_GROUP_ID!)
   ]);
 
   // fetch all tenant users once

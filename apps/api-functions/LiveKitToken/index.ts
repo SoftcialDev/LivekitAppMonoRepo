@@ -55,7 +55,7 @@ export default withErrorHandler(async (ctx: Context) => {
 
     const userId = caller.id;
     const isAdminOrSup =
-      caller.role === "Admin" || caller.role === "Supervisor";
+      caller.role === "Admin" || caller.role === "Supervisor" || caller.role === "SuperAdmin";
 
     // Ensure personal room exists
     await ensureRoom(userId);

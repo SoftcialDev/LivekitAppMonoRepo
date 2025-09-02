@@ -1,4 +1,3 @@
-// apps/api-functions/src/shared/services/auditService.ts
 import { Prisma, AuditLog } from "@prisma/client";
 import prisma from "./prismaClienService";
 

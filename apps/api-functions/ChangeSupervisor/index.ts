@@ -39,7 +39,7 @@ const changeSupervisor: AzureFunction = withErrorHandler(
         (await findOrCreateAdmin(oid, upn ?? `${oid}@tenant`, name));
 
       if (!caller || caller.deletedAt)         return unauthorized(ctx, "Caller not found");
-      if (caller.role !== "Admin" && caller.role !== "Supervisor") {
+      if (caller.role !== "Admin" && caller.role !== "Supervisor" && caller.role !== "SuperAdmin") {
         return forbidden(ctx, "Caller must be Admin or Supervisor");
       }
 

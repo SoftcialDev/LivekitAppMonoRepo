@@ -70,6 +70,7 @@ const SupervisorsPage: React.FC = () => {
       ? [rawRoles]
       : [];
   const isAdmin      = roles.includes('Admin');
+  const isSuperAdmin      = roles.includes('SuperAdmin');
   const isSupervisor = roles.includes('Supervisor');
 
   // State for supervisors list
@@ -202,7 +203,7 @@ const SupervisorsPage: React.FC = () => {
 
   // Extended columns with per-row action buttons
   const supervisorColumns = useMemo(() => {
-    if (isAdmin) {
+    if (isAdmin || isSuperAdmin) {
       // Admin: Trash
       return [
         ...baseSupervisorColumns,
@@ -280,7 +281,7 @@ const SupervisorsPage: React.FC = () => {
         data={supervisors}
         pageSize={10}
         addButton={
-          isAdmin
+          (isAdmin || isSuperAdmin)
             ? <AddButton label="Add Supervisor" onClick={handleOpenModal} />
             : null
         }
@@ -288,7 +289,7 @@ const SupervisorsPage: React.FC = () => {
         loadingAction="Loading supervisors"
       />
 
-      {isAdmin && (
+      {(isAdmin || isSuperAdmin) && (
         <AddModal
           open={isModalOpen}
           title="Add Supervisor"

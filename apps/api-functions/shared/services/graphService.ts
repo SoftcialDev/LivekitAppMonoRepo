@@ -282,6 +282,61 @@ export async function removeAppRoleAssignment(
 }
 
 /**
+ * Removes **all** app role assignments for a given principal (user or group)
+ * on your application's Service Principal, using the **Service Principal** endpoint.
+ *
+ * This avoids intermittent Graph errors when calling the user endpoint:
+ * "Links to EntitlementGrant are not supported between specified entities."
+ *
+ * @param token        Bearer token with AppRoleAssignment.ReadWrite.All
+ * @param spObjectId   Object ID of your application's Service Principal
+ * @param principalId  Object ID of the user (or group) to clear
+ * @returns Number of assignments removed
+ * @throws  If any Graph call fails
+ */
+export async function removeAllAppRolesFromPrincipalOnSp(
+  token: string,
+  spObjectId: string,
+  principalId: string
+): Promise<number> {
+  const base = `https://graph.microsoft.com/v1.0/servicePrincipals/${spObjectId}/appRoleAssignedTo`;
+  // We avoid OData filter surprises by paging through all and filtering in code.
+  let url = `${base}?$top=100`;
+  let removed = 0;
+
+  while (url) {
+    const resp = await axios.get(url, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (resp.status !== 200) {
+      throw new Error(`Failed to list appRoleAssignedTo: ${resp.status} ${JSON.stringify(resp.data)}`);
+    }
+
+    const page: Array<{ id: string; principalId?: string }> = resp.data?.value ?? [];
+    for (const a of page) {
+      if (!a?.id) continue;
+      if ((a as any).principalId !== principalId) continue;
+
+      const delUrl = `${base}/${a.id}`;
+      try {
+        await axios.delete(delUrl, { headers: { Authorization: `Bearer ${token}` } });
+        removed++;
+      } catch (err: any) {
+        const detail =
+          err?.response
+            ? `HTTP ${err.response.status} - ${JSON.stringify(err.response.data)}`
+            : err?.message;
+        throw new Error(`Failed to delete appRoleAssignedTo ${a.id}: ${detail}`);
+      }
+    }
+
+    url = resp.data?.["@odata.nextLink"] || "";
+  }
+
+  return removed;
+}
+
+/**
  * Remove **all** App Role assignments for a given **user** on your application’s Service Principal.
  *
  * @param token                   A valid Microsoft Graph bearer token.

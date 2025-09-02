@@ -60,7 +60,7 @@ const GetPsosBySupervisor: AzureFunction = withErrorHandler(
       // 3) If Supervisor, restrict to their team
       if (caller.role === "Supervisor") {
         baseWhere.supervisorId = caller.id;
-      } else if (caller.role !== "Admin") {
+      } else if (caller.role !== "Admin" && caller.role !== "SuperAdmin") {
         return unauthorized(ctx, "Insufficient privileges");
       }
 

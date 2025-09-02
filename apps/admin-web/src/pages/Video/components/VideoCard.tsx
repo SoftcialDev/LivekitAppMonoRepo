@@ -98,11 +98,6 @@ const VideoCard: React.FC<VideoCardProps & { livekitUrl?: string }> = ({
     closeModal,
     confirm,
   } = useSnapshot(email)
-
-  /** Optional presence indicator for this user. */
-  const streamingMap = usePresenceStore(s => s.streamingMap)
-  const isConnected  = Boolean(streamingMap[email])
-
   /**
    * Connect to LiveKit and subscribe to the target participant.
    * - Attaches video/audio tracks on subscription.
@@ -121,7 +116,7 @@ const VideoCard: React.FC<VideoCardProps & { livekitUrl?: string }> = ({
 
     let lkRoom: Room | null = null
     let canceled = false
-    let firstFrameFired = false
+
 
     const attachTrack = (pub: any) => {
       const { track, kind, isSubscribed } = pub
@@ -129,10 +124,7 @@ const VideoCard: React.FC<VideoCardProps & { livekitUrl?: string }> = ({
 
       if (kind === 'video') {
         (track as RemoteVideoTrack).attach(videoRef.current!)
-        if (!firstFrameFired) {
-          firstFrameFired = true
-          onPlay(email)
-        }
+        
       } else if (kind === 'audio') {
         (track as RemoteAudioTrack).attach(audioRef.current!)
         if (audioRef.current) {
@@ -199,8 +191,6 @@ const VideoCard: React.FC<VideoCardProps & { livekitUrl?: string }> = ({
     roomName,
     livekitUrl,
     email,
-    onPlay,
-    // intentionally NOT depending on isAudioMuted to avoid reconnects on mute toggle
   ])
 
   /**
