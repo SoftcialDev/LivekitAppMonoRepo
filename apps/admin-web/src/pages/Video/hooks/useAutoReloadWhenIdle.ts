@@ -40,7 +40,7 @@ type Options = {
 export function useAutoReloadWhenIdle(
   isStreaming: boolean,
   {
-    intervalMs = 120_000,
+    intervalMs = 60_000,
     onlyWhenVisible = true,
     storageKey = 'autoReload.lastRun',
   }: Options = {},
