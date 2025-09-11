@@ -41,7 +41,7 @@ type WakeLockSentinelAny = any;
  */
 async function ensureCameraPermission(): Promise<void> {
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
     stream.getTracks().forEach((t) => t.stop());
   } catch (err: any) {
     if (err?.name === 'NotAllowedError') {
@@ -51,7 +51,7 @@ async function ensureCameraPermission(): Promise<void> {
         .map((c) => c.label || `ID: ${c.deviceId}`);
       alert(
         `Camera access blocked.\nDetected cameras: ${cams.join(', ')}\n\n` +
-          `Enable camera & microphone permissions for this site and refresh.`,
+          `Enable camera  permissions for this site and refresh.`,
       );
       throw err;
     }
