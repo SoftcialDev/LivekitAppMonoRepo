@@ -4,7 +4,7 @@ import {
   LocalVideoTrack,
   LocalAudioTrack,
   createLocalVideoTrack,
-  createLocalAudioTrack,
+ // createLocalAudioTrack,
   RoomEvent,
   ParticipantEvent,
   RemoteParticipant,
@@ -285,13 +285,13 @@ const startStream = useCallback(async () => {
 
   await requestWakeLock();
 
-  try {
+/*  try {
     const audioTrack = await createLocalAudioTrack();
     tracksRef.current.audio = audioTrack;
     await room.localParticipant.publishTrack(audioTrack);
   } catch (err) {
     console.warn('[Stream] mic setup failed, continuing without audio', err);
-  }
+  }*/
 
   streamingRef.current = true;
   setIsStreaming(true);
