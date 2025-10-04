@@ -427,82 +427,125 @@ const cmFilterAdornment = useMemo(() => {
             />
           </div>
 
-          {/* User lists */}
+          {/* User lists with dynamic height based on content */}
           {loading ? (
             <div className="flex justify-center py-4">
               <Loading action="Loading presence…" />
             </div>
           ) : (
             <>
-              {/* Online */}
-              <div className="text-xs font-semibold mb-2">Online</div>
-              {filteredOnline.length === 0 ? (
-                <div className="text-xs font-semibold text-[var(--color-tertiary)]">
-                  No users online
-                </div>
-              ) : (
-                filteredOnline.map((u) => {
-                  const supName =
-                    (u as any).supervisorFullName
-                      ? (u as any).supervisorFullName
-                      : (u as any).supervisorName ?? "";
-                  const displayName = supName
-                    ? `${shortName(u)} (${supName})`
-                    : shortName(u);
-                  const cmStatus = cmStatusByEmail.get(u.email.toLowerCase());
+              {/* Online - Dynamic height based on content */}
+              {filteredOnline.length > 0 && (
+                <div className="mb-4">
+                  <div className="text-xs font-semibold mb-2">Online ({filteredOnline.length})</div>
+                  <div 
+                    className="overflow-y-auto online-scroll-container custom-scrollbar"
+                    style={{ 
+                      maxHeight: filteredOnline.length <= 5 ? 'auto' : '128px',
+                      scrollbarWidth: 'thin',
+                      scrollbarColor: 'var(--color-secondary) var(--color-primary)',
+                      msOverflowStyle: 'scrollbar'
+                    }}>
+                    {filteredOnline.map((u) => {
+                      const supName =
+                        (u as any).supervisorFullName
+                          ? (u as any).supervisorFullName
+                          : (u as any).supervisorName ?? "";
+                      const displayName = supName
+                        ? `${shortName(u)} (${supName})`
+                        : shortName(u);
+                      const cmStatus = cmStatusByEmail.get(u.email.toLowerCase());
 
-                  return (
-                    <UserItem
-                      key={u.email}
-                      user={{
-                        ...u,
-                        fullName: displayName,
-                        name: displayName,
-                        cmStatus,
-                      }}
-                      onChat={() => handleChat(u.email)}
-                      disableLink={disableLinkFor(u)}
-                    />
-                  );
-                })
+                      return (
+                        <UserItem
+                          key={u.email}
+                          user={{
+                            ...u,
+                            fullName: displayName,
+                            name: displayName,
+                            cmStatus,
+                          }}
+                          onChat={() => handleChat(u.email)}
+                          disableLink={disableLinkFor(u)}
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
               )}
 
-              {/* Offline */}
-              <div className="text-xs font-semibold mt-4 mb-2">Offline</div>
-              {filteredOffline.length === 0 ? (
-                <div className="text-xs font-semibold text-[var(--color-tertiary)]">
-                  No users offline
-                </div>
-              ) : (
-                filteredOffline.map((u) => {
-                  const supName =
-                    (u as any).supervisorFullName
-                      ? (u as any).supervisorFullName
-                      : (u as any).supervisorName ?? "";
-                  const displayName = supName
-                    ? `${shortName(u)} (${supName})`
-                    : shortName(u);
-                  const cmStatus = cmStatusByEmail.get(u.email.toLowerCase());
+              {/* Offline - Dynamic height based on content */}
+              {filteredOffline.length > 0 && (
+                <div>
+                  <div className="text-xs font-semibold mb-2">Offline ({filteredOffline.length})</div>
+                  <div 
+                    className="overflow-y-auto offline-scroll-container custom-scrollbar"
+                    style={{ 
+                      maxHeight: filteredOffline.length <= 5 ? 'auto' : '128px',
+                      scrollbarWidth: 'thin',
+                      scrollbarColor: 'var(--color-secondary) var(--color-primary)',
+                      msOverflowStyle: 'scrollbar'
+                    }}>
+                    {filteredOffline.map((u) => {
+                      const supName =
+                        (u as any).supervisorFullName
+                          ? (u as any).supervisorFullName
+                          : (u as any).supervisorName ?? "";
+                      const displayName = supName
+                        ? `${shortName(u)} (${supName})`
+                        : shortName(u);
+                      const cmStatus = cmStatusByEmail.get(u.email.toLowerCase());
 
-                  return (
-                    <UserItem
-                      key={u.email}
-                      user={{
-                        ...u,
-                        fullName: displayName,
-                        name: displayName,
-                        cmStatus,
-                      }}
-                      onChat={() => handleChat(u.email)}
-                      disableLink={disableLinkFor(u)}
-                    />
-                  );
-                })
+                      return (
+                        <UserItem
+                          key={u.email}
+                          user={{
+                            ...u,
+                            fullName: displayName,
+                            name: displayName,
+                            cmStatus,
+                          }}
+                          onChat={() => handleChat(u.email)}
+                          disableLink={disableLinkFor(u)}
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Show message when no users at all */}
+              {filteredOnline.length === 0 && filteredOffline.length === 0 && (
+                <div className="text-xs font-semibold text-[var(--color-tertiary)] text-center py-4">
+                  No users found
+                </div>
               )}
             </>
           )}
         </div>
       </nav>
+      
+      {/* Custom scrollbar styles */}
+      <style>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: var(--color-primary);
+          border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: var(--color-secondary);
+          border-radius: 4px;
+          border: 1px solid var(--color-primary);
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: var(--color-tertiary);
+        }
+        .custom-scrollbar::-webkit-scrollbar-corner {
+          background: var(--color-primary);
+        }
+      `}</style>
     </aside>
   );
 };
