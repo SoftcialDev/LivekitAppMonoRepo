@@ -136,6 +136,11 @@ export function useStreamingDashboard() {
 
   /** Acquire a screen wake lock, if supported. */
   const requestWakeLock = useCallback(async () => {
+    // Only request wake lock when tab is visible
+    if (document.visibilityState !== 'visible') {
+      console.log('[WakeLock] Skipping - tab not visible');
+      return;
+    }
     try {
       if ('wakeLock' in navigator) {
         const wl = await (navigator as any).wakeLock.request('screen');
@@ -187,29 +192,46 @@ export function useStreamingDashboard() {
  * @throws Propagates unexpected errors during device enumeration/LiveKit connection/publish.
  */
 const startStream = useCallback(async () => {
-  if (streamingRef.current) return;
+  console.log('[Stream] DEBUG - startStream called');
+  console.log('[Stream] DEBUG - streamingRef.current:', streamingRef.current);
+  console.log('[Stream] DEBUG - Tab visibility:', document.visibilityState);
+  console.log('[Stream] DEBUG - Document hidden:', document.hidden);
+  
+  if (streamingRef.current) {
+    console.log('[Stream] DEBUG - Already streaming, returning');
+    return;
+  }
 
   // 1) Ensure PubSub + presence
+  console.log('[Stream] DEBUG - Checking PubSub connection:', pubSubService.isConnected());
   if (!pubSubService.isConnected()) {
+    console.log('[Stream] DEBUG - Connecting to PubSub...');
     await pubSubService.connect(userEmail);
     await presenceClient.setOnline();
     await pubSubService.joinGroup('presence');
     await pubSubService.joinGroup(`commands:${userEmail}`);
+    console.log('[Stream] DEBUG - PubSub connected');
   }
 
   // 2) Prime camera/mic permissions (stops tracks immediately)
+  console.log('[Stream] DEBUG - Requesting camera permission...');
   try {
     await ensureCameraPermission();
-  } catch {
+    console.log('[Stream] DEBUG - Camera permission granted');
+  } catch (e) {
+    console.log('[Stream] DEBUG - Camera permission failed:', e);
     return;
   }
 
   // 3) Choose camera (with fallback)
+  console.log('[Stream] DEBUG - Enumerating devices...');
   let videoTrack: LocalVideoTrack;
   try {
     const devices = await navigator.mediaDevices.enumerateDevices();
     const cams = devices.filter((d) => d.kind === 'videoinput');
+    console.log('[Stream] DEBUG - Found cameras:', cams.length);
     videoTrack = await createVideoTrackWithFallback(cams);
+    console.log('[Stream] DEBUG - Video track created');
   } catch (err) {
     console.error('[Stream] video setup failed', err);
     alert('Unable to access any camera.');
@@ -217,10 +239,17 @@ const startStream = useCallback(async () => {
   }
 
   // 4) Connect to LiveKit
+  console.log('[Stream] DEBUG - Getting LiveKit token...');
   const { rooms, livekitUrl } = await getLiveKitToken();
+  console.log('[Stream] DEBUG - LiveKit URL:', livekitUrl);
+  console.log('[Stream] DEBUG - Rooms:', rooms.length);
   const room = new Room();
+  
   try {
+    console.log('[Stream] DEBUG - Connecting to LiveKit...');
+    // Connect with minimal configuration to avoid errors
     await room.connect(livekitUrl, rooms[0].token);
+    console.log('[Stream] DEBUG - LiveKit connected successfully');
   } catch (err) {
     console.error('[WS] LiveKit connect failed', err);
     try {
@@ -232,6 +261,34 @@ const startStream = useCallback(async () => {
 
   roomRef.current = room;
   console.info('[WS] LiveKit connected');
+  
+  // Configure room to maintain connection during tab changes
+  console.log('[Stream] DEBUG - Setting up LiveKit event listeners...');
+  try {
+    // Set up event listeners to handle connection state changes
+    room.on('connectionStateChanged', (state) => {
+      console.log('[WS] LiveKit connection state changed:', state);
+      console.log('[Stream] DEBUG - Connection state change - Tab visibility:', document.visibilityState);
+      if (state === 'connected' && streamingRef.current) {
+        console.log('[WS] LiveKit reconnected, ensuring video continues');
+      }
+    });
+    
+    room.on('participantConnected', (participant) => {
+      console.log('[WS] Participant connected:', participant.identity);
+    });
+    
+    room.on('participantDisconnected', (participant) => {
+      console.log('[WS] Participant disconnected:', participant.identity);
+    });
+    
+    console.log('[Stream] DEBUG - LiveKit event listeners configured');
+  } catch (e) {
+    console.warn('[WS] Failed to configure LiveKit event listeners:', e);
+  }
+  
+  // LiveKit is now connected and ready
+  console.log('[Stream] DEBUG - LiveKit ready for streaming');
 
   /**
    * Attach any subscribed/coming audio tracks of a remote participant to the `<audio>` element.
@@ -521,6 +578,7 @@ const handleCommand = useCallback(
         const stoppedAt = last.stoppedAt ? new Date(last.stoppedAt) : null;
         const stopReason = last.stopReason;
         
+        
         console.info(`[Streaming] Debug - stoppedAt: ${stoppedAt}, stopReason: "${stopReason}"`);
         
         // Only resume if:
@@ -578,16 +636,71 @@ const handleCommand = useCallback(
      * Re-acquires wake lock and restores presence when the page becomes visible.
      */
     const onVisible = async (): Promise<void> => {
-      if (document.visibilityState !== 'visible') return;
+      console.log('[WS] DEBUG - onVisible called');
+      console.log('[WS] DEBUG - Tab visibility:', document.visibilityState);
+      console.log('[WS] DEBUG - Document hidden:', document.hidden);
+      console.log('[WS] DEBUG - streamingRef.current:', streamingRef.current);
+      console.log('[WS] DEBUG - videoRef.current:', !!videoRef.current);
+      console.log('[WS] DEBUG - videoRef.srcObject:', !!videoRef.current?.srcObject);
+      
+      if (document.visibilityState !== 'visible') {
+        console.log('[WS] DEBUG - Tab not visible, returning');
+        return;
+      }
+      
       try {
+        console.log('[WS] DEBUG - Reconnecting PubSub...');
         await pubSubService.joinGroup('presence');
         await pubSubService.joinGroup(`commands:${userEmail}`);
         await presenceClient.setOnline();
+        console.log('[WS] DEBUG - PubSub reconnected');
+        
         if (KEEP_AWAKE_WHEN_IDLE || streamingRef.current) {
+          console.log('[WS] DEBUG - Requesting wake lock...');
           await requestWakeLock();
         }
-        // Don't run auto-resume on visibility change - only on initial connection
-        console.log('[WS] Tab became visible - reconnected but not resuming');
+        
+        // If we were streaming, ensure video continues even when tab becomes visible
+        if (streamingRef.current) {
+          console.log('[WS] Tab became visible - video should continue streaming');
+          console.log('[WS] DEBUG - Video element srcObject:', !!videoRef.current?.srcObject);
+          console.log('[WS] DEBUG - Room state:', roomRef.current?.state);
+          
+          // If video was lost, restore it
+          if (!videoRef.current?.srcObject) {
+            console.log('[WS] DEBUG - Video lost, attempting to restore...');
+            try {
+              // Get the current video track from the room
+              const localParticipant = roomRef.current?.localParticipant;
+              if (localParticipant) {
+                // Get video tracks from local participant
+                const videoTracks = Array.from(localParticipant.videoTrackPublications.values());
+                console.log('[WS] DEBUG - Found video tracks:', videoTracks.length);
+                
+                if (videoTracks.length > 0) {
+                  const videoTrackPub = videoTracks[0];
+                  if (videoTrackPub.track && videoRef.current) {
+                    console.log('[WS] DEBUG - Restoring video track:', videoTrackPub.trackSid);
+                    // Convert LocalTrack to MediaStreamTrack
+                    const mediaStreamTrack = videoTrackPub.track.mediaStreamTrack;
+                    if (mediaStreamTrack) {
+                      videoRef.current.srcObject = new MediaStream([mediaStreamTrack]);
+                      console.log('[WS] DEBUG - Video restored successfully');
+                    }
+                  }
+                } else {
+                  console.log('[WS] DEBUG - No video tracks found, video may be lost');
+                }
+              } else {
+                console.log('[WS] DEBUG - No local participant available');
+              }
+            } catch (e) {
+              console.error('[WS] DEBUG - Failed to restore video:', e);
+            }
+          }
+        } else {
+          console.log('[WS] Tab became visible - reconnected but not resuming');
+        }
       } catch (e) {
         console.warn('[WS] onVisible handler failed', e);
       }
@@ -633,18 +746,100 @@ const handleCommand = useCallback(
     window.addEventListener('online', onOnline);
     window.addEventListener('pageshow', onPageShow);
 
+    // Tab activity keeper: keeps tab active every 2 seconds to prevent video suspension
+    const keepAliveInterval = setInterval(() => {
+      if (streamingRef.current) {
+        console.log('[WS] DEBUG - Keep alive ping - Tab visibility:', document.visibilityState);
+        console.log('[WS] DEBUG - Keep alive ping - Video srcObject:', !!videoRef.current?.srcObject);
+        
+        // Force tab to stay active by triggering a small activity
+        if (document.visibilityState === 'hidden') {
+          console.log('[WS] DEBUG - Tab is hidden, triggering activity to keep video alive');
+          // Trigger a small DOM activity to keep the tab "active"
+          document.title = document.title === 'In Contact' ? 'In Contact - Active' : 'In Contact';
+          
+          // Also try to maintain video stream by refreshing the video element
+          if (videoRef.current && videoRef.current.srcObject) {
+            console.log('[WS] DEBUG - Refreshing video stream to prevent suspension');
+            const currentStream = videoRef.current.srcObject;
+            videoRef.current.srcObject = currentStream;
+          }
+        }
+        
+        // Proactive video restoration: if video is lost, restore it immediately
+        if (streamingRef.current && videoRef.current && !videoRef.current.srcObject) {
+          console.log('[WS] DEBUG - Keep alive: Video lost, restoring immediately...');
+          try {
+            const localParticipant = roomRef.current?.localParticipant;
+            if (localParticipant) {
+              const videoTracks = Array.from(localParticipant.videoTrackPublications.values());
+              if (videoTracks.length > 0) {
+                const videoTrackPub = videoTracks[0];
+                if (videoTrackPub.track && videoRef.current) {
+                  const mediaStreamTrack = videoTrackPub.track.mediaStreamTrack;
+                  if (mediaStreamTrack) {
+                    videoRef.current.srcObject = new MediaStream([mediaStreamTrack]);
+                    console.log('[WS] DEBUG - Keep alive: Video restored immediately');
+                  }
+                }
+              }
+            }
+          } catch (e) {
+            console.error('[WS] DEBUG - Keep alive: Failed to restore video:', e);
+          }
+        }
+      }
+    }, 2_000);
+
     // Sleep detector: if the tab sleeps, interval fire will be delayed significantly.
     let lastTick = Date.now();
     const tick = setInterval(async () => {
       const now = Date.now();
       const delta = now - lastTick;
       lastTick = now;
+      
+      console.log('[WS] DEBUG - Health check interval');
+      console.log('[WS] DEBUG - Tab visibility:', document.visibilityState);
+      console.log('[WS] DEBUG - streamingRef.current:', streamingRef.current);
+      console.log('[WS] DEBUG - videoRef.srcObject:', !!videoRef.current?.srcObject);
+      console.log('[WS] DEBUG - Room state:', roomRef.current?.state);
+      
       if (delta > 60_000) {
         console.warn('[WS] sleep detected, forcing reconnect');
         await pubSubService.reconnect();
         await presenceClient.setOnline();
         if (KEEP_AWAKE_WHEN_IDLE || streamingRef.current) {
           await requestWakeLock();
+        }
+      }
+      
+      // Video health check: restore video if lost
+      if (streamingRef.current && videoRef.current && !videoRef.current.srcObject) {
+        console.log('[WS] DEBUG - Health check: Video lost, attempting to restore...');
+        try {
+          const localParticipant = roomRef.current?.localParticipant;
+          if (localParticipant) {
+            // Get video tracks from local participant
+            const videoTracks = Array.from(localParticipant.videoTrackPublications.values());
+            if (videoTracks.length > 0) {
+              const videoTrackPub = videoTracks[0];
+              if (videoTrackPub.track && videoRef.current) {
+                console.log('[WS] DEBUG - Health check: Restoring video track:', videoTrackPub.trackSid);
+                // Convert LocalTrack to MediaStreamTrack
+                const mediaStreamTrack = videoTrackPub.track.mediaStreamTrack;
+                if (mediaStreamTrack) {
+                  videoRef.current.srcObject = new MediaStream([mediaStreamTrack]);
+                  console.log('[WS] DEBUG - Health check: Video restored successfully');
+                }
+              }
+            } else {
+              console.log('[WS] DEBUG - Health check: No video tracks found');
+            }
+          } else {
+            console.log('[WS] DEBUG - Health check: No local participant available');
+          }
+        } catch (e) {
+          console.error('[WS] DEBUG - Health check: Failed to restore video:', e);
         }
       }
     }, 15_000);
@@ -654,6 +849,7 @@ const handleCommand = useCallback(
       window.removeEventListener('visibilitychange', onVisible);
       window.removeEventListener('online', onOnline);
       window.removeEventListener('pageshow', onPageShow);
+      clearInterval(keepAliveInterval);
       clearInterval(tick);
       console.debug('[App] cleanup');
       (async () => {

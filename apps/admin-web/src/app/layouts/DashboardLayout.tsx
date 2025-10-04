@@ -83,13 +83,13 @@ const Layout: React.FC<LayoutProps> = (): JSX.Element => {
 
           {/*
             Sidebar toggle sits *outside* the sidebar, in the content column.
-            It uses -translate-x-full so only its right half peeks in when collapsed,
-            and it remains clickable at all times.
+            It uses fixed positioning to stay in the center of the viewport
+            regardless of sidebar content scroll.
           */}
           <div
             className="
-              absolute left-0 top-1/2 z-20
-              transform  -translate-y-1/2
+              fixed rigt-0 top-1/2 z-20
+              transform -translate-y-1/2
             "
           >
             <SidebarToggle
