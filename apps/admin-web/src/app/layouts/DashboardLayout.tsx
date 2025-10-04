@@ -5,7 +5,6 @@ import { Outlet } from "react-router-dom";
 import { HeaderProvider } from "../providers/HeaderContext";
 import Sidebar from "@/shared/ui/Sidebar";
 import Header from "@/shared/ui/Header";
-import SidebarToggle from "@/shared/ui/SidebarToggle";
 
 
 interface LayoutProps {}
@@ -81,22 +80,6 @@ const Layout: React.FC<LayoutProps> = (): JSX.Element => {
         <div className="relative flex flex-col min-h-0">
           <Header />
 
-          {/*
-            Sidebar toggle sits *outside* the sidebar, in the content column.
-            It uses fixed positioning to stay in the center of the viewport
-            regardless of sidebar content scroll.
-          */}
-          <div
-            className="
-              fixed rigt-0 top-1/2 z-20
-              transform -translate-y-1/2
-            "
-          >
-            <SidebarToggle
-              isCollapsed={isCollapsed}
-              onToggle={() => setIsCollapsed(c => !c)}
-            />
-          </div>
 
           <main className="flex-1 overflow-hidden bg-[var(--color-primary-dark)]">
             <Outlet />
