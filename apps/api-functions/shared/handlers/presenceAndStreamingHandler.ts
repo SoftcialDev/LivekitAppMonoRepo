@@ -2,10 +2,90 @@ import { AzureFunction, Context } from "@azure/functions";
 import { setUserOnline, setUserOffline } from "../services/presenceService";
 import { stopStreamingSession } from "../services/streamingService";
 import { LiveKitRecordingService } from "../services/livekitRecordingService";
+import { isUuid } from "../utils/uuid";
+import prisma from "../services/prismaClienService";
+import { WebPubSubServiceClient } from "@azure/web-pubsub";
+import { AzureKeyCredential } from "@azure/core-auth";
+import { config } from "../config";
+
+/**
+ * Web PubSub Service Client for connection operations
+ */
+const webPubSubService = new WebPubSubServiceClient(
+  config.webPubSubEndpoint,
+  new AzureKeyCredential(config.webPubSubKey),
+  config.webPubSubHubName
+);
+
+/**
+ * Logs all active connections from Web PubSub
+ */
+async function logActiveConnections(context: Context): Promise<void> {
+  try {
+    context.log.info("🔍 Getting real connections from Web PubSub...");
+    
+    // Get users from database to check against Web PubSub
+    const dbOnlineUsers = await prisma.presence.findMany({
+      where: { status: "online" },
+      include: {
+        user: {
+          select: { id: true, email: true, fullName: true }
+        }
+      }
+    });
+    
+    context.log.info(`🔍 Database shows ${dbOnlineUsers.length} online users`);
+    
+    // Check each user against Web PubSub
+    const realConnections: string[] = [];
+    for (const user of dbOnlineUsers) {
+      try {
+        const userExists = await webPubSubService.userExists(user.userId);
+        if (userExists) {
+          realConnections.push(`${user.user.email} (${user.userId})`);
+        } else {
+          context.log.warn(`⚠️ User ${user.user.email} is marked online in DB but NOT in Web PubSub!`);
+        }
+      } catch (error: any) {
+        context.log.warn(`⚠️ Failed to check user ${user.user.email}:`, error.message);
+      }
+    }
+    
+    context.log.info(`🔍 Real Web PubSub connections (${realConnections.length}):`, realConnections);
+  } catch (error: any) {
+    context.log.warn(`🔍 Failed to get real connections:`, error.message);
+  }
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 // Helpers
 ////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * Returns a *non-deleted* user matched by one of:
+ *  • database UUID                     (`id`)
+ *  • Azure AD object ID                (`azureAdObjectId`)
+ *  • e-mail address (always lower-cased)
+ *
+ * @throws If no active user matches the **key**.
+ */
+async function findActiveUserFlexible(key: string) {
+  const OR: import("@prisma/client").Prisma.UserWhereInput[] = [];
+
+  if (isUuid(key)) {
+    OR.push({ id: key }, { azureAdObjectId: key });
+  }
+  OR.push({ email: key.toLowerCase() });
+
+  const user = await prisma.user.findFirst({
+    where: { deletedAt: null, OR },
+  });
+
+  if (!user) {
+    throw new Error(`User not found for presence operation (${key})`);
+  }
+  return user;
+}
 
 const bar = "─".repeat(80);
 
@@ -88,6 +168,9 @@ export const presenceAndStreamingHandler: AzureFunction = async (
         context.log.verbose(`→ setUserOnline("${userId}")`);
         await setUserOnline(userId);
         context.log.info(`✅ User ONLINE (${userId})`);
+        
+        // Log all active connections
+        await logActiveConnections(context);
         break;
       }
 
@@ -96,19 +179,36 @@ export const presenceAndStreamingHandler: AzureFunction = async (
         context.log.verbose(`→ setUserOffline("${userId}")`);
         await setUserOffline(userId);
 
-        context.log.verbose(`→ stopStreamingSession("${userId}")`);
-        await stopStreamingSession(userId);
+        context.log.verbose(`→ stopStreamingSession("${userId}") - DISCONNECT reason`);
+        await stopStreamingSession(userId, 'DISCONNECT');
 
-        context.log.verbose(`→ stopAll recordings for user "${userId}"`);
-        const summary = await LiveKitRecordingService.stopAllForUser(userId, 60);
-        context.log.info(
-          `✅ Recordings stop summary: ${summary.completed}/${summary.total} completed (user=${userId})`
-        );
+        // Try to stop recordings, but don't let it fail the entire handler
+        try {
+          context.log.verbose(`→ stopAll recordings for user "${userId}"`);
+          
+          // Use the same flexible user lookup as setUserOffline
+          const user = await findActiveUserFlexible(userId);
+          context.log.verbose(`→ Found user for recordings: ${user.email} (${user.id})`);
+          
+          const summary = await LiveKitRecordingService.stopAllForUser(user.id, 60);
+          context.log.info(
+            `✅ Recordings stop summary: ${summary.completed}/${summary.total} completed (user=${user.email})`
+          );
+        } catch (recordingError: any) {
+          context.log.error(`❌ Failed to stop recordings for user ${userId}:`, recordingError.message);
+          context.log.warn(`⚠️ Continuing with disconnect despite recording error`);
+        }
+        
+        // Log all active connections
+        await logActiveConnections(context);
         break;
       }
 
       case "user":
         context.log.info("👤 Custom user event (no handler configured)");
+        
+        // Log all active connections
+        await logActiveConnections(context);
         break;
 
       default:

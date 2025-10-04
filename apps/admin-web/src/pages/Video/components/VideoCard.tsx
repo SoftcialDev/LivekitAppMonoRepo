@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from 'react'
+import React, { useRef, useEffect, useState, memo } from 'react'
 import {
   Room,
   RoomEvent,
@@ -34,7 +34,7 @@ import { useTalkback } from '../hooks/useTalkback'
  *   - **Talk** is disabled when there is no active video (not in Play) or while connecting.
  *   - **Start Rec** is also disabled (greyed out) when there is no active video or while connecting.
  */
-const VideoCard: React.FC<VideoCardProps & { livekitUrl?: string }> = ({
+const VideoCard: React.FC<VideoCardProps & { livekitUrl?: string }> = memo(({
   name,
   email,
   onPlay,
@@ -49,6 +49,14 @@ const VideoCard: React.FC<VideoCardProps & { livekitUrl?: string }> = ({
   connecting = false,
   onToggle,
 }) => {
+  console.log(`[DEBUG] VideoCard render for ${email}:`, {
+    shouldStream,
+    connecting,
+    hasAccessToken: !!accessToken,
+    hasRoomName: !!roomName,
+    hasLivekitUrl: !!livekitUrl,
+    disableControls
+  });
   const roomRef  = useRef<Room | null>(null)
   const audioRef = useRef<HTMLAudioElement>(null)
 
@@ -365,6 +373,17 @@ const VideoCard: React.FC<VideoCardProps & { livekitUrl?: string }> = ({
       </AddModal>
     </>
   )
-}
+}, (prevProps, nextProps) => {
+  // Solo comparar props críticas para el streaming
+  const criticalProps = ['email', 'accessToken', 'roomName', 'livekitUrl', 'shouldStream', 'connecting'];
+  
+  for (const prop of criticalProps) {
+    if (prevProps[prop as keyof typeof prevProps] !== nextProps[prop as keyof typeof nextProps]) {
+      return false; // Props changed, should re-render
+    }
+  }
+  
+  return true; // Props are the same, skip re-render
+})
 
 export default VideoCard

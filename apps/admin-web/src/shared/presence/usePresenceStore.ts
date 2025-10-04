@@ -110,14 +110,24 @@ export const usePresenceStore = create<PresenceState>((set, get) => {
         const u = msg.user as UserStatus
 
         set((state: PresenceState) => {
-          const onlineUsers = u.status === 'online'
-            ? state.onlineUsers.some(x => x.email === u.email)
-              ? state.onlineUsers
+          // Only update if there's an actual change
+          const isOnline = u.status === 'online'
+          const wasOnline = state.onlineUsers.some(x => x.email === u.email)
+          const wasOffline = state.offlineUsers.some(x => x.email === u.email)
+          
+          // Skip update if no change in status
+          if ((isOnline && wasOnline) || (!isOnline && wasOffline)) {
+            return state
+          }
+
+          const onlineUsers = isOnline
+            ? wasOnline 
+              ? state.onlineUsers 
               : [...state.onlineUsers, u]
             : state.onlineUsers.filter(x => x.email !== u.email)
 
-          const offlineUsers = u.status === 'offline'
-            ? state.offlineUsers.some(x => x.email === u.email)
+          const offlineUsers = !isOnline
+            ? wasOffline
               ? state.offlineUsers
               : [...state.offlineUsers, u]
             : state.offlineUsers.filter(x => x.email !== u.email)

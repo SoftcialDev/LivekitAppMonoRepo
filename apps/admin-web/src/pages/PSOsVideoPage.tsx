@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import monitorIcon from '@/shared/assets/monitor-icon.png';
 import type { UserStatus } from '@/shared/types/UserStatus';
 import { useHeader } from '@/app/providers/HeaderContext';
@@ -96,10 +96,12 @@ const PSOsPage: React.FC = () => {
   const loadSnapshot        = usePresenceStore(s => s.loadSnapshot);
   const connectWebSocket    = usePresenceStore(s => s.connectWebSocket);
   const disconnectWebSocket = usePresenceStore(s => s.disconnectWebSocket);
-  const onlineUsers         = usePresenceStore(s => s.onlineUsers);
-  const offlineUsers        = usePresenceStore(s => s.offlineUsers); // loaded but not shown
-  const presenceLoading     = usePresenceStore(s => s.loading);
-  const presenceError       = usePresenceStore(s => s.error);
+  
+  // Memoized selectors to prevent unnecessary re-renders
+  const onlineUsers = usePresenceStore(useCallback(s => s.onlineUsers, []));
+  const offlineUsers = usePresenceStore(useCallback(s => s.offlineUsers, []));
+  const presenceLoading = usePresenceStore(useCallback(s => s.loading, []));
+  const presenceError = usePresenceStore(useCallback(s => s.error, []));
 
   useEffect(() => {
     loadSnapshot();
@@ -108,8 +110,9 @@ const PSOsPage: React.FC = () => {
   }, [viewerEmail, loadSnapshot, connectWebSocket, disconnectWebSocket]);
 
   /* ------------------------------------------------------------------ */
-  /* 3️⃣ Build PSO list from *online* presence, restricted to allowed     */
+  /* 3️⃣ Build PSO list                                                 */
   /* ------------------------------------------------------------------ */
+
   const allPsos: PSOWithStatus[] = useMemo(() => {
     const decorate = (u: UserStatus): PSOWithStatus => ({
       email:    u.email,
@@ -120,10 +123,18 @@ const PSOsPage: React.FC = () => {
       supervisorName: supMap.get(u.email.toLowerCase()) ?? '—',
     });
 
-    return onlineUsers
-      .filter(u => allowedEmails.has(u.email.toLowerCase()))
-      .map(decorate)
+    // Obtener usuarios online actuales (excluyendo al usuario actual)
+    const currentOnlineUsers = onlineUsers
+      .filter(u => 
+        allowedEmails.has(u.email.toLowerCase()) && 
+        u.email.toLowerCase() !== viewerEmail.toLowerCase()
+      )
+      .map(decorate);
+
+    const result = currentOnlineUsers
       .sort((a, b) => Number(b.isOnline) - Number(a.isOnline));
+      
+    return result;
   }, [onlineUsers, allowedEmails, supMap]);
 
   /* ------------------------------------------------------------------ */
@@ -164,13 +175,23 @@ useEffect(() => {
   /* ------------------------------------------------------------------ */
   /* 6️⃣ LiveKit credentials & handlers                                  */
   /* ------------------------------------------------------------------ */
-  const credsMap = useMultiUserStreams(
-    viewerEmail,
-    fixedEmails.length > 0
+  const targetEmails = useMemo(() => {
+    return fixedEmails.length > 0
       ? allPsos.filter(p => fixedEmails.includes(p.email)).map(p => p.email.toLowerCase())
-      : allPsos.map(p => p.email.toLowerCase())
-  );
+      : allPsos.map(p => p.email.toLowerCase());
+  }, [allPsos, fixedEmails]);
+
+  const rawCredsMap = useMultiUserStreams(viewerEmail, targetEmails);
+  
+  // Usar credsMap directamente sin memoización problemática
+  const credsMap = rawCredsMap;
+  
   const { handlePlay, handleStop, handleChat } = useVideoActions();
+
+  // Función estable para onToggle que no cambia entre renders
+  const createToggleHandler = useCallback((email: string, isLive: boolean) => {
+    return () => isLive ? handleStop(email) : handlePlay(email);
+  }, [handleStop, handlePlay]);
 
   /* ------------------------------------------------------------------ */
   /* 7️⃣ Compute display list                                             */
@@ -181,44 +202,19 @@ const displayList = useMemo(() => {
     ? allPsos.filter(p => fixedEmails.includes(p.email))
     : allPsos;
 
-  // 2️⃣ Ordena por quienes tienen token de stream primero
+  // 2️⃣ Ordena por quienes tienen token de stream primero, con sort estable
   const sortedByStreaming = [...base].sort((a, b) => {
     const aLive = Boolean(credsMap[a.email.toLowerCase()]?.accessToken);
     const bLive = Boolean(credsMap[b.email.toLowerCase()]?.accessToken);
-    if (aLive && !bLive) return -1;
-    if (!aLive && bLive) return 1;
-    return 0;
+    if (aLive !== bLive) return aLive ? -1 : 1;
+    return a.email.localeCompare(b.email); // stable tie-breaker
   });
 
   // 3️⃣ Toma solo los primeros `layout`
-  return sortedByStreaming.slice(0, layout);
+  const result = sortedByStreaming.slice(0, layout);
+  return result;
 }, [allPsos, fixedEmails, layout, credsMap]);
 
-  const renderCard = (u: PSOWithStatus) => {
-    const key        = u.email.toLowerCase();
-    const c          = credsMap[key] ?? { loading: false };
-    const isLive     = Boolean(c.accessToken);
-    const connecting = c.loading;
-    return (
-      <VideoCard
-        key={u.email}
-        name={`${u.fullName} — Supervisor: ${u.supervisorName}`}
-        email={u.email}
-        accessToken={c.accessToken}
-        roomName={c.roomName}
-        livekitUrl={c.livekitUrl}
-        shouldStream={isLive}
-        connecting={connecting}
-        disableControls={!u.isOnline || connecting}
-        onToggle={() => isLive ? handleStop(u.email) : handlePlay(u.email)}
-        onPlay={handlePlay}
-        onStop={handleStop}
-        onChat={handleChat}
-        className="w-full h-full"
-      />
-      
-    );
-  };
 
   if (psosError || presenceError) {
     return (
@@ -262,58 +258,82 @@ const displayList = useMemo(() => {
         </div>
       ) : (
         <>
-          {displayList.length === 1 && (
-            <div className="flex items-center justify-center p-4">
-              <div className="w-11/12 max-w-5xl">
-                {renderCard(displayList[0])}
-              </div>
-            </div>
-          )}
-          {displayList.length === 2 && (
-            <div
-              className="grid flex-grow gap-4"
-              style={{ gridTemplateColumns: 'repeat(2,1fr)', gridTemplateRows: '1fr' }}
-            >
-              {displayList.map(renderCard)}
-            </div>
-          )}
-          {displayList.length === 3 && (
-            <div className="flex flex-col flex-1 p-2">
-              <div className="flex gap-2">
-                {displayList.slice(0,2).map(renderCard)}
-              </div>
-              <div className="flex justify-center mt-2">
-                <div className="w-1/2">{renderCard(displayList[2])}</div>
-              </div>
-            </div>
-          )}
-          {displayList.length === 4 && (
-            <div
-              className="grid gap-4 justify-center content-center"
-              style={{ gridTemplateColumns:'repeat(2,0.4fr)', gridTemplateRows:'repeat(2,1fr)' }}
-            >
-              {displayList.map(renderCard)}
-            </div>
-          )}
-          {displayList.length >= 5 && (
-            <div
-              className="grid gap-4"
-              style={{ gridTemplateColumns:'repeat(3,1fr)', gridAutoRows:'1fr' }}
-            >
-              {displayList.map((p,i) => {
-                const rows      = Math.ceil(displayList.length/3);
-                const rowIndex  = Math.floor(i/3);
-                const inLastRow = rowIndex===rows-1;
-                const itemsLast = displayList.length - 3*(rows-1);
-                const align     = inLastRow && itemsLast<3 ? 'justify-self-center' : 'justify-self-stretch';
-                return (
-                  <div key={p.email} className={`w-full h-full ${align}`}>
-                    {renderCard(p)}
-                  </div>
-                );
-              })}
-            </div>
-          )}
+          {/* Layout unificado con estructura estable */}
+          <div 
+            className="video-grid-container grid gap-4 flex-grow transition-all duration-300 ease-in-out"
+            style={{
+              gridTemplateColumns: (() => {
+                const cols = displayList.length === 1 ? 1 :
+                  displayList.length === 2 ? 2 :
+                  displayList.length === 3 ? 2 :
+                  displayList.length === 4 ? 2 : 3;
+                return `repeat(${cols}, minmax(0,1fr))`;
+              })()
+            }}
+          >
+            {displayList.map((p, i) => {
+              // Calcular estilo por card - sin wrappers condicionales
+              const itemStyle: React.CSSProperties = {};
+
+              // 3 items: hacer el último de ancho completo centrado
+              if (displayList.length === 3 && i === 2) {
+                itemStyle.gridColumn = '1 / -1';
+                itemStyle.justifySelf = 'center';
+                itemStyle.maxWidth = '66%';
+                itemStyle.width = '100%';
+              }
+
+              // 1 item: ancho completo pero limitar ancho del card
+              if (displayList.length === 1) {
+                itemStyle.gridColumn = '1 / -1';
+                itemStyle.justifySelf = 'center';
+                itemStyle.maxWidth = '80%';
+                itemStyle.width = '100%';
+              }
+
+              // Centrado de última fila cuando items < cols
+              const cols = displayList.length === 1 ? 1 :
+                displayList.length === 2 ? 2 :
+                displayList.length === 3 ? 2 :
+                displayList.length === 4 ? 2 : 3;
+              const rows = Math.ceil(displayList.length / 3);
+              const rowIndex = Math.floor(i / 3);
+              const inLastRow = rowIndex === rows - 1;
+              const itemsLast = displayList.length - 3 * (rows - 1);
+              const shouldCenter = cols === 3 && inLastRow && itemsLast > 0 && itemsLast < 3;
+              const alignClass = shouldCenter ? 'justify-self-center' : 'justify-self-stretch';
+
+              const key = p.email.toLowerCase();
+              const c = credsMap[key] ?? { loading: false };
+              const isLive = Boolean(c.accessToken);
+              const connecting = c.loading;
+
+              return (
+                <div
+                  key={key} // ✅ clave estable ÚNICAMENTE aquí
+                  className={`video-card-wrapper w-full h-full ${alignClass}`}
+                  style={itemStyle}
+                >
+                  <VideoCard
+                    // 🚫 sin key aquí para evitar re-mounts por claves anidadas
+                    name={`${p.fullName} — Supervisor: ${p.supervisorName}`}
+                    email={p.email}
+                    accessToken={c.accessToken}
+                    roomName={c.roomName}
+                    livekitUrl={c.livekitUrl}
+                    shouldStream={isLive}
+                    connecting={connecting}
+                    disableControls={!p.isOnline || connecting}
+                    onToggle={createToggleHandler(p.email, isLive)}
+                    onPlay={handlePlay}
+                    onStop={handleStop}
+                    onChat={handleChat}
+                    className="w-full h-full"
+                  />
+                </div>
+              );
+            })}
+          </div>
         </>
       )}
     </div>

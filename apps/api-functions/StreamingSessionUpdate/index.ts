@@ -17,7 +17,9 @@ import { JwtPayload } from "jsonwebtoken";
  */
 const schema = z.object({
   /** Indicates whether to start or stop the streaming session. */
-  status: z.enum(["started", "stopped"])
+  status: z.enum(["started", "stopped"]),
+  /** Optional flag to indicate if this was triggered by a command */
+  isCommand: z.boolean().optional()
 });
 
 /**
@@ -44,7 +46,10 @@ export default withErrorHandler(async (ctx: Context) => {
 
   await withAuth(ctx, async () => {
     await withBodyValidation(schema)(ctx, async () => {
-      const { status } = (ctx as any).bindings.validatedBody as { status: "started" | "stopped" };
+      const { status, isCommand } = (ctx as any).bindings.validatedBody as { 
+        status: "started" | "stopped";
+        isCommand?: boolean;
+      };
 
       const claims = (ctx as any).bindings.user as JwtPayload;
       const azureAdId = (claims.oid || claims.sub) as string;
@@ -67,8 +72,11 @@ export default withErrorHandler(async (ctx: Context) => {
           await startStreamingSession(user.id);
           ok(ctx, { message: "Streaming session started" });
         } else {
-          await stopStreamingSession(user.id);
-          ok(ctx, { message: "Streaming session stopped" });
+          // Use COMMAND reason if this was triggered by a command, otherwise DISCONNECT
+          const stopReason = isCommand ? 'COMMAND' : 'DISCONNECT';
+          ctx.log.info(`StreamingSessionUpdate: isCommand=${isCommand}, stopReason=${stopReason} for user ${azureAdId}`);
+          await stopStreamingSession(user.id, stopReason);
+          ok(ctx, { message: `Streaming session stopped (${stopReason})` });
         }
       } catch (err: any) {
         ctx.log.error("StreamingSessionUpdate error:", err);

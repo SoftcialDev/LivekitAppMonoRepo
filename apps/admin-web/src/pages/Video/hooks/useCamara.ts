@@ -16,6 +16,7 @@ import { PresenceClient } from '@/shared/api/presenceClient';
 import { StreamingClient } from '@/shared/api/streamingClient';
 import { webPubSubClient as pubSubService } from '@/shared/api/webpubsubClient';
 import { getLiveKitToken } from '@/shared/api/livekitClient';
+import apiClient from '@/shared/api/apiClient';
 
 /**
  * Feature switches.
@@ -373,6 +374,82 @@ const stopStream = useCallback(async () => {
 }, [releaseWakeLock, streamingClient]);
 
 /**
+ * Stops streaming when triggered by external command (admin/supervisor).
+ * Does the same local cleanup as stopStream but calls backend with isCommand flag.
+ */
+const stopStreamForCommand = useCallback(async () => {
+  if (!streamingRef.current) return;
+
+  // Snapshot room + tracks (they might get nulled during cleanup)
+  const room = roomRef.current;
+  const { video, audio } = tracksRef.current;
+
+  // 1) Best-effort unpublish before stopping, to stop server forwarding ASAP
+  try {
+    if (room && video) {
+      try { room.localParticipant.unpublishTrack(video, /*stopOnUnpublish*/ false); } catch {}
+    }
+    if (room && audio) {
+      try { room.localParticipant.unpublishTrack(audio, /*stopOnUnpublish*/ true); } catch {}
+    }
+  } catch {
+    // Ignore unpublish errors; we still stop/clear locally below
+  }
+
+  // 2) Stop local tracks & detach DOM sinks
+  try {
+    video?.detach();
+    video?.stop();
+  } catch {}
+  try {
+    audio?.stop(); // no detach needed (we don't attach local mic to an <audio/> here)
+  } catch {}
+  tracksRef.current = {};
+
+  // Clear media elements to be extra safe
+  try {
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+      videoRef.current.src = '';
+    }
+    if (audioRef.current) {
+      audioRef.current.pause?.();
+      audioRef.current.srcObject = null;
+      audioRef.current.src = '';
+    }
+  } catch {}
+
+  // 3) Release wake lock if we don't keep the tab awake while idle
+  if (!KEEP_AWAKE_WHEN_IDLE) {
+    await releaseWakeLock();
+  }
+
+  // 4) Disconnect room
+  try {
+    await room?.disconnect();
+  } finally {
+    roomRef.current = null;
+  }
+
+  // 5) Flip state & notify backend with COMMAND reason
+  streamingRef.current = false;
+  setIsStreaming(false);
+  console.info('[Streaming] INACTIVE by COMMAND');
+  
+  // Call backend with isCommand flag to mark as COMMAND reason
+  try {
+    console.log('[stopStreamForCommand] Calling backend with isCommand=true');
+    await apiClient.post('/api/StreamingSessionUpdate', { 
+      status: 'stopped',
+      isCommand: true
+    });
+    console.log('[stopStreamForCommand] Backend call successful');
+  } catch (err) {
+    console.warn('Failed to notify backend of command stop:', err);
+  }
+}, [releaseWakeLock]);
+
+/**
  * Handles a single START/STOP command and, if present, acknowledges it.
  *
  * @remarks
@@ -390,10 +467,10 @@ const handleCommand = useCallback(
       if (action === 'START') {
         await startStream();
       } else if (action === 'STOP') {
-        await stopStream();
+        await stopStreamForCommand();
       } else {
         // Defensive default: treat unknown commands as STOP
-        await stopStream();
+        await stopStreamForCommand();
       }
     } finally {
       if (cmd.id) {
@@ -406,7 +483,7 @@ const handleCommand = useCallback(
       }
     }
   },
-  [startStream, stopStream, pendingClient],
+  [startStream, stopStreamForCommand, pendingClient],
 );
 
   /**
@@ -440,11 +517,22 @@ const handleCommand = useCallback(
       }
 
       try {
-        const last = await streamingClient.fetchLastSession();
+        const last = await streamingClient.fetchLastSessionWithReason();
         const stoppedAt = last.stoppedAt ? new Date(last.stoppedAt) : null;
-        if (!stoppedAt || Date.now() - stoppedAt.getTime() < 5 * 60_000) {
-          console.info('[Streaming] resuming');
+        const stopReason = last.stopReason;
+        
+        console.info(`[Streaming] Debug - stoppedAt: ${stoppedAt}, stopReason: "${stopReason}"`);
+        
+        // Only resume if:
+        // 1. No stop time (session was active)
+        // 2. OR stopped by DISCONNECT and within 5 minutes
+        if (!stoppedAt || (stopReason === 'DISCONNECT' && Date.now() - stoppedAt.getTime() < 5 * 60_000)) {
+          console.info(`[Streaming] resuming (reason: ${stopReason || 'active'})`);
           await startStream();
+        } else if (stopReason === 'COMMAND') {
+          console.info('[Streaming] NOT resuming - stopped by external command');
+        } else {
+          console.info(`[Streaming] NOT resuming - stopped too long ago (${stopReason})`);
         }
       } catch {}
 
@@ -498,6 +586,8 @@ const handleCommand = useCallback(
         if (KEEP_AWAKE_WHEN_IDLE || streamingRef.current) {
           await requestWakeLock();
         }
+        // Don't run auto-resume on visibility change - only on initial connection
+        console.log('[WS] Tab became visible - reconnected but not resuming');
       } catch (e) {
         console.warn('[WS] onVisible handler failed', e);
       }
@@ -511,29 +601,33 @@ const handleCommand = useCallback(
         await pubSubService.joinGroup('presence');
         await pubSubService.joinGroup(`commands:${userEmail}`);
         await presenceClient.setOnline();
-    if (KEEP_AWAKE_WHEN_IDLE || streamingRef.current) {
-      await requestWakeLock();
+        if (KEEP_AWAKE_WHEN_IDLE || streamingRef.current) {
+          await requestWakeLock();
+        }
+        // Don't run auto-resume on network reconnection - only on initial connection
+        console.log('[WS] Network reconnected - reconnected but not resuming');
+      } catch (e) {
+        console.warn('[WS] onOnline handler failed', e);
       }
-    } catch (e) {
-    console.warn('[WS] onOnline handler failed', e);
-    }
     };
 
     /**
      * On bfcache restore, refresh wake lock and presence.
      */
     const onPageShow = async (): Promise<void> => {
-  try {
-    await pubSubService.joinGroup('presence');
-    await pubSubService.joinGroup(`commands:${userEmail}`);
-    await presenceClient.setOnline();
-    if (KEEP_AWAKE_WHEN_IDLE || streamingRef.current) {
-      await requestWakeLock();
-    }
-  } catch (e) {
-    console.warn('[WS] onPageShow handler failed', e);
-  }
-};
+      try {
+        await pubSubService.joinGroup('presence');
+        await pubSubService.joinGroup(`commands:${userEmail}`);
+        await presenceClient.setOnline();
+        if (KEEP_AWAKE_WHEN_IDLE || streamingRef.current) {
+          await requestWakeLock();
+        }
+        // Don't run auto-resume on page show - only on initial connection
+        console.log('[WS] Page shown - reconnected but not resuming');
+      } catch (e) {
+        console.warn('[WS] onPageShow handler failed', e);
+      }
+    };
 
     window.addEventListener('visibilitychange', onVisible);
     window.addEventListener('online', onOnline);

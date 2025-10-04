@@ -4,6 +4,7 @@ import {
   createPendingCommand,
   tryDeliverCommand,
 } from "../shared/services/pendingCommandService";
+import { stopStreamingSession } from "../shared/services/streamingService";
 
 /**
  * Describes the shape of a camera command message from Service Bus.
@@ -62,7 +63,14 @@ export default async function processCommand(
       timestamp
     );
 
-    // 4) Attempt immediate push over Web PubSub
+    // 4) For STOP commands, also stop streaming session with COMMAND reason
+    if (command === 'STOP') {
+      context.log.info(`Processing STOP command for ${employeeEmail} - calling stopStreamingSession with COMMAND reason`);
+      await stopStreamingSession(user.id, 'COMMAND');
+      context.log.info(`✅ Streaming session stopped by COMMAND for ${employeeEmail}`);
+    }
+
+    // 5) Attempt immediate push over Web PubSub
     const delivered = await tryDeliverCommand({
       id:          pending.id,
       employeeId:  pending.employeeId,

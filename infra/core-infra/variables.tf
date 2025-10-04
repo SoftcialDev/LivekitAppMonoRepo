@@ -209,7 +209,7 @@ variable "simple_storage_access_tier" {
 ########################################
 # PostgreSQL Module
 ########################################
-/*
+
 
 variable "postgres_admin_username" {
   description = "Administrator username for PostgreSQL Flexible Server."
@@ -257,7 +257,7 @@ variable "postgres_allowed_ips" {
   type        = list(string)
   default     = []
 }
-*/
+
 
 ########################################
 # Function App Module

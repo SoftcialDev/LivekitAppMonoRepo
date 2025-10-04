@@ -69,22 +69,31 @@ export async function startStreamingSession(userKey: string): Promise<void> {
 /**
  * Stops the current streaming session for the given user:
  * 1. Marks all open sessions (`stoppedAt IS NULL`) as stopped.
- * 2. Broadcasts a `"stopped"` event to the user’s Web PubSub group.
+ * 2. Broadcasts a `"stopped"` event to the user's Web PubSub group.
  *
- * @param userKey - The user’s UUID or email.
+ * @param userKey - The user's UUID or email.
+ * @param stopReason - The reason for stopping: 'COMMAND' | 'DISCONNECT'
  */
-export async function stopStreamingSession(userKey: string): Promise<void> {
+export async function stopStreamingSession(
+  userKey: string, 
+  stopReason: 'COMMAND' | 'DISCONNECT' = 'DISCONNECT'
+): Promise<void> {
   const userId = await resolveUserId(userKey);
   if (!userId) {
     console.warn(`[stopStreamingSession] User not found: ${userKey}`);
     return;
   }
 
-  // 1) Close all open sessions
-  await prisma.streamingSessionHistory.updateMany({
+  // 1) Close all open sessions with stop reason
+  console.log(`[stopStreamingSession] Stopping sessions for user ${userId} with reason: ${stopReason}`);
+  const result = await prisma.streamingSessionHistory.updateMany({
     where: { userId, stoppedAt: null },
-    data: { stoppedAt: new Date() },
+    data: { 
+      stoppedAt: new Date(),
+      stopReason: stopReason
+    },
   });
+  console.log(`[stopStreamingSession] Updated ${result.count} sessions for user ${userId}`);
   const { email } = await prisma.user.findUniqueOrThrow({
     where: { id: userId },
     select: { email: true },

@@ -226,7 +226,7 @@ resource "azurerm_web_pubsub_hub" "with_handler" {
    ]
 
 }
-/*
+
 # 11. PostgreSQL database module
 module "postgres" {
   source = "./modules/database"
@@ -247,7 +247,7 @@ module "postgres" {
   # Restrict public access to specific IP ranges
   allowed_ips         = var.postgres_allowed_ips
 }
-*/
+
 # 12. Service Bus module
 module "service_bus" {
   source = "./modules/service-bus"

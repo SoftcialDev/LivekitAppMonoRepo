@@ -222,6 +222,7 @@ model StreamingSessionHistory {
   user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   startedAt     DateTime  @default(now())
   stoppedAt     DateTime?
+  stopReason    String?   // 'COMMAND' | 'DISCONNECT'
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 

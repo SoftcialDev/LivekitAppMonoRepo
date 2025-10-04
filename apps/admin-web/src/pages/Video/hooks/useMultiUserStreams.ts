@@ -33,10 +33,19 @@ export function useMultiUserStreams(
   const streamingMap = usePresenceStore(s => s.streamingMap);
 
   const fetchFor = useCallback(async (email: string) => {
-    setCredsMap(prev => ({
-      ...prev,
-      [email]: { ...prev[email], loading: true }
-    }));
+    // Only update if not already loading or if we don't have credentials
+    setCredsMap(prev => {
+      const current = prev[email];
+      if (current?.loading || current?.accessToken) {
+        return prev; // Return same reference to avoid re-renders
+      }
+      
+      return {
+        ...prev,
+        [email]: { ...current, loading: true }
+      };
+    });
+    
     try {
       const sessions = await fetchStreamingSessions();
       const sess = sessions.find(s => s.email.toLowerCase() === email);
@@ -44,15 +53,24 @@ export function useMultiUserStreams(
       const { rooms, livekitUrl } = await getLiveKitToken(sess.userId);
       const entry = (rooms as RoomWithToken[]).find(r => r.room === sess.userId);
       if (!entry) throw new Error('Missing LiveKit token');
-      setCredsMap(prev => ({
-        ...prev,
-        [email]: {
-          accessToken: entry.token,
-          roomName:    sess.userId,
-          livekitUrl,
-          loading:     false,
+      
+      setCredsMap(prev => {
+        const current = prev[email];
+        // Only update if we don't already have the same credentials
+        if (current?.accessToken === entry.token && current?.roomName === sess.userId) {
+          return prev; // Return same reference to avoid re-renders
         }
-      }));
+        
+        return {
+          ...prev,
+          [email]: {
+            accessToken: entry.token,
+            roomName:    sess.userId,
+            livekitUrl,
+            loading:     false,
+          }
+        };
+      });
     } catch {
       setCredsMap(prev => ({
         ...prev,
@@ -61,6 +79,7 @@ export function useMultiUserStreams(
     }
   }, []);
 
+  // Separate effect for managing connections - only runs when emails list changes
   useEffect(() => {
     // Tear down any old connections
     Object.values(servicesRef.current).forEach(svc => svc.disconnect());
@@ -86,10 +105,6 @@ export function useMultiUserStreams(
               }));
             }
           });
-          // initial fetch if already live
-          if (streamingMap[email]) {
-            fetchFor(email);
-          }
         })
         .catch(err => console.error(`[multiStream][${email}] setup failed`, err));
     });
@@ -98,13 +113,18 @@ export function useMultiUserStreams(
       Object.values(servicesRef.current).forEach(svc => svc.disconnect());
       servicesRef.current = {};
     };
-  }, [
-    viewerEmail,
-    emails.join(','),                          // re-run when list changes
-    JSON.stringify(Object.keys(streamingMap)
-      .filter(e => streamingMap[e])),          // to capture initial live set
-    fetchFor
-  ]);
+  }, [viewerEmail, emails.join(',')]);
+
+  // Separate effect for initial token fetch - only runs when streamingMap changes
+  useEffect(() => {
+    const streamingEmails = Object.keys(streamingMap).filter(e => streamingMap[e]);
+    
+    emails.forEach(email => {
+      if (streamingMap[email] && !credsMap[email]?.accessToken) {
+        fetchFor(email);
+      }
+    });
+  }, [emails.join(','), Object.keys(streamingMap).filter(e => streamingMap[e]).join(','), fetchFor]);
 
 
 

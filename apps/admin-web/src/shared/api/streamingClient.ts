@@ -30,6 +30,8 @@ export interface StreamingSessionHistoryDto {
    * Will be `null` if the session is still active.
    */
   stoppedAt: string | null;
+  /** Reason for stopping: 'COMMAND' | 'DISCONNECT' */
+  stopReason?: string;
   /** ISO-8601 timestamp when this record was created. */
   createdAt: string;
   /** ISO-8601 timestamp when this record was last updated. */
@@ -92,5 +94,28 @@ export class StreamingClient {
     }
 
     return latest;
+  }
+
+  /**
+   * Fetch the most recent streaming session history entry with stopReason
+   * for the currently authenticated user.
+   *
+   * @returns A promise that resolves to the latest {@link StreamingSessionHistoryDto} with stopReason.
+   * @throws If the API response is invalid or if no history entries are found.
+   */
+  public async fetchLastSessionWithReason(): Promise<StreamingSessionHistoryDto> {
+    const res = await apiClient.get<{ session: StreamingSessionHistoryDto | null }>(
+      '/api/FetchStreamingSessionHistory'
+    );
+
+    if (!res.data) {
+      throw new Error('Invalid StreamingSessionHistory response');
+    }
+
+    if (!res.data.session) {
+      throw new Error('No streaming session history found');
+    }
+
+    return res.data.session;
   }
 }
