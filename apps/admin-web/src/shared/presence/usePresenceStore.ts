@@ -74,12 +74,27 @@ export const usePresenceStore = create<PresenceState>((set, get) => {
     loadSnapshot: async (): Promise<void> => {
       set({ loading: true, error: null })
       try {
+        console.log('[DEBUG] Loading presence snapshot...')
         const { online = [], offline = [] } = await fetchPresence()
+        console.log('[DEBUG] Presence data:', { 
+          onlineCount: online.length, 
+          offlineCount: offline.length,
+          onlineEmails: online.map(u => u.email),
+          offlineEmails: offline.map(u => u.email)
+        })
+        
         const sessions = await fetchStreamingSessions()
+        console.log('[DEBUG] Streaming sessions:', {
+          sessionCount: sessions.length,
+          sessionEmails: sessions.map(s => s.email)
+        })
+        
         const map: Record<string, boolean> = {}
         ;(sessions as { email: string }[]).forEach(s => {
           map[s.email] = true
         })
+
+        console.log('[DEBUG] Final streaming map:', map)
 
         set({
           onlineUsers: online,

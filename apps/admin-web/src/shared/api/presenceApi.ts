@@ -19,9 +19,10 @@ interface PagedPresenceResponse {
 }
 
 /**
- * Fetches presence data from the backend and splits it into online/offline lists.
+ * Fetches ALL presence data from the backend by paginating through all pages.
+ * This ensures we get all users, not just the first page.
  *
- * GET `/api/GetPresenceStatus` returns:
+ * GET `/api/GetWebsocketPresenceStatus` returns paginated data:
  * ```json
  * {
  *   "total": number,
@@ -49,10 +50,43 @@ export async function fetchPresence(): Promise<{
   online:  UserStatus[]
   offline: UserStatus[]
 }> {
-  const resp = await apiClient.get<PagedPresenceResponse>('/api/GetWebsocketPresenceStatus')
-  const items = resp.data.items ?? []
+  console.log('[DEBUG] Starting to fetch ALL presence data...')
+  
+  let allItems: PresenceItem[] = []
+  let currentPage = 1
+  let totalPages = 1
+  const pageSize = 50 // Reasonable page size
+  
+  // Fetch all pages
+  do {
+    console.log(`[DEBUG] Fetching page ${currentPage}...`)
+    const resp = await apiClient.get<PagedPresenceResponse>('/api/GetWebsocketPresenceStatus', {
+      params: {
+        page: currentPage,
+        pageSize: pageSize
+      }
+    })
+    
+    const data = resp.data
+    console.log(`[DEBUG] API Response for page ${currentPage}:`, {
+      total: data.total,
+      page: data.page,
+      pageSize: data.pageSize,
+      itemsCount: data.items?.length ?? 0,
+      items: data.items?.map(i => ({ email: i.email, status: i.status }))
+    })
+    
+    allItems = [...allItems, ...(data.items ?? [])]
+    
+    totalPages = Math.ceil((data.total ?? 0) / pageSize)
+    console.log(`[DEBUG] Page ${currentPage}/${totalPages}: ${data.items?.length ?? 0} items (total so far: ${allItems.length})`)
+    
+    currentPage++
+  } while (currentPage <= totalPages)
+  
+  console.log(`[DEBUG] Fetched all pages: ${allItems.length} total users`)
 
-  const online = items
+  const online = allItems
     .filter(u => u.status === 'online')
     .map<UserStatus>(u => ({
       email:      u.email,
@@ -64,7 +98,7 @@ export async function fetchPresence(): Promise<{
       azureAdObjectId: (u as any).azureAdObjectId ?? null,
     }))
 
-  const offline = items
+  const offline = allItems
     .filter(u => u.status === 'offline')
     .map<UserStatus>(u => ({
       email:      u.email,
@@ -76,5 +110,6 @@ export async function fetchPresence(): Promise<{
       azureAdObjectId: (u as any).azureAdObjectId ?? null,
     }))
 
+  console.log(`[DEBUG] Final result: ${online.length} online, ${offline.length} offline`)
   return { online, offline }
 }

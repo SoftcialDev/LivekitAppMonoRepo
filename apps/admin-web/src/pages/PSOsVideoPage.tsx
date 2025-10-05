@@ -114,6 +114,14 @@ const PSOsPage: React.FC = () => {
   /* ------------------------------------------------------------------ */
 
   const allPsos: PSOWithStatus[] = useMemo(() => {
+    console.log('[DEBUG] Building allPsos:', {
+      onlineUsersCount: onlineUsers.length,
+      onlineUsersEmails: onlineUsers.map(u => u.email),
+      allowedEmailsCount: allowedEmails.size,
+      allowedEmails: Array.from(allowedEmails),
+      viewerEmail
+    });
+
     const decorate = (u: UserStatus): PSOWithStatus => ({
       email:    u.email,
       fullName: u.fullName ?? u.name ?? u.email,
@@ -131,11 +139,16 @@ const PSOsPage: React.FC = () => {
       )
       .map(decorate);
 
+    console.log('[DEBUG] Filtered PSOs:', {
+      filteredCount: currentOnlineUsers.length,
+      filteredEmails: currentOnlineUsers.map(p => p.email)
+    });
+
     const result = currentOnlineUsers
       .sort((a, b) => Number(b.isOnline) - Number(a.isOnline));
       
     return result;
-  }, [onlineUsers, allowedEmails, supMap]);
+  }, [onlineUsers, allowedEmails, supMap, viewerEmail]);
 
   /* ------------------------------------------------------------------ */
   /* 4️⃣ Pinned PSOs (dropdown) — persisted                              */
