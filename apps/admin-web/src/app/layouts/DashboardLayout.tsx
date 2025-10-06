@@ -5,6 +5,7 @@ import { Outlet } from "react-router-dom";
 import { HeaderProvider } from "../providers/HeaderContext";
 import Sidebar from "@/shared/ui/Sidebar";
 import Header from "@/shared/ui/Header";
+import SidebarToggle from "@/shared/ui/SidebarToggle";
 
 
 interface LayoutProps {}
@@ -80,6 +81,15 @@ const Layout: React.FC<LayoutProps> = (): JSX.Element => {
         <div className="relative flex flex-col min-h-0">
           <Header />
 
+          {/* Sidebar toggle button - positioned at the edge */}
+          <div className={`fixed top-1/2 z-20 transform -translate-y-1/2 transition-all duration-300 ${
+            isCollapsed ? "left-0" : "left-[350px]"
+          }`}>
+            <SidebarToggle
+              isCollapsed={isCollapsed}
+              onToggle={() => setIsCollapsed(c => !c)}
+            />
+          </div>
 
           <main className="flex-1 overflow-hidden bg-[var(--color-primary-dark)]">
             <Outlet />

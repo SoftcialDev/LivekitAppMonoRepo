@@ -5,6 +5,7 @@ import { useAuth } from "../auth/useAuth";
 import { usePresenceStore } from "../presence/usePresenceStore";
 import Header from "./Header";
 import Sidebar from "./Sidebar";
+import SidebarToggle from "./SidebarToggle";
 
 interface LayoutProps {}
 
@@ -64,20 +65,24 @@ const Layout: React.FC<LayoutProps> = () => {
 
   return (
     <HeaderProvider>
-      <div className="grid grid-cols-[350px_1fr] min-h-screen">
-        <Sidebar
-          onlineUsers={onlineUsers}
-          offlineUsers={offlineUsers}
-          loading={false}
-          isCollapsed={isCollapsed}
-          onToggleCollapse={handleToggleCollapse}
-        />
-        <div className="flex flex-col min-h-0">
-          <Header />
-          <main className="flex-1 overflow-hidden bg-[var(--color-primary-dark)]">
-            <Outlet />
-          </main>
+      <div className="relative">
+        <div className="grid grid-cols-[350px_1fr] min-h-screen">
+          <Sidebar
+            onlineUsers={onlineUsers}
+            offlineUsers={offlineUsers}
+            loading={false}
+            isCollapsed={isCollapsed}
+            onToggleCollapse={handleToggleCollapse}
+          />
+          
+          <div className="flex flex-col min-h-0">
+            <Header />
+            <main className="flex-1 overflow-hidden bg-[var(--color-primary-dark)]">
+              <Outlet />
+            </main>
+          </div>
         </div>
+        
       </div>
     </HeaderProvider>
   );

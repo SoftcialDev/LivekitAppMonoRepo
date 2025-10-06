@@ -15,6 +15,7 @@ import {
   ManagerStatus,
 } from "@/pages/ContactManager/hooks/useContactManagerStatus";
 import { PsoDashboardForm } from '@/pages/PSO/components/PSODashboardForm';
+import SidebarToggle from "./SidebarToggle";
 
 /**
  * SidebarProps
@@ -240,9 +241,10 @@ const cmFilterAdornment = useMemo(() => {
       className={
         `relative flex flex-col bg-[var(--color-primary)] text-white ` +
         `border-r border-black transition-all duration-300 ` +
-        (isCollapsed ? "w-f overflow-hidden" : "w-[350px]")
+        (isCollapsed ? "w-0 overflow-hidden" : "w-[350px]")
       }
     >
+
       {/* Logo header */}
       <div className="border-b border-black px-6 py-4">
         <IconWithLabel

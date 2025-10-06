@@ -81,36 +81,41 @@ export function useMultiUserStreams(
 
   // Separate effect for managing connections - only runs when emails list changes
   useEffect(() => {
-    // Tear down any old connections
-    Object.values(servicesRef.current).forEach(svc => svc.disconnect());
+    // ✅ CLEANUP - Limpiar referencias anteriores
     servicesRef.current = {};
 
-    emails.forEach(email => {
-      const client = new WebPubSubClientService();
-      servicesRef.current[email] = client;
-
-      client.connect(viewerEmail)
-        .then(() => client.joinGroup(email))
-        .then(() => {
-          client.onMessage<{ email?: string; status: 'started'|'stopped' }>(msg => {
-            if (typeof msg.email !== 'string') return;
-            if (msg.email.toLowerCase() !== email) return;
-            if (msg.status === 'started') {
-              fetchFor(email);
-            } else {
-              // ONLY here limpiamos
-              setCredsMap(prev => ({
-                ...prev,
-                [email]: { loading: false }
-              }));
-            }
-          });
-        })
-        .catch(err => console.error(`[multiStream][${email}] setup failed`, err));
-    });
+    // ✅ USAR SINGLETON - Una sola instancia para todos los grupos
+    const client = WebPubSubClientService.getInstance();
+    
+    // Conectar una sola vez
+    client.connect(viewerEmail)
+      .then(() => {
+        // Unirse a todos los grupos de usuarios
+        return Promise.all(emails.map(email => client.joinGroup(email)));
+      })
+      .then(() => {
+        // Configurar listener una sola vez
+        client.onMessage<{ email?: string; status: 'started'|'stopped' }>(msg => {
+          if (typeof msg.email !== 'string') return;
+          const targetEmail = msg.email.toLowerCase();
+          if (!emails.includes(targetEmail)) return;
+          
+          if (msg.status === 'started') {
+            fetchFor(targetEmail);
+          } else {
+            // ONLY here limpiamos
+            setCredsMap(prev => ({
+              ...prev,
+              [targetEmail]: { loading: false }
+            }));
+          }
+        });
+      })
+      .catch(err => console.error(`[multiStream] setup failed`, err));
 
     return () => {
-      Object.values(servicesRef.current).forEach(svc => svc.disconnect());
+      // ✅ CLEANUP - Solo desconectar si es necesario
+      // El singleton se maneja en usePresenceStore
       servicesRef.current = {};
     };
   }, [viewerEmail, emails.join(',')]);

@@ -115,10 +115,28 @@ export const usePresenceStore = create<PresenceState>((set, get) => {
     },
 
     connectWebSocket: async (currentEmail: string): Promise<void> => {
-      svc = new WebPubSubClientService()
+      console.log('[DEBUG] Starting WebSocket connection for:', currentEmail)
+      
+      // ✅ USAR SINGLETON - Evitar múltiples instancias
+      svc = WebPubSubClientService.getInstance()
+      console.log('[DEBUG] WebPubSubClientService singleton obtained')
+      
+      // ✅ FORCE CLEANUP - Limpiar conexiones existentes antes de conectar
+      console.log('[DEBUG] Force cleanup before connecting...')
+      await svc.forceCleanup()
+      console.log('[DEBUG] Force cleanup completed')
+      
+      console.log('[DEBUG] Calling svc.connect...')
       await svc.connect(currentEmail)
+      console.log('[DEBUG] svc.connect completed')
+      
+      console.log('[DEBUG] Calling svc.joinGroup("presence")...')
       await svc.joinGroup('presence')
+      console.log('[DEBUG] svc.joinGroup("presence") completed successfully')
+      
+      console.log('[DEBUG] Calling presenceClient.setOnline()...')
       await presenceClient.setOnline()
+      console.log('[DEBUG] presenceClient.setOnline() completed')
 
       svc.onMessage<any>(msg => {
         if (msg.type !== 'presence') return
@@ -156,7 +174,15 @@ export const usePresenceStore = create<PresenceState>((set, get) => {
       presenceClient.setOffline().catch(err => {
         console.warn('Failed to mark offline:', err)
       })
-      svc?.disconnect()
+      
+      // ✅ FORCE CLEANUP - Limpiar todas las conexiones al desconectar
+      if (svc) {
+        console.log('[DEBUG] Force cleanup on disconnect...')
+        svc.forceCleanup().catch(err => {
+          console.warn('Failed to force cleanup:', err)
+        })
+      }
+      
       svc = null
     }
   }

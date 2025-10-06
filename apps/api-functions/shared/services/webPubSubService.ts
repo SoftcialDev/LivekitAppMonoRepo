@@ -157,11 +157,47 @@ export async function listAllGroupsAndUsers(): Promise<void> {
         const connections = await listConnectionsInGroup(groupName);
         
         console.log(`[DEBUG] Total users in group "${groupName}": ${connections.length}`);
+        
         if (connections.length > 0) {
-          connections.forEach((conn, index) => {
-            console.log(`  [DEBUG] User ${index + 1}: ${conn.userId || 'unknown'} (Connection: ${conn.connectionId})`);
+          // Contar usuarios únicos en el grupo
+          const userCounts = new Map<string, number>();
+          connections.forEach(conn => {
+            const userId = conn.userId || 'unknown';
+            userCounts.set(userId, (userCounts.get(userId) || 0) + 1);
           });
-          console.log(`[DEBUG] Users: [${connections.map(c => c.userId || 'unknown').join(', ')}]`);
+          
+          // Mostrar resumen del grupo
+          console.log(`[DEBUG] ===== ${groupName.toUpperCase()} GROUP SUMMARY =====`);
+          const sortedUsers = Array.from(userCounts.entries())
+            .sort((a, b) => b[1] - a[1]); // Ordenar por número de conexiones
+          
+          // Para el grupo "presence", mostrar TODOS los usuarios sin truncar
+          if (groupName === 'presence') {
+            sortedUsers.forEach(([userId, count], index) => {
+              const warningIcon = count > 10 ? '⚠️' : count > 5 ? '🔶' : '';
+              console.log(`[DEBUG] ${index + 1}. ${userId}: ${count} conexiones ${warningIcon}`);
+            });
+          } else {
+            // Para otros grupos, truncar a 10
+            const truncatedUsers = sortedUsers.slice(0, 10);
+            truncatedUsers.forEach(([userId, count], index) => {
+              const warningIcon = count > 10 ? '⚠️' : count > 5 ? '🔶' : '';
+              console.log(`[DEBUG] ${index + 1}. ${userId}: ${count} conexiones ${warningIcon}`);
+            });
+            
+            if (userCounts.size > 10) {
+              console.log(`[DEBUG] ... and ${userCounts.size - 10} more users (truncated)`);
+            }
+          }
+          
+          // Estadísticas del grupo
+          const totalConnections = Array.from(userCounts.values()).reduce((sum, count) => sum + count, 0);
+          const usersWithManyConnections = Array.from(userCounts.values()).filter(count => count > 10).length;
+          
+          console.log(`[DEBUG] Group "${groupName}" stats: ${userCounts.size} unique users, ${totalConnections} total connections`);
+          if (usersWithManyConnections > 0) {
+            console.log(`[WARNING] ⚠️ ${usersWithManyConnections} users in "${groupName}" have >10 connections`);
+          }
         }
         console.log('[DEBUG] ---');
         
@@ -182,21 +218,51 @@ export async function listAllGroupsAndUsers(): Promise<void> {
       
       console.log(`[DEBUG] Found ${dbUsers.length} users in database`);
       
+      // Array para almacenar el resumen de conexiones
+      const connectionSummary: Array<{email: string, connections: number, status: string}> = [];
+      
       for (const user of dbUsers) {
         if (user.presence?.status === 'online') {
-          console.log(`[DEBUG] Checking personal group for online user: ${user.email}`);
-          
           try {
             const userConnections = await listConnectionsInGroup(user.email);
-            
-            console.log(`[DEBUG] User ${user.email} personal group has ${userConnections.length} connections`);
-            userConnections.forEach((conn, index) => {
-              console.log(`  [DEBUG] User ${user.email} in personal group: ${conn.userId || 'unknown'} (Connection: ${conn.connectionId})`);
+            connectionSummary.push({
+              email: user.email,
+              connections: userConnections.length,
+              status: user.presence?.status || 'unknown'
             });
           } catch (userGroupError: any) {
-            console.log(`[DEBUG] User ${user.email} personal group not found or error: ${userGroupError.message}`);
+            connectionSummary.push({
+              email: user.email,
+              connections: 0,
+              status: 'error'
+            });
           }
         }
+      }
+      
+      // Mostrar resumen ordenado por número de conexiones
+      console.log('[DEBUG] ===== CONNECTION SUMMARY =====');
+      connectionSummary
+        .sort((a, b) => b.connections - a.connections) // Ordenar por número de conexiones (mayor a menor)
+        .forEach((user, index) => {
+          const statusIcon = user.status === 'online' ? '🟢' : user.status === 'error' ? '❌' : '⚪';
+          const warningIcon = user.connections > 10 ? '⚠️' : user.connections > 5 ? '🔶' : '';
+          console.log(`[DEBUG] ${index + 1}. ${statusIcon} ${user.email}: ${user.connections} conexiones ${warningIcon}`);
+        });
+      
+      // Mostrar estadísticas
+      const totalConnections = connectionSummary.reduce((sum, user) => sum + user.connections, 0);
+      const usersWithConnections = connectionSummary.filter(user => user.connections > 0).length;
+      const usersWithManyConnections = connectionSummary.filter(user => user.connections > 10).length;
+      
+      console.log(`[DEBUG] ===== STATISTICS =====`);
+      console.log(`[DEBUG] Total users checked: ${connectionSummary.length}`);
+      console.log(`[DEBUG] Users with connections: ${usersWithConnections}`);
+      console.log(`[DEBUG] Users with >10 connections: ${usersWithManyConnections}`);
+      console.log(`[DEBUG] Total connections: ${totalConnections}`);
+      
+      if (usersWithManyConnections > 0) {
+        console.log(`[WARNING] ⚠️ ${usersWithManyConnections} users have too many connections (connection leaks detected)`);
       }
       
     } catch (error: any) {
@@ -220,40 +286,28 @@ export async function listAllGroupsAndUsers(): Promise<void> {
  */
 async function listConnectionsInGroup(groupName: string): Promise<Array<{connectionId: string, userId?: string}>> {
   try {
-    const hubName = config.webPubSubHubName; // From your config
-    const endpoint = config.webPubSubEndpoint;
-    const accessKey = config.webPubSubKey;
+    console.log(`[DEBUG] Using Web PubSub SDK to list connections in group: "${groupName}"`);
     
-    // Create SAS token for authentication
-    const token = generateSasToken(endpoint, accessKey, hubName);
+    // Use the existing Web PubSub client instead of REST API
+    const groupClient = wpsClient.group(groupName);
     
-    const url = `${endpoint}/api/hubs/${hubName}/groups/${groupName}/connections?api-version=2024-12-01`;
+    console.log(`[DEBUG] Getting connections from SDK for group: "${groupName}"`);
+    const connections = await groupClient.listConnections();
     
-    console.log(`[DEBUG] Making REST API call to: ${url}`);
+    console.log(`[DEBUG] SDK returned connections for group "${groupName}":`, connections);
     
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
-    });
+    const result: Array<{connectionId: string, userId?: string}> = [];
     
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    for await (const conn of connections) {
+      result.push({
+        connectionId: conn.connectionId || 'unknown',
+        userId: conn.userId || undefined
+      });
     }
     
-    const data = await response.json();
-    console.log(`[DEBUG] REST API response for group "${groupName}":`, data);
-    
-    // Parse the response - it should contain an array of connections
-    const connections = data.connections || data || [];
-    
-    return connections.map((conn: any) => ({
-      connectionId: conn.connectionId || conn.id || 'unknown',
-      userId: conn.userId || conn.user || undefined
-    }));
-    
+    console.log(`[DEBUG] Processed ${result.length} connections for group "${groupName}"`);
+    return result;
+
   } catch (error: any) {
     console.error(`[WebPubSubService] Error listing connections in group "${groupName}":`, error);
     throw new Error(`Failed to list connections in group "${groupName}": ${error.message}`);
@@ -269,13 +323,40 @@ async function listConnectionsInGroup(groupName: string): Promise<Array<{connect
  * @returns SAS token string
  */
 function generateSasToken(endpoint: string, accessKey: string, hubName: string): string {
-  // This is a simplified SAS token generation
-  // In production, you should use proper SAS token generation
   const crypto = require('crypto');
   const expires = Math.floor(Date.now() / 1000) + 3600; // 1 hour from now
-  const stringToSign = `${endpoint}/api/hubs/${hubName}\n${expires}`;
-  const signature = crypto.createHmac('sha256', accessKey).update(stringToSign).digest('base64');
-  return `SharedAccessSignature sr=${encodeURIComponent(endpoint)}&sig=${encodeURIComponent(signature)}&se=${expires}`;
+  
+  // For Web PubSub, we need to use the access key directly as a JWT
+  // The access key is actually a connection string that contains the key
+  // Format: "Endpoint=https://...;AccessKey=...;Version=1.0;"
+  
+  console.log(`[DEBUG] Generating SAS token for endpoint: ${endpoint}`);
+  console.log(`[DEBUG] Access key length: ${accessKey.length}`);
+  console.log(`[DEBUG] Hub name: ${hubName}`);
+  
+  // For Web PubSub, we can use the access key directly as a JWT token
+  // or create a proper SAS token
+  try {
+    // Try to parse the connection string format
+    if (accessKey.includes('Endpoint=')) {
+      // This is a connection string, extract the key
+      const keyMatch = accessKey.match(/AccessKey=([^;]+)/);
+      if (keyMatch) {
+        const actualKey = keyMatch[1];
+        console.log(`[DEBUG] Extracted key from connection string`);
+        return actualKey; // Use the key directly
+      }
+    }
+    
+    // If it's not a connection string, use it as is
+    console.log(`[DEBUG] Using access key directly`);
+    return accessKey;
+    
+  } catch (error: any) {
+    console.error(`[DEBUG] Error generating SAS token:`, error.message);
+    // Fallback: return the access key as is
+    return accessKey;
+  }
 }
 
 /**
