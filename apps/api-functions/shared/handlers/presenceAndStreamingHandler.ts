@@ -175,9 +175,12 @@ export const presenceAndStreamingHandler: AzureFunction = async (
         
         // List all groups and users
         try {
+          context.log.info('🔍 Starting listAllGroupsAndUsers...');
           await listAllGroupsAndUsers();
+          context.log.info('✅ listAllGroupsAndUsers completed');
         } catch (error: any) {
-          context.log.warn(`Failed to list all groups: ${error.message}`);
+          context.log.error(`❌ Failed to list all groups: ${error.message}`);
+          context.log.error(`❌ Error stack: ${error.stack}`);
         }
         
         // Log active users in presence group with detailed comparison
