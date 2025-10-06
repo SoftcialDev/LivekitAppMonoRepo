@@ -131,14 +131,14 @@ export async function getActiveUsersInPresenceGroup(): Promise<Array<{ userId: s
 }
 
 /**
- * Lists users in specific known groups.
+ * Lists users in specific known groups using REST API.
  *
  * @returns Promise<void>
  * @throws Error when unable to retrieve group information
  */
 export async function listAllGroupsAndUsers(): Promise<void> {
   try {
-    console.log('[DEBUG] ===== LISTING USERS IN KNOWN GROUPS =====');
+    console.log('[DEBUG] ===== LISTING USERS IN KNOWN GROUPS (REST API) =====');
     
     // Known groups to check
     const knownGroups = [
@@ -148,28 +148,20 @@ export async function listAllGroupsAndUsers(): Promise<void> {
       'streaming'
     ];
     
-    console.log(`[DEBUG] Checking ${knownGroups.length} known groups:`);
+    console.log(`[DEBUG] Checking ${knownGroups.length} known groups using REST API:`);
     
     for (const groupName of knownGroups) {
       console.log(`[DEBUG] Checking group: "${groupName}"`);
       
       try {
-        const groupClient = wpsClient.group(groupName);
-        const connections = await groupClient.listConnections();
+        const connections = await listConnectionsInGroup(groupName);
         
-        let userCount = 0;
-        const users: string[] = [];
-        
-        for await (const conn of connections) {
-          userCount++;
-          const userId = conn.userId || 'unknown';
-          users.push(userId);
-          console.log(`  [DEBUG] User ${userCount}: ${userId} (Connection: ${(conn as any).connectionId || 'N/A'})`);
-        }
-        
-        console.log(`[DEBUG] Total users in group "${groupName}": ${userCount}`);
-        if (users.length > 0) {
-          console.log(`[DEBUG] Users: [${users.join(', ')}]`);
+        console.log(`[DEBUG] Total users in group "${groupName}": ${connections.length}`);
+        if (connections.length > 0) {
+          connections.forEach((conn, index) => {
+            console.log(`  [DEBUG] User ${index + 1}: ${conn.userId || 'unknown'} (Connection: ${conn.connectionId})`);
+          });
+          console.log(`[DEBUG] Users: [${connections.map(c => c.userId || 'unknown').join(', ')}]`);
         }
         console.log('[DEBUG] ---');
         
@@ -195,16 +187,12 @@ export async function listAllGroupsAndUsers(): Promise<void> {
           console.log(`[DEBUG] Checking personal group for online user: ${user.email}`);
           
           try {
-            const userGroupClient = wpsClient.group(user.email);
-            const userConnections = await userGroupClient.listConnections();
+            const userConnections = await listConnectionsInGroup(user.email);
             
-            let userGroupCount = 0;
-            for await (const userConn of userConnections) {
-              userGroupCount++;
-              console.log(`  [DEBUG] User ${user.email} in personal group: ${userConn.userId} (Connection: ${(userConn as any).connectionId || 'N/A'})`);
-            }
-            
-            console.log(`[DEBUG] User ${user.email} personal group has ${userGroupCount} connections`);
+            console.log(`[DEBUG] User ${user.email} personal group has ${userConnections.length} connections`);
+            userConnections.forEach((conn, index) => {
+              console.log(`  [DEBUG] User ${user.email} in personal group: ${conn.userId || 'unknown'} (Connection: ${conn.connectionId})`);
+            });
           } catch (userGroupError: any) {
             console.log(`[DEBUG] User ${user.email} personal group not found or error: ${userGroupError.message}`);
           }
@@ -221,6 +209,73 @@ export async function listAllGroupsAndUsers(): Promise<void> {
     console.error('[WebPubSubService] Error listing groups and users:', error);
     throw new Error(`Failed to list groups and users: ${error.message}`);
   }
+}
+
+/**
+ * Lists connections in a specific group using REST API.
+ *
+ * @param groupName - Name of the group to list connections for
+ * @returns Promise<Array<{connectionId: string, userId?: string}>>
+ * @throws Error when unable to retrieve group connections
+ */
+async function listConnectionsInGroup(groupName: string): Promise<Array<{connectionId: string, userId?: string}>> {
+  try {
+    const hubName = config.webPubSubHubName; // From your config
+    const endpoint = config.webPubSubEndpoint;
+    const accessKey = config.webPubSubKey;
+    
+    // Create SAS token for authentication
+    const token = generateSasToken(endpoint, accessKey, hubName);
+    
+    const url = `${endpoint}/api/hubs/${hubName}/groups/${groupName}/connections?api-version=2024-12-01`;
+    
+    console.log(`[DEBUG] Making REST API call to: ${url}`);
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    console.log(`[DEBUG] REST API response for group "${groupName}":`, data);
+    
+    // Parse the response - it should contain an array of connections
+    const connections = data.connections || data || [];
+    
+    return connections.map((conn: any) => ({
+      connectionId: conn.connectionId || conn.id || 'unknown',
+      userId: conn.userId || conn.user || undefined
+    }));
+    
+  } catch (error: any) {
+    console.error(`[WebPubSubService] Error listing connections in group "${groupName}":`, error);
+    throw new Error(`Failed to list connections in group "${groupName}": ${error.message}`);
+  }
+}
+
+/**
+ * Generates a SAS token for Web PubSub authentication.
+ *
+ * @param endpoint - Web PubSub endpoint URL
+ * @param accessKey - Web PubSub access key
+ * @param hubName - Hub name
+ * @returns SAS token string
+ */
+function generateSasToken(endpoint: string, accessKey: string, hubName: string): string {
+  // This is a simplified SAS token generation
+  // In production, you should use proper SAS token generation
+  const crypto = require('crypto');
+  const expires = Math.floor(Date.now() / 1000) + 3600; // 1 hour from now
+  const stringToSign = `${endpoint}/api/hubs/${hubName}\n${expires}`;
+  const signature = crypto.createHmac('sha256', accessKey).update(stringToSign).digest('base64');
+  return `SharedAccessSignature sr=${encodeURIComponent(endpoint)}&sig=${encodeURIComponent(signature)}&se=${expires}`;
 }
 
 /**
