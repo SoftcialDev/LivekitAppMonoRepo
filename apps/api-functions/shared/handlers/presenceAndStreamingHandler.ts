@@ -7,6 +7,7 @@ import prisma from "../services/prismaClienService";
 import { WebPubSubServiceClient } from "@azure/web-pubsub";
 import { AzureKeyCredential } from "@azure/core-auth";
 import { config } from "../config";
+import { logActiveUsersInPresenceGroup } from "../services/webPubSubService";
 
 /**
  * Web PubSub Service Client for connection operations
@@ -171,6 +172,13 @@ export const presenceAndStreamingHandler: AzureFunction = async (
         
         // Log all active connections
         await logActiveConnections(context);
+        
+        // Log active users in presence group with detailed comparison
+        try {
+          await logActiveUsersInPresenceGroup();
+        } catch (error: any) {
+          context.log.warn(`Failed to log presence group users: ${error.message}`);
+        }
         break;
       }
 
@@ -201,6 +209,13 @@ export const presenceAndStreamingHandler: AzureFunction = async (
         
         // Log all active connections
         await logActiveConnections(context);
+        
+        // Log active users in presence group with detailed comparison
+        try {
+          await logActiveUsersInPresenceGroup();
+        } catch (error: any) {
+          context.log.warn(`Failed to log presence group users: ${error.message}`);
+        }
         break;
       }
 
@@ -209,6 +224,13 @@ export const presenceAndStreamingHandler: AzureFunction = async (
         
         // Log all active connections
         await logActiveConnections(context);
+        
+        // Log active users in presence group with detailed comparison
+        try {
+          await logActiveUsersInPresenceGroup();
+        } catch (error: any) {
+          context.log.warn(`Failed to log presence group users: ${error.message}`);
+        }
         break;
 
       default:
