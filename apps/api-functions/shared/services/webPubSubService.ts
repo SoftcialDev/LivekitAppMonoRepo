@@ -94,22 +94,132 @@ export async function broadcastPresence(
  */
 export async function getActiveUsersInPresenceGroup(): Promise<Array<{ userId: string; userRoles: string[] }>> {
   try {
+    console.log('[DEBUG] Getting group client for "presence"...');
     const groupClient = wpsClient.group("presence");
+    
+    console.log('[DEBUG] Calling listConnections() on presence group...');
     const connections = await groupClient.listConnections();
     
-    const activeUsers: Array<{ userId: string; userRoles: string[] }> = [];
+    console.log('[DEBUG] listConnections() returned:', typeof connections);
     
+    const activeUsers: Array<{ userId: string; userRoles: string[] }> = [];
+    let connectionCount = 0;
+    
+    console.log('[DEBUG] Iterating through connections...');
     for await (const conn of connections) {
+      connectionCount++;
+      console.log(`[DEBUG] Connection ${connectionCount}:`, {
+        userId: conn.userId,
+        userRoles: (conn as any).userRoles,
+        connectionId: (conn as any).connectionId
+      });
+      
       activeUsers.push({
         userId: conn.userId || 'unknown',
         userRoles: (conn as any).userRoles || []
       });
     }
     
+    console.log(`[DEBUG] Total connections found: ${connectionCount}`);
+    console.log(`[DEBUG] Active users array length: ${activeUsers.length}`);
+    
     return activeUsers;
   } catch (error: any) {
     console.error('[WebPubSubService] Error getting active users in presence group:', error);
     throw new Error(`Failed to get active users in presence group: ${error.message}`);
+  }
+}
+
+/**
+ * Lists users in specific known groups.
+ *
+ * @returns Promise<void>
+ * @throws Error when unable to retrieve group information
+ */
+export async function listAllGroupsAndUsers(): Promise<void> {
+  try {
+    console.log('[DEBUG] ===== LISTING USERS IN KNOWN GROUPS =====');
+    
+    // Known groups to check
+    const knownGroups = [
+      'presence',
+      'livekit_agent_azure_pubsub',
+      'notifications',
+      'streaming'
+    ];
+    
+    console.log(`[DEBUG] Checking ${knownGroups.length} known groups:`);
+    
+    for (const groupName of knownGroups) {
+      console.log(`[DEBUG] Checking group: "${groupName}"`);
+      
+      try {
+        const groupClient = wpsClient.group(groupName);
+        const connections = await groupClient.listConnections();
+        
+        let userCount = 0;
+        const users: string[] = [];
+        
+        for await (const conn of connections) {
+          userCount++;
+          const userId = conn.userId || 'unknown';
+          users.push(userId);
+          console.log(`  [DEBUG] User ${userCount}: ${userId} (Connection: ${(conn as any).connectionId || 'N/A'})`);
+        }
+        
+        console.log(`[DEBUG] Total users in group "${groupName}": ${userCount}`);
+        if (users.length > 0) {
+          console.log(`[DEBUG] Users: [${users.join(', ')}]`);
+        }
+        console.log('[DEBUG] ---');
+        
+      } catch (groupError: any) {
+        console.log(`[DEBUG] Group "${groupName}" not found or error: ${groupError.message}`);
+      }
+    }
+    
+    // Check for user-specific groups based on known users from DB
+    console.log('[DEBUG] Checking for user-specific groups...');
+    try {
+      // Get users from database to check their personal groups
+      const prisma = (await import('./prismaClienService')).default;
+      const dbUsers = await prisma.user.findMany({
+        where: { deletedAt: null },
+        select: { id: true, email: true, presence: { select: { status: true } } }
+      });
+      
+      console.log(`[DEBUG] Found ${dbUsers.length} users in database`);
+      
+      for (const user of dbUsers) {
+        if (user.presence?.status === 'online') {
+          console.log(`[DEBUG] Checking personal group for online user: ${user.email}`);
+          
+          try {
+            const userGroupClient = wpsClient.group(user.email);
+            const userConnections = await userGroupClient.listConnections();
+            
+            let userGroupCount = 0;
+            for await (const userConn of userConnections) {
+              userGroupCount++;
+              console.log(`  [DEBUG] User ${user.email} in personal group: ${userConn.userId} (Connection: ${(userConn as any).connectionId || 'N/A'})`);
+            }
+            
+            console.log(`[DEBUG] User ${user.email} personal group has ${userGroupCount} connections`);
+          } catch (userGroupError: any) {
+            console.log(`[DEBUG] User ${user.email} personal group not found or error: ${userGroupError.message}`);
+          }
+        }
+      }
+      
+    } catch (error: any) {
+      console.log(`[DEBUG] Error checking user-specific groups: ${error.message}`);
+    }
+    
+    console.log('[DEBUG] ===== END GROUP LISTING =====');
+    
+  } catch (error: any) {
+    console.error('[WebPubSubService] Error listing groups and users:', error);
+    throw new Error(`Failed to list groups and users: ${error.message}`);
   }
 }
 
@@ -121,6 +231,7 @@ export async function getActiveUsersInPresenceGroup(): Promise<Array<{ userId: s
  */
 export async function logActiveUsersInPresenceGroup(): Promise<void> {
   try {
+    console.log('[DEBUG] ===== STARTING logActiveUsersInPresenceGroup =====');
     console.log('[DEBUG] Getting active users in presence group...');
     
     const activeUsers = await getActiveUsersInPresenceGroup();

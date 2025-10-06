@@ -7,7 +7,7 @@ import prisma from "../services/prismaClienService";
 import { WebPubSubServiceClient } from "@azure/web-pubsub";
 import { AzureKeyCredential } from "@azure/core-auth";
 import { config } from "../config";
-import { logActiveUsersInPresenceGroup } from "../services/webPubSubService";
+import { logActiveUsersInPresenceGroup, listAllGroupsAndUsers } from "../services/webPubSubService";
 
 /**
  * Web PubSub Service Client for connection operations
@@ -172,6 +172,13 @@ export const presenceAndStreamingHandler: AzureFunction = async (
         
         // Log all active connections
         await logActiveConnections(context);
+        
+        // List all groups and users
+        try {
+          await listAllGroupsAndUsers();
+        } catch (error: any) {
+          context.log.warn(`Failed to list all groups: ${error.message}`);
+        }
         
         // Log active users in presence group with detailed comparison
         try {
