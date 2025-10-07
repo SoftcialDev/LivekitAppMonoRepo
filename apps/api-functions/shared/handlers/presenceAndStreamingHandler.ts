@@ -230,8 +230,8 @@ export const presenceAndStreamingHandler: AzureFunction = async (
         // ✅ NUEVO: Sync completo solo en disconnect
         try {
           context.log.info('🔄 Starting full sync on disconnect...');
-          const syncResult = await syncAllUsersWithDatabase();
-          context.log.info(`🔄 Full sync completed: ${syncResult.corrected} corrections, ${syncResult.warnings.length} warnings, ${syncResult.errors.length} errors`);
+          //const syncResult = await syncAllUsersWithDatabase();
+          //context.log.info(`🔄 Full sync completed: ${syncResult.corrected} corrections, ${syncResult.warnings.length} warnings, ${syncResult.errors.length} errors`);
         } catch (error: any) {
           context.log.warn(`⚠️ Full sync failed: ${error.message}`);
         }
