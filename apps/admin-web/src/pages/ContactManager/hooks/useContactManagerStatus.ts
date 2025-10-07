@@ -168,7 +168,7 @@ export function useContactManagerStatus(
           } finally {
             console.info('[CM status] reconnected — scheduling resync');
             scheduleFullSync(300);
-            showToast('Reconnected to status updates', 'success');
+
           }
         });
 
@@ -176,7 +176,7 @@ export function useContactManagerStatus(
         const offDisc = pubSub.onDisconnected(() => {
           if (!mountedRef.current) return;
           console.warn('[CM status] disconnected — will auto-retry');
-          showToast('Disconnected from status updates, reconnecting…', 'warning');
+      
         });
 
         // Handle incoming updates; apply locally, dedupe, and only fetch if needed.
@@ -213,7 +213,6 @@ export function useContactManagerStatus(
       } catch (err: any) {
         console.error('[CM status] WebPubSub setup failed', err);
         setError(err);
-        showToast('Failed to connect to status updates', 'error');
       }
     })();
 

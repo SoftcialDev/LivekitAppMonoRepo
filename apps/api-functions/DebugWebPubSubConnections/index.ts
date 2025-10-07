@@ -10,6 +10,24 @@ const debugWebPubSubConnections: AzureFunction = async (context: Context): Promi
   context.log('🔍 [DEBUG] Starting debug Web PubSub connections using existing service...');
 
   try {
+    // Simple authentication check - require a query parameter
+    const req = context.req;
+    const debugKey = req?.query?.key || req?.body?.key;
+    
+    if (debugKey !== 'debug123') {
+      context.res = {
+        status: 401,
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: {
+          error: 'Unauthorized',
+          message: 'Use ?key=debug123 to access this endpoint'
+        }
+      };
+      return;
+    }
+
     const hubName = config.webPubSubHubName;
     const endpoint = config.webPubSubEndpoint;
     const accessKey = config.webPubSubKey;
@@ -37,7 +55,8 @@ const debugWebPubSubConnections: AzureFunction = async (context: Context): Promi
         message: 'Debug Web PubSub connections completed using existing service',
         hubName,
         endpoint,
-        note: 'Check the logs above for detailed connection information'
+        note: 'Check the logs above for detailed connection information',
+        usage: 'Use ?key=debug123 to access this endpoint'
       }
     };
 

@@ -318,8 +318,25 @@ const displayList = useMemo(() => {
 
               const key = p.email.toLowerCase();
               const c = credsMap[key] ?? { loading: false };
-              const isLive = Boolean(c.accessToken);
-              const connecting = c.loading;
+              const isLive: boolean = Boolean(c.accessToken);
+              // ✅ CONNECTING: Si está cargando O si está online pero no tiene token (acaba de empezar a transmitir)
+              const connecting: boolean = c.loading || (p.isOnline && !c.accessToken && Boolean(c.roomName));
+              
+              // ✅ LOGS DE DEBUGGING - Para entender el estado del VideoCard
+              console.log(`[DEBUG] VideoCard state for ${p.email}:`, {
+                shouldStream: isLive,
+                connecting: connecting,
+                hasAccessToken: Boolean(c.accessToken),
+                loading: c.loading,
+                isOnline: p.isOnline,
+                roomName: c.roomName,
+                livekitUrl: c.livekitUrl
+              });
+              
+              // ✅ DETECTAR SI SE QUEDA EN CONNECTING DESPUÉS DE STOP
+              if (connecting && !p.isOnline) {
+                console.log(`[CONNECTING BUG] ${p.email} is connecting but user is offline - this should not happen`);
+              }
 
               return (
                 <div

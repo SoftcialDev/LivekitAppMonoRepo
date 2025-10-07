@@ -19,11 +19,11 @@ const webPubSubService = new WebPubSubServiceClient(
 );
 
 /**
- * Logs all active connections from Web PubSub
+ * Logs all active connections from Web PubSub using the same method as listAllGroupsAndUsers
  */
 async function logActiveConnections(context: Context): Promise<void> {
   try {
-    context.log.info("🔍 Getting real connections from Web PubSub...");
+    context.log.info("🔍 Getting real connections from Web PubSub using group-based method...");
     
     // Get users from database to check against Web PubSub
     const dbOnlineUsers = await prisma.presence.findMany({
@@ -37,15 +37,19 @@ async function logActiveConnections(context: Context): Promise<void> {
     
     context.log.info(`🔍 Database shows ${dbOnlineUsers.length} online users`);
     
-    // Check each user against Web PubSub
+    // Import the same function that works in listAllGroupsAndUsers
+    const { listConnectionsInGroup } = await import("../services/webPubSubService");
+    
+    // Check each user against Web PubSub using their personal group
     const realConnections: string[] = [];
     for (const user of dbOnlineUsers) {
       try {
-        const userExists = await webPubSubService.userExists(user.userId);
-        if (userExists) {
-          realConnections.push(`${user.user.email} (${user.userId})`);
+        // Check if user has connections in their personal group (same method as listAllGroupsAndUsers)
+        const userConnections = await listConnectionsInGroup(user.user.email);
+        if (userConnections.length > 0) {
+          realConnections.push(`${user.user.email} (${userConnections.length} connections)`);
         } else {
-          context.log.warn(`⚠️ User ${user.user.email} is marked online in DB but NOT in Web PubSub!`);
+          context.log.warn(`⚠️ User ${user.user.email} is marked online in DB but has NO connections in personal group!`);
         }
       } catch (error: any) {
         context.log.warn(`⚠️ Failed to check user ${user.user.email}:`, error.message);
@@ -189,6 +193,17 @@ export const presenceAndStreamingHandler: AzureFunction = async (
         } catch (error: any) {
           context.log.warn(`Failed to log presence group users: ${error.message}`);
         }
+        
+        // ✅ NUEVO: Sync ligero en connect para detectar usuarios fantasma
+        try {
+          context.log.info('🔄 Starting light sync on connect to detect ghost users...');
+          const syncResult = await syncAllUsersWithDatabase();
+          if (syncResult.corrected > 0) {
+            context.log.info(`🔄 Light sync found ${syncResult.corrected} ghost users and corrected them`);
+          }
+        } catch (error: any) {
+          context.log.warn(`⚠️ Light sync failed: ${error.message}`);
+        }
         break;
       }
 
@@ -230,8 +245,8 @@ export const presenceAndStreamingHandler: AzureFunction = async (
         // ✅ NUEVO: Sync completo solo en disconnect
         try {
           context.log.info('🔄 Starting full sync on disconnect...');
-          //const syncResult = await syncAllUsersWithDatabase();
-          //context.log.info(`🔄 Full sync completed: ${syncResult.corrected} corrections, ${syncResult.warnings.length} warnings, ${syncResult.errors.length} errors`);
+          const syncResult = await syncAllUsersWithDatabase();
+          context.log.info(`🔄 Full sync completed: ${syncResult.corrected} corrections, ${syncResult.warnings.length} warnings, ${syncResult.errors.length} errors`);
         } catch (error: any) {
           context.log.warn(`⚠️ Full sync failed: ${error.message}`);
         }

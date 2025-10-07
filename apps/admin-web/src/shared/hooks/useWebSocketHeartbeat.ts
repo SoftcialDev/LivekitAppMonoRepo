@@ -44,8 +44,20 @@ export function useWebSocketHeartbeat(userEmail: string): void {
       } else {
         console.log('[Heartbeat] ❌ WebSocket disconnected, reconnecting...');
         client.connect(userEmail)
-          .then(() => {
+          .then(async () => {
             console.log('[Heartbeat] ✅ Reconnection successful');
+            
+            // ✅ RECONECTAR A TODOS LOS GRUPOS después de reconectar
+            try {
+              await client.joinGroup('presence');
+              console.log('[Heartbeat] ✅ Rejoined presence group');
+              
+              // ✅ RECONECTAR AL GRUPO DE COMANDOS DEL USUARIO
+              await client.joinGroup(`commands:${userEmail}`);
+              console.log('[Heartbeat] ✅ Rejoined commands group');
+            } catch (error) {
+              console.error('[Heartbeat] ❌ Failed to rejoin groups:', error);
+            }
           })
           .catch((error) => {
             console.error('[Heartbeat] ❌ Reconnection failed:', error);

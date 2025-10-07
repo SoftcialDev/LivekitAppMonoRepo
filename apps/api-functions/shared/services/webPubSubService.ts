@@ -138,87 +138,93 @@ export async function getActiveUsersInPresenceGroup(): Promise<Array<{ userId: s
  */
 export async function listAllGroupsAndUsers(): Promise<void> {
   try {
-    console.log('[DEBUG] ===== LISTING USERS IN KNOWN GROUPS (REST API) =====');
+    console.log('[DEBUG] ===== LISTING CONNECTIONS BY GROUP =====');
     
-    // Known groups to check
-    const knownGroups = [
-      'presence',
+    // 1. PRIMERO: Mostrar grupo 'presence'
+    console.log('[DEBUG] ===== PRESENCE GROUP =====');
+    try {
+      const presenceConnections = await listConnectionsInGroup('presence');
+      console.log(`[DEBUG] Total connections in 'presence' group: ${presenceConnections.length}`);
+      
+      if (presenceConnections.length > 0) {
+        const userCounts = new Map<string, number>();
+        presenceConnections.forEach(conn => {
+          const userId = conn.userId || 'unknown';
+          userCounts.set(userId, (userCounts.get(userId) || 0) + 1);
+        });
+        
+        const sortedUsers = Array.from(userCounts.entries())
+          .sort((a, b) => b[1] - a[1]);
+        
+        sortedUsers.forEach(([userId, count], index) => {
+          const warningIcon = count > 10 ? '⚠️' : count > 5 ? '🔶' : '';
+          console.log(`[DEBUG] ${index + 1}. ${userId}: ${count} conexiones ${warningIcon}`);
+        });
+        
+        console.log(`[DEBUG] Presence group stats: ${userCounts.size} unique users, ${presenceConnections.length} total connections`);
+      }
+    } catch (error: any) {
+      console.log(`[DEBUG] Error checking 'presence' group: ${error.message}`);
+    }
+    
+    console.log('[DEBUG] ===== PERSONAL GROUPS =====');
+    
+    // 2. SEGUNDO: Mostrar grupos personales de usuarios online
+    try {
+      const prisma = (await import('./prismaClienService')).default;
+      const dbUsers = await prisma.user.findMany({
+        where: { 
+          deletedAt: null,
+          presence: { status: 'online' }
+        },
+        select: { id: true, email: true, presence: { select: { status: true } } }
+      });
+      
+      console.log(`[DEBUG] Checking personal groups for ${dbUsers.length} online users:`);
+      
+      for (const user of dbUsers) {
+        try {
+          const userConnections = await listConnectionsInGroup(user.email);
+          if (userConnections.length > 0) {
+            console.log(`[DEBUG] Personal group "${user.email}": ${userConnections.length} connections`);
+          }
+        } catch (userGroupError: any) {
+          // Grupo personal no existe o error - esto es normal
+        }
+      }
+    } catch (error: any) {
+      console.log(`[DEBUG] Error checking personal groups: ${error.message}`);
+    }
+    
+    // 3. TERCERO: Mostrar otros grupos conocidos
+    const otherGroups = [
       'livekit_agent_azure_pubsub',
       'notifications',
       'streaming'
     ];
     
-    console.log(`[DEBUG] Checking ${knownGroups.length} known groups using REST API:`);
+    console.log('[DEBUG] ===== OTHER KNOWN GROUPS =====');
     
-    for (const groupName of knownGroups) {
-      console.log(`[DEBUG] Checking group: "${groupName}"`);
-      
+    for (const groupName of otherGroups) {
       try {
         const connections = await listConnectionsInGroup(groupName);
-        
-        console.log(`[DEBUG] Total users in group "${groupName}": ${connections.length}`);
-        
         if (connections.length > 0) {
-          // Contar usuarios únicos en el grupo
-          const userCounts = new Map<string, number>();
-          connections.forEach(conn => {
-            const userId = conn.userId || 'unknown';
-            userCounts.set(userId, (userCounts.get(userId) || 0) + 1);
-          });
-          
-          // Mostrar resumen del grupo
-          console.log(`[DEBUG] ===== ${groupName.toUpperCase()} GROUP SUMMARY =====`);
-          const sortedUsers = Array.from(userCounts.entries())
-            .sort((a, b) => b[1] - a[1]); // Ordenar por número de conexiones
-          
-          // Para el grupo "presence", mostrar TODOS los usuarios sin truncar
-          if (groupName === 'presence') {
-            sortedUsers.forEach(([userId, count], index) => {
-              const warningIcon = count > 10 ? '⚠️' : count > 5 ? '🔶' : '';
-              console.log(`[DEBUG] ${index + 1}. ${userId}: ${count} conexiones ${warningIcon}`);
-            });
-          } else {
-            // Para otros grupos, truncar a 10
-            const truncatedUsers = sortedUsers.slice(0, 10);
-            truncatedUsers.forEach(([userId, count], index) => {
-              const warningIcon = count > 10 ? '⚠️' : count > 5 ? '🔶' : '';
-              console.log(`[DEBUG] ${index + 1}. ${userId}: ${count} conexiones ${warningIcon}`);
-            });
-            
-            if (userCounts.size > 10) {
-              console.log(`[DEBUG] ... and ${userCounts.size - 10} more users (truncated)`);
-            }
-          }
-          
-          // Estadísticas del grupo
-          const totalConnections = Array.from(userCounts.values()).reduce((sum, count) => sum + count, 0);
-          const usersWithManyConnections = Array.from(userCounts.values()).filter(count => count > 10).length;
-          
-          console.log(`[DEBUG] Group "${groupName}" stats: ${userCounts.size} unique users, ${totalConnections} total connections`);
-          if (usersWithManyConnections > 0) {
-            console.log(`[WARNING] ⚠️ ${usersWithManyConnections} users in "${groupName}" have >10 connections`);
-          }
+          console.log(`[DEBUG] Group "${groupName}": ${connections.length} connections`);
         }
-        console.log('[DEBUG] ---');
-        
       } catch (groupError: any) {
-        console.log(`[DEBUG] Group "${groupName}" not found or error: ${groupError.message}`);
+        // Grupo no existe o error - esto es normal
       }
     }
     
-    // Check for user-specific groups based on known users from DB
-    console.log('[DEBUG] Checking for user-specific groups...');
+    // 4. CUARTO: Resumen total de conexiones por usuario
+    console.log('[DEBUG] ===== TOTAL CONNECTIONS SUMMARY =====');
     try {
-      // Get users from database to check their personal groups
       const prisma = (await import('./prismaClienService')).default;
       const dbUsers = await prisma.user.findMany({
         where: { deletedAt: null },
         select: { id: true, email: true, presence: { select: { status: true } } }
       });
       
-      console.log(`[DEBUG] Found ${dbUsers.length} users in database`);
-      
-      // Array para almacenar el resumen de conexiones
       const connectionSummary: Array<{email: string, connections: number, status: string}> = [];
       
       for (const user of dbUsers) {
@@ -241,9 +247,8 @@ export async function listAllGroupsAndUsers(): Promise<void> {
       }
       
       // Mostrar resumen ordenado por número de conexiones
-      console.log('[DEBUG] ===== CONNECTION SUMMARY =====');
       connectionSummary
-        .sort((a, b) => b.connections - a.connections) // Ordenar por número de conexiones (mayor a menor)
+        .sort((a, b) => b.connections - a.connections)
         .forEach((user, index) => {
           const statusIcon = user.status === 'online' ? '🟢' : user.status === 'error' ? '❌' : '⚪';
           const warningIcon = user.connections > 10 ? '⚠️' : user.connections > 5 ? '🔶' : '';
@@ -443,7 +448,7 @@ export async function syncAllUsersWithDatabase(): Promise<{
  * @returns Promise<Array<{connectionId: string, userId?: string}>>
  * @throws Error when unable to retrieve group connections
  */
-async function listConnectionsInGroup(groupName: string): Promise<Array<{connectionId: string, userId?: string}>> {
+export async function listConnectionsInGroup(groupName: string): Promise<Array<{connectionId: string, userId?: string}>> {
   try {
     console.log(`[DEBUG] Using Web PubSub SDK to list connections in group: "${groupName}"`);
     
