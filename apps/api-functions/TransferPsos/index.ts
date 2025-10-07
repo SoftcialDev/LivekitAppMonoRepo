@@ -3,6 +3,7 @@ import { withAuth } from "../shared/middleware/auth";
 import { withErrorHandler } from "../shared/middleware/errorHandler";
 import { badRequest, forbidden, ok } from "../shared/utils/response";
 import prisma from "../shared/services/prismaClienService";
+import { sendToGroup } from "../shared/services/webPubSubService";
 import { JwtPayload } from "jsonwebtoken";
 
 /**
@@ -65,6 +66,38 @@ const transferPsosFunction: AzureFunction = withErrorHandler(
         },
         data: { supervisorId: newSup.id },
       });
+
+      // ✅ NOTIFY TRANSFERRED PSOS - Enviar notificación a PSOs transferidos
+      if (result.count > 0) {
+        try {
+          // Obtener emails de PSOs transferidos
+          const transferredPsos = await prisma.user.findMany({
+            where: {
+              role: "Employee",
+              supervisorId: newSup.id,
+              deletedAt: null,
+            },
+            select: { email: true }
+          });
+
+          // Enviar notificación a cada PSO transferido
+          for (const pso of transferredPsos) {
+            try {
+              await sendToGroup(`commands:${pso.email}`, {
+                type: 'SUPERVISOR_CHANGED',
+                newSupervisorName: newSup.fullName,
+                timestamp: new Date().toISOString()
+              });
+              ctx.log.info(`[TransferPsos] Notified PSO ${pso.email} of supervisor change to ${newSup.fullName}`);
+            } catch (notifyErr) {
+              ctx.log.warn(`[TransferPsos] Failed to notify PSO ${pso.email}:`, notifyErr);
+            }
+          }
+        } catch (notifyErr) {
+          ctx.log.warn(`[TransferPsos] Failed to notify transferred PSOs:`, notifyErr);
+          // Continue anyway - the transfer was successful
+        }
+      }
 
       return ok(ctx, { movedCount: result.count });
     });

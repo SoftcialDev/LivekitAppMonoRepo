@@ -15,6 +15,7 @@ import {
   upsertUserRole,
   findOrCreateAdmin,
 } from "../shared/services/userService";
+import { sendToGroup } from "../shared/services/webPubSubService";
 import type { JwtPayload } from "jsonwebtoken";
 
 /* -------------------------------------------------------------------------- */
@@ -93,6 +94,20 @@ const changeSupervisor: AzureFunction = withErrorHandler(
             "Employee",
             supervisorId                   // defined ⇒ set / clear link
           );
+
+          // ✅ NOTIFY PSO OF SUPERVISOR CHANGE - Enviar notificación al PSO
+          try {
+            const newSupervisorName = supEmail ? (await getUserByEmail(supEmail))?.fullName : null;
+            await sendToGroup(`commands:${email}`, {
+              type: 'SUPERVISOR_CHANGED',
+              newSupervisorName,
+              timestamp: new Date().toISOString()
+            });
+            ctx.log.info(`[ChangeSupervisor] Notified PSO ${email} of supervisor change to ${newSupervisorName || 'none'}`);
+          } catch (notifyErr) {
+            ctx.log.warn(`[ChangeSupervisor] Failed to notify PSO ${email}:`, notifyErr);
+            // Continue anyway - the supervisor change was successful
+          }
 
           updatedCount += 1;
         }

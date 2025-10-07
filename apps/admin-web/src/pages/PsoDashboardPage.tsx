@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/shared/auth/useAuth';
 import { useToast } from '@/shared/ui/ToastContext';
-import { getSupervisorForPso } from '@/shared/api/userClient';
 import { useContactManagerStatus } from './ContactManager/hooks/useContactManagerStatus';
 import { useStreamingDashboard } from './Video/hooks/useCamara';
+import { usePsoSupervisor } from './Video/hooks/usePsoSupervisor';
+import { usePsoSupervisorNotifications } from './Video/hooks/usePsoSupervisorNotifications';
 import { useAutoReloadWhenIdle } from './Video/hooks/useAutoReloadWhenIdle';
 import { useWebSocketHeartbeat } from '@/shared/hooks/useWebSocketHeartbeat';
 
@@ -51,23 +52,15 @@ const PsoDashboard: React.FC = () => {
 
   const { showToast } = useToast();                           
 
-  /** Supervisor full name to display in the banner; `null` until loaded. */
-  const [supervisorName, setSupervisorName] = useState<string | null>(null);
-
   /**
-   * Fetch the supervisor assigned to the current PSO.
-   * Skips fetching when `psoEmail` is empty.
+   * Supervisor information with real-time updates
    */
-  useEffect(() => {
-    if (!psoEmail) return;
-    getSupervisorForPso(psoEmail)
-      .then(res => {
-        if ('supervisor' in res) {
-          setSupervisorName(res.supervisor.fullName);
-        }
-      })
-      .catch(err => console.warn('Failed to fetch supervisor:', err));
-  }, [psoEmail]);
+  const { supervisor, loading: supervisorLoading, refetchSupervisor } = usePsoSupervisor(psoEmail);
+  
+  /**
+   * Listen for supervisor change notifications
+   */
+  usePsoSupervisorNotifications(psoEmail, refetchSupervisor);
 
   /**
    * WebSocket heartbeat to maintain connection in inactive tabs
@@ -108,9 +101,9 @@ const PsoDashboard: React.FC = () => {
       {/* Main wrapper with centered layout and purple background */}
       <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-[#542187]">
         {/* Supervisor banner (only shown when available) */}
-        {supervisorName && (
+        {supervisor && (
           <div className="mb-4 text-white text-lg font-semibold">
-            Supervisor: {supervisorName}
+            Supervisor: {supervisor.fullName}
           </div>
         )}
 
