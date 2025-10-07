@@ -144,39 +144,80 @@ export function useMultiUserStreams(
     client.connect(viewerEmail)
       .then(() => {
         // ✅ REGISTRAR LISTENER ANTES DE JOIN - Evitar perder eventos "started"
-        client.onMessage<{ email?: string; status: 'started'|'stopped' }>(msg => {
+        client.onMessage<any>(msg => {
           console.log(`[WS MESSAGE] Received message:`, msg);
           
-          if (typeof msg.email !== 'string') {
-            console.log(`[WS MESSAGE] Invalid email in message:`, msg.email);
+          // ✅ MANEJAR AMBOS FORMATOS: comando y estado
+          let targetEmail: string | null = null;
+          let messageType: 'command' | 'status' | 'unknown' = 'unknown';
+          
+          // Formato 1: Mensaje de comando { command: 'START', employeeEmail: '...' }
+          if (msg.command && msg.employeeEmail) {
+            targetEmail = msg.employeeEmail.toLowerCase();
+            messageType = 'command';
+            console.log(`[WS MESSAGE] Command message: ${msg.command} for ${targetEmail}`);
+          }
+          // Formato 2: Mensaje de estado { email: '...', status: 'started'|'stopped' }
+          else if (msg.email && msg.status) {
+            targetEmail = msg.email.toLowerCase();
+            messageType = 'status';
+            console.log(`[WS MESSAGE] Status message: ${msg.status} for ${targetEmail}`);
+          }
+          // Formato desconocido
+          else {
+            console.log(`[WS MESSAGE] Unknown message format:`, msg);
             return;
           }
           
-          const targetEmail = msg.email.toLowerCase();
-          console.log(`[WS MESSAGE] Processing message for ${targetEmail}, status: ${msg.status}`);
+          if (!targetEmail) {
+            console.log(`[WS MESSAGE] No valid email found in message`);
+            return;
+          }
           
           if (!emails.includes(targetEmail)) {
             console.log(`[WS MESSAGE] Email ${targetEmail} not in current emails list:`, emails);
             return;
           }
           
-          if (msg.status === 'started') {
-            console.log(`[START EVENT] ${targetEmail} received started event, calling fetchFor`);
-            fetchFor(targetEmail);
-          } else if (msg.status === 'stopped') {
-            // ✅ LIMPIAR COMPLETAMENTE las credenciales al recibir 'stopped'
-            console.log(`[STOP EVENT] ${targetEmail} received stopped event, clearing credentials`);
-            setCredsMap(prev => ({
-              ...prev,
-              [targetEmail]: { 
-                loading: false,
-                accessToken: undefined,
-                roomName: undefined,
-                livekitUrl: undefined
-              }
-            }));
-          } else {
-            console.log(`[WS MESSAGE] Unknown status: ${msg.status} for ${targetEmail}`);
+          // ✅ PROCESAR MENSAJES DE COMANDO
+          if (messageType === 'command') {
+            if (msg.command === 'START') {
+              console.log(`[START COMMAND] ${targetEmail} received START command, calling fetchFor`);
+              fetchFor(targetEmail);
+            } else if (msg.command === 'STOP') {
+              console.log(`[STOP COMMAND] ${targetEmail} received STOP command, clearing credentials`);
+              setCredsMap(prev => ({
+                ...prev,
+                [targetEmail]: { 
+                  loading: false,
+                  accessToken: undefined,
+                  roomName: undefined,
+                  livekitUrl: undefined
+                }
+              }));
+            } else {
+              console.log(`[WS MESSAGE] Unknown command: ${msg.command} for ${targetEmail}`);
+            }
+          }
+          // ✅ PROCESAR MENSAJES DE ESTADO
+          else if (messageType === 'status') {
+            if (msg.status === 'started') {
+              console.log(`[START EVENT] ${targetEmail} received started event, calling fetchFor`);
+              fetchFor(targetEmail);
+            } else if (msg.status === 'stopped') {
+              console.log(`[STOP EVENT] ${targetEmail} received stopped event, clearing credentials`);
+              setCredsMap(prev => ({
+                ...prev,
+                [targetEmail]: { 
+                  loading: false,
+                  accessToken: undefined,
+                  roomName: undefined,
+                  livekitUrl: undefined
+                }
+              }));
+            } else {
+              console.log(`[WS MESSAGE] Unknown status: ${msg.status} for ${targetEmail}`);
+            }
           }
         });
         
