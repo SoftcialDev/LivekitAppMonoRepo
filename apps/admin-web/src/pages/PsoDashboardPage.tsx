@@ -5,6 +5,7 @@ import { getSupervisorForPso } from '@/shared/api/userClient';
 import { useContactManagerStatus } from './ContactManager/hooks/useContactManagerStatus';
 import { useStreamingDashboard } from './Video/hooks/useCamara';
 import { useAutoReloadWhenIdle } from './Video/hooks/useAutoReloadWhenIdle';
+import { useWebSocketHeartbeat } from '@/shared/hooks/useWebSocketHeartbeat';
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -67,6 +68,11 @@ const PsoDashboard: React.FC = () => {
       })
       .catch(err => console.warn('Failed to fetch supervisor:', err));
   }, [psoEmail]);
+
+  /**
+   * WebSocket heartbeat to maintain connection in inactive tabs
+   */
+  useWebSocketHeartbeat(psoEmail);
 
   /**
    * Media streaming hooks:

@@ -32,6 +32,6 @@ output "postgres_server_password" {
 # Build and output a full connection string for applications to consume
 output "database_url" {
   description = "PostgreSQL connection URL with SSL required (sensitive)."
-  value       = "postgresql://${azurerm_postgresql_flexible_server.postgres_server.administrator_login}:${azurerm_postgresql_flexible_server.postgres_server.administrator_password}@${azurerm_postgresql_flexible_server.postgres_server.fqdn}:5432/${azurerm_postgresql_flexible_server_database.postgres_database.name}?schema=public&sslmode=require"
+  value       = "postgresql://${azurerm_postgresql_flexible_server.postgres_server.administrator_login}:${azurerm_postgresql_flexible_server.postgres_server.administrator_password}@${azurerm_postgresql_flexible_server.postgres_server.fqdn}:5432/${azurerm_postgresql_flexible_server_database.postgres_database.name}?schema=public&sslmode=require&connection_limit=100"
   sensitive   = true
 }

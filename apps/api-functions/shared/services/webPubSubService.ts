@@ -249,6 +249,57 @@ export async function listAllGroupsAndUsers(): Promise<void> {
           const warningIcon = user.connections > 10 ? '⚠️' : user.connections > 5 ? '🔶' : '';
           console.log(`[DEBUG] ${index + 1}. ${statusIcon} ${user.email}: ${user.connections} conexiones ${warningIcon}`);
         });
+
+      // ✅ NUEVO: Detectar usuarios conectados en Web PubSub pero NO marcados online en BD
+      console.log('[DEBUG] ===== DETECTING ORPHANED CONNECTIONS =====');
+      try {
+        // Obtener TODOS los usuarios de BD (online y offline)
+        const allDbUsers = await prisma.user.findMany({
+          where: { deletedAt: null },
+          select: { id: true, email: true, presence: { select: { status: true } } }
+        });
+        
+        const dbOnlineEmails = new Set(
+          allDbUsers
+            .filter(u => u.presence?.status === 'online')
+            .map(u => u.email.toLowerCase())
+        );
+        
+        // Verificar grupos de usuarios offline en BD
+        const orphanedConnections: Array<{email: string, connections: number, dbStatus: string}> = [];
+        
+        for (const user of allDbUsers) {
+          if (user.presence?.status === 'offline') {
+            try {
+              const userConnections = await listConnectionsInGroup(user.email);
+              if (userConnections.length > 0) {
+                orphanedConnections.push({
+                  email: user.email,
+                  connections: userConnections.length,
+                  dbStatus: user.presence?.status || 'unknown'
+                });
+              }
+            } catch (userGroupError: any) {
+              // Ignorar errores de grupos que no existen
+            }
+          }
+        }
+        
+        if (orphanedConnections.length > 0) {
+          console.log(`[WARNING] 🔍 Found ${orphanedConnections.length} users with connections but marked OFFLINE in DB:`);
+          orphanedConnections
+            .sort((a, b) => b.connections - a.connections)
+            .forEach((user, index) => {
+              const warningIcon = user.connections > 10 ? '⚠️' : user.connections > 5 ? '🔶' : '';
+              console.log(`[WARNING] ${index + 1}. 🔴 ${user.email}: ${user.connections} conexiones (DB: ${user.dbStatus}) ${warningIcon}`);
+            });
+        } else {
+          console.log('[DEBUG] ✅ No orphaned connections found');
+        }
+        
+      } catch (error: any) {
+        console.log(`[DEBUG] Error detecting orphaned connections: ${error.message}`);
+      }
       
       // Mostrar estadísticas
       const totalConnections = connectionSummary.reduce((sum, user) => sum + user.connections, 0);
@@ -274,6 +325,136 @@ export async function listAllGroupsAndUsers(): Promise<void> {
   } catch (error: any) {
     console.error('[WebPubSubService] Error listing groups and users:', error);
     throw new Error(`Failed to list groups and users: ${error.message}`);
+  }
+}
+
+/**
+ * Syncs all users between Web PubSub and Database.
+ * Only runs on disconnect events to avoid overhead.
+ *
+ * @returns Promise<{corrected: number, warnings: string[], errors: string[]}>
+ * @throws Error when unable to sync users
+ */
+export async function syncAllUsersWithDatabase(): Promise<{
+  corrected: number;
+  warnings: string[];
+  errors: string[];
+}> {
+  try {
+    console.log('[DEBUG] ===== SYNCING ALL USERS WITH DATABASE =====');
+    
+    // 1. Obtener usuarios de Web PubSub (presence + personal groups)
+    const webPubSubUsers = new Set<string>();
+    
+    // Obtener usuarios del grupo 'presence'
+    try {
+      const presenceConnections = await listConnectionsInGroup('presence');
+      presenceConnections.forEach(conn => {
+        if (conn.userId && conn.userId !== 'unknown') {
+          webPubSubUsers.add(conn.userId);
+        }
+      });
+      console.log(`[DEBUG] Found ${presenceConnections.length} connections in presence group`);
+    } catch (error: any) {
+      console.log(`[DEBUG] Error getting presence group: ${error.message}`);
+    }
+    
+    // Obtener usuarios de grupos personales (user.email)
+    try {
+      const prisma = (await import('./prismaClienService')).default;
+      const dbUsers = await prisma.user.findMany({
+        where: { deletedAt: null },
+        select: { email: true }
+      });
+      
+      for (const user of dbUsers) {
+        try {
+          const userConnections = await listConnectionsInGroup(user.email);
+          if (userConnections.length > 0) {
+            webPubSubUsers.add(user.email);
+          }
+        } catch (userGroupError: any) {
+          // Ignorar errores de grupos que no existen
+        }
+      }
+      console.log(`[DEBUG] Found ${webPubSubUsers.size} total users in Web PubSub`);
+    } catch (error: any) {
+      console.log(`[DEBUG] Error getting personal groups: ${error.message}`);
+    }
+    
+    // 2. Obtener usuarios de BD
+    const prisma = (await import('./prismaClienService')).default;
+    const dbUsers = await prisma.user.findMany({
+      where: { deletedAt: null },
+      include: { presence: { select: { status: true } } }
+    });
+    
+    console.log(`[DEBUG] Found ${dbUsers.length} users in database`);
+    
+    // 3. Detectar discrepancias y aplicar correcciones
+    const corrections = [];
+    const warnings: string[] = [];
+    const errors: string[] = [];
+    
+    for (const user of dbUsers) {
+      const isInWebPubSub = webPubSubUsers.has(user.email);
+      const isOnlineInDb = user.presence?.status === 'online';
+      
+      if (isInWebPubSub && !isOnlineInDb) {
+        // ✅ REGLA 1: Usuario en Web PubSub + OFFLINE en BD → Marcar online
+        try {
+          await prisma.presence.upsert({
+            where: { userId: user.id },
+            update: { status: 'online', lastSeenAt: new Date() },
+            create: { userId: user.id, status: 'online', lastSeenAt: new Date() }
+          });
+          corrections.push({
+            email: user.email,
+            action: 'mark_online',
+            reason: 'Connected in Web PubSub but offline in DB'
+          });
+          console.log(`[INFO] ✅ ${user.email}: Marking online (connected in Web PubSub but offline in DB)`);
+        } catch (error: any) {
+          errors.push(`Failed to mark ${user.email} online: ${error.message}`);
+          console.log(`[ERROR] ❌ Failed to mark ${user.email} online: ${error.message}`);
+        }
+      } else if (!isInWebPubSub && isOnlineInDb) {
+        // ✅ REGLA 3: Usuario ONLINE en BD + NO en Web PubSub → Marcar offline
+        try {
+          await prisma.presence.upsert({
+            where: { userId: user.id },
+            update: { status: 'offline', lastSeenAt: new Date() },
+            create: { userId: user.id, status: 'offline', lastSeenAt: new Date() }
+          });
+          corrections.push({
+            email: user.email,
+            action: 'mark_offline',
+            reason: 'Not in Web PubSub but online in DB'
+          });
+          console.log(`[INFO] ✅ ${user.email}: Marking offline (not in Web PubSub but online in DB)`);
+        } catch (error: any) {
+          errors.push(`Failed to mark ${user.email} offline: ${error.message}`);
+          console.log(`[ERROR] ❌ Failed to mark ${user.email} offline: ${error.message}`);
+        }
+      }
+      // ✅ REGLA 2: Usuario en Web PubSub + NO existe en BD → Ignorar
+      // ✅ REGLA 4: Usuario en Web PubSub + ONLINE en BD → No hacer nada
+    }
+    
+    console.log(`[DEBUG] ===== SYNC COMPLETED =====`);
+    console.log(`[DEBUG] Total corrections: ${corrections.length}`);
+    console.log(`[DEBUG] Total warnings: ${warnings.length}`);
+    console.log(`[DEBUG] Total errors: ${errors.length}`);
+    
+    return {
+      corrected: corrections.length,
+      warnings,
+      errors
+    };
+    
+  } catch (error: any) {
+    console.error('[WebPubSubService] Error syncing users with database:', error);
+    throw new Error(`Failed to sync users with database: ${error.message}`);
   }
 }
 

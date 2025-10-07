@@ -7,7 +7,7 @@ import prisma from "../services/prismaClienService";
 import { WebPubSubServiceClient } from "@azure/web-pubsub";
 import { AzureKeyCredential } from "@azure/core-auth";
 import { config } from "../config";
-import { logActiveUsersInPresenceGroup, listAllGroupsAndUsers } from "../services/webPubSubService";
+import { logActiveUsersInPresenceGroup, listAllGroupsAndUsers, syncAllUsersWithDatabase } from "../services/webPubSubService";
 
 /**
  * Web PubSub Service Client for connection operations
@@ -226,6 +226,16 @@ export const presenceAndStreamingHandler: AzureFunction = async (
         } catch (error: any) {
           context.log.warn(`Failed to log presence group users: ${error.message}`);
         }
+        
+        // ✅ NUEVO: Sync completo solo en disconnect
+        try {
+          context.log.info('🔄 Starting full sync on disconnect...');
+          const syncResult = await syncAllUsersWithDatabase();
+          context.log.info(`🔄 Full sync completed: ${syncResult.corrected} corrections, ${syncResult.warnings.length} warnings, ${syncResult.errors.length} errors`);
+        } catch (error: any) {
+          context.log.warn(`⚠️ Full sync failed: ${error.message}`);
+        }
+        
         break;
       }
 
