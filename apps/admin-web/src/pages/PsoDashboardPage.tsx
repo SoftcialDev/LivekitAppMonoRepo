@@ -98,7 +98,7 @@ const PsoDashboard: React.FC = () => {
    */
   useEffect(() => {
     if (cmError) {
-      showToast('Failed to load Contact Managers', 'error');
+
     }
   }, [cmError, showToast]);                                    
 

@@ -109,8 +109,7 @@ export function useContactManagerStatus(
       setManagers(list);
     } catch (err: any) {
       console.error('[CM status] fetch error', err);
-      setError(err);
-      showToast('Failed to load Contact Managers', 'error');
+ 
     } finally {
       setLoading(false);
     }

@@ -84,7 +84,6 @@ const AddContactManagerPage: React.FC = () => {
       setProfiles(rows);
     } catch (err: any) {
       console.error('fetchProfiles error:', err);
-      showToast('Failed to load Contact Managers', 'error');
     } finally {
       setLoadingProfiles(false);
     }

@@ -77,10 +77,16 @@ export default withErrorHandler(async (ctx: Context) => {
 
       // 4️⃣ Immediate Web PubSub broadcast (best-effort)
       try {
-        await sendToGroup(
-          employeeEmail.toLowerCase(),
-          { command, employeeEmail, timestamp }
-        );
+        const groupName = `commands:${employeeEmail.toLowerCase()}`;
+        const message = { command, employeeEmail, timestamp };
+        
+        console.log(`[CamaraCommand] Sending ${command} command to group: ${groupName}`);
+        console.log(`[CamaraCommand] Message payload:`, message);
+        
+        await sendToGroup(groupName, message);
+        
+        console.log(`[CamaraCommand] Successfully sent ${command} command to ${employeeEmail}`);
+        
         // 5️⃣ Respond to client indicating WS delivery
         return ok(ctx, {
           message: `Command "${command}" sent to ${employeeEmail} via WebSocket`,

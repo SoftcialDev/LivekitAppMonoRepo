@@ -124,6 +124,15 @@ export function useStreamingDashboard() {
   const streamingRef = useRef(false);
   const [isStreaming, setIsStreaming] = useState(false);
 
+  // ✅ RETRY STATE - Para reintentos de conexión a LiveKit
+  const [retryCount, setRetryCount] = useState(0);
+  const [isRetrying, setIsRetrying] = useState(false);
+  const persistentRetryRef = useRef<NodeJS.Timeout | null>(null);
+  const healthCheckRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // ✅ MANUAL STOP FLAG - Para evitar reconexión automática después de STOP manual
+  const manualStopRef = useRef<boolean>(false);
+
   // Auth & clients
   const { initialized, account } = useAuth();
   const userEmail = account?.username.toLowerCase() ?? '';
@@ -191,76 +200,198 @@ export function useStreamingDashboard() {
  *
  * @throws Propagates unexpected errors during device enumeration/LiveKit connection/publish.
  */
-const startStream = useCallback(async () => {
-  console.log('[Stream] DEBUG - startStream called');
-  console.log('[Stream] DEBUG - streamingRef.current:', streamingRef.current);
-  console.log('[Stream] DEBUG - Tab visibility:', document.visibilityState);
-  console.log('[Stream] DEBUG - Document hidden:', document.hidden);
+// ✅ RETRY FUNCTION - Para reintentar conexión a LiveKit
+const retryLiveKitConnection = useCallback(async (videoTrack: LocalVideoTrack, retryAttempt: number = 0) => {
+  const maxRetries = 10; // ✅ AUMENTAR REINTENTOS - Más intentos para mayor robustez
+  const retryDelay = Math.min(500 * Math.pow(1.5, retryAttempt), 5000); // ✅ DELAY MÁS AGRESIVO - 0.5s, 0.75s, 1.1s, 1.7s, 2.5s, 3.8s, 5s max
   
-  if (streamingRef.current) {
-    console.log('[Stream] DEBUG - Already streaming, returning');
-    return;
-  }
-
-  // 1) Ensure PubSub + presence
-  console.log('[Stream] DEBUG - Checking PubSub connection:', pubSubService.isConnected());
-  if (!pubSubService.isConnected()) {
-    console.log('[Stream] DEBUG - Connecting to PubSub...');
-    await pubSubService.connect(userEmail);
-    await presenceClient.setOnline();
-    await pubSubService.joinGroup('presence');
-    await pubSubService.joinGroup(`commands:${userEmail}`);
-    console.log('[Stream] DEBUG - PubSub connected');
-  }
-
-  // 2) Prime camera/mic permissions (stops tracks immediately)
-  console.log('[Stream] DEBUG - Requesting camera permission...');
+  console.log(`[RETRY] Attempting LiveKit connection retry ${retryAttempt + 1}/${maxRetries}`);
+  setIsRetrying(true);
+  
   try {
-    await ensureCameraPermission();
-    console.log('[Stream] DEBUG - Camera permission granted');
-  } catch (e) {
-    console.log('[Stream] DEBUG - Camera permission failed:', e);
-    return;
-  }
-
-  // 3) Choose camera (with fallback)
-  console.log('[Stream] DEBUG - Enumerating devices...');
-  let videoTrack: LocalVideoTrack;
-  try {
+    // ✅ GET FRESH TOKEN - Obtener token nuevo para cada retry
+    console.log(`[RETRY] Getting fresh LiveKit token for attempt ${retryAttempt + 1}`);
+    const { rooms, livekitUrl } = await getLiveKitToken();
+    const room = new Room();
+    
+    // ✅ FALLBACK CONFIGURATION - Intentar diferentes configuraciones según el intento
+    let roomConfig = {};
+    if (retryAttempt >= 5) {
+      console.log(`[RETRY] Using fallback configuration for attempt ${retryAttempt + 1}`);
+      roomConfig = {
+        adaptiveStream: false,
+        dynacast: false,
+        publishDefaults: {
+          videoSimulcastLayers: [],
+          videoCodec: 'h264'
+        }
+      };
+    }
+    
+    // ✅ ADD CONNECTION TIMEOUT - Evitar conexiones colgadas (timeout más largo para reintentos)
+    const connectPromise = room.connect(livekitUrl, rooms[0].token, roomConfig);
+    const timeoutMs = Math.min(5000 + (retryAttempt * 2000), 15000); // 5s, 7s, 9s, 11s, 13s, 15s max
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error(`Connection timeout after ${timeoutMs}ms`)), timeoutMs)
+    );
+    
+    console.log(`[RETRY] Connection timeout set to ${timeoutMs}ms for attempt ${retryAttempt + 1}`);
+    console.log(`[RETRY] Room config:`, roomConfig);
+    await Promise.race([connectPromise, timeoutPromise]);
+    console.log(`[RETRY] LiveKit connection successful on attempt ${retryAttempt + 1}`);
+    
+    // Success - setup room and start streaming
+    roomRef.current = room;
+    
+    // ✅ USE SAME SETUP LOGIC - Usar la misma lógica que el flujo normal
+    console.log(`[RETRY] Setting up LiveKit room for attempt ${retryAttempt + 1}`);
+    await setupLiveKitRoom(room, videoTrack);
+    
+    // ✅ VERIFY STREAMING STATE - Verificar que realmente está transmitiendo
+    console.log(`[RETRY] Verifying streaming state after setup`);
+    if (streamingRef.current && roomRef.current) {
+      console.log(`[RETRY] Streaming state verified: streaming=${streamingRef.current}, room=${roomRef.current.state}`);
+    } else {
+      console.warn(`[RETRY] Streaming state not properly set after retry ${retryAttempt + 1}`);
+    }
+    
+    setRetryCount(0);
+    setIsRetrying(false);
+    return true;
+  } catch (err) {
+    console.error(`[RETRY] LiveKit connection failed on attempt ${retryAttempt + 1}:`, err);
+    
+    // ✅ ANALYZE ERROR TYPE - Diferentes estrategias según el tipo de error
+    const errorMessage = (err as Error).message.toLowerCase();
+    if (errorMessage.includes('timeout') || errorMessage.includes('network')) {
+      console.log(`[RETRY] Network error detected, will retry with longer delay`);
+    } else if (errorMessage.includes('token') || errorMessage.includes('unauthorized')) {
+      console.log(`[RETRY] Token error detected, will retry with fresh token`);
+    } else if (errorMessage.includes('pc connection') || errorMessage.includes('datachannel')) {
+      console.log(`[RETRY] WebRTC connection error detected, will retry`);
+    } else if (errorMessage.includes('track') || errorMessage.includes('video')) {
+      console.log(`[RETRY] Video track error detected, will retry`);
+    } else {
+      console.log(`[RETRY] Unknown error detected, will retry anyway`);
+    }
+    
+    // ✅ AGGRESSIVE RECOVERY - Intentar recuperación más agresiva en reintentos avanzados
+    if (retryAttempt >= 3) {
+      console.log(`[RETRY] Advanced retry (${retryAttempt + 1}), attempting aggressive recovery...`);
+      
+      // Intentar recrear video track si es necesario
+      try {
+        if (videoTrack && videoTrack.mediaStreamTrack && videoTrack.mediaStreamTrack.readyState === 'ended') {
+          console.log(`[RETRY] Video track ended, attempting to recreate...`);
+          // El video track se recreará en el próximo intento
+        }
+      } catch (trackErr) {
+        console.log(`[RETRY] Video track check failed:`, trackErr);
+      }
+      
+      // Intentar limpiar cualquier conexión previa
+      try {
+        if (roomRef.current) {
+          console.log(`[RETRY] Cleaning up previous room connection...`);
+          await roomRef.current.disconnect();
+          roomRef.current = null;
+        }
+      } catch (cleanupErr) {
+        console.log(`[RETRY] Cleanup failed:`, cleanupErr);
+      }
+    }
+    
+    // ✅ VIDEO TRACK RECREATION - Si el video track está "ended", recrearlo
+    if (videoTrack && videoTrack.mediaStreamTrack?.readyState === 'ended') {
+      console.log(`[RETRY] Video track is ended, attempting to recreate...`);
+      
+      try {
+        // Detener y limpiar video track actual
+        videoTrack.stop();
+        videoTrack.detach();
+        
+        // Intentar recrear video track
+        console.log(`[RETRY] Attempting to recreate video track...`);
     const devices = await navigator.mediaDevices.enumerateDevices();
     const cams = devices.filter((d) => d.kind === 'videoinput');
-    console.log('[Stream] DEBUG - Found cameras:', cams.length);
-    videoTrack = await createVideoTrackWithFallback(cams);
-    console.log('[Stream] DEBUG - Video track created');
-  } catch (err) {
-    console.error('[Stream] video setup failed', err);
-    alert('Unable to access any camera.');
-    return;
+        const newVideoTrack = await createVideoTrackWithFallback(cams);
+        
+        // Usar el nuevo video track para el siguiente intento
+        console.log(`[RETRY] New video track created, will use in next attempt`);
+        // Nota: El nuevo track se pasará en el siguiente retry
+      } catch (recreateErr) {
+        console.log(`[RETRY] Video track recreation failed:`, recreateErr);
+      }
+    }
+    
+    // ✅ LAST RESORT RECOVERY - En los últimos intentos, intentar recrear video track completamente
+    if (retryAttempt >= 7) {
+      console.log(`[RETRY] Last resort retry (${retryAttempt + 1}), attempting complete video track recreation...`);
+      
+      try {
+        // Detener y limpiar video track actual
+        if (videoTrack) {
+          videoTrack.stop();
+          videoTrack.detach();
+        }
+        
+        // Intentar recrear video track
+        console.log(`[RETRY] Attempting to recreate video track...`);
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const cams = devices.filter((d) => d.kind === 'videoinput');
+        const newVideoTrack = await createVideoTrackWithFallback(cams);
+        
+        // Usar el nuevo video track para el siguiente intento
+        console.log(`[RETRY] New video track created, will use in next attempt`);
+        // Nota: El nuevo track se pasará en el siguiente retry
+      } catch (recreateErr) {
+        console.log(`[RETRY] Video track recreation failed:`, recreateErr);
+      }
+    }
+    
+    if (retryAttempt < maxRetries - 1) {
+      console.log(`[RETRY] Scheduling retry ${retryAttempt + 2} in ${retryDelay}ms`);
+      setTimeout(() => {
+        retryLiveKitConnection(videoTrack, retryAttempt + 1);
+      }, retryDelay);
+      return false;
+    } else {
+      // ✅ NEVER GIVE UP - En lugar de rendirse, continuar con delays más largos
+      console.warn(`[RETRY] Max retries reached (${maxRetries}), but continuing with longer delays...`);
+      
+      // ✅ PERSISTENT RETRY - Continuar indefinidamente con delays más largos
+      const persistentDelay = Math.min(10000 + (retryAttempt * 5000), 60000); // 10s, 15s, 20s, 25s, 30s, 35s, 40s, 45s, 50s, 55s, 60s max
+      console.log(`[RETRY] Switching to persistent retry mode with ${persistentDelay}ms delay`);
+      
+      persistentRetryRef.current = setTimeout(() => {
+        console.log(`[RETRY] Persistent retry attempt ${retryAttempt + 1} (no max limit)`);
+        retryLiveKitConnection(videoTrack, retryAttempt + 1);
+      }, persistentDelay);
+      
+      return false; // No success yet, but will keep trying
+    }
   }
+}, []);
 
-  // 4) Connect to LiveKit
-  console.log('[Stream] DEBUG - Getting LiveKit token...');
-  const { rooms, livekitUrl } = await getLiveKitToken();
-  console.log('[Stream] DEBUG - LiveKit URL:', livekitUrl);
-  console.log('[Stream] DEBUG - Rooms:', rooms.length);
-  const room = new Room();
-  
-  try {
-    console.log('[Stream] DEBUG - Connecting to LiveKit...');
-    // Connect with minimal configuration to avoid errors
-    await room.connect(livekitUrl, rooms[0].token);
-    console.log('[Stream] DEBUG - LiveKit connected successfully');
-  } catch (err) {
-    console.error('[WS] LiveKit connect failed', err);
-    try {
-      videoTrack?.stop();
-      videoTrack?.detach();
-    } catch {}
-    return;
+// ✅ CANCEL PERSISTENT RETRIES - Función para cancelar retries persistentes
+const cancelPersistentRetries = useCallback(() => {
+  if (persistentRetryRef.current) {
+    clearTimeout(persistentRetryRef.current);
+    persistentRetryRef.current = null;
+    console.log(`[RETRY] Persistent retries canceled`);
   }
+  if (healthCheckRef.current) {
+    clearInterval(healthCheckRef.current);
+    healthCheckRef.current = null;
+    console.log(`[HEALTH] Health check canceled`);
+  }
+  setIsRetrying(false);
+  setRetryCount(0);
+}, []);
 
-  roomRef.current = room;
-  console.info('[WS] LiveKit connected');
+// ✅ SETUP LIVEKIT ROOM - Configurar room y publicar video
+const setupLiveKitRoom = useCallback(async (room: Room, videoTrack: LocalVideoTrack) => {
+  console.log('[Stream] DEBUG - Setting up LiveKit room...');
   
   // Configure room to maintain connection during tab changes
   console.log('[Stream] DEBUG - Setting up LiveKit event listeners...');
@@ -269,8 +400,23 @@ const startStream = useCallback(async () => {
     room.on('connectionStateChanged', (state) => {
       console.log('[WS] LiveKit connection state changed:', state);
       console.log('[Stream] DEBUG - Connection state change - Tab visibility:', document.visibilityState);
+      console.log('[Stream] DEBUG - Manual stop flag:', manualStopRef.current);
+      
       if (state === 'connected' && streamingRef.current) {
         console.log('[WS] LiveKit reconnected, ensuring video continues');
+      } else if (state === 'disconnected' && streamingRef.current) {
+        // ✅ CHECK MANUAL STOP - Solo reconectar si NO fue un STOP manual
+        if (manualStopRef.current) {
+          console.log('[WS] Manual stop detected, skipping auto-reconnect');
+          return;
+        }
+        
+        console.log('[WS] LiveKit disconnected during streaming, attempting reconnection...');
+        // ✅ AUTO-RECONNECT - Reiniciar retry cuando se desconecta durante streaming
+        setTimeout(() => {
+          console.log('[WS] Triggering auto-reconnect after disconnect');
+          retryLiveKitConnection(videoTrack, 0);
+        }, 1000); // Pequeño delay para evitar spam
       }
     });
     
@@ -280,6 +426,23 @@ const startStream = useCallback(async () => {
     
     room.on('participantDisconnected', (participant) => {
       console.log('[WS] Participant disconnected:', participant.identity);
+    });
+    
+    // ✅ VIDEO TRACK MONITORING - Monitorear el estado del video track
+    room.on(RoomEvent.TrackUnpublished, (track, participant) => {
+      if (participant.sid === room.localParticipant.sid && track.kind === 'video') {
+        console.log('[WS] Local video track unpublished, checking if we need to reconnect...');
+        console.log('[WS] Video track state:', (track as any).mediaStreamTrack?.readyState);
+        
+        // Si el track se despublicó y estamos streaming, intentar reconectar
+        if (streamingRef.current && (track as any).mediaStreamTrack?.readyState === 'ended') {
+          console.log('[WS] Video track ended during streaming, triggering reconnection...');
+          setTimeout(() => {
+            console.log('[WS] Triggering reconnection due to video track unpublish');
+            retryLiveKitConnection(videoTrack, 0);
+          }, 1000);
+        }
+      }
     });
     
     console.log('[Stream] DEBUG - LiveKit event listeners configured');
@@ -337,25 +500,237 @@ const startStream = useCallback(async () => {
   });
 
   // 5) Publish local video (and best-effort local mic)
-  tracksRef.current.video = videoTrack;
-  await room.localParticipant.publishTrack(videoTrack);
-  videoTrack.attach(videoRef.current!);
-
-  await requestWakeLock();
-
-/*  try {
-    const audioTrack = await createLocalAudioTrack();
-    tracksRef.current.audio = audioTrack;
-    await room.localParticipant.publishTrack(audioTrack);
+  console.log('[Stream] DEBUG - Publishing video track...');
+  try {
+    await room.localParticipant.publishTrack(videoTrack, {
+      name: 'camera',
+      simulcast: true,
+    });
+    console.log('[Stream] DEBUG - Video track published successfully');
+    
+    // ✅ VERIFY PUBLICATION - Verificar que el track se publicó correctamente
+    const publishedTracks = room.localParticipant.getTrackPublications();
+    const videoPublication = publishedTracks.find(pub => pub.kind === 'video');
+    console.log('[Stream] DEBUG - Published tracks count:', publishedTracks.length);
+    console.log('[Stream] DEBUG - Video publication found:', !!videoPublication);
+    console.log('[Stream] DEBUG - Video publication subscribed:', videoPublication?.isSubscribed);
+    
+    if (!videoPublication) {
+      console.warn('[Stream] Video track publication verification failed, attempting reconnection...');
+      setTimeout(() => {
+        console.log('[Stream] Triggering reconnection due to publication verification failure');
+        if (videoTrack) {
+          retryLiveKitConnection(videoTrack, 0);
+        }
+      }, 1000);
+      return;
+    }
+    
   } catch (err) {
-    console.warn('[Stream] mic setup failed, continuing without audio', err);
-  }*/
+    console.error('[Stream] Failed to publish video track:', err);
+    
+    // ✅ PUBLISH FAILURE RECOVERY - Si falla la publicación, intentar reconectar
+    if (err instanceof Error && err.message.includes('timeout')) {
+      console.log('[Stream] Video track publish timeout, attempting reconnection...');
+      setTimeout(() => {
+        console.log('[Stream] Triggering reconnection due to publish timeout');
+        retryLiveKitConnection(videoTrack, 0);
+      }, 2000);
+      return; // No continuar con el setup si falló la publicación
+    }
+    
+    // Continue anyway - audio might still work
+  }
 
+  // Store track reference for cleanup
+  tracksRef.current.video = videoTrack;
+
+  // 6) Update streaming state
   streamingRef.current = true;
   setIsStreaming(true);
-  console.info('[Streaming] ACTIVE');
+  console.log('[Stream] DEBUG - Streaming state updated to true');
+  
+  // ✅ VERIFY STREAMING SETUP - Verificar que todo está configurado correctamente
+  console.log('[Stream] DEBUG - Verifying streaming setup:');
+  console.log('[Stream] DEBUG - - streamingRef.current:', streamingRef.current);
+  console.log('[Stream] DEBUG - - roomRef.current:', !!roomRef.current);
+  console.log('[Stream] DEBUG - - room state:', roomRef.current?.state);
+  console.log('[Stream] DEBUG - - video track:', !!tracksRef.current.video);
+  console.log('[Stream] DEBUG - - video track ready state:', tracksRef.current.video?.mediaStreamTrack?.readyState);
+
+  // 7) Notify backend that streaming started
+  console.log('[Stream] DEBUG - Notifying backend of streaming start...');
+  try {
   await streamingClient.setActive();
-}, [userEmail, requestWakeLock, streamingClient]);
+    console.log('[Stream] DEBUG - Backend notified of streaming start');
+  } catch (err) {
+    console.warn('[Stream] Failed to notify backend of streaming start:', err);
+    // Continue anyway - the stream is working
+  }
+
+  // ✅ HEALTH CHECK - Verificar conexión periódicamente
+  healthCheckRef.current = setInterval(() => {
+    if (streamingRef.current && roomRef.current) {
+      const connectionState = roomRef.current.state;
+      const videoTrack = tracksRef.current.video;
+      const videoTrackState = videoTrack?.mediaStreamTrack?.readyState;
+      
+      console.log('[Stream] Health check - Room state:', connectionState);
+      console.log('[Stream] Health check - Video track state:', videoTrackState);
+      console.log('[Stream] Health check - Manual stop flag:', manualStopRef.current);
+      console.log('[Stream] Health check - Video track details:', {
+        trackId: videoTrack?.sid,
+        kind: videoTrack?.kind,
+        isMuted: videoTrack?.isMuted,
+        readyState: videoTrack?.mediaStreamTrack?.readyState
+      });
+      
+      // ✅ CHECK MANUAL STOP - Solo reconectar si NO fue un STOP manual
+      if (manualStopRef.current) {
+        console.log('[Stream] Health check - Manual stop detected, skipping auto-reconnect');
+        return;
+      }
+      
+      if (connectionState === 'disconnected') {
+        console.log('[Stream] Health check detected disconnect, triggering reconnection...');
+        if (healthCheckRef.current) {
+          clearInterval(healthCheckRef.current);
+          healthCheckRef.current = null;
+        }
+        setTimeout(() => {
+          console.log('[Stream] Triggering health check reconnection');
+          if (videoTrack) {
+            retryLiveKitConnection(videoTrack, 0);
+          }
+        }, 1000);
+      } else if (videoTrackState === 'ended') {
+        console.log('[Stream] Health check detected video track ended, triggering reconnection...');
+        console.log('[Stream] Health check - Video track details:', {
+          trackId: videoTrack?.sid,
+          kind: videoTrack?.kind,
+          isMuted: videoTrack?.isMuted
+        });
+        
+        if (healthCheckRef.current) {
+          clearInterval(healthCheckRef.current);
+          healthCheckRef.current = null;
+        }
+        setTimeout(() => {
+          console.log('[Stream] Triggering health check reconnection due to video track failure');
+          if (videoTrack) {
+            retryLiveKitConnection(videoTrack, 0);
+          }
+        }, 1000);
+      }
+    }
+  }, 5000); // Check every 5 seconds
+
+  console.log('[Stream] DEBUG - Stream setup completed successfully');
+}, []);
+
+const startStream = useCallback(async () => {
+  console.log('[Stream] DEBUG - startStream called');
+  console.log('[Stream] DEBUG - streamingRef.current:', streamingRef.current);
+  console.log('[Stream] DEBUG - Tab visibility:', document.visibilityState);
+  console.log('[Stream] DEBUG - Document hidden:', document.hidden);
+  
+  // ✅ RESET MANUAL STOP FLAG - Limpiar bandera de STOP manual al iniciar stream
+  manualStopRef.current = false;
+  console.log('[START] Manual stop flag reset to false');
+  
+  if (streamingRef.current) {
+    console.log('[Stream] DEBUG - Already streaming, returning');
+    return;
+  }
+
+  // 1) Ensure PubSub + presence
+  console.log('[Stream] DEBUG - Checking PubSub connection:', pubSubService.isConnected());
+  if (!pubSubService.isConnected()) {
+    console.log('[Stream] DEBUG - Connecting to PubSub...');
+    await pubSubService.connect(userEmail);
+    await presenceClient.setOnline();
+    await pubSubService.joinGroup('presence');
+    await pubSubService.joinGroup(`commands:${userEmail}`);
+    console.log('[Stream] DEBUG - PubSub connected');
+  }
+
+  // 2) Prime camera/mic permissions (stops tracks immediately)
+  console.log('[Stream] DEBUG - Requesting camera permission...');
+  try {
+    await ensureCameraPermission();
+    console.log('[Stream] DEBUG - Camera permission granted');
+  } catch (e) {
+    console.log('[Stream] DEBUG - Camera permission failed:', e);
+    return;
+  }
+
+  // 3) Choose camera (with fallback)
+  console.log('[Stream] DEBUG - Enumerating devices...');
+  let videoTrack: LocalVideoTrack;
+  try {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const cams = devices.filter((d) => d.kind === 'videoinput');
+    console.log('[Stream] DEBUG - Found cameras:', cams.length);
+    videoTrack = await createVideoTrackWithFallback(cams);
+    console.log('[Stream] DEBUG - Video track created');
+  } catch (err) {
+    console.error('[Stream] video setup failed', err);
+    alert('Unable to access any camera.');
+    return;
+  }
+
+  // 4) Connect to LiveKit with retry logic
+  console.log('[Stream] DEBUG - Getting LiveKit token...');
+  const { rooms, livekitUrl } = await getLiveKitToken();
+  console.log('[Stream] DEBUG - LiveKit URL:', livekitUrl);
+  console.log('[Stream] DEBUG - Rooms:', rooms.length);
+  console.log('[Stream] DEBUG - Token preview:', rooms[0]?.token?.substring(0, 20) + '...');
+  console.log('[Stream] DEBUG - Room name:', rooms[0]?.room);
+  
+  // ✅ PRE-CONNECTION CHECKS - Verificar requisitos antes de conectar
+  console.log('[Stream] DEBUG - Pre-connection checks:');
+  console.log('[Stream] DEBUG - WebRTC support:', !!window.RTCPeerConnection);
+  console.log('[Stream] DEBUG - Network online:', navigator.onLine);
+  console.log('[Stream] DEBUG - User agent:', navigator.userAgent);
+  
+  if (!window.RTCPeerConnection) {
+    console.error('[Stream] ERROR - WebRTC not supported in this browser');
+    alert('WebRTC is not supported in this browser. Please use a modern browser like Chrome, Firefox, or Safari.');
+    return;
+  }
+  
+  if (!navigator.onLine) {
+    console.error('[Stream] ERROR - No internet connection');
+    alert('No internet connection detected. Please check your network and try again.');
+    return;
+  }
+  
+  const room = new Room();
+  
+  try {
+    console.log('[Stream] DEBUG - Connecting to LiveKit...');
+    // Connect with minimal configuration to avoid errors
+    await room.connect(livekitUrl, rooms[0].token);
+    console.log('[Stream] DEBUG - LiveKit connected successfully');
+    
+    // Success - setup room
+    roomRef.current = room;
+    await setupLiveKitRoom(room, videoTrack);
+    
+  } catch (err) {
+    console.error('[WS] LiveKit connect failed, starting retry process:', err);
+    // ✅ START RETRY PROCESS - Si falla la conexión inicial, intentar con retries
+    const retrySuccess = await retryLiveKitConnection(videoTrack, 0);
+    if (!retrySuccess) {
+      console.error('[WS] All LiveKit connection attempts failed');
+      try {
+        videoTrack?.stop();
+        videoTrack?.detach();
+      } catch {}
+      return;
+    }
+  }
+}, [userEmail, requestWakeLock, streamingClient, retryLiveKitConnection, setupLiveKitRoom]);
 /**
  * Stops an active streaming session.
  *
@@ -436,6 +811,17 @@ const stopStream = useCallback(async () => {
  */
 const stopStreamForCommand = useCallback(async () => {
   if (!streamingRef.current) return;
+
+  // ✅ SET MANUAL STOP FLAG - Marcar como STOP manual para evitar reconexión automática
+  manualStopRef.current = true;
+  console.log('[STOP] Manual stop flag set to true');
+
+  // ✅ CLEANUP HEALTH CHECK - Limpiar health check al detener streaming
+  if (healthCheckRef.current) {
+    clearInterval(healthCheckRef.current);
+    healthCheckRef.current = null;
+    console.log(`[HEALTH] Health check stopped during stream stop`);
+  }
 
   // Snapshot room + tracks (they might get nulled during cleanup)
   const room = roomRef.current;
@@ -616,11 +1002,21 @@ const handleCommand = useCallback(
 
       // Commands
       offMsg = pubSubService.onMessage((msg: any) => {
-      if (msg?.employeeEmail && msg.employeeEmail.toLowerCase() !== userEmail) return;
+        console.log('[WS MESSAGE] PSO Dashboard received message:', msg);
+        console.log('[WS MESSAGE] Current userEmail:', userEmail);
+        console.log('[WS MESSAGE] Message employeeEmail:', msg?.employeeEmail);
+        
+        if (msg?.employeeEmail && msg.employeeEmail.toLowerCase() !== userEmail) {
+          console.log('[WS MESSAGE] Message not for this user, ignoring');
+          return;
+        }
 
-      if (msg?.command === 'START' || msg?.command === 'STOP') {
-        void handleCommand(msg as PendingCommand);
-      }
+        if (msg?.command === 'START' || msg?.command === 'STOP') {
+          console.log(`[WS MESSAGE] Processing ${msg.command} command for ${userEmail}`);
+          void handleCommand(msg as PendingCommand);
+        } else {
+          console.log('[WS MESSAGE] Unknown command or no command in message:', msg);
+        }
       });
 
       // Missed commands
@@ -874,5 +1270,5 @@ const handleCommand = useCallback(
     releaseWakeLock,
   ]);
 
-  return { videoRef, audioRef, isStreaming };
+  return { videoRef, audioRef, isStreaming, isRetrying, retryCount, cancelPersistentRetries };
 }

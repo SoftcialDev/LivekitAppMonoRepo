@@ -76,14 +76,20 @@ export async function tryDeliverCommand(pendingCmd: {
     console.error(`tryDeliverCommand: user ${pendingCmd.employeeId} not found`);
     return false;
   }
-  const groupName = user.email.trim().toLowerCase();
-
-  // 3) Send over Web PubSub and mark as published
-  await sendToGroup(groupName, {
+  const groupName = `commands:${user.email.trim().toLowerCase()}`;
+  const message = {
     id:        pendingCmd.id,
     command:   pendingCmd.command,
     timestamp: pendingCmd.timestamp.toISOString(),
-  });
+  };
+
+  console.log(`[PendingCommand] Sending ${pendingCmd.command} command to group: ${groupName}`);
+  console.log(`[PendingCommand] Message payload:`, message);
+
+  // 3) Send over Web PubSub and mark as published
+  await sendToGroup(groupName, message);
+  
+  console.log(`[PendingCommand] Successfully sent ${pendingCmd.command} command to ${user.email}`);
 
   await prisma.pendingCommand.update({
     where: { id: pendingCmd.id },

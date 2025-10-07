@@ -29,11 +29,18 @@ export function useMultiUserStreams(
   emails: string[],
 ): CredsMap {
   const [credsMap, setCredsMap] = useState<CredsMap>({});
+  const [canceledUsers, setCanceledUsers] = useState<Set<string>>(new Set());
   const servicesRef = useRef<Record<string, WebPubSubClientService>>({});
   const streamingMap = usePresenceStore(s => s.streamingMap);
 
   const fetchFor = useCallback(async (email: string, retryCount = 0) => {
     console.log(`[FETCH START] ${email} - attempt ${retryCount + 1}`);
+    
+    // ✅ VERIFICAR SI FUE CANCELADO MANUALMENTE
+    if (canceledUsers.has(email)) {
+      console.log(`[FETCH CANCELED] ${email} was manually stopped, skipping fetch`);
+      return;
+    }
     
     // Only update if not already loading or if we don't have credentials
     setCredsMap(prev => {
@@ -70,11 +77,13 @@ export function useMultiUserStreams(
     try {
       console.log(`[FETCH API] ${email} - calling fetchStreamingSessions`);
       const sessions = await fetchStreamingSessions();
+      console.log(`[FETCH API] ${email} - Found ${sessions.length} sessions:`, sessions.map(s => ({ email: s.email, userId: s.userId })));
       const sess = sessions.find(s => s.email.toLowerCase() === email);
       if (!sess) {
-        console.log(`[FETCH ERROR] ${email} - No active session found`);
+        console.log(`[FETCH ERROR] ${email} - No active session found. Available sessions:`, sessions.map(s => s.email));
         throw new Error('No active session');
       }
+      console.log(`[FETCH API] ${email} - Found session for user:`, sess.userId);
       
       console.log(`[FETCH TOKEN] ${email} - calling getLiveKitToken for ${sess.userId}`);
       const { rooms, livekitUrl } = await getLiveKitToken(sess.userId);
@@ -130,7 +139,25 @@ export function useMultiUserStreams(
         [email]: { loading: false }
       }));
     }
-  }, [credsMap]);
+  }, [credsMap, canceledUsers]);
+
+  // ✅ PERIODIC FETCH - Intentar fetch periódicamente para PSOs online sin credenciales
+  useEffect(() => {
+    const interval = setInterval(() => {
+      emails.forEach(email => {
+        const creds = credsMap[email];
+        const isOnline = streamingMap[email];
+        
+        // Si el PSO está online pero no tiene credenciales, intentar fetch
+        if (isOnline && (!creds?.accessToken || !creds?.roomName)) {
+          console.log(`[PERIODIC FETCH] ${email} is online but missing credentials, attempting fetch`);
+          fetchFor(email);
+        }
+      });
+    }, 5000); // Check every 5 seconds
+    
+    return () => clearInterval(interval);
+  }, [emails, credsMap, streamingMap, fetchFor]);
 
   // Separate effect for managing connections - only runs when emails list changes
   useEffect(() => {
@@ -183,9 +210,25 @@ export function useMultiUserStreams(
           if (messageType === 'command') {
             if (msg.command === 'START') {
               console.log(`[START COMMAND] ${targetEmail} received START command, calling fetchFor`);
+              // ✅ QUITAR MARCA DE CANCELADO AL RECIBIR START
+              setCanceledUsers(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(targetEmail);
+                return newSet;
+              });
+              // ✅ IMMEDIATE FETCH - Intentar fetch inmediatamente
+              console.log(`[START COMMAND] ${targetEmail} - attempting immediate fetch`);
               fetchFor(targetEmail);
+              
+              // ✅ DELAYED RETRY - Si el fetch inmediato falla, reintentar después de un delay
+              setTimeout(() => {
+                console.log(`[START COMMAND] ${targetEmail} - attempting delayed fetch after 2s`);
+                fetchFor(targetEmail);
+              }, 2000);
             } else if (msg.command === 'STOP') {
               console.log(`[STOP COMMAND] ${targetEmail} received STOP command, clearing credentials`);
+              // ✅ MARCAR COMO CANCELADO PARA EVITAR REINTENTOS
+              setCanceledUsers(prev => new Set([...prev, targetEmail]));
               setCredsMap(prev => ({
                 ...prev,
                 [targetEmail]: { 
@@ -203,9 +246,25 @@ export function useMultiUserStreams(
           else if (messageType === 'status') {
             if (msg.status === 'started') {
               console.log(`[START EVENT] ${targetEmail} received started event, calling fetchFor`);
+              // ✅ QUITAR MARCA DE CANCELADO AL RECIBIR START
+              setCanceledUsers(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(targetEmail);
+                return newSet;
+              });
+              // ✅ IMMEDIATE FETCH - Intentar fetch inmediatamente
+              console.log(`[START EVENT] ${targetEmail} - attempting immediate fetch`);
               fetchFor(targetEmail);
+              
+              // ✅ DELAYED RETRY - Si el fetch inmediato falla, reintentar después de un delay
+              setTimeout(() => {
+                console.log(`[START EVENT] ${targetEmail} - attempting delayed fetch after 2s`);
+                fetchFor(targetEmail);
+              }, 2000);
             } else if (msg.status === 'stopped') {
               console.log(`[STOP EVENT] ${targetEmail} received stopped event, clearing credentials`);
+              // ✅ MARCAR COMO CANCELADO PARA EVITAR REINTENTOS
+              setCanceledUsers(prev => new Set([...prev, targetEmail]));
               setCredsMap(prev => ({
                 ...prev,
                 [targetEmail]: { 
