@@ -343,10 +343,10 @@ export async function syncAllUsersWithDatabase(): Promise<{
   try {
     console.log('[DEBUG] ===== SYNCING ALL USERS WITH DATABASE =====');
     
-    // 1. Obtener usuarios de Web PubSub (presence + personal groups)
+    // 1. Fuente de verdad: SOLO miembros del grupo 'presence'
+    //    Un usuario está "online" si y solo si tiene una conexión activa
+    //    y pertenece al grupo 'presence'.
     const webPubSubUsers = new Set<string>();
-    
-    // Obtener usuarios del grupo 'presence'
     try {
       const presenceConnections = await listConnectionsInGroup('presence');
       presenceConnections.forEach(conn => {
@@ -354,32 +354,9 @@ export async function syncAllUsersWithDatabase(): Promise<{
           webPubSubUsers.add(conn.userId);
         }
       });
-      console.log(`[DEBUG] Found ${presenceConnections.length} connections in presence group`);
+      console.log(`[DEBUG] Presence truth: ${webPubSubUsers.size} unique users in presence group (${presenceConnections.length} connections)`);
     } catch (error: any) {
       console.log(`[DEBUG] Error getting presence group: ${error.message}`);
-    }
-    
-    // Obtener usuarios de grupos personales (user.email)
-    try {
-      const prisma = (await import('./prismaClienService')).default;
-      const dbUsers = await prisma.user.findMany({
-        where: { deletedAt: null },
-        select: { email: true }
-      });
-      
-      for (const user of dbUsers) {
-        try {
-          const userConnections = await listConnectionsInGroup(user.email);
-          if (userConnections.length > 0) {
-            webPubSubUsers.add(user.email);
-          }
-        } catch (userGroupError: any) {
-          // Ignorar errores de grupos que no existen
-        }
-      }
-      console.log(`[DEBUG] Found ${webPubSubUsers.size} total users in Web PubSub`);
-    } catch (error: any) {
-      console.log(`[DEBUG] Error getting personal groups: ${error.message}`);
     }
     
     // 2. Obtener usuarios de BD
@@ -397,6 +374,7 @@ export async function syncAllUsersWithDatabase(): Promise<{
     const errors: string[] = [];
     
     for (const user of dbUsers) {
+      // Online en WS solo si está en el grupo 'presence'
       const isInWebPubSub = webPubSubUsers.has(user.email);
       const isOnlineInDb = user.presence?.status === 'online';
       
