@@ -107,6 +107,46 @@ export function useBootstrap({
       void onStopStream();
     });
 
+    /**
+     * Checks if streaming should be resumed after WebSocket reconnection
+     */
+    const checkAndResumeStreaming = async (): Promise<void> => {
+      try {
+        console.log('[Bootstrap] Checking if should resume streaming after WebSocket reconnection...');
+        
+        // Only check if not already streaming
+        if (streamingRef.current) {
+          console.log('[Bootstrap] Already streaming, skipping resume check');
+          return;
+        }
+        
+        const lastSession = await streamingClient.fetchLastSessionWithReason();
+        const stoppedAt = lastSession.stoppedAt ? new Date(lastSession.stoppedAt) : null;
+        const stopReason = lastSession.stopReason;
+        
+        // Resume if:
+        // 1. Session was stopped due to disconnect
+        // 2. Stop was recent (within 5 minutes)
+        // 3. Not already streaming
+        const shouldResume = stoppedAt && 
+                            stopReason === 'DISCONNECT' && 
+                            Date.now() - stoppedAt.getTime() < 5 * 60_000;
+        
+        if (shouldResume) {
+          console.log('[Bootstrap] Auto-resuming streaming after WebSocket reconnection');
+          await onStartStream();
+        } else {
+          console.log('[Bootstrap] No need to resume streaming:', {
+            hasStoppedAt: !!stoppedAt,
+            stopReason,
+            timeSinceStop: stoppedAt ? Date.now() - stoppedAt.getTime() : 'N/A'
+          });
+        }
+      } catch (error) {
+        console.warn('[Bootstrap] Failed to check streaming status after reconnection:', error);
+      }
+    };
+
     const offConn = pubSubService.onConnected(async () => {
       if (!mounted) return;
       console.info('[WS] reconnected');
@@ -115,6 +155,9 @@ export function useBootstrap({
       if (KEEP_AWAKE_WHEN_IDLE || streamingRef.current) {
         await requestWakeLock();
       }
+      
+      // Auto-resume streaming if it was active before disconnection
+      await checkAndResumeStreaming();
     });
 
     const offMsg = pubSubService.onMessage((msg: any) => {
@@ -139,6 +182,8 @@ export function useBootstrap({
       if (document.visibilityState !== 'visible') {
         return;
       }
+      
+      console.log('[Bootstrap] Tab became active - restoring connections');
       
       try {
         await pubSubService.joinGroup('presence');
@@ -173,6 +218,17 @@ export function useBootstrap({
       }
     };
 
+    const onHidden = async (): Promise<void> => {
+      if (document.visibilityState !== 'hidden') {
+        return;
+      }
+      
+      console.log('[Bootstrap] Tab became inactive - reducing health check frequency');
+      
+      // Optional: You could reduce health check frequency here
+      // or implement other optimizations for inactive tabs
+    };
+
     const onOnline = async (): Promise<void> => {
       try {
         await pubSubService.joinGroup('presence');
@@ -197,7 +253,13 @@ export function useBootstrap({
       }
     };
 
-    window.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        onVisible();
+      } else {
+        onHidden();
+      }
+    });
     window.addEventListener('online', onOnline);
     window.addEventListener('pageshow', onPageShow);
 
@@ -277,7 +339,13 @@ export function useBootstrap({
     // Cleanup function
     return () => {
       mounted = false;
-      window.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+          onVisible();
+        } else {
+          onHidden();
+        }
+      });
       window.removeEventListener('online', onOnline);
       window.removeEventListener('pageshow', onPageShow);
       

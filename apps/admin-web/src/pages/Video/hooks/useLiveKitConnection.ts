@@ -76,6 +76,11 @@ export function useLiveKitConnection() {
         console.log('[LiveKit] Connection state changed:', state);
         if (state === 'disconnected') {
           isConnectingRef.current = false;
+          
+          // Check if disconnection was due to tab inactivity
+          if (document.visibilityState === 'hidden') {
+            console.log('[LiveKit] Disconnected due to tab inactivity');
+          }
         }
       });
 

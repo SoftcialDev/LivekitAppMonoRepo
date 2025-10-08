@@ -87,11 +87,25 @@ export function useVideoTrackWatchdog(
         return;
       }
 
-      // If the video element lost its stream, re-attach
-      if (videoRef.current && !videoRef.current.srcObject) {
-        try {
-          videoRef.current.srcObject = new MediaStream([track.mediaStreamTrack]);
-        } catch {}
+      // Check for black video or lost stream
+      if (videoRef.current) {
+        const isBlack = videoRef.current.videoWidth === 0 || 
+                       videoRef.current.videoHeight === 0 ||
+                       videoRef.current.readyState === 0;
+        const hasNoStream = !videoRef.current.srcObject;
+        
+        if ((isBlack || hasNoStream) && streamingRef.current) {
+          console.warn('[Watchdog] Video appears to be black or lost stream, attempting recovery');
+          void recreateAndRepublish(createVideoTrack);
+          return;
+        }
+        
+        // If the video element lost its stream, re-attach
+        if (hasNoStream) {
+          try {
+            videoRef.current.srcObject = new MediaStream([track.mediaStreamTrack]);
+          } catch {}
+        }
       }
     }, 5000);
   }, [liveKit, recreateAndRepublish, streamingRef, videoRef]);

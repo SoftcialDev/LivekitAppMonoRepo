@@ -4,9 +4,11 @@
 
 import { useCallback, useRef } from 'react';
 import type { Room, LocalVideoTrack } from 'livekit-client';
+import { webPubSubClient as pubSubService } from '@/shared/api/webpubsubClient';
 
 export function useStreamHealth() {
   const healthTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const lastConnectionStateRef = useRef<boolean>(false);
 
   const start = useCallback(
     (
@@ -20,6 +22,16 @@ export function useStreamHealth() {
       if (healthTimerRef.current) return;
       healthTimerRef.current = setInterval(() => {
         if (!streamingRef.current) return;
+        
+        // Check WebSocket connection state
+        const isWebSocketConnected = pubSubService.isConnected();
+        const wasDisconnected = !lastConnectionStateRef.current && isWebSocketConnected;
+        lastConnectionStateRef.current = isWebSocketConnected;
+        
+        if (wasDisconnected) {
+          console.log('[StreamHealth] WebSocket reconnected - checking stream health');
+        }
+        
         const room = getRoom();
         const track = getVideoTrack();
         const state = room?.state;
