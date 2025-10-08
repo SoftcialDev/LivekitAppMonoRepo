@@ -3,7 +3,6 @@ import { presenceAndStreamingHandler } from "../shared/handlers/presenceAndStrea
 
 const onConnect: AzureFunction = async (context: Context) => {
   // Delegates to shared handler – it already builds the HTTP response.
-  console.log("Getting here in connection", context)
   await presenceAndStreamingHandler(context);
 };
 

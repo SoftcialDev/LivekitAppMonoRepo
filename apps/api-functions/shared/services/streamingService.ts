@@ -85,7 +85,7 @@ export async function stopStreamingSession(
   }
 
   // 1) Close all open sessions with stop reason
-  console.log(`[stopStreamingSession] Stopping sessions for user ${userId} with reason: ${stopReason}`);
+
   const result = await prisma.streamingSessionHistory.updateMany({
     where: { userId, stoppedAt: null },
     data: { 
@@ -93,7 +93,7 @@ export async function stopStreamingSession(
       stopReason: stopReason
     },
   });
-  console.log(`[stopStreamingSession] Updated ${result.count} sessions for user ${userId}`);
+
   const { email } = await prisma.user.findUniqueOrThrow({
     where: { id: userId },
     select: { email: true },

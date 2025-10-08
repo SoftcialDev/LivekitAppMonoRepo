@@ -274,10 +274,7 @@ export async function getMyPsos(): Promise<PsoWithSupervisor[]> {
  * const result = await getSupervisorByIdentifier("alice.employee@contoso.com");
  *
  * if ("supervisor" in result) {
- *   console.log("Supervisor is", result.supervisor.fullName);
- * } else {
- *   console.log(result.message); // e.g. "No supervisor assigned"
- * }
+
  * ```
  */
 export async function getSupervisorByIdentifier(
@@ -305,9 +302,7 @@ export async function getSupervisorByIdentifier(
  * ```ts
  * const result = await getSupervisorForPso("alice.employee@contoso.com");
  * if ("supervisor" in result) {
- *   console.log("Supervisor is", result.supervisor.fullName);
- * } else {
- *   console.log(result.message); // e.g. "No supervisor assigned"
+
  * }
  * ```
  */
@@ -337,11 +332,7 @@ export async function getSupervisorForPso(
  * ```ts
  * // Move all my PSOs to bob@foo.com:
  * const count = await transferPsos("bob@foo.com");
- * console.log(`Transferred ${count} PSOs`);
- *
- * // Unassign all my PSOs:
- * const cleared = await transferPsos(null);
- * console.log(`Cleared ${cleared} PSOs`); 
+
  * ```
  */
 export async function transferPsos(

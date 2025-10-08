@@ -66,8 +66,6 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
         return <Navigate to="/psosDashboard" replace />;
       }
       if (roles.includes('Admin') || roles.includes('Supervisor') || roles.includes('SuperAdmin')) {
-        console.log(roles)
-        console.log(hasAccess)
         return <Navigate to="/dashboard" replace />;
       }
       if (roles.includes('ContactManager')) {

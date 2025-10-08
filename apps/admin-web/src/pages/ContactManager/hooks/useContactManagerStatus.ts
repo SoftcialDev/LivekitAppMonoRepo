@@ -105,10 +105,8 @@ export function useContactManagerStatus(
     setError(null);
     try {
       const list = await getContactManagers();
-      console.info('[CM status] fetched full list:', list.length);
       setManagers(list);
     } catch (err: any) {
-      console.error('[CM status] fetch error', err);
  
     } finally {
       setLoading(false);
@@ -157,7 +155,6 @@ export function useContactManagerStatus(
         // Connect singleton and (idempotently) join the group.
         await pubSub.connect(userEmail);
         await pubSub.joinGroup('cm-status-updates');
-        console.info('[CM status] connected as', userEmail);
 
         // On reconnect: ensure group membership and coalesce a single resync.
         const offConn = pubSub.onConnected(async () => {
@@ -165,7 +162,7 @@ export function useContactManagerStatus(
           try {
             await pubSub.joinGroup('cm-status-updates');
           } finally {
-            console.info('[CM status] reconnected — scheduling resync');
+
             scheduleFullSync(300);
 
           }
@@ -174,7 +171,6 @@ export function useContactManagerStatus(
         // On disconnect: show a warning; the service keeps retrying in the background.
         const offDisc = pubSub.onDisconnected(() => {
           if (!mountedRef.current) return;
-          console.warn('[CM status] disconnected — will auto-retry');
       
         });
 
@@ -210,7 +206,6 @@ export function useContactManagerStatus(
           offDisc?.();
         };
       } catch (err: any) {
-        console.error('[CM status] WebPubSub setup failed', err);
         setError(err);
       }
     })();

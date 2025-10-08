@@ -98,7 +98,6 @@ export interface ContactManagersFormPayload {
  * @example
  * ```ts
  * const cms = await getContactManagers();
- * console.log(cms);
  * ```
  */
 export async function getContactManagers(): Promise<ContactManagerProfile[]> {
@@ -118,7 +117,7 @@ export async function getContactManagers(): Promise<ContactManagerProfile[]> {
  * @example
  * ```ts
  * const newCm = await upsertContactManager({ email: "alice@contoso.com", status: "Available" });
- * console.log("Created:", newCm);
+
  * ```
  */
 export async function upsertContactManager(
@@ -140,7 +139,6 @@ export async function upsertContactManager(
  * @example
  * ```ts
  * await revokeContactManager("a1b2c3d4-...");
- * console.log("Revoked");
  * ```
  */
 export async function revokeContactManager(profileId: string): Promise<void> {
@@ -172,7 +170,6 @@ export async function updateContactManagerStatus(
  * @example
  * ```ts
  * const cm = await getContactManagerStatus("f0b36a1a-a70f-439f-a670-fc41542fe257");
- * console.log("Status is", cm.status);
  * ```
  */
 export async function getContactManagerStatus(
@@ -203,7 +200,6 @@ export async function getContactManagerStatus(
  *   totalPatients: 5,
  *   imageBase64: optionalBase64String,
  * });
- * console.log("Created form record:", id);
  * ```
  */
 export async function submitContactManagersForm(

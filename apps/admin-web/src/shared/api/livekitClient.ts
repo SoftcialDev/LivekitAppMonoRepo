@@ -71,6 +71,5 @@ export async function getLiveKitToken(
     }
   }
 
-  console.log('LiveKitToken response:', data)
   return data
 }

@@ -136,8 +136,7 @@ function mapDto(b: BackendSuperAdminDto): SuperAdminDto {
  *
  * @example
  * ```ts
- * const items = await getSuperAdmins();
- * console.log(items[0].role); // "Super Admin"
+ * const items = await getSuperAdmins(); 
  * ```
  */
 export async function getSuperAdmins(): Promise<SuperAdminDto[]> {

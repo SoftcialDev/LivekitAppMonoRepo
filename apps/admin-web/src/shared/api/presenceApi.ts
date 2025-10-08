@@ -50,7 +50,6 @@ export async function fetchPresence(): Promise<{
   online:  UserStatus[]
   offline: UserStatus[]
 }> {
-  console.log('[DEBUG] Starting to fetch ALL presence data...')
   
   let allItems: PresenceItem[] = []
   let currentPage = 1
@@ -59,7 +58,6 @@ export async function fetchPresence(): Promise<{
   
   // Fetch all pages
   do {
-    console.log(`[DEBUG] Fetching page ${currentPage}...`)
     const resp = await apiClient.get<PagedPresenceResponse>('/api/GetWebsocketPresenceStatus', {
       params: {
         page: currentPage,
@@ -68,23 +66,16 @@ export async function fetchPresence(): Promise<{
     })
     
     const data = resp.data
-    console.log(`[DEBUG] API Response for page ${currentPage}:`, {
-      total: data.total,
-      page: data.page,
-      pageSize: data.pageSize,
-      itemsCount: data.items?.length ?? 0,
-      items: data.items?.map(i => ({ email: i.email, status: i.status }))
-    })
+
     
     allItems = [...allItems, ...(data.items ?? [])]
     
     totalPages = Math.ceil((data.total ?? 0) / pageSize)
-    console.log(`[DEBUG] Page ${currentPage}/${totalPages}: ${data.items?.length ?? 0} items (total so far: ${allItems.length})`)
-    
+
     currentPage++
   } while (currentPage <= totalPages)
   
-  console.log(`[DEBUG] Fetched all pages: ${allItems.length} total users`)
+
 
   const online = allItems
     .filter(u => u.status === 'online')
@@ -110,6 +101,5 @@ export async function fetchPresence(): Promise<{
       azureAdObjectId: (u as any).azureAdObjectId ?? null,
     }))
 
-  console.log(`[DEBUG] Final result: ${online.length} online, ${offline.length} offline`)
   return { online, offline }
 }

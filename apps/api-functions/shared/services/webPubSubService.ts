@@ -108,11 +108,7 @@ export async function getActiveUsersInPresenceGroup(): Promise<Array<{ userId: s
 
     for await (const conn of connections) {
       connectionCount++;
-      console.log(`[DEBUG] Connection ${connectionCount}:`, {
-        userId: conn.userId,
-        userRoles: (conn as any).userRoles,
-        connectionId: (conn as any).connectionId
-      });
+
       
       activeUsers.push({
         userId: conn.userId || 'unknown',

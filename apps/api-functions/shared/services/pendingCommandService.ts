@@ -62,7 +62,6 @@ export async function tryDeliverCommand(pendingCmd: {
 }): Promise<boolean> {
   // 1) Check online status
   const status = await getPresenceStatus(pendingCmd.employeeId);
-  console.log(`Presence status for ${pendingCmd.employeeId}: ${status}`);
   if (status !== "online") {
     return false;
   }
@@ -83,13 +82,11 @@ export async function tryDeliverCommand(pendingCmd: {
     timestamp: pendingCmd.timestamp.toISOString(),
   };
 
-  console.log(`[PendingCommand] Sending ${pendingCmd.command} command to group: ${groupName}`);
-  console.log(`[PendingCommand] Message payload:`, message);
 
   // 3) Send over Web PubSub and mark as published
   await sendToGroup(groupName, message);
   
-  console.log(`[PendingCommand] Successfully sent ${pendingCmd.command} command to ${user.email}`);
+
 
   await prisma.pendingCommand.update({
     where: { id: pendingCmd.id },
@@ -100,7 +97,7 @@ export async function tryDeliverCommand(pendingCmd: {
     },
   });
 
-  console.log(`Sent to group ${groupName}`);
+
   return true;
 }
 
