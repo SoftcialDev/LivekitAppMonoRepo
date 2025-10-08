@@ -79,7 +79,7 @@ export class WebPubSubClientService {
    * This should be called when switching users or when connection leaks are detected.
    */
   public async forceCleanup(): Promise<void> {
-    console.log(`[DEBUG] Force cleanup requested for user: ${this.currentUserEmail}`);
+
     
     if (this.client) {
       try {
@@ -87,17 +87,17 @@ export class WebPubSubClientService {
         for (const group of this.joinedGroups) {
           try {
             await this.client.leaveGroup(group);
-            console.log(`[DEBUG] Left group: ${group}`);
+
           } catch (error) {
-            console.log(`[DEBUG] Error leaving group ${group}:`, error);
+
           }
         }
         
         // Stop the client
         this.client.stop();
-        console.log(`[DEBUG] Client stopped during force cleanup`);
+
       } catch (error) {
-        console.log(`[DEBUG] Error during force cleanup:`, error);
+
       }
     }
     
@@ -111,7 +111,7 @@ export class WebPubSubClientService {
     this.shouldReconnect = false;
     this.clearReconnectTimer();
     
-    console.log(`[DEBUG] Force cleanup completed - all connections cleared`);
+
   }
   /** Promise shared by concurrent connect() callers (idempotent connect). */
   private connectPromise: Promise<void> | null = null;
@@ -157,20 +157,20 @@ export class WebPubSubClientService {
 
     // ✅ VERIFICAR CONEXIÓN EXISTENTE - Evitar múltiples conexiones
     if (this.connected && this.currentUserEmail === email && this.client) {
-      console.log(`[DEBUG] Already connected for user: ${email}, reusing existing connection`);
+
       return;
     }
 
     // Switch user scenario
     if (this.currentUserEmail && this.currentUserEmail !== email) {
-      console.log(`[DEBUG] Switching user from ${this.currentUserEmail} to ${email}, disconnecting first`);
+
       this.disconnect();                 // clean state
       this.joinedGroups.clear();         // do not leak previous user's groups
     }
 
     // Idempotent connect coalescing
     if (this.connecting && this.currentUserEmail === email && this.connectPromise) {
-      console.log(`[DEBUG] Connection already in progress for user: ${email}, waiting...`);
+
       return this.connectPromise;
     }
 
@@ -178,10 +178,10 @@ export class WebPubSubClientService {
     this.shouldReconnect = true;
 
     // Ensure default groups are always present (they will be joined on 'connected')
-    console.log(`[DEBUG] Adding default groups for user: ${email}`);
+
     this.joinedGroups.add(email);        // "personal group"
     this.joinedGroups.add("presence");
-    console.log(`[DEBUG] Default groups added. Current groups:`, Array.from(this.joinedGroups));
+
 
     this.connecting = true;
     this.connectPromise = (async () => {
@@ -226,7 +226,7 @@ export class WebPubSubClientService {
    * `connect()` again and keep your subscriptions.
    */
   public disconnect(): void {
-    console.log(`[DEBUG] Disconnecting WebPubSub client for user: ${this.currentUserEmail}`);
+
     this.shouldReconnect = false;
     this.clearReconnectTimer();
 
@@ -238,9 +238,9 @@ export class WebPubSubClientService {
     if (this.client) {
       try { 
         this.client.stop(); 
-        console.log(`[DEBUG] WebPubSub client stopped successfully`);
+
       } catch (error) { 
-        console.log(`[DEBUG] Error stopping client:`, error);
+
       }
       this.client = undefined; // ✅ Limpiar referencia del cliente
     }
@@ -249,7 +249,7 @@ export class WebPubSubClientService {
     this.connecting = false;
     this.connectPromise = null;
     this.currentUserEmail = null; // ✅ Limpiar usuario actual
-    console.log(`[DEBUG] WebPubSub client disconnected and cleaned up`);
+
   }
 
   /**
@@ -260,18 +260,18 @@ export class WebPubSubClientService {
    */
   public async joinGroup(groupName: string): Promise<void> {
     const g = groupName.trim().toLowerCase();
-    console.log(`[DEBUG] WebPubSubClientService.joinGroup called with: "${groupName}" -> normalized to: "${g}"`);
+
     this.joinedGroups.add(g);
-    console.log(`[DEBUG] Added to joinedGroups. Current groups:`, Array.from(this.joinedGroups));
+
     
     if (!this.client) {
-      console.log(`[DEBUG] No client available, will be joined after connect`);
+
       return; // Will be joined after connect
     }
     
-    console.log(`[DEBUG] Client available, calling client.joinGroup("${g}")...`);
+
     await this.client.joinGroup(g);
-    console.log(`[DEBUG] client.joinGroup("${g}") completed successfully`);
+
   }
 
   /**
@@ -363,7 +363,7 @@ export class WebPubSubClientService {
 
     // Lifecycle: connected/disconnected → update flags, backoff, and fan-out
     wsClient.on("connected", async () => {
-      console.log('[DEBUG] WebSocket connected event fired');
+
       this.connected = true;
       this.clearReconnectTimer();
       this.resetBackoff();
@@ -373,16 +373,16 @@ export class WebPubSubClientService {
         this.joinedGroups.add(this.currentUserEmail);
       }
       this.joinedGroups.add("presence");
-      console.log(`[DEBUG] Groups to rejoin:`, Array.from(this.joinedGroups));
+
 
       // Re-join **all** remembered groups
       for (const g of this.joinedGroups) {
         try { 
-          console.log(`[DEBUG] Rejoining group: "${g}"`);
+
           await wsClient.joinGroup(g); 
-          console.log(`[DEBUG] Successfully rejoined group: "${g}"`);
+
         } catch (error) { 
-          console.error(`[DEBUG] Failed to rejoin group "${g}":`, error);
+          // Error rejoining group - silently continue
         }
       }
 

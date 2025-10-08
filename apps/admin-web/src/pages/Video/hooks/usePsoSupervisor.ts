@@ -23,18 +23,14 @@ export function usePsoSupervisor(userEmail: string) {
     setError(null);
     
     try {
-      console.log(`[usePsoSupervisor] Fetching supervisor for ${userEmail}`);
       const result = await getSupervisorForPso(userEmail);
       
       if ('supervisor' in result) {
-        console.log(`[usePsoSupervisor] Supervisor found:`, result.supervisor);
         setSupervisor(result.supervisor);
       } else {
-        console.log(`[usePsoSupervisor] No supervisor assigned:`, result);
         setSupervisor(null);
       }
     } catch (err: any) {
-      console.error('[usePsoSupervisor] Failed to fetch supervisor:', err);
       setError(err.message || 'Failed to fetch supervisor');
     } finally {
       setLoading(false);

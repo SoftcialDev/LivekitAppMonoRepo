@@ -114,13 +114,7 @@ const PSOsPage: React.FC = () => {
   /* ------------------------------------------------------------------ */
 
   const allPsos: PSOWithStatus[] = useMemo(() => {
-    console.log('[DEBUG] Building allPsos:', {
-      onlineUsersCount: onlineUsers.length,
-      onlineUsersEmails: onlineUsers.map(u => u.email),
-      allowedEmailsCount: allowedEmails.size,
-      allowedEmails: Array.from(allowedEmails),
-      viewerEmail
-    });
+
 
     const decorate = (u: UserStatus): PSOWithStatus => ({
       email:    u.email,
@@ -139,10 +133,6 @@ const PSOsPage: React.FC = () => {
       )
       .map(decorate);
 
-    console.log('[DEBUG] Filtered PSOs:', {
-      filteredCount: currentOnlineUsers.length,
-      filteredEmails: currentOnlineUsers.map(p => p.email)
-    });
 
     const result = currentOnlineUsers
       .sort((a, b) => Number(b.isOnline) - Number(a.isOnline));
@@ -321,23 +311,8 @@ const displayList = useMemo(() => {
               const isLive: boolean = Boolean(c.accessToken);
               // ✅ CONNECTING: Si está cargando O si está online pero no tiene token (acaba de empezar a transmitir)
               const connecting: boolean = c.loading || (p.isOnline && !c.accessToken && Boolean(c.roomName));
-              
-              // ✅ LOGS DE DEBUGGING - Para entender el estado del VideoCard
-              console.log(`[DEBUG] VideoCard state for ${p.email}:`, {
-                shouldStream: isLive,
-                connecting: connecting,
-                hasAccessToken: Boolean(c.accessToken),
-                loading: c.loading,
-                isOnline: p.isOnline,
-                roomName: c.roomName,
-                livekitUrl: c.livekitUrl
-              });
-              
-              // ✅ DETECTAR SI SE QUEDA EN CONNECTING DESPUÉS DE STOP
-              if (connecting && !p.isOnline) {
-                console.log(`[CONNECTING BUG] ${p.email} is connecting but user is offline - this should not happen`);
-              }
 
+              
               return (
                 <div
                   key={key} // ✅ clave estable ÚNICAMENTE aquí

@@ -125,7 +125,7 @@ export async function upsertUserRole(
   /* 1️⃣ match by OID --------------------------------------------------- */
   let user = await prisma.user.findUnique({ where: { azureAdObjectId } });
   if (user) {
-    console.log(`[upsertUserRole] OID match → updating ${user.id}`);
+
     return prisma.user.update({
       where: { id: user.id },
       data: makeUpdate(),
@@ -136,7 +136,7 @@ export async function upsertUserRole(
   /* 2️⃣ match by e-mail ------------------------------------------------- */
   user = await prisma.user.findUnique({ where: { email: canonicalEmail } });
   if (user) {
-    console.log(`[upsertUserRole] e-mail match → updating ${user.id}`);
+
     return prisma.user.update({
       where:  { id: user.id },
       data:   {
@@ -148,7 +148,7 @@ export async function upsertUserRole(
   }
 
   /* 3️⃣ create ---------------------------------------------------------- */
-  console.log("[upsertUserRole] creating new user");
+
   return prisma.user.create({
     data:   makeCreate(),
     select: { id: true },

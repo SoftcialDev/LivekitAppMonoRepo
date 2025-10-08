@@ -52,18 +52,9 @@ const VideoCard: React.FC<VideoCardProps & { livekitUrl?: string }> = memo(({
   // ✅ DETECTAR PANTALLA NEGRA
   const isBlackScreen = !shouldStream || connecting || !accessToken || !roomName || !livekitUrl;
   
-  console.log(`[DEBUG] VideoCard render for ${email}:`, {
-    shouldStream,
-    connecting,
-    hasAccessToken: !!accessToken,
-    hasRoomName: !!roomName,
-    hasLivekitUrl: !!livekitUrl,
-    disableControls,
-    isBlackScreen: isBlackScreen
-  });
   
   if (isBlackScreen) {
-    console.log(`[BLACK SCREEN] ${email} is in black screen state`);
+
   }
   const roomRef  = useRef<Room | null>(null)
   const audioRef = useRef<HTMLAudioElement>(null)
@@ -121,25 +112,14 @@ const VideoCard: React.FC<VideoCardProps & { livekitUrl?: string }> = memo(({
    * - Cleans up on unmount or when streaming stops.
    */
   useEffect(() => {
-    console.log(`[VideoCard] useEffect triggered for ${email}:`, {
-      shouldStream,
-      hasAccessToken: !!accessToken,
-      hasRoomName: !!roomName,
-      hasLivekitUrl: !!livekitUrl
-    });
     
     if (!shouldStream) {
-      console.log(`[VideoCard] shouldStream=false for ${email}, disconnecting`);
+
       roomRef.current?.disconnect()
       roomRef.current = null
       return
     }
     if (!accessToken || !roomName || !livekitUrl) {
-      console.log(`[VideoCard] Missing required data for ${email}:`, {
-        hasAccessToken: !!accessToken,
-        hasRoomName: !!roomName,
-        hasLivekitUrl: !!livekitUrl
-      });
       return
     }
 
@@ -172,32 +152,22 @@ const VideoCard: React.FC<VideoCardProps & { livekitUrl?: string }> = memo(({
     const connectAndWatch = async (retryCount = 0) => {
       const room = new Room()
       try {
-        console.log(`[VideoCard] Connecting to room for ${email}... (attempt ${retryCount + 1})`);
-        console.log(`[VideoCard] Room details:`, {
-          roomName,
-          livekitUrl,
-          hasAccessToken: !!accessToken
-        });
+
         
         await room.connect(livekitUrl!, accessToken!)
-        console.log(`[VideoCard] Successfully connected to room for ${email}, state: ${room.state}`);
+
         
         // ✅ VERIFICAR PARTICIPANTES DESPUÉS DE CONECTAR
-        console.log(`[VideoCard] Room participants:`, room.remoteParticipants.size);
-        console.log(`[VideoCard] Room participants list:`, Array.from(room.remoteParticipants.keys()));
+
+
         
       } catch (error) {
-        console.error(`[VideoCard] Failed to connect to room for ${email} (attempt ${retryCount + 1}):`, error);
-        console.error(`[VideoCard] Error details:`, {
-          errorType: (error as any).constructor?.name || 'Unknown',
-          errorMessage: (error as Error).message,
-          errorStack: (error as Error).stack
-        });
+
         
         // ✅ REINTENTOS - Si falla la conexión, reintentar hasta 3 veces
         if (retryCount < 2 && !canceled) {
           const delay = (retryCount + 1) * 1500; // 1.5s, 3s, 4.5s
-          console.log(`[VideoCard] Retrying connection for ${email} in ${delay}ms`);
+
           setTimeout(() => connectAndWatch(retryCount + 1), delay);
           return;
         }
@@ -205,7 +175,7 @@ const VideoCard: React.FC<VideoCardProps & { livekitUrl?: string }> = memo(({
         // Parent can reflect "connecting" externally; ignore here.
       }
       if (canceled) {
-        console.log(`[VideoCard] Connection canceled for ${email} - reason: useEffect cleanup or component unmount`);
+
         room.disconnect()
         return
       }
@@ -213,38 +183,38 @@ const VideoCard: React.FC<VideoCardProps & { livekitUrl?: string }> = memo(({
       roomRef.current = room
 
       // Attach to any existing remote participant
-      console.log(`[VideoCard] Checking existing participants for ${email}, found: ${room.remoteParticipants.size}`);
-      console.log(`[VideoCard] Looking for participant: ${roomName}`);
+
+
       
       room.remoteParticipants.forEach(p => {
-        console.log(`[VideoCard] Existing participant: ${p.identity} (looking for: ${roomName})`);
-        console.log(`[VideoCard] Participant tracks:`, p.getTrackPublications().length);
+
+
         
         if (p.identity === roomName) {
-          console.log(`[VideoCard] Found target participant ${roomName} for ${email}`);
+
           setupParticipant(p)
         }
       })
       
       // ✅ VERIFICAR SI NO HAY PARTICIPANTES
       if (room.remoteParticipants.size === 0) {
-        console.log(`[VideoCard] No participants found in room for ${email} - waiting for participant to join`);
+
       }
       
       // ✅ LISTENER MEJORADO - También escuchar cuando el participante publica tracks
       room.on(RoomEvent.ParticipantConnected, p => {
-        console.log(`[VideoCard] New participant connected: ${p.identity} for ${email}`);
+
         if (p.identity === roomName) {
-          console.log(`[VideoCard] Target participant ${roomName} connected for ${email}`);
+
           setupParticipant(p)
         }
       })
       
       // ✅ ESCUCHAR CUANDO SE PUBLICAN TRACKS - Por si el participante ya estaba pero no tenía tracks
       room.on(RoomEvent.TrackPublished, (publication, participant) => {
-        console.log(`[VideoCard] Track published by ${participant.identity} for ${email}`);
+
         if (participant.identity === roomName) {
-          console.log(`[VideoCard] Target participant ${roomName} published track for ${email}`);
+
           setupParticipant(participant)
         }
       })
@@ -253,7 +223,7 @@ const VideoCard: React.FC<VideoCardProps & { livekitUrl?: string }> = memo(({
     void connectAndWatch()
 
     return () => {
-      console.log(`[VideoCard] Cleanup triggered for ${email} - canceling connection`);
+
       canceled = true
       lkRoom?.disconnect()
       roomRef.current = null

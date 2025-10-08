@@ -76,7 +76,6 @@ const loadCandidates = useCallback(async () => {
   try {
     // 1) Fetch employees
     const empResp = await getUsersByRole('Employee', 1, 1000);
-    console.log('EMPLOYEE FETCH:', empResp.users);
 
     // 2) Keep only employees NOT already assigned to this supervisor
     const availableEmployees = empResp.users
@@ -94,7 +93,6 @@ const loadCandidates = useCallback(async () => {
 
     // 3) Fetch tenants and drop any with a non-null role
     const tenResp = await getUsersByRole('Tenant', 1, 1000);
-    console.log('TENANT FETCH:', tenResp.users);
 
     const availableTenants = tenResp.users
       .filter(u => u.role === null)    // only pure tenants
@@ -112,10 +110,6 @@ const loadCandidates = useCallback(async () => {
       ...availableTenants,
     ]);
 
-    console.log('FINAL CANDIDATES:', [
-      ...availableEmployees,
-      ...availableTenants,
-    ]);
     setCandidates([...availableEmployees, ...availableTenants]);
   } catch (err) {
     console.error('loadCandidates error', err);

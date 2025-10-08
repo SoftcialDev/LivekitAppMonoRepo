@@ -76,7 +76,7 @@ const RecordingsReportPage: React.FC = () => {
    * Loads recordings from the backend (includes SAS link for playback).
    */
   const fetchRecordings = async () => {
-    console.log("[fetchRecordings] start");
+
     setLoading(true);
     try {
       const data: ListRecordingsResponse = await getRecordings({
@@ -85,20 +85,20 @@ const RecordingsReportPage: React.FC = () => {
         limit: 100,
         order: "desc",
       });
-      console.log("[fetchRecordings] response.count =", data.count);
-      console.log("[fetchRecordings] response.items[0] =", data.items?.[0]);
+
+
       setRows(data.items ?? []);
     } catch (err) {
       console.error("[fetchRecordings] error:", err);
       showToast("Failed to load recordings", "error");
     } finally {
       setLoading(false);
-      console.log("[fetchRecordings] done");
+
     }
   };
 
   useEffect(() => {
-    console.log("[useEffect] initialized =", initialized);
+
     if (!initialized) return;
     fetchRecordings();
   }, [initialized]);
@@ -228,7 +228,7 @@ const RecordingsReportPage: React.FC = () => {
     },
   ];
 
-  console.log("[render] rows len:", rows.length);
+
 
   return (
     <>

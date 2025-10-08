@@ -41,27 +41,25 @@ export function useVideoActions() {
    */
   const handlePlay = useCallback(
     async (email: string): Promise<void> => {
-      console.log('Starting stream for', email);
       try {
         await commandClient.start(email);
-        console.log('START command sent for', email);
         showToast(`Sending start stream command for ${email}`, 'success');
         
         // ✅ DISPARO OPTIMISTA - Intentar fetch inmediato tras START
         // Esto evita depender solo de streamingMap o eventos WS
-        console.log(`[handlePlay] Triggering optimistic fetch for ${email}`);
+
         setTimeout(async () => {
           try {
             const { fetchForOptimistic } = await import('@/pages/Video/hooks/useMultiUserStreams');
             await fetchForOptimistic(email);
-            console.log(`[handlePlay] Optimistic fetch successful for ${email}`);
+
           } catch (err) {
-            console.log(`[handlePlay] Optimistic fetch failed for ${email}, will rely on WS event:`, err);
+
           }
         }, 1000); // Pequeño delay para que el backend procese el START
         
       } catch (err: any) {
-        console.error('Failed to send START command for', email, err);
+
         showToast(`Failed to start stream for ${email}`, 'error');
       }
     },
@@ -82,13 +80,13 @@ export function useVideoActions() {
    */
   const handleStop = useCallback(
     async (email: string): Promise<void> => {
-      console.log('Stopping stream for', email);
+
       try {
         await commandClient.stop(email);
-        console.log('STOP command sent for', email);
+
         showToast(`Stopped stream for ${email}`, 'success');
       } catch (err: any) {
-        console.error('Failed to send STOP command for', email, err);
+
         showToast(`Failed to stop stream for ${email}`, 'error');
       }
     },
@@ -117,7 +115,7 @@ export function useVideoActions() {
         openChatWindow(chatId);
         showToast(`Opened InContact chat with ${email}`, 'success');
       } catch (err: any) {
-        console.error('Failed to open chat for', email, err);
+
         showToast(`Failed to open InContact chat for ${email}`, 'error');
       }
     },

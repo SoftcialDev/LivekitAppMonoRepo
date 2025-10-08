@@ -94,18 +94,18 @@ export async function broadcastPresence(
  */
 export async function getActiveUsersInPresenceGroup(): Promise<Array<{ userId: string; userRoles: string[] }>> {
   try {
-    console.log('[DEBUG] Getting group client for "presence"...');
+
     const groupClient = wpsClient.group("presence");
     
-    console.log('[DEBUG] Calling listConnections() on presence group...');
+
     const connections = await groupClient.listConnections();
     
-    console.log('[DEBUG] listConnections() returned:', typeof connections);
+
     
     const activeUsers: Array<{ userId: string; userRoles: string[] }> = [];
     let connectionCount = 0;
     
-    console.log('[DEBUG] Iterating through connections...');
+
     for await (const conn of connections) {
       connectionCount++;
       console.log(`[DEBUG] Connection ${connectionCount}:`, {
@@ -120,8 +120,8 @@ export async function getActiveUsersInPresenceGroup(): Promise<Array<{ userId: s
       });
     }
     
-    console.log(`[DEBUG] Total connections found: ${connectionCount}`);
-    console.log(`[DEBUG] Active users array length: ${activeUsers.length}`);
+
+
     
     return activeUsers;
   } catch (error: any) {
@@ -138,13 +138,13 @@ export async function getActiveUsersInPresenceGroup(): Promise<Array<{ userId: s
  */
 export async function listAllGroupsAndUsers(): Promise<void> {
   try {
-    console.log('[DEBUG] ===== LISTING CONNECTIONS BY GROUP =====');
+
     
     // 1. PRIMERO: Mostrar grupo 'presence'
-    console.log('[DEBUG] ===== PRESENCE GROUP =====');
+
     try {
       const presenceConnections = await listConnectionsInGroup('presence');
-      console.log(`[DEBUG] Total connections in 'presence' group: ${presenceConnections.length}`);
+
       
       if (presenceConnections.length > 0) {
         const userCounts = new Map<string, number>();
@@ -158,16 +158,16 @@ export async function listAllGroupsAndUsers(): Promise<void> {
         
         sortedUsers.forEach(([userId, count], index) => {
           const warningIcon = count > 10 ? '⚠️' : count > 5 ? '🔶' : '';
-          console.log(`[DEBUG] ${index + 1}. ${userId}: ${count} conexiones ${warningIcon}`);
+
         });
         
-        console.log(`[DEBUG] Presence group stats: ${userCounts.size} unique users, ${presenceConnections.length} total connections`);
+
       }
     } catch (error: any) {
-      console.log(`[DEBUG] Error checking 'presence' group: ${error.message}`);
+
     }
     
-    console.log('[DEBUG] ===== PERSONAL GROUPS =====');
+
     
     // 2. SEGUNDO: Mostrar grupos personales de usuarios online
     try {
@@ -180,20 +180,20 @@ export async function listAllGroupsAndUsers(): Promise<void> {
         select: { id: true, email: true, presence: { select: { status: true } } }
       });
       
-      console.log(`[DEBUG] Checking personal groups for ${dbUsers.length} online users:`);
+
       
       for (const user of dbUsers) {
         try {
           const userConnections = await listConnectionsInGroup(user.email);
           if (userConnections.length > 0) {
-            console.log(`[DEBUG] Personal group "${user.email}": ${userConnections.length} connections`);
+
           }
         } catch (userGroupError: any) {
           // Grupo personal no existe o error - esto es normal
         }
       }
     } catch (error: any) {
-      console.log(`[DEBUG] Error checking personal groups: ${error.message}`);
+
     }
     
     // 3. TERCERO: Mostrar otros grupos conocidos
@@ -203,13 +203,13 @@ export async function listAllGroupsAndUsers(): Promise<void> {
       'streaming'
     ];
     
-    console.log('[DEBUG] ===== OTHER KNOWN GROUPS =====');
+
     
     for (const groupName of otherGroups) {
       try {
         const connections = await listConnectionsInGroup(groupName);
         if (connections.length > 0) {
-          console.log(`[DEBUG] Group "${groupName}": ${connections.length} connections`);
+
         }
       } catch (groupError: any) {
         // Grupo no existe o error - esto es normal
@@ -217,7 +217,7 @@ export async function listAllGroupsAndUsers(): Promise<void> {
     }
     
     // 4. CUARTO: Resumen total de conexiones por usuario
-    console.log('[DEBUG] ===== TOTAL CONNECTIONS SUMMARY =====');
+
     try {
       const prisma = (await import('./prismaClienService')).default;
       const dbUsers = await prisma.user.findMany({
@@ -252,11 +252,11 @@ export async function listAllGroupsAndUsers(): Promise<void> {
         .forEach((user, index) => {
           const statusIcon = user.status === 'online' ? '🟢' : user.status === 'error' ? '❌' : '⚪';
           const warningIcon = user.connections > 10 ? '⚠️' : user.connections > 5 ? '🔶' : '';
-          console.log(`[DEBUG] ${index + 1}. ${statusIcon} ${user.email}: ${user.connections} conexiones ${warningIcon}`);
+
         });
 
       // ✅ NUEVO: Detectar usuarios conectados en Web PubSub pero NO marcados online en BD
-      console.log('[DEBUG] ===== DETECTING ORPHANED CONNECTIONS =====');
+
       try {
         // Obtener TODOS los usuarios de BD (online y offline)
         const allDbUsers = await prisma.user.findMany({
@@ -291,19 +291,19 @@ export async function listAllGroupsAndUsers(): Promise<void> {
         }
         
         if (orphanedConnections.length > 0) {
-          console.log(`[WARNING] 🔍 Found ${orphanedConnections.length} users with connections but marked OFFLINE in DB:`);
+
           orphanedConnections
             .sort((a, b) => b.connections - a.connections)
             .forEach((user, index) => {
               const warningIcon = user.connections > 10 ? '⚠️' : user.connections > 5 ? '🔶' : '';
-              console.log(`[WARNING] ${index + 1}. 🔴 ${user.email}: ${user.connections} conexiones (DB: ${user.dbStatus}) ${warningIcon}`);
+
             });
         } else {
-          console.log('[DEBUG] ✅ No orphaned connections found');
+
         }
         
       } catch (error: any) {
-        console.log(`[DEBUG] Error detecting orphaned connections: ${error.message}`);
+
       }
       
       // Mostrar estadísticas
@@ -311,21 +311,21 @@ export async function listAllGroupsAndUsers(): Promise<void> {
       const usersWithConnections = connectionSummary.filter(user => user.connections > 0).length;
       const usersWithManyConnections = connectionSummary.filter(user => user.connections > 10).length;
       
-      console.log(`[DEBUG] ===== STATISTICS =====`);
-      console.log(`[DEBUG] Total users checked: ${connectionSummary.length}`);
-      console.log(`[DEBUG] Users with connections: ${usersWithConnections}`);
-      console.log(`[DEBUG] Users with >10 connections: ${usersWithManyConnections}`);
-      console.log(`[DEBUG] Total connections: ${totalConnections}`);
+
+
+
+
+
       
       if (usersWithManyConnections > 0) {
-        console.log(`[WARNING] ⚠️ ${usersWithManyConnections} users have too many connections (connection leaks detected)`);
+
       }
       
     } catch (error: any) {
-      console.log(`[DEBUG] Error checking user-specific groups: ${error.message}`);
+
     }
     
-    console.log('[DEBUG] ===== END GROUP LISTING =====');
+
     
   } catch (error: any) {
     console.error('[WebPubSubService] Error listing groups and users:', error);
@@ -346,7 +346,7 @@ export async function syncAllUsersWithDatabase(): Promise<{
   errors: string[];
 }> {
   try {
-    console.log('[DEBUG] ===== SYNCING ALL USERS WITH DATABASE =====');
+
     
     // 1. Fuente de verdad: SOLO miembros del grupo 'presence'
     //    Un usuario está "online" si y solo si tiene una conexión activa
@@ -359,9 +359,9 @@ export async function syncAllUsersWithDatabase(): Promise<{
           webPubSubUsers.add(conn.userId);
         }
       });
-      console.log(`[DEBUG] Presence truth: ${webPubSubUsers.size} unique users in presence group (${presenceConnections.length} connections)`);
+
     } catch (error: any) {
-      console.log(`[DEBUG] Error getting presence group: ${error.message}`);
+
     }
     
     // 2. Obtener usuarios de BD
@@ -371,7 +371,7 @@ export async function syncAllUsersWithDatabase(): Promise<{
       include: { presence: { select: { status: true } } }
     });
     
-    console.log(`[DEBUG] Found ${dbUsers.length} users in database`);
+
     
     // 3. Detectar discrepancias y aplicar correcciones
     const corrections = [];
@@ -396,10 +396,10 @@ export async function syncAllUsersWithDatabase(): Promise<{
             action: 'mark_online',
             reason: 'Connected in Web PubSub but offline in DB'
           });
-          console.log(`[INFO] ✅ ${user.email}: Marking online (connected in Web PubSub but offline in DB)`);
+
         } catch (error: any) {
           errors.push(`Failed to mark ${user.email} online: ${error.message}`);
-          console.log(`[ERROR] ❌ Failed to mark ${user.email} online: ${error.message}`);
+
         }
       } else if (!isInWebPubSub && isOnlineInDb) {
         // ✅ REGLA 3: Usuario ONLINE en BD + NO en Web PubSub → Marcar offline
@@ -414,20 +414,20 @@ export async function syncAllUsersWithDatabase(): Promise<{
             action: 'mark_offline',
             reason: 'Not in Web PubSub but online in DB'
           });
-          console.log(`[INFO] ✅ ${user.email}: Marking offline (not in Web PubSub but online in DB)`);
+
         } catch (error: any) {
           errors.push(`Failed to mark ${user.email} offline: ${error.message}`);
-          console.log(`[ERROR] ❌ Failed to mark ${user.email} offline: ${error.message}`);
+
         }
       }
       // ✅ REGLA 2: Usuario en Web PubSub + NO existe en BD → Ignorar
       // ✅ REGLA 4: Usuario en Web PubSub + ONLINE en BD → No hacer nada
     }
     
-    console.log(`[DEBUG] ===== SYNC COMPLETED =====`);
-    console.log(`[DEBUG] Total corrections: ${corrections.length}`);
-    console.log(`[DEBUG] Total warnings: ${warnings.length}`);
-    console.log(`[DEBUG] Total errors: ${errors.length}`);
+
+
+
+
     
     return {
       corrected: corrections.length,
@@ -450,15 +450,15 @@ export async function syncAllUsersWithDatabase(): Promise<{
  */
 export async function listConnectionsInGroup(groupName: string): Promise<Array<{connectionId: string, userId?: string}>> {
   try {
-    console.log(`[DEBUG] Using Web PubSub SDK to list connections in group: "${groupName}"`);
+
     
     // Use the existing Web PubSub client instead of REST API
     const groupClient = wpsClient.group(groupName);
     
-    console.log(`[DEBUG] Getting connections from SDK for group: "${groupName}"`);
+
     const connections = await groupClient.listConnections();
     
-    console.log(`[DEBUG] SDK returned connections for group "${groupName}":`, connections);
+
     
     const result: Array<{connectionId: string, userId?: string}> = [];
     
@@ -469,7 +469,7 @@ export async function listConnectionsInGroup(groupName: string): Promise<Array<{
       });
     }
     
-    console.log(`[DEBUG] Processed ${result.length} connections for group "${groupName}"`);
+
     return result;
 
   } catch (error: any) {
@@ -494,9 +494,9 @@ function generateSasToken(endpoint: string, accessKey: string, hubName: string):
   // The access key is actually a connection string that contains the key
   // Format: "Endpoint=https://...;AccessKey=...;Version=1.0;"
   
-  console.log(`[DEBUG] Generating SAS token for endpoint: ${endpoint}`);
-  console.log(`[DEBUG] Access key length: ${accessKey.length}`);
-  console.log(`[DEBUG] Hub name: ${hubName}`);
+
+
+
   
   // For Web PubSub, we can use the access key directly as a JWT token
   // or create a proper SAS token
@@ -507,13 +507,13 @@ function generateSasToken(endpoint: string, accessKey: string, hubName: string):
       const keyMatch = accessKey.match(/AccessKey=([^;]+)/);
       if (keyMatch) {
         const actualKey = keyMatch[1];
-        console.log(`[DEBUG] Extracted key from connection string`);
+
         return actualKey; // Use the key directly
       }
     }
     
     // If it's not a connection string, use it as is
-    console.log(`[DEBUG] Using access key directly`);
+
     return accessKey;
     
   } catch (error: any) {
@@ -531,25 +531,25 @@ function generateSasToken(endpoint: string, accessKey: string, hubName: string):
  */
 export async function logActiveUsersInPresenceGroup(): Promise<void> {
   try {
-    console.log('[DEBUG] ===== STARTING logActiveUsersInPresenceGroup =====');
-    console.log('[DEBUG] Getting active users in presence group...');
+
+
     
     const activeUsers = await getActiveUsersInPresenceGroup();
     
-    console.log('[DEBUG] Active users in presence group:');
+
     if (activeUsers.length === 0) {
-      console.log('  - No users currently connected');
+
     } else {
       activeUsers.forEach((user, index) => {
         const roles = user.userRoles.length > 0 ? user.userRoles.join(', ') : 'No roles';
-        console.log(`  ${index + 1}. ${user.userId} - Roles: [${roles}]`);
+
       });
     }
-    console.log(`[DEBUG] Total active users in presence group: ${activeUsers.length}`);
+
     
     // Compare with presence table using Prisma
     try {
-      console.log('[DEBUG] Comparing with presence table...');
+
       const prisma = (await import('./prismaClienService')).default;
       
       // Get all users with their presence status
@@ -587,22 +587,22 @@ export async function logActiveUsersInPresenceGroup(): Promise<void> {
         return user && dbOfflineEmails.has(user.email);
       });
       
-      console.log('[DEBUG] === PRESENCE COMPARISON ===');
-      console.log(`[DEBUG] WebSocket users: ${wsUserIds.size}`);
-      console.log(`[DEBUG] DB online users: ${dbOnlineUsers.length}`);
-      console.log(`[DEBUG] DB offline users: ${dbOfflineUsers.length}`);
+
+
+
+
       
       if (wsOnlyUsers.length > 0) {
         const wsOnlyEmails = wsOnlyUsers.map(userId => {
           const user = dbUsers.find(u => u.id === userId);
           return user ? user.email : userId;
         });
-        console.log(`[DEBUG] ⚠️  Users in WebSocket but NOT in DB online: ${wsOnlyEmails.join(', ')}`);
+
       }
       
       if (dbOnlyUsers.length > 0) {
         const dbOnlyEmails = dbOnlyUsers.map(u => u.email);
-        console.log(`[DEBUG] ⚠️  Users in DB online but NOT in WebSocket: ${dbOnlyEmails.join(', ')}`);
+
       }
       
       if (offlineInWs.length > 0) {
@@ -610,17 +610,17 @@ export async function logActiveUsersInPresenceGroup(): Promise<void> {
           const user = dbUsers.find(u => u.id === userId);
           return user ? user.email : userId;
         });
-        console.log(`[DEBUG] ⚠️  Users marked offline in DB but connected to WebSocket: ${offlineEmails.join(', ')}`);
+
       }
       
       if (wsOnlyUsers.length === 0 && dbOnlyUsers.length === 0 && offlineInWs.length === 0) {
-        console.log('[DEBUG] ✅ WebSocket and DB presence are in sync');
+
       }
       
       // Log detailed presence info
-      console.log('[DEBUG] === DETAILED PRESENCE INFO ===');
+
       dbOnlineUsers.forEach(user => {
-        console.log(`[DEBUG] DB Online: ${user.email} (${user.fullName}) - Role: ${user.role} - Last seen: ${user.presence?.lastSeenAt}`);
+
       });
       
     } catch (dbError: any) {

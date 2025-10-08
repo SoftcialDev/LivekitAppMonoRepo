@@ -59,7 +59,6 @@ const SnapshotsReportPage: React.FC = () => {
     setLoading(true);
     try {
       const data = await getSnapshots();
-      console.log(data)
       setReports(data);
     } catch (err) {
       console.error(err);

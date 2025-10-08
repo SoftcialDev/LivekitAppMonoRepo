@@ -21,7 +21,6 @@ import { useState, useEffect, useCallback } from 'react';
  * const { psos, loading, error, refetch } = useMyPsos();
  * if (!loading && !error) {
  *   psos.forEach(p => {
- *     console.log(p.email, '→ Supervisor:', p.supervisorName);
  *   });
  * }
  * ```

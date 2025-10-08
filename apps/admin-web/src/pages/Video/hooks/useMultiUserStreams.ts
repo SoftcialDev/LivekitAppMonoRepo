@@ -34,11 +34,11 @@ export function useMultiUserStreams(
   const streamingMap = usePresenceStore(s => s.streamingMap);
 
   const fetchFor = useCallback(async (email: string, retryCount = 0) => {
-    console.log(`[FETCH START] ${email} - attempt ${retryCount + 1}`);
+
     
     // ✅ VERIFICAR SI FUE CANCELADO MANUALMENTE
     if (canceledUsers.has(email)) {
-      console.log(`[FETCH CANCELED] ${email} was manually stopped, skipping fetch`);
+
       return;
     }
     
@@ -46,17 +46,17 @@ export function useMultiUserStreams(
     setCredsMap(prev => {
       const current = prev[email];
       if (current?.loading) {
-        console.log(`[FETCH SKIP] ${email} - already loading`);
+
         return prev; // Return same reference to avoid re-renders
       }
       
       // ✅ PERMITIR FETCH SI NO TIENE TOKEN VÁLIDO (incluso si tiene credenciales viejas)
       if (current?.accessToken && current?.roomName && current?.livekitUrl) {
-        console.log(`[FETCH SKIP] ${email} - already has valid credentials`);
+
         return prev; // Return same reference to avoid re-renders
       }
       
-      console.log(`[FETCH LOADING] ${email} - setting loading: true`);
+
       return {
         ...prev,
         [email]: { ...current, loading: true }
@@ -66,7 +66,7 @@ export function useMultiUserStreams(
     // ✅ Verificar si ya conectó DESPUÉS de poner loading: true
     const currentCreds = credsMap[email];
     if (currentCreds?.accessToken) {
-      console.log(`[FETCH CANCEL] ${email} already connected, canceling fetch`);
+
       setCredsMap(prev => ({
         ...prev,
         [email]: { loading: false }
@@ -75,21 +75,21 @@ export function useMultiUserStreams(
     }
     
     try {
-      console.log(`[FETCH API] ${email} - calling fetchStreamingSessions`);
+
       const sessions = await fetchStreamingSessions();
-      console.log(`[FETCH API] ${email} - Found ${sessions.length} sessions:`, sessions.map(s => ({ email: s.email, userId: s.userId })));
+
       const sess = sessions.find(s => s.email.toLowerCase() === email);
       if (!sess) {
-        console.log(`[FETCH ERROR] ${email} - No active session found. Available sessions:`, sessions.map(s => s.email));
+
         throw new Error('No active session');
       }
-      console.log(`[FETCH API] ${email} - Found session for user:`, sess.userId);
+
       
-      console.log(`[FETCH TOKEN] ${email} - calling getLiveKitToken for ${sess.userId}`);
+
       const { rooms, livekitUrl } = await getLiveKitToken(sess.userId);
       const entry = (rooms as RoomWithToken[]).find(r => r.room === sess.userId);
       if (!entry) {
-        console.log(`[FETCH ERROR] ${email} - Missing LiveKit token`);
+
         throw new Error('Missing LiveKit token');
       }
       
@@ -100,7 +100,7 @@ export function useMultiUserStreams(
           return prev; // Return same reference to avoid re-renders
         }
         
-        console.log(`[TOKEN SUCCESS] ${email} got token, should exit black screen`);
+
         
         return {
           ...prev,
@@ -116,7 +116,7 @@ export function useMultiUserStreams(
       // ✅ REINTENTOS CON LÍMITE - máximo 20 intentos para evitar loops infinitos
       if ((error as Error).message.includes('No active session') && retryCount < 19) {
         const delay = Math.min((retryCount + 1) * 500, 2000); // 0.5s, 1s, 1.5s, 2s, 2s, 2s...
-        console.log(`[multiStream] Retrying fetchFor(${email}) in ${delay}ms (attempt ${retryCount + 1}/20)`);
+
         // ✅ MANTENER LOADING: TRUE DURANTE REINTENTOS
         setTimeout(() => fetchFor(email, retryCount + 1), delay);
         return; // No cambiar loading a false durante reintentos
@@ -124,7 +124,7 @@ export function useMultiUserStreams(
       
       // ✅ LÍMITE ALCANZADO - Limpiar estado después de 20 intentos
       if (retryCount >= 19) {
-        console.log(`[multiStream] Max retries reached for ${email} (20 attempts), giving up`);
+
         setCredsMap(prev => ({
           ...prev,
           [email]: { loading: false }
@@ -133,7 +133,7 @@ export function useMultiUserStreams(
       }
       
       // ✅ SOLO PONER LOADING: FALSE SI ES OTRO ERROR (no "No active session")
-      console.log(`[multiStream] Final failure for ${email} - different error:`, (error as Error).message);
+
       setCredsMap(prev => ({
         ...prev,
         [email]: { loading: false }
@@ -150,7 +150,7 @@ export function useMultiUserStreams(
         
         // Si el PSO está online pero no tiene credenciales, intentar fetch
         if (isOnline && (!creds?.accessToken || !creds?.roomName)) {
-          console.log(`[PERIODIC FETCH] ${email} is online but missing credentials, attempting fetch`);
+
           fetchFor(email);
         }
       });
@@ -172,7 +172,7 @@ export function useMultiUserStreams(
       .then(() => {
         // ✅ REGISTRAR LISTENER ANTES DE JOIN - Evitar perder eventos "started"
         client.onMessage<any>(msg => {
-          console.log(`[WS MESSAGE] Received message:`, msg);
+
           
           // ✅ MANEJAR AMBOS FORMATOS: comando y estado
           let targetEmail: string | null = null;
@@ -182,100 +182,106 @@ export function useMultiUserStreams(
           if (msg.command && msg.employeeEmail) {
             targetEmail = msg.employeeEmail.toLowerCase();
             messageType = 'command';
-            console.log(`[WS MESSAGE] Command message: ${msg.command} for ${targetEmail}`);
+
           }
           // Formato 2: Mensaje de estado { email: '...', status: 'started'|'stopped' }
           else if (msg.email && msg.status) {
             targetEmail = msg.email.toLowerCase();
             messageType = 'status';
-            console.log(`[WS MESSAGE] Status message: ${msg.status} for ${targetEmail}`);
+
           }
           // Formato desconocido
           else {
-            console.log(`[WS MESSAGE] Unknown message format:`, msg);
+
             return;
           }
           
           if (!targetEmail) {
-            console.log(`[WS MESSAGE] No valid email found in message`);
+
             return;
           }
           
           if (!emails.includes(targetEmail)) {
-            console.log(`[WS MESSAGE] Email ${targetEmail} not in current emails list:`, emails);
+
             return;
           }
           
           // ✅ PROCESAR MENSAJES DE COMANDO
           if (messageType === 'command') {
             if (msg.command === 'START') {
-              console.log(`[START COMMAND] ${targetEmail} received START command, calling fetchFor`);
               // ✅ QUITAR MARCA DE CANCELADO AL RECIBIR START
               setCanceledUsers(prev => {
                 const newSet = new Set(prev);
-                newSet.delete(targetEmail);
+                if (targetEmail) {
+                  newSet.delete(targetEmail);
+                }
                 return newSet;
               });
               // ✅ IMMEDIATE FETCH - Intentar fetch inmediatamente
-              console.log(`[START COMMAND] ${targetEmail} - attempting immediate fetch`);
-              fetchFor(targetEmail);
+              if (targetEmail) {
+                fetchFor(targetEmail);
+              }
               
               // ✅ DELAYED RETRY - Si el fetch inmediato falla, reintentar después de un delay
               setTimeout(() => {
-                console.log(`[START COMMAND] ${targetEmail} - attempting delayed fetch after 2s`);
-                fetchFor(targetEmail);
+                if (targetEmail) {
+                  fetchFor(targetEmail);
+                }
               }, 2000);
             } else if (msg.command === 'STOP') {
-              console.log(`[STOP COMMAND] ${targetEmail} received STOP command, clearing credentials`);
               // ✅ MARCAR COMO CANCELADO PARA EVITAR REINTENTOS
-              setCanceledUsers(prev => new Set([...prev, targetEmail]));
-              setCredsMap(prev => ({
-                ...prev,
-                [targetEmail]: { 
-                  loading: false,
-                  accessToken: undefined,
-                  roomName: undefined,
-                  livekitUrl: undefined
-                }
-              }));
-            } else {
-              console.log(`[WS MESSAGE] Unknown command: ${msg.command} for ${targetEmail}`);
+              if (targetEmail) {
+                const email = targetEmail; // Type assertion to help TypeScript
+                setCanceledUsers(prev => new Set([...prev, email]));
+                setCredsMap(prev => ({
+                  ...prev,
+                  [email]: { 
+                    loading: false,
+                    accessToken: undefined,
+                    roomName: undefined,
+                    livekitUrl: undefined
+                  }
+                }));
+              }
             }
           }
           // ✅ PROCESAR MENSAJES DE ESTADO
           else if (messageType === 'status') {
             if (msg.status === 'started') {
-              console.log(`[START EVENT] ${targetEmail} received started event, calling fetchFor`);
               // ✅ QUITAR MARCA DE CANCELADO AL RECIBIR START
               setCanceledUsers(prev => {
                 const newSet = new Set(prev);
-                newSet.delete(targetEmail);
+                if (targetEmail) {
+                  newSet.delete(targetEmail);
+                }
                 return newSet;
               });
               // ✅ IMMEDIATE FETCH - Intentar fetch inmediatamente
-              console.log(`[START EVENT] ${targetEmail} - attempting immediate fetch`);
-              fetchFor(targetEmail);
+              if (targetEmail) {
+                fetchFor(targetEmail);
+              }
               
               // ✅ DELAYED RETRY - Si el fetch inmediato falla, reintentar después de un delay
               setTimeout(() => {
-                console.log(`[START EVENT] ${targetEmail} - attempting delayed fetch after 2s`);
-                fetchFor(targetEmail);
+                if (targetEmail) {
+                  fetchFor(targetEmail);
+                }
               }, 2000);
             } else if (msg.status === 'stopped') {
-              console.log(`[STOP EVENT] ${targetEmail} received stopped event, clearing credentials`);
               // ✅ MARCAR COMO CANCELADO PARA EVITAR REINTENTOS
-              setCanceledUsers(prev => new Set([...prev, targetEmail]));
-              setCredsMap(prev => ({
-                ...prev,
-                [targetEmail]: { 
-                  loading: false,
-                  accessToken: undefined,
-                  roomName: undefined,
-                  livekitUrl: undefined
-                }
-              }));
-            } else {
-              console.log(`[WS MESSAGE] Unknown status: ${msg.status} for ${targetEmail}`);
+              if (targetEmail) {
+                const email = targetEmail; // Type assertion to help TypeScript
+                setCanceledUsers(prev => new Set([...prev, email]));
+                setCredsMap(prev => ({
+                  ...prev,
+                  [email]: { 
+                    loading: false,
+                    accessToken: undefined,
+                    roomName: undefined,
+                    livekitUrl: undefined
+                  }
+                }));
+              }
             }
           }
         });
@@ -318,14 +324,14 @@ export const fetchForOptimistic = async (email: string) => {
     const entry = (rooms as RoomWithToken[]).find(r => r.room === sess.userId);
     if (!entry) throw new Error('Missing LiveKit token');
     
-    console.log(`[fetchForOptimistic] Successfully fetched token for ${email}`);
+
     return {
       accessToken: entry.token,
       roomName: sess.userId,
       livekitUrl
     };
   } catch (error) {
-    console.log(`[fetchForOptimistic] Failed to fetch token for ${email}:`, (error as Error).message);
+
     throw error;
   }
 };

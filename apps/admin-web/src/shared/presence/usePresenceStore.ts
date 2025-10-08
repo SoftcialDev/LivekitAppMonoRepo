@@ -74,27 +74,15 @@ export const usePresenceStore = create<PresenceState>((set, get) => {
     loadSnapshot: async (): Promise<void> => {
       set({ loading: true, error: null })
       try {
-        console.log('[DEBUG] Loading presence snapshot...')
         const { online = [], offline = [] } = await fetchPresence()
-        console.log('[DEBUG] Presence data:', { 
-          onlineCount: online.length, 
-          offlineCount: offline.length,
-          onlineEmails: online.map(u => u.email),
-          offlineEmails: offline.map(u => u.email)
-        })
         
         const sessions = await fetchStreamingSessions()
-        console.log('[DEBUG] Streaming sessions:', {
-          sessionCount: sessions.length,
-          sessionEmails: sessions.map(s => s.email)
-        })
         
         const map: Record<string, boolean> = {}
         ;(sessions as { email: string }[]).forEach(s => {
           map[s.email] = true
         })
 
-        console.log('[DEBUG] Final streaming map:', map)
 
         set({
           onlineUsers: online,
@@ -102,7 +90,6 @@ export const usePresenceStore = create<PresenceState>((set, get) => {
           streamingMap: map
         })
       } catch (err: any) {
-        console.error('Presence snapshot failed:', err)
         set({
           error: err.message ?? 'Unable to load presence',
           onlineUsers: [],
@@ -115,28 +102,18 @@ export const usePresenceStore = create<PresenceState>((set, get) => {
     },
 
     connectWebSocket: async (currentEmail: string): Promise<void> => {
-      console.log('[DEBUG] Starting WebSocket connection for:', currentEmail)
       
       // ✅ USAR SINGLETON - Evitar múltiples instancias
       svc = WebPubSubClientService.getInstance()
-      console.log('[DEBUG] WebPubSubClientService singleton obtained')
       
       // ✅ FORCE CLEANUP - Limpiar conexiones existentes antes de conectar
-      console.log('[DEBUG] Force cleanup before connecting...')
       await svc.forceCleanup()
-      console.log('[DEBUG] Force cleanup completed')
       
-      console.log('[DEBUG] Calling svc.connect...')
       await svc.connect(currentEmail)
-      console.log('[DEBUG] svc.connect completed')
       
-      console.log('[DEBUG] Calling svc.joinGroup("presence")...')
       await svc.joinGroup('presence')
-      console.log('[DEBUG] svc.joinGroup("presence") completed successfully')
       
-      console.log('[DEBUG] Calling presenceClient.setOnline()...')
       await presenceClient.setOnline()
-      console.log('[DEBUG] presenceClient.setOnline() completed')
 
       svc.onMessage<any>(msg => {
         if (msg.type !== 'presence') return
@@ -172,14 +149,13 @@ export const usePresenceStore = create<PresenceState>((set, get) => {
 
     disconnectWebSocket: (): void => {
       presenceClient.setOffline().catch(err => {
-        console.warn('Failed to mark offline:', err)
+        // Failed to mark offline - silently continue
       })
       
       // ✅ FORCE CLEANUP - Limpiar todas las conexiones al desconectar
       if (svc) {
-        console.log('[DEBUG] Force cleanup on disconnect...')
         svc.forceCleanup().catch(err => {
-          console.warn('Failed to force cleanup:', err)
+          // Failed to force cleanup - silently continue
         })
       }
       
