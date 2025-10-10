@@ -1,193 +1,99 @@
-import { AzureFunction, Context } from "@azure/functions";
-import { z } from "zod";
-import axios from "axios";
+/**
+ * @fileoverview ChangeUserRole - Azure Function for user role change handling
+ * @description Allows authorized users to change user roles and manage user assignments
+ */
 
+import { AzureFunction, Context } from "@azure/functions";
 import { withAuth } from "../shared/middleware/auth";
 import { withErrorHandler } from "../shared/middleware/errorHandler";
 import { withBodyValidation } from "../shared/middleware/validate";
-import { ok, unauthorized, badRequest, forbidden } from "../shared/utils/response";
-
-import {
-  getGraphToken,
-  getServicePrincipalObjectId,
-  removeAllAppRolesFromPrincipalOnSp,
-  assignAppRoleToPrincipal,
-} from "../shared/services/graphService";
-import { config } from "../shared/config";
-import type { JwtPayload } from "jsonwebtoken";
-
-import {
-  findOrCreateAdmin,
-  deleteUserByEmail,
-  upsertUserRole,
-  getUserByEmail,
-} from "../shared/services/userService";
-import { setUserOffline } from "../shared/services/presenceService";
-import { logAudit, AuditAction } from "../shared/services/auditService";
-
-const schema = z.object({
-  userEmail: z.string().email(),
-  newRole: z.enum(["Supervisor", "Admin", "Employee"]).nullable(),
-});
+import { ok, unauthorized } from "../shared/utils/response";
+import { UserRoleChangeApplicationService } from "../shared/application/services/UserRoleChangeApplicationService";
+import { UserRoleChangeRequest } from "../shared/domain/value-objects/UserRoleChangeRequest";
+import { userRoleChangeSchema } from "../shared/domain/schema/UserRoleChangeSchema";
+import { serviceContainer } from "../shared/infrastructure/container/ServiceContainer";
+import { handleAnyError } from "../shared/utils/errorHandler";
+import { getCallerAdId } from "../shared/utils/authHelpers";
+import { IUserRepository } from "../shared/domain/interfaces/IUserRepository";
+import { IAuthorizationService } from "../shared/domain/interfaces/IAuthorizationService";
+import { IAuditService } from "../shared/domain/interfaces/IAuditService";
+import { IPresenceService } from "../shared/domain/interfaces/IPresenceService";
 
 /**
- * ChangeUserRole
+ * Azure Function: ChangeUserRole
  *
- * Authenticates an Admin or Supervisor caller, validates the request body,
- * updates the user's Azure AD app role, persists the change to the database
- * (creating the user record if it didn't exist), logs an audit entry,
- * and optionally marks the user offline.
+ * **HTTP POST** `/api/ChangeUserRole`
  *
- * Supervisors may only assign the Employee role; Admins may assign any role
- * or remove a user (newRole=null).
+ * Allows Admins and Supervisors to change user roles and manage user assignments.
  *
- * @param ctx - The Azure Functions execution context, including bindings and response helpers.
- * @returns A Promise that resolves to a HTTP response indicating the result of the operation.
- * @throws 401 Unauthorized when the caller’s identity cannot be determined or the caller is deleted.
- * @throws 403 Forbidden when the caller’s role is insufficient for the requested change.
- * @throws 400 BadRequest when Graph token retrieval fails or the target user cannot be found.
+ * @logic
+ * 1. Authenticate caller via Azure AD (`withAuth`).
+ * 2. Authorize only users with `Admin`, `Supervisor`, or `SuperAdmin` roles.
+ * 3. Validate payload `{ userEmail, newRole }`.
+ * 4. Supervisors can only assign Employee role; Admins can assign any role.
+ * 5. Update user role in Microsoft Graph and database.
+ * 6. Log audit entry and update presence if needed.
+ *
+ * @param ctx Azure Functions execution context.
  */
 const changeUserRole: AzureFunction = withErrorHandler(
   async (ctx: Context) => {
     await withAuth(ctx, async () => {
-      const claims = (ctx as any).bindings.user as JwtPayload;
-      const callerAdId = (claims.oid || claims.sub) as string;
-      if (!callerAdId) {
-        return unauthorized(ctx, "Cannot determine caller identity");
-      }
+      // Initialize service container
+      serviceContainer.initialize();
 
-      const callerEmail = claims.preferred_username as string;
-      const callerName = claims.name as string;
-      const caller = await findOrCreateAdmin(callerAdId, callerEmail, callerName);
-      if (caller.deletedAt) {
-        return unauthorized(ctx, "Caller has been deleted");
-      }
+      // Resolve dependencies from container
+      const userRepository = serviceContainer.resolve<IUserRepository>('UserRepository');
+      const authorizationService = serviceContainer.resolve<IAuthorizationService>('AuthorizationService');
+      const auditService = serviceContainer.resolve<IAuditService>('AuditService');
+      const presenceService = serviceContainer.resolve<IPresenceService>('PresenceService');
 
-      // Supervisors may only assign Employee; only Admin may do all others
-      if (caller.role === "Supervisor") {
-        await withBodyValidation(schema)(ctx, async () => {
-          const { newRole } = ctx.bindings.validatedBody as {
-            userEmail: string;
-            newRole: "Supervisor" | "Admin" | "Employee" | null;
-          };
-          if (newRole !== "Employee") {
-            return forbidden(ctx, "Supervisors may only assign Employee role");
-          }
-        });
-      } else if (caller.role !== "Admin" && caller.role !== "SuperAdmin") {
-        return forbidden(ctx, "Only Admin or Supervisor may change roles");
-      }
+      const userRoleChangeApplicationService = new UserRoleChangeApplicationService(
+        userRepository,
+        authorizationService,
+        auditService,
+        presenceService
+      );
 
-      // From here on out, Admins handle full logic; Supervisors only reach this point
-      // if they requested newRole="Employee"
-      await withBodyValidation(schema)(ctx, async () => {
-        const { userEmail, newRole } = ctx.bindings
-          .validatedBody as {
-          userEmail: string;
-          newRole: "Supervisor" | "Admin" | "Employee" | null;
-        };
+      // Validate request body
+      await withBodyValidation(userRoleChangeSchema)(ctx, async () => {
+        const { userEmail, newRole } = ctx.bindings.validatedBody;
+        const claims = ctx.bindings.user;
+        const callerId = getCallerAdId(claims);
 
-        // fetch existing record, may be undefined
-        const before = await getUserByEmail(userEmail);
+        if (!callerId) {
+          return unauthorized(ctx, "Cannot determine caller identity");
+        }
 
-        // get Graph token
-        let graphToken: string;
         try {
-          graphToken = await getGraphToken();
-        } catch (err: any) {
-          return badRequest(ctx, `Graph token error: ${err.message}`);
+          // Create user role change request
+          const request = UserRoleChangeRequest.fromRequest({ userEmail, newRole });
+
+          // Authorize caller
+          await userRoleChangeApplicationService.authorizeRoleChange(callerId, newRole);
+
+          // Validate request
+          await userRoleChangeApplicationService.validateRoleChangeRequest(request);
+
+          // Execute role change
+          const result = await userRoleChangeApplicationService.changeUserRole(request, callerId);
+
+          ctx.log.info(`ChangeUserRole → ${result.getSummary()}`);
+          return ok(ctx, {
+            message: result.getSummary(),
+            operation: result.getOperationType(),
+            userEmail: result.userEmail,
+            previousRole: result.previousRole,
+            newRole: result.newRole
+          });
+
+        } catch (error) {
+          return handleAnyError(ctx, error, {
+            callerId,
+            userEmail,
+            newRole
+          });
         }
-
-        // resolve service principal ID
-        let spId = process.env.SERVICE_PRINCIPAL_OBJECT_ID;
-        if (!spId) {
-          const clientId = process.env.APP_CLIENT_ID || config.azureClientId;
-          spId = await getServicePrincipalObjectId(graphToken, clientId);
-        }
-
-        // resolve target AD object ID
-        let targetAdId: string;
-        try {
-          const resp = await axios.get(
-            `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(userEmail)}?$select=id`,
-            { headers: { Authorization: `Bearer ${graphToken}` } }
-          );
-          targetAdId = resp.data.id;
-        } catch {
-          const fallback = await axios.get(
-            `https://graph.microsoft.com/v1.0/users?$filter=mail eq '${userEmail}'&$select=id`,
-            { headers: { Authorization: `Bearer ${graphToken}` } }
-          );
-          if (!fallback.data.value?.length) {
-            return badRequest(ctx, `User ${userEmail} not found`);
-          }
-          targetAdId = fallback.data.value[0].id;
-        }
-
-        // remove existing app roles
-        await removeAllAppRolesFromPrincipalOnSp(graphToken, spId!, targetAdId);
-
-        // if newRole is null, delete only if record existed
-        if (newRole === null) {
-          if (before) {
-            await deleteUserByEmail(userEmail);
-            await logAudit({
-              entity: "User",
-              entityId: before.id,
-              action: "DELETE" as AuditAction,
-              changedById: caller.id,
-              dataBefore: before,
-            });
-          }
-          return ok(ctx, { message: `${userEmail} deleted` });
-        }
-
-        // assign new app-role
-        const roleIdMap: Record<string, string> = {
-          Supervisor: process.env.SUPERVISORS_GROUP_ID!,
-          Admin: process.env.ADMINS_GROUP_ID!,
-          Employee: process.env.EMPLOYEES_GROUP_ID!,
-          ContactManager: process.env.CONTACT_MANAGER_GROUP_ID!,
-        };
-        const roleId = roleIdMap[newRole];
-        await assignAppRoleToPrincipal(graphToken, spId!, targetAdId, roleId);
-
-        // fetch displayName
-        let displayName = "";
-        try {
-          const resp = await axios.get(
-            `https://graph.microsoft.com/v1.0/users/${targetAdId}?$select=displayName`,
-            { headers: { Authorization: `Bearer ${graphToken}` } }
-          );
-          displayName = resp.data.displayName || "";
-        } catch {
-          /* ignore */
-        }
-
-        // upsert in our DB
-        const after: { id: string } | null = await upsertUserRole(
-          userEmail,
-          targetAdId,
-          displayName,
-          newRole,
-        );
-
-        await logAudit({
-          entity: "User",
-          entityId: after!.id,
-          action: "ROLE_CHANGE" as AuditAction,
-          changedById: caller.id,
-          dataBefore: before,
-          dataAfter: after,
-        });
-
-        if (newRole === "Employee") {
-          await setUserOffline(userEmail);
-        }
-
-        return ok(ctx, {
-          message: `${userEmail} role changed to ${newRole}`,
-        });
       });
     });
   },

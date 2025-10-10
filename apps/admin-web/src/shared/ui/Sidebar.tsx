@@ -5,6 +5,7 @@ import monitorIcon from "@/shared/assets/icon-monitor.png";
 import managementIcon from "@/shared/assets/manage_icon_sidebar.png";
 import { useVideoActions } from "@/pages/Video/hooks/UseVideoAction";
 import { useAuth } from "../auth/useAuth";
+import { useUserInfo } from "../hooks/useUserInfo";
 import { UserStatus } from "../types/UserStatus";
 import { Dropdown } from "./Dropdown";
 import IconWithLabel from "./IconWithLabel";
@@ -63,24 +64,19 @@ const Sidebar: React.FC<SidebarProps> = ({
   onToggleCollapse,
 }) => {
   const { account } = useAuth();
+  const { userInfo } = useUserInfo();
   const { handleChat } = useVideoActions();
   const currentEmail = account?.username ?? "";
   const psoEmail   = currentEmail;
   const senderName = account?.name ?? "";
 
-  // Viewer roles
-  const claims = (account?.idTokenClaims ?? {}) as Record<string, any>;
-  const rawRoles = claims.roles ?? claims.role;
-  const roles: string[] = Array.isArray(rawRoles)
-    ? rawRoles
-    : typeof rawRoles === "string"
-    ? [rawRoles]
-    : [];
-  const isAdmin = roles.includes("Admin");
-  const isSupervisor = roles.includes("Supervisor");
-  const isContactManager = roles.includes("ContactManager");
-  const isSuperAdmin = roles.includes("SuperAdmin");
-  const isEmployee = roles.includes("Employee");
+  // Get roles from database via UserInfoContext
+  const userRole = userInfo?.role;
+  const isAdmin = userRole === "Admin";
+  const isSupervisor = userRole === "Supervisor";
+  const isContactManager = userRole === "ContactManager";
+  const isSuperAdmin = userRole === "SuperAdmin";
+  const isEmployee = userRole === "Employee";
 
   /**
    * Contact managers assigned to the current viewer (Employee-only).

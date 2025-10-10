@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import managementIcon from '@/shared/assets/manage_icon_sidebar.png';
 import { useHeader } from '@/app/providers/HeaderContext';
-import { getUsersByRole, changeUserRole } from '@/shared/api/userClient';
+import { getUsersByRole, changeUserRole, deleteUser } from '@/shared/api/userClient';
 import { useAuth } from '@/shared/auth/useAuth';
 import AddButton from '@/shared/ui/Buttons/AddButton';
 import TrashButton from '@/shared/ui/Buttons/TrashButton';
@@ -99,7 +99,7 @@ const PSOsListPage: React.FC = () => {
   const fetchCandidates = async (): Promise<void> => {
     setCandidatesLoading(true);
     try {
-      const res = await getUsersByRole('Tenant', 1, API_PAGE_SIZE);
+      const res = await getUsersByRole('Unassigned', 1, API_PAGE_SIZE);
       const mapped: CandidateUser[] = res.users.map(u => ({
         azureAdObjectId: u.azureAdObjectId,
         email:           u.email,
@@ -142,6 +142,7 @@ const PSOsListPage: React.FC = () => {
       );
       setModalOpen(false);
       await fetchPsos();
+      await fetchCandidates(); // Refresh candidates list
       showToast(
         `${selectedEmails.length} user${selectedEmails.length > 1 ? 's' : ''} added`,
         'success'
@@ -164,8 +165,9 @@ const PSOsListPage: React.FC = () => {
     }
     setPsosLoading(true);
     try {
-      await changeUserRole({ userEmail: email, newRole: null });
+      await deleteUser({ userEmail: email, reason: 'PSO role removed' });
       await fetchPsos();
+      await fetchCandidates(); // Refresh candidates list
       showToast(`Removed ${email}`, 'success');
     } catch (err: any) {
       console.error('Error removing PSO:', err);

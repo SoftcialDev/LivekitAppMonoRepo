@@ -32,8 +32,10 @@ export type UserRoleParam =
   | "Supervisor"
   | "Employee"
   | "Tenant"
+  | "null"
+  | "Unassigned"
   | "All"
-  | `${"Admin" | "Supervisor" | "Employee" | "Tenant"},${string}`;
+  | `${"Admin" | "Supervisor" | "Employee" | "Tenant" | "null" | "Unassigned"},${string}`;
 
 /**
  * Represents a user returned by GetUsersByRole.
@@ -109,13 +111,20 @@ export interface PagedResponse<T> {
  * Payload for ChangeUserRole.
  */
 export interface ChangeUserRolePayload {
-  /** Target user’s email */
+  /** Target user's email */
   userEmail: string;
-  /**
-   * New role to assign, or `null` to remove all roles
-   * (user becomes a tenant user).
-   */
-  newRole: "Admin" | "Supervisor" | "Employee" | null;
+  /** New role to assign */
+  newRole: "Admin" | "Supervisor" | "Employee";
+}
+
+/**
+ * Payload for DeleteUser.
+ */
+export interface DeleteUserPayload {
+  /** Target user's email */
+  userEmail: string;
+  /** Optional reason for deletion */
+  reason?: string;
 }
 
 /**
@@ -140,9 +149,9 @@ export interface ChangeSupervisorPayload {
  *    - `"Admin"`      → only admins
  *    - `"Supervisor"` → only supervisors
  *    - `"Employee"`   → only employees
- *    - `"Tenant"`     → only users with no App Role
+ *    - `"null"`       → only users with no App Role
  *    - `"All"`        → all users with any App Role
- *    - Comma-separated list, e.g. `"Supervisor,Tenant"`
+ *    - Comma-separated list, e.g. `"Supervisor,null"`
  * @param page
  *   1-based page number. Defaults to `1`.
  * @param pageSize
@@ -156,8 +165,8 @@ export interface ChangeSupervisorPayload {
  * const { total, page, pageSize, users } =
  *   await getUsersByRole("Supervisor", 1, 20);
  *
- * // Fetch tenant users (no paging)
- * const { users: allTenants } = await getUsersByRole("Tenant");
+ * // Fetch users with no role (no paging)
+ * const { users: allUsersWithNoRole } = await getUsersByRole("null");
  * ```
  */
 export async function getUsersByRole(
@@ -187,10 +196,10 @@ export async function getUsersByRole(
 }
 
 /**
- * Assigns or removes an App Role from a user.
+ * Assigns an App Role to a user.
  *
- * @param payload.userEmail - Target user’s email.
- * @param payload.newRole   - New role to assign, or `null` to clear all roles.
+ * @param payload.userEmail - Target user's email.
+ * @param payload.newRole   - New role to assign.
  *
  * @returns Promise resolving when the operation completes.
  *
@@ -198,14 +207,32 @@ export async function getUsersByRole(
  * ```ts
  * // Assign Supervisor role:
  * await changeUserRole({ userEmail: "jane@foo.com", newRole: "Supervisor" });
- * // Remove all roles:
- * await changeUserRole({ userEmail: "bob@foo.com", newRole: null });
  * ```
  */
 export async function changeUserRole(
   payload: ChangeUserRolePayload
 ): Promise<void> {
   await apiClient.post("/api/ChangeUserRole", payload);
+}
+
+/**
+ * Deletes a user from the system (soft delete with role removal).
+ *
+ * @param payload.userEmail - Target user's email.
+ * @param payload.reason    - Optional reason for deletion.
+ *
+ * @returns Promise resolving when the operation completes.
+ *
+ * @example
+ * ```ts
+ * // Delete user:
+ * await deleteUser({ userEmail: "bob@foo.com", reason: "No longer needed" });
+ * ```
+ */
+export async function deleteUser(
+  payload: DeleteUserPayload
+): Promise<void> {
+  await apiClient.post("/api/DeleteUser", payload);
 }
 
 /**

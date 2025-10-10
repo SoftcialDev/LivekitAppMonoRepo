@@ -17,12 +17,13 @@
  * - `TableComponent` for tabular UI  
  */
 
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import managementIcon from '@/shared/assets/manage_icon_sidebar.png';
 import { useHeader } from '@/app/providers/HeaderContext';
-import { getUsersByRole, changeUserRole, transferPsos } from '@/shared/api/userClient';
+import { getUsersByRole, changeUserRole, transferPsos, deleteUser } from '@/shared/api/userClient';
 import { useAuth } from '@/shared/auth/useAuth';
+import { useUserInfo } from '@/shared/hooks/useUserInfo';
 import AddButton from '@/shared/ui/Buttons/AddButton';
 import TransferPSOsButton from '@/shared/ui/Buttons/TransferPSOsButton';
 import TrashButton from '@/shared/ui/Buttons/TrashButton';
@@ -57,21 +58,15 @@ export interface CandidateUser {
  */
 const SupervisorsPage: React.FC = () => {
   const { initialized, account } = useAuth();
+  const { userInfo } = useUserInfo();
   const navigate                 = useNavigate();
   const currentEmail             = account?.username ?? '';
   const { showToast }            = useToast();
 
-  // Determine roles of current user
-  const claims   = (account?.idTokenClaims ?? {}) as any;
-  const rawRoles = claims.roles ?? claims.role;
-  const roles: string[] = Array.isArray(rawRoles)
-    ? rawRoles
-    : typeof rawRoles === 'string'
-      ? [rawRoles]
-      : [];
-  const isAdmin      = roles.includes('Admin');
-  const isSuperAdmin      = roles.includes('SuperAdmin');
-  const isSupervisor = roles.includes('Supervisor');
+  // Determine roles from database userInfo (not AAD token)
+  const isAdmin      = userInfo?.role === 'Admin';
+  const isSuperAdmin = userInfo?.role === 'SuperAdmin';
+  const isSupervisor = userInfo?.role === 'Supervisor';
 
   // State for supervisors list
   const [supervisors, setSupervisors]       = useState<CandidateUser[]>([]);
@@ -91,7 +86,8 @@ const SupervisorsPage: React.FC = () => {
   });
 
   /** Fetches current Supervisors */
-  const fetchSupervisors = async () => {
+  const fetchSupervisors = useCallback(async () => {
+    console.log('🔍 fetchSupervisors called');
     setSupLoading(true);
     try {
       const { users } = await getUsersByRole('Supervisor', 1, 1000);
@@ -101,33 +97,37 @@ const SupervisorsPage: React.FC = () => {
     } finally {
       setSupLoading(false);
     }
-  };
+  }, []); // ✅ Sin dependencias - showToast es estable
 
   /** Fetches candidate users for promotion */
-  const fetchCandidates = async () => {
+  const fetchCandidates = useCallback(async () => {
     setCandLoading(true);
     try {
-      const { users } = await getUsersByRole('Employee,Tenant', 1, 1000);
+      const { users } = await getUsersByRole('Employee,Unassigned', 1, 1000);
       setCandidates(users);
     } catch {
       showToast('Failed to load candidate users', 'error');
     } finally {
       setCandLoading(false);
     }
-  };
+  }, []); // ✅ Sin dependencias - showToast es estable
 
   // Initial load on mount
   useEffect(() => {
+    console.log('🔍 useEffect triggered', { initialized, userInfo: userInfo?.role });
     if (!initialized) return;
     void fetchSupervisors();
-  }, [initialized]);
+  }, [initialized]); // ✅ Solo initialized, no fetchSupervisors
 
-  /** Opens the “Add Supervisor” modal */
-  const handleOpenModal = () => {
+  /** Opens the "Add Supervisor" modal */
+  const handleOpenModal = useCallback(() => {
     setSelectedEmails([]);
     setModalOpen(true);
-    void fetchCandidates();
-  };
+    // Only fetch candidates if not already loaded
+    if (candidates.length === 0 && !candidatesLoading) {
+      void fetchCandidates();
+    }
+  }, [candidates.length, candidatesLoading, fetchCandidates]);
 
   /** Confirms adding selected candidates as Supervisors */
   const handleConfirmAdd = async () => {
@@ -140,6 +140,7 @@ const SupervisorsPage: React.FC = () => {
       );
       setModalOpen(false);
       await fetchSupervisors();
+      await fetchCandidates(); // Refresh candidates list
       showToast(`${selectedEmails.length} supervisor(s) added`, 'success');
     } catch {
       showToast('Failed to add supervisors', 'error');
@@ -159,7 +160,7 @@ const SupervisorsPage: React.FC = () => {
     }
     setSupLoading(true);
     try {
-      await changeUserRole({ userEmail: email, newRole: null });
+      await deleteUser({ userEmail: email, reason: 'Supervisor role removed' });
       await fetchSupervisors();
       showToast(`Removed supervisor: ${email}`, 'success');
     } catch {

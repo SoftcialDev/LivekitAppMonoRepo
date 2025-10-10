@@ -1,7 +1,8 @@
 import prisma from "./prismaClienService";
-import { sendToGroup } from "./webPubSubService";
+import { CommandMessagingService } from "../infrastructure/messaging/CommandMessagingService";
 import { getPresenceStatus } from "./presenceService";
 import type { PendingCommand, CommandType } from "@prisma/client";
+import { getCentralAmericaTime } from "../utils/dateUtils";
 
 /**
  * Persists a new pending command for an employee.
@@ -84,7 +85,8 @@ export async function tryDeliverCommand(pendingCmd: {
 
 
   // 3) Send over Web PubSub and mark as published
-  await sendToGroup(groupName, message);
+  const messagingService = new CommandMessagingService();
+  await messagingService.sendToGroup(groupName, message);
   
 
 
@@ -92,7 +94,7 @@ export async function tryDeliverCommand(pendingCmd: {
     where: { id: pendingCmd.id },
     data: {
       published:    true,
-      publishedAt:  new Date(),
+      publishedAt:  getCentralAmericaTime(),
       attemptCount: { increment: 1 },
     },
   });
@@ -130,7 +132,7 @@ export async function markCommandsDelivered(ids: string[]): Promise<number> {
     where: { id: { in: ids } },
     data: {
       acknowledged:   true,
-      acknowledgedAt: new Date(),
+      acknowledgedAt: getCentralAmericaTime(),
     },
   });
   return result.count;

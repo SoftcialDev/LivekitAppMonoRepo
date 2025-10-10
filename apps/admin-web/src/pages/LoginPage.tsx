@@ -22,25 +22,17 @@ export const LoginPage: React.FC = (): JSX.Element => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    // Redirect user after login based on role claims
+    // Redirect to loading page after successful login
     if (!initialized || !account) return;
 
-    const claims = account.idTokenClaims as Record<string, any>;
-    const rolesClaim = claims.roles ?? claims.role;
-    const roles: string[] = Array.isArray(rolesClaim) ? rolesClaim : [rolesClaim];
-    console.debug('LoginPage: detected roles on init:', roles);
-
-    if (roles.includes('Employee')) {
-      navigate('/psosDashboard', { replace: true });
-    } else {
-      navigate('/dashboard', { replace: true });
-    }
+    console.debug('LoginPage: user authenticated, redirecting to loading page');
+    navigate('/loading', { replace: true });
   }, [initialized, account, navigate]);
 
   /**
    * handleLogin
-   * Triggers MSAL popup login, validates roles, and redirects accordingly.
-   * If no roles are assigned, logs out and shows an error.
+   * Triggers MSAL popup login and redirects to loading page.
+   * User information will be loaded from database in LoadingPage.
    */
   const handleLogin = async (): Promise<void> => {
     setErrorMessage(null);
@@ -48,28 +40,11 @@ export const LoginPage: React.FC = (): JSX.Element => {
 
     try {
       // Open MSAL popup for authentication
-      const result = await login();
-      const claims = result.idTokenClaims as Record<string, any>;
-      const rolesClaim = claims.roles ?? claims.role;
-      const roles: string[] = Array.isArray(rolesClaim) ? rolesClaim : [rolesClaim];
-      console.debug('LoginPage: roles from popup result:', roles);
-
-      // If user has no role, treat as unregistered
-      if (roles.length === 0 || roles[0] == null) {
-        console.warn('LoginPage: user has no roles assigned');
-        await logout();
-        setErrorMessage(
-          'Your account is not registered. Please contact your administrator to assign you a role.'
-        );
-        return;
-      }
-
-      // Redirect based on role
-      if (roles.includes('Employee')) {
-        navigate('/psosDashboard', { replace: true });
-      } else {
-        navigate('/dashboard', { replace: true });
-      }
+      await login();
+      
+      // Redirect to loading page to fetch user information from database
+      navigate('/loading', { replace: true });
+      
     } catch (err: any) {
       console.error('LoginPage: login failed:', err);
       setErrorMessage(

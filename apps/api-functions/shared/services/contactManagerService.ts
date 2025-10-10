@@ -7,7 +7,8 @@ import {
 } from "./graphService";
 import { config } from "../config";
 import { ContactManagerStatus, UserRole } from "@prisma/client";
-import { sendToGroup } from "./webPubSubService";
+import { CommandMessagingService } from "../infrastructure/messaging/CommandMessagingService";
+import { getCentralAmericaTime } from "../utils/dateUtils";
 
 
 
@@ -94,7 +95,7 @@ export async function addContactManager(
         fullName: graphUser.displayName ?? normalizedEmail,
         // We can assign ContactManager immediately or default to another role
         role: UserRole.ContactManager,
-        roleChangedAt: new Date(),
+        roleChangedAt: getCentralAmericaTime(),
       },
     });
   }
@@ -111,7 +112,7 @@ export async function addContactManager(
     where: { id: user.id },
     data: {
       role: UserRole.ContactManager,
-      roleChangedAt: new Date(),
+      roleChangedAt: getCentralAmericaTime(),
     },
   });
 
@@ -180,7 +181,8 @@ export async function updateMyContactManagerStatus(
   });
 
   // 4) Notify real-time group of employees
-  void sendToGroup("cm-status-updates", {
+  const messagingService = new CommandMessagingService();
+  void messagingService.sendToGroup("cm-status-updates", {
     managerId: updated.userId,
     status:    updated.status,
     updatedAt: updated.updatedAt.toISOString(),

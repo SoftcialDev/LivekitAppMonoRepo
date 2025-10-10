@@ -1,9 +1,10 @@
 import { AzureFunction, Context, HttpRequest } from "@azure/functions";
 import { withAuth } from "../shared/middleware/auth";
 import { withErrorHandler } from "../shared/middleware/errorHandler";
+import { getCentralAmericaTime } from "../shared/utils/dateUtils";
 import { badRequest, forbidden, ok } from "../shared/utils/response";
 import prisma from "../shared/services/prismaClienService";
-import { sendToGroup } from "../shared/services/webPubSubService";
+import { CommandMessagingService } from "../shared/infrastructure/messaging/CommandMessagingService";
 import { JwtPayload } from "jsonwebtoken";
 
 /**
@@ -83,10 +84,11 @@ const transferPsosFunction: AzureFunction = withErrorHandler(
           // Enviar notificación a cada PSO transferido
           for (const pso of transferredPsos) {
             try {
-              await sendToGroup(`commands:${pso.email}`, {
+              const messagingService = new CommandMessagingService();
+              await messagingService.sendToGroup(`commands:${pso.email}`, {
                 type: 'SUPERVISOR_CHANGED',
                 newSupervisorName: newSup.fullName,
-                timestamp: new Date().toISOString()
+                timestamp: getCentralAmericaTime().toISOString()
               });
               ctx.log.info(`[TransferPsos] Notified PSO ${pso.email} of supervisor change to ${newSup.fullName}`);
             } catch (notifyErr) {

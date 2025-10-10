@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { withAuth } from "../shared/middleware/auth";
 import { withErrorHandler } from "../shared/middleware/errorHandler";
+import { getCentralAmericaTime } from "../shared/utils/dateUtils";
 import { withBodyValidation } from "../shared/middleware/validate";
 import { ok, badRequest } from "../shared/utils/response";
 
@@ -79,7 +80,7 @@ const snapshotFunction: AzureFunction = withErrorHandler(
 
         // 5) Decode and upload image
         const buffer = Buffer.from(imageBase64, "base64");
-        const datePath = new Date().toISOString().slice(0, 10);
+        const datePath = getCentralAmericaTime().toISOString().slice(0, 10);
         const filename = `${datePath}/${randomUUID()}.jpg`;
         const imageUrl = await blobService.uploadSnapshot(buffer, filename);
 

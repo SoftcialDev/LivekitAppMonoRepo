@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import managementIcon from '@/shared/assets/manage_icon_sidebar.png';
 import { useHeader } from '@/app/providers/HeaderContext';
-import { getUsersByRole, changeUserRole } from '@/shared/api/userClient';
+import { getUsersByRole, changeUserRole, deleteUser } from '@/shared/api/userClient';
 import { useAuth } from '@/shared/auth/useAuth';
 import AddButton from '@/shared/ui/Buttons/AddButton';
 import TrashButton from '@/shared/ui/Buttons/TrashButton';
@@ -55,7 +55,7 @@ const AdminsPage: React.FC = () => {
   const fetchCandidates = async (): Promise<void> => {
     setCandidatesLoading(true);
     try {
-      const res = await getUsersByRole('Supervisor,Employee,Tenant', 1, 1000);
+      const res = await getUsersByRole('Supervisor,Employee,Unassigned', 1, 1000);
       setCandidates(res.users);
     } catch (err: any) {
       showToast('Could not load candidate users', 'error');
@@ -85,6 +85,7 @@ const AdminsPage: React.FC = () => {
       );
       setModalOpen(false);
       await fetchAdmins();
+      await fetchCandidates(); // Refresh candidates list
       showToast(`${selectedEmails.length} added`, 'success');
     } catch {
       showToast('Failed to add admins', 'error');
@@ -100,8 +101,9 @@ const AdminsPage: React.FC = () => {
     }
     setAdminsLoading(true);
     try {
-      await changeUserRole({ userEmail: email, newRole: null });
+      await deleteUser({ userEmail: email, reason: 'Admin role removed' });
       await fetchAdmins();
+      await fetchCandidates(); // Refresh candidates list
       showToast(`Removed ${email}`, 'success');
     } catch {
       showToast(`Failed to remove ${email}`, 'error');

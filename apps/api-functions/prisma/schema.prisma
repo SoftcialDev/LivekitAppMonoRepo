@@ -21,6 +21,7 @@ enum UserRole {
   Employee        // standard users who stream video
   ContactManager  // Contact Manager role
   SuperAdmin      // users with the highest privileges
+  Unassigned      // users without any specific role
 }
 
 /// Possible statuses for a Contact Manager during their shift.

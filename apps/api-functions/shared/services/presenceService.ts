@@ -1,6 +1,7 @@
 import prisma from "./prismaClienService";
 import { isUuid } from "../utils/uuid";
 import { broadcastPresence } from "./webPubSubService";
+import { getCentralAmericaTime } from "../utils/dateUtils";
 
 /* ────────────────────────────────────────────────────────────────────────── */
 /*  🔍 Flexible user lookup                                                  */
@@ -41,7 +42,7 @@ async function findActiveUserFlexible(key: string) {
  */
 export async function setUserOnline(key: string): Promise<void> {
   const user = await findActiveUserFlexible(key);
-  const now  = new Date();
+  const now  = getCentralAmericaTime();
 
   await prisma.$transaction([
     prisma.presence.upsert({
@@ -68,7 +69,7 @@ export async function setUserOnline(key: string): Promise<void> {
  */
 export async function setUserOffline(key: string): Promise<void> {
   const user = await findActiveUserFlexible(key);
-  const now  = new Date();
+  const now  = getCentralAmericaTime();
 
   await prisma.$transaction(async (tx) => {
     await tx.presence.upsert({

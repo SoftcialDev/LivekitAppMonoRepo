@@ -1,6 +1,7 @@
 import { WebPubSubServiceClient } from "@azure/web-pubsub";
 import { AzureKeyCredential } from "@azure/core-auth";
 import { config } from "../config";
+import { getCentralAmericaTime } from "../utils/dateUtils";
 
 /**
  * Singleton WebPubSubServiceClient configured with endpoint, credential, and hub name.
@@ -48,22 +49,6 @@ export async function generateWebPubSubToken(
   });
 
   return tokenResponse.token;
-}
-/**
- * Broadcasts a JSON-serializable payload to all clients in the specified group.
- *
- * @param groupName - The name of the target group (e.g., an employee's email).
- * @param payload - The data to send; must be JSON-serializable.
- * @returns A Promise that resolves when the broadcast completes.
- * @throws Propagates any errors from the Web PubSub SDK.
- */
-export async function sendToGroup(
-  groupName: string,
-  payload: unknown
-): Promise<void> {
-  const groupClient = wpsClient.group(groupName);
-  await groupClient.sendToAll(JSON.stringify(payload));
-  console.debug(`Broadcast to group '${groupName}'`, payload);
 }
 
 /**
@@ -384,8 +369,8 @@ export async function syncAllUsersWithDatabase(): Promise<{
         try {
           await prisma.presence.upsert({
             where: { userId: user.id },
-            update: { status: 'online', lastSeenAt: new Date() },
-            create: { userId: user.id, status: 'online', lastSeenAt: new Date() }
+            update: { status: 'online', lastSeenAt: getCentralAmericaTime() },
+            create: { userId: user.id, status: 'online', lastSeenAt: getCentralAmericaTime() }
           });
           corrections.push({
             email: user.email,
@@ -402,8 +387,8 @@ export async function syncAllUsersWithDatabase(): Promise<{
         try {
           await prisma.presence.upsert({
             where: { userId: user.id },
-            update: { status: 'offline', lastSeenAt: new Date() },
-            create: { userId: user.id, status: 'offline', lastSeenAt: new Date() }
+            update: { status: 'offline', lastSeenAt: getCentralAmericaTime() },
+            create: { userId: user.id, status: 'offline', lastSeenAt: getCentralAmericaTime() }
           });
           corrections.push({
             email: user.email,

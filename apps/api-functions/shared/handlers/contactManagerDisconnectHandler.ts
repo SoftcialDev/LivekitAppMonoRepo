@@ -1,7 +1,7 @@
 import { Context } from "@azure/functions";
 import prisma from "../services/prismaClienService";
 import { ContactManagerStatus } from "@prisma/client";
-import { sendToGroup } from "../services/webPubSubService";
+import { CommandMessagingService } from "../infrastructure/messaging/CommandMessagingService";
 
 /**
  * Handles Web PubSub “disconnected” events for Contact Managers.
@@ -38,7 +38,8 @@ export async function handleCmDisconnect(context: Context): Promise<void> {
       });
 
       // 3) Notify all Employees in real time
-      void sendToGroup("cm-status-updates", {
+      const messagingService = new CommandMessagingService();
+      void messagingService.sendToGroup("cm-status-updates", {
         managerId: updated.userId,
         status:    updated.status,
         updatedAt: updated.updatedAt.toISOString(),

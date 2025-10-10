@@ -1,6 +1,7 @@
 import prisma from "./prismaClienService";
 import { isUuid } from "../utils/uuid";
 import { Prisma, User } from "@prisma/client";
+import { getCentralAmericaTime } from "../utils/dateUtils";
 
 /* -------------------------------------------------------------------------- */
 /*  Admin bootstrap                                                           */
@@ -33,7 +34,7 @@ export async function findOrCreateAdmin(
         email: canonicalEmail,
         fullName,
         role: "Admin",
-        roleChangedAt: new Date(),
+        roleChangedAt: getCentralAmericaTime(),
         supervisorId: null,
       },
     });
@@ -110,7 +111,7 @@ export async function upsertUserRole(
     email: canonicalEmail,
     fullName,
     role,
-    roleChangedAt: new Date(),
+    roleChangedAt: getCentralAmericaTime(),
     ...(supervisorId !== undefined ? { supervisorId } : {}),
   });
 
@@ -118,7 +119,7 @@ export async function upsertUserRole(
     email: canonicalEmail,
     fullName,
     role,
-    roleChangedAt: new Date(),
+    roleChangedAt: getCentralAmericaTime(),
     ...(supervisorId !== undefined ? { supervisorId } : {}),
   });
 

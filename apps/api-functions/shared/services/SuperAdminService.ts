@@ -7,6 +7,7 @@ import {
 } from "./graphService";
 import { config } from "../config";
 import { UserRole } from "@prisma/client";
+import { getCentralAmericaTime } from "../utils/dateUtils";
 
 /**
  * Minimal shape returned for Super Admin users.
@@ -86,7 +87,7 @@ export async function addSuperAdmin(email: string): Promise<SuperAdminDto> {
         email: normalizedEmail,
         fullName: graphUser.displayName ?? normalizedEmail,
         role: UserRole.SuperAdmin,
-        roleChangedAt: new Date(),
+        roleChangedAt: getCentralAmericaTime(),
       },
     });
   }
@@ -101,7 +102,7 @@ export async function addSuperAdmin(email: string): Promise<SuperAdminDto> {
   // Ensure local role is SuperAdmin
   const updated = await prisma.user.update({
     where: { id: user.id },
-    data: { role: UserRole.SuperAdmin, roleChangedAt: new Date() },
+    data: { role: UserRole.SuperAdmin, roleChangedAt: getCentralAmericaTime() },
   });
 
   return {

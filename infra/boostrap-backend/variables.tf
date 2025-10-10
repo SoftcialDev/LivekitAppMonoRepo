@@ -1,7 +1,7 @@
 variable "bootstrap_rg_name" {
   description = "Name of the resource group for storing Terraform state"
   type        = string
-  default     = "tfstate-rg-in-contact-app"
+  default     = "tfstate-rg-in-contact-app-421"
 }
 
 variable "bootstrap_rg_location" {

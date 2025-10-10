@@ -1,6 +1,7 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../auth/useAuth';
+import { useUserInfo } from '../hooks/useUserInfo';
 
 
 /**
@@ -23,9 +24,11 @@ interface ProtectedRouteProps {
  * Wraps its children in an authentication + role check.
  *
  * 1. If not authenticated → redirect to "/login".  
- * 2. Otherwise, inspect the user's roles:
- *    - If they include "Employee" → redirect to "/psosDashboard".
- *    - Else if they include "Admin" or "Supervisor" → redirect to "/dashboard".
+ * 2. If no user info loaded → redirect to "/loading".
+ * 3. Otherwise, inspect the user's role from database:
+ *    - If role is "Employee" → redirect to "/psosDashboard".
+ *    - Else if role is "Admin", "Supervisor", or "SuperAdmin" → redirect to "/dashboard".
+ *    - Else if role is "ContactManager" → redirect to "/contactManagerDashboard".
  *    - Else → redirect to "/login".
  *
  * If `allowedRoles` is provided, users whose roles match may see `children`;
@@ -38,43 +41,42 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   children,
   allowedRoles,
 }) => {
-  const { isLoggedIn, account } = useAuth();
+  const { account, initialized } = useAuth();
+  const { userInfo, isLoading } = useUserInfo();
 
   // 1) redirect unauthenticated
-  if (!isLoggedIn) {
+  if (!initialized || !account) {
     return <Navigate to="/login" replace />;
   }
 
-  // pull roles from token
-  const claims = (account?.idTokenClaims ?? {}) as Record<string, any>;
-  const rolesClaim =
-    claims.roles ??
-    claims.role ??
-    claims['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'];
-  const roles: string[] = Array.isArray(rolesClaim)
-    ? rolesClaim
-    : typeof rolesClaim === 'string'
-    ? [rolesClaim]
-    : [];
+  // 2) redirect to loading if user info not loaded yet
+  if (!userInfo && !isLoading) {
+    return <Navigate to="/loading" replace />;
+  }
 
-  // 2) if allowedRoles provided, enforce them
+  // 3) if still loading, show loading
+  if (isLoading || !userInfo) {
+    return <div>Loading...</div>;
+  }
+
+  // 4) if allowedRoles provided, enforce them
   if (allowedRoles && allowedRoles.length > 0) {
-    const hasAccess = roles.some(r => allowedRoles.includes(r));
+    const hasAccess = allowedRoles.includes(userInfo.role || '');
     if (!hasAccess) {
       // Not permitted to see this route—send to their default landing
-      if (roles.includes('Employee')) {
+      if (userInfo.role === 'Employee') {
         return <Navigate to="/psosDashboard" replace />;
       }
-      if (roles.includes('Admin') || roles.includes('Supervisor') || roles.includes('SuperAdmin')) {
+      if (userInfo.role === 'Admin' || userInfo.role === 'Supervisor' || userInfo.role === 'SuperAdmin') {
         return <Navigate to="/dashboard" replace />;
       }
-      if (roles.includes('ContactManager')) {
+      if (userInfo.role === 'ContactManager') {
         return <Navigate to="/contactManagerDashboard" replace />;
       }
       return <Navigate to="/login" replace />;
     }
   }
 
-  // 3) If no allowedRoles, or if they passed the allowedRoles check, render children
+  // 5) If no allowedRoles, or if they passed the allowedRoles check, render children
   return children;
 };

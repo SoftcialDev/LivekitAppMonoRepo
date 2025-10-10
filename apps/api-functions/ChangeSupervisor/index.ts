@@ -1,120 +1,104 @@
+/**
+ * @fileoverview ChangeSupervisor - Azure Function for supervisor change handling
+ * @description Allows authorized users to change supervisor assignments for employees
+ */
+
 import { AzureFunction, Context } from "@azure/functions";
-import { z } from "zod";
-import { randomUUID } from "crypto";
-
-import { withAuth }          from "../shared/middleware/auth";
-import { withErrorHandler }  from "../shared/middleware/errorHandler";
+import { withAuth } from "../shared/middleware/auth";
+import { withErrorHandler } from "../shared/middleware/errorHandler";
 import { withBodyValidation } from "../shared/middleware/validate";
-import {
-  ok, unauthorized, badRequest, forbidden,
-} from "../shared/utils/response";
+import { ok } from "../shared/utils/response";
+import { SupervisorApplicationService } from "../shared/application/services/SupervisorApplicationService";
+import { SupervisorAssignment } from "../shared/domain/value-objects/SupervisorAssignment";
+import { supervisorAssignmentSchema } from "../shared/domain/schema/SupervisorAssignmentSchema";
+import { serviceContainer } from "../shared/infrastructure/container/ServiceContainer";
+import { handleAnyError } from "../shared/utils/errorHandler";
+import { getCallerAdId } from "../shared/utils/authHelpers";
+import { IUserRepository } from "../shared/domain/interfaces/IUserRepository";
+import { IAuthorizationService } from "../shared/domain/interfaces/IAuthorizationService";
+import { ISupervisorRepository } from "../shared/domain/interfaces/ISupervisorRepository";
+import { ICommandMessagingService } from "../shared/domain/interfaces/ICommandMessagingService";
+import { ISupervisorManagementService } from "../shared/domain/interfaces/ISupervisorManagementService";
+import { IAuditService } from "../shared/domain/interfaces/IAuditService";
 
-import {
-  getUserByAzureOid,
-  getUserByEmail,
-  upsertUserRole,
-  findOrCreateAdmin,
-} from "../shared/services/userService";
-import { sendToGroup } from "../shared/services/webPubSubService";
-import type { JwtPayload } from "jsonwebtoken";
-
-/* -------------------------------------------------------------------------- */
-/*  ChangeSupervisorFunction .                                                */
-/* -------------------------------------------------------------------------- */
-
+/**
+ * Azure Function: ChangeSupervisor
+ *
+ * **HTTP POST** `/api/ChangeSupervisor`
+ *
+ * Allows Admins and Supervisors to change supervisor assignments for employees.
+ *
+ * @logic
+ * 1. Authenticate caller via Azure AD (`withAuth`).
+ * 2. Authorize only users with `Admin`, `Supervisor`, or `SuperAdmin` roles.
+ * 3. Validate payload `{ userEmails, newSupervisorEmail }`.
+ * 4. Verify the supervisor exists and has `Supervisor` role (if provided).
+ * 5. Update supervisor assignments for all valid employees.
+ * 6. Send notifications to affected users.
+ *
+ * @param ctx Azure Functions execution context.
+ */
 const changeSupervisor: AzureFunction = withErrorHandler(
   async (ctx: Context) => {
     await withAuth(ctx, async () => {
-      /* ───────────────── 1. Resolve caller ───────────────────────────── */
-      const claims = (ctx as any).bindings.user as JwtPayload;
-      const oid   = claims.oid || claims.sub;
-      const upn   = (claims.preferred_username ?? claims.email) as string | undefined;
-      const name  = (claims.name ?? upn ?? "Unknown") as string;
+      // Initialize service container
+      serviceContainer.initialize();
 
-      if (!oid) return unauthorized(ctx, "Missing OID in token");
+      // Resolve dependencies from container
+      const userRepository = serviceContainer.resolve<IUserRepository>('UserRepository');
+      const authorizationService = serviceContainer.resolve<IAuthorizationService>('AuthorizationService');
+      const supervisorRepository = serviceContainer.resolve<ISupervisorRepository>('SupervisorRepository');
+      const commandMessagingService = serviceContainer.resolve<ICommandMessagingService>('CommandMessagingService');
+      const supervisorManagementService = serviceContainer.resolve<ISupervisorManagementService>('SupervisorManagementService');
 
-      // Ensure caller exists in DB (auto-create Admin if absent)
-      const caller =
-        (await getUserByAzureOid(oid)) ??
-        (upn && (await getUserByEmail(upn))) ??
-        (await findOrCreateAdmin(oid, upn ?? `${oid}@tenant`, name));
+      const auditService = serviceContainer.resolve<IAuditService>('AuditService');
 
-      if (!caller || caller.deletedAt)         return unauthorized(ctx, "Caller not found");
-      if (caller.role !== "Admin" && caller.role !== "Supervisor" && caller.role !== "SuperAdmin") {
-        return forbidden(ctx, "Caller must be Admin or Supervisor");
-      }
+      const supervisorApplicationService = new SupervisorApplicationService(
+        userRepository,
+        authorizationService,
+        supervisorRepository,
+        commandMessagingService,
+        supervisorManagementService,
+        auditService
+      );
 
-      /* ───────────────── 2. Validate body ────────────────────────────── */
-      const schema = z.object({
-        userEmails:          z.array(z.string().email()).min(1),
-        newSupervisorEmail:  z.string().email().nullable(),
-      });
+      // Validate request body
+      await withBodyValidation(supervisorAssignmentSchema)(ctx, async () => {
+        const { userEmails, newSupervisorEmail } = ctx.bindings.validatedBody;
+        const claims = ctx.bindings.user;
+        const callerId = getCallerAdId(claims);
 
-      await withBodyValidation(schema)(ctx, async () => {
-        const {
-          userEmails:        raw,
-          newSupervisorEmail,
-        } = ctx.bindings.validatedBody as {
-          userEmails: string[];
-          newSupervisorEmail: string | null;
-        };
-
-        const userEmails = raw.map(e => e.toLowerCase());
-        const supEmail   = newSupervisorEmail?.toLowerCase() ?? null;
-
-        /* ─────────────── 3. Resolve supervisorId (or null) ───────────── */
-        let supervisorId: string | null = null;
-        if (supEmail) {
-          const sup = await getUserByEmail(supEmail);
-          if (!sup || sup.deletedAt)             return badRequest(ctx, "Supervisor not found");
-          if (sup.role !== "Supervisor")         return badRequest(ctx, "Target is not a Supervisor");
-          supervisorId = sup.id;
+        if (!callerId) {
+          return handleAnyError(ctx, new Error("Cannot determine caller identity"), { userEmails, newSupervisorEmail });
         }
 
-        /* ─────────────── 4. Upsert ONLY the target employees ─────────── */
-        let updatedCount = 0;
+        try {
+          // Create supervisor assignment
+          const assignment = SupervisorAssignment.fromRequest({ userEmails, newSupervisorEmail });
 
-        for (const email of userEmails) {
-          const existing = await getUserByEmail(email);
+          // Authorize caller
+          await supervisorApplicationService.authorizeSupervisorChange(callerId);
 
-          // If user already exists *with* a non-Employee role, skip.
-          if (existing && existing.role && existing.role !== "Employee") {
-            ctx.log.warn(`Skipping ${email} (role = ${existing.role})`);
-            continue;
-          }
+          // Validate supervisor assignment
+          await supervisorApplicationService.validateSupervisorAssignment(assignment);
 
-          // Choose a safe OID when we must create a brand-new tenant user
-          const oidForCreate =
-            existing?.azureAdObjectId ?? randomUUID();   // unique every time
+          // Execute supervisor change
+          const result = await supervisorApplicationService.changeSupervisor(assignment);
 
-          await upsertUserRole(
-            email,
-            oidForCreate,
-            existing?.fullName ?? email,   // placeholder name if none
-            "Employee",
-            supervisorId                   // defined ⇒ set / clear link
-          );
+          ctx.log.info(`ChangeSupervisor → updated ${result.updatedCount} row(s), skipped ${result.skippedCount} row(s).`);
+          return ok(ctx, { 
+            updatedCount: result.updatedCount,
+            skippedCount: result.skippedCount,
+            totalProcessed: result.totalProcessed
+          });
 
-          // ✅ NOTIFY PSO OF SUPERVISOR CHANGE - Enviar notificación al PSO
-          try {
-            const newSupervisorName = supEmail ? (await getUserByEmail(supEmail))?.fullName : null;
-            await sendToGroup(`commands:${email}`, {
-              type: 'SUPERVISOR_CHANGED',
-              newSupervisorName,
-              timestamp: new Date().toISOString()
-            });
-            ctx.log.info(`[ChangeSupervisor] Notified PSO ${email} of supervisor change to ${newSupervisorName || 'none'}`);
-          } catch (notifyErr) {
-            ctx.log.warn(`[ChangeSupervisor] Failed to notify PSO ${email}:`, notifyErr);
-            // Continue anyway - the supervisor change was successful
-          }
-
-          updatedCount += 1;
+        } catch (error) {
+          return handleAnyError(ctx, error, {
+            callerId,
+            userEmails,
+            newSupervisorEmail
+          });
         }
-
-        /* ─────────────── 5. Done ─────────────────────────────────────── */
-        ctx.log.info(`ChangeSupervisor → updated ${updatedCount} row(s).`);
-        return ok(ctx, { updatedCount });
       });
     });
   },

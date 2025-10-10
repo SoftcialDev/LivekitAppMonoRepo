@@ -1,116 +1,56 @@
-import { AzureFunction, Context, HttpRequest } from "@azure/functions";
-import { z } from "zod";
+/**
+ * @fileoverview ContactManagersForm - Azure Function for contact manager form submissions
+ * @description Allows authenticated users to submit contact manager forms with image uploads and chat notifications
+ */
 
-import { withAuth }           from "../shared/middleware/auth";
-import { withErrorHandler }   from "../shared/middleware/errorHandler";
+import { Context, HttpRequest } from "@azure/functions";
+import { withErrorHandler } from "../shared/middleware/errorHandler";
+import { withAuth } from "../shared/middleware/auth";
 import { withBodyValidation } from "../shared/middleware/validate";
-import { ok, badRequest }     from "../shared/utils/response";
-import prisma                  from "../shared/services/prismaClienService";
-import { blobService }         from "../shared/services/blobStorageService";
-import { contactManagersGroupService } from "../shared/services/contactManagersGroupService";
-
-
-/**
- * Zod schemas for each form type, discriminated by formType.
- */
-const DisconnectionsSchema = z.object({
-  formType: z.literal("Disconnections"),
-  rnName: z.string().min(1),
-  patientInitials: z.string().min(1),
-  timeOfDisconnection: z.string().min(1),
-  reason: z.string().min(1),
-  hospital: z.string().min(1),
-  totalPatients: z.number().int().nonnegative(),
-  imageBase64: z.string().optional(),
-});
-
-const AdmissionsSchema = z.object({
-  formType: z.literal("Admissions"),
-  facility: z.string().min(1),
-  unit: z.string().min(1),
-  imageBase64: z.string().optional(),
-});
-
-const AssistanceSchema = z.object({
-  formType: z.literal("Assistance"),
-  facility: z.string().min(1),
-  patientInitials: z.string().min(1),
-  totalPatientsInPod: z.number().int().nonnegative(),
-  imageBase64: z.string().optional(),
-});
-
-const FormSchema = z.discriminatedUnion("formType", [
-  DisconnectionsSchema,
-  AdmissionsSchema,
-  AssistanceSchema,
-]);
+import { withCallerId } from "../shared/middleware/callerId";
+import { ok } from "../shared/utils/response";
+import { contactManagerFormSchema } from "../shared/domain/schema/ContactManagerFormSchema";
+import { ContactManagerFormRequest } from "../shared/domain/value-objects/ContactManagerFormRequest";
+import { ContactManagerFormApplicationService } from "../shared/application/services/ContactManagerFormApplicationService";
+import { serviceContainer } from "../shared/infrastructure/container/ServiceContainer";
 
 /**
- * HTTP-triggered function to receive a Contact Managers form,
- * store it in the DB, sync the group chat, and post a rich message.
+ * Azure Function: ContactManagersForm
+ *
+ * HTTP POST /api/ContactManagersForm
+ *
+ * Allows authenticated users to submit contact manager forms with image uploads
+ * and automatic chat notifications to the Contact Managers group.
+ *
+ * Workflow:
+ * 1. Validate JWT via `withAuth`, populating `ctx.bindings.user`.
+ * 2. Extract caller ID via `withCallerId`, populating `ctx.bindings.callerId`.
+ * 3. Validate request body against Zod schema.
+ * 4. Create ContactManagerFormRequest from validated body.
+ * 5. Execute application service to handle business logic.
+ * 6. Return `{ formId: string }` indicating the created form ID.
+ *
+ * @param ctx - Azure Function execution context.
+ * @param req - HTTP request object.
+ * @returns 200 OK with `{ formId: string }` if successful.
+ * @throws 401 Unauthorized if JWT is missing, invalid, or user not authorized.
+ * @throws 400 Bad Request if validation or business rules fail.
  */
-const contactManagersFormFunction: AzureFunction = withErrorHandler(
+const contactManagersFormFunction = withErrorHandler(
   async (ctx: Context, req: HttpRequest) => {
     await withAuth(ctx, async () => {
-      // 1) Extract caller’s Azure AD OID from token claims
-      const claims = (ctx as any).bindings.user as { oid?: string; sub?: string; fullName: string };
-      const oid = claims.oid || claims.sub;
-      if (!oid) return badRequest(ctx, "Missing OID in token");
+      await withCallerId(ctx, async () => {
+        await withBodyValidation(contactManagerFormSchema)(ctx, async () => {
+          serviceContainer.initialize();
 
-      // 2) Look up sender in our database
-      const sender = await prisma.user.findUnique({ where: { azureAdObjectId: oid } });
-      if (!sender) return badRequest(ctx, "User not found");
+          const applicationService = serviceContainer.resolve<ContactManagerFormApplicationService>('ContactManagerFormApplicationService');
+          const request = ContactManagerFormRequest.fromBody(ctx.bindings.validatedBody);
+          const callerId = ctx.bindings.callerId as string;
+          const token = (req.headers.authorization || "").split(" ")[1];
 
-      // 3) Validate request body against our union schema
-      await withBodyValidation(FormSchema)(ctx, async () => {
-        const body = ctx.bindings.validatedBody as z.infer<typeof FormSchema>;
-
-        // 4) If an image was provided, upload to Blob Storage
-        let imageUrl: string | null = null;
-        if (body.imageBase64) {
-          const buffer = Buffer.from(body.imageBase64, "base64");
-          const path = `${new Date().toISOString().slice(0, 10)}/${sender.id}-${Date.now()}.jpg`;
-          imageUrl = await blobService.uploadSnapshot(buffer, path);
-        }
-
-        // 5) Strip out imageBase64 and formType for JSON storage
-        const data = { ...body };
-        delete (data as any).imageBase64;
-        delete (data as any).formType;
-
-        // 6) Persist form record
-        const record = await prisma.contactManagerForm.create({
-          data: {
-            formType: body.formType,
-            senderId: sender.id,
-            imageUrl: imageUrl ?? undefined,
-            data,
-          },
+          const result = await applicationService.processForm(request, callerId, token);
+          ok(ctx, result.toPayload());
         });
-
-        // 7) Sync (or create) the Contact Managers group chat
-        const token  = (req.headers.authorization || "").split(" ")[1];
-        const chatId = await contactManagersGroupService.getOrSyncChat(token);
-
-        // 8) Build a dynamic subject based on formType
-        const subjectMap: Record<string,string> = {
-          Disconnections: "🚨 Disconnections Report",
-          Admissions:     "🏥 Admissions Report",
-          Assistance:     "⚕️ Acute Assessment Report",
-        };
-        const subject = subjectMap[body.formType];
-
-        // 9) Post the rich message into Teams
-        await contactManagersGroupService.sendMessage(token, chatId, {
-          subject,
-          senderName: sender.fullName,
-          formType:   body.formType,
-          data,
-          imageUrl:   imageUrl ?? undefined,
-        });
-
-        // 10) Return the new record ID
-        return ok(ctx, { formId: record.id });
       });
     });
   },

@@ -1,6 +1,7 @@
 import prisma from "./prismaClienService";
 import { isUuid } from "../utils/uuid";
-import { sendToGroup } from "./webPubSubService";
+import { CommandMessagingService } from "../infrastructure/messaging/CommandMessagingService";
+import { getCentralAmericaTime } from "../utils/dateUtils";
 
 /* -------------------------------------------------------------------------- */
 /*  Helper: normalize user key (UUID ↔ email)                                 */
@@ -51,7 +52,7 @@ export async function startStreamingSession(userKey: string): Promise<void> {
   // 1) Close any previous open session
   await prisma.streamingSessionHistory.updateMany({
     where: { userId, stoppedAt: null },
-    data: { stoppedAt: new Date() },
+    data: { stoppedAt: getCentralAmericaTime() },
   });
 
   // 2) Create a new streaming session record
@@ -89,7 +90,7 @@ export async function stopStreamingSession(
   const result = await prisma.streamingSessionHistory.updateMany({
     where: { userId, stoppedAt: null },
     data: { 
-      stoppedAt: new Date(),
+      stoppedAt: getCentralAmericaTime(),
       stopReason: stopReason
     },
   });
@@ -158,5 +159,6 @@ async function broadcastStreamEvent(
   status: "started" | "stopped"
 ): Promise<void> {
   const group = userEmail.trim().toLowerCase();
-  await sendToGroup(group, { email: userEmail, status });
+  const messagingService = new CommandMessagingService();
+  await messagingService.sendToGroup(group, { email: userEmail, status });
 }

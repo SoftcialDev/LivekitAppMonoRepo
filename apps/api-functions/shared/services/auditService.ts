@@ -1,5 +1,6 @@
 import { Prisma, AuditLog } from "@prisma/client";
 import prisma from "./prismaClienService";
+import { getCentralAmericaTime } from "../utils/dateUtils";
 
 export type AuditAction =
   | "CREATE"
@@ -25,6 +26,7 @@ export async function logAudit<T = any>(entry: AuditEntry<T>): Promise<void> {
     entityId:    entry.entityId,
     action:      entry.action,
     changedBy: { connect: { id: entry.changedById } },
+    timestamp:   getCentralAmericaTime(), // Use Central America Time instead of UTC
     ...(entry.dataBefore !== undefined
       ? { dataBefore: entry.dataBefore === null ? Prisma.JsonNull : entry.dataBefore }
       : {}),

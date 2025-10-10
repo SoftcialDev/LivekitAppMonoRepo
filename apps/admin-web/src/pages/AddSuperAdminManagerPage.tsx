@@ -74,7 +74,7 @@ const AddSuperAdminPage: React.FC = () => {
     setLoadingCandidates(true);
     try {
       const res = await getUsersByRole(
-        "Supervisor,Employee,Tenant,Admin,ContactManager",
+        "Supervisor,Employee,Unassigned,Admin,ContactManager",
         1,
         1000
       );

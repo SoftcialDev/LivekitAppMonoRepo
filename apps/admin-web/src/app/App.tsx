@@ -40,6 +40,7 @@ import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 
 import { AuthProvider } from '@/shared/auth/AuthContext';
+import { UserInfoProvider } from '@/shared/contexts/UserInfoContext';
 import { useAuth } from '@/shared/auth/useAuth';
 import { setTokenGetter } from '@/shared/api/apiClient';
 import { ProtectedRoute } from '@/shared/ui/ProtectedRoute';
@@ -47,6 +48,7 @@ import { ToastProvider } from '@/shared/ui/ToastContext';
 
 import Layout from './layouts/DashboardLayout';
 import { LoginPage } from '@/pages/LoginPage';
+import { LoadingPage } from '@/pages/LoadingPage';
 import AdminsPage from '@/pages/AdminsPage';
 import SnapshotsReportPage from '@/pages/SnapshotsReportPage';
 import AddContactManagerPage from '@/pages/AddContactManagerPage';
@@ -85,12 +87,14 @@ function TokenInjector(): null {
 function App(): JSX.Element {
   return (
     <AuthProvider>
-      <BrowserRouter>
-        <TokenInjector />
-        <ToastProvider>
-          <Routes>
-            {/* Public */}
-            <Route path="/login" element={<LoginPage />} />
+      <UserInfoProvider>
+        <BrowserRouter>
+          <TokenInjector />
+          <ToastProvider>
+            <Routes>
+              {/* Public */}
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/loading" element={<LoadingPage />} />
 
             {/* All pages that use Dashboard layout (Header + Sidebar) */}
             <Route element={<Layout />}>
@@ -204,8 +208,9 @@ function App(): JSX.Element {
             {/* Fallback */}
             <Route path="*" element={<Navigate to="/login" replace />} />
           </Routes>
-        </ToastProvider>
-      </BrowserRouter>
+          </ToastProvider>
+        </BrowserRouter>
+      </UserInfoProvider>
     </AuthProvider>
   );
 }
