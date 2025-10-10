@@ -7,6 +7,7 @@ import { usePsoSupervisor } from './Video/hooks/usePsoSupervisor';
 import { usePsoSupervisorNotifications } from './Video/hooks/usePsoSupervisorNotifications';
 import { useAutoReloadWhenIdle } from './Video/hooks/useAutoReloadWhenIdle';
 import { useWebSocketHeartbeat } from '@/shared/hooks/useWebSocketHeartbeat';
+import { BitrateDashboard } from './Video/components/BitrateDashboard';
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -73,7 +74,7 @@ const PsoDashboard: React.FC = () => {
    * - `audioRef` attaches to the <audio> element.
    * - `isStreaming` toggles the status indicator.
    */
-  const { videoRef, audioRef, isStreaming } = useStreamingDashboard();
+  const { videoRef, audioRef, isStreaming, videoTrack } = useStreamingDashboard();
   useAutoReloadWhenIdle(isStreaming, { intervalMs: 120_000, onlyWhenVisible: false  });
 
   /**
@@ -123,6 +124,11 @@ const PsoDashboard: React.FC = () => {
               {isStreaming ? 'ON' : 'OFF'}
             </span>
           </div>
+        </div>
+
+        {/* Bitrate Dashboard */}
+        <div className="w-full max-w-4xl mb-4">
+          <BitrateDashboard videoRef={videoRef} isStreaming={isStreaming} videoTrack={videoTrack} />
         </div>
       </div>
 

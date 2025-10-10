@@ -380,5 +380,13 @@ const setupLiveKitRoom = useCallback(async (room: Room, videoTrack: LocalVideoTr
     };
   }, [initialized, userEmail, bootstrap]);
 
-  return { videoRef, audioRef, isStreaming, isRetrying, retryCount, cancelPersistentRetries };
+  return { 
+    videoRef, 
+    audioRef, 
+    isStreaming, 
+    isRetrying, 
+    retryCount, 
+    cancelPersistentRetries,
+    videoTrack: tracksRef.current.video
+  };
 }

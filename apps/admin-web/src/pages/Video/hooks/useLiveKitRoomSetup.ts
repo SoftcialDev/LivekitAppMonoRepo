@@ -153,7 +153,7 @@ export function useLiveKitRoomSetup({
     try {
       await room.localParticipant.publishTrack(videoTrack, {
         name: 'camera',
-        simulcast: true,
+        simulcast: false,
       });
       console.log('[LiveKit] Video track published successfully');
       

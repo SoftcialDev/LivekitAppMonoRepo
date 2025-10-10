@@ -215,7 +215,7 @@ export function useLiveKitConnection() {
   ): Promise<void> => {
     const defaultOptions = {
       name: 'camera',
-      simulcast: true,
+      simulcast: false,
       ...options
     };
 
