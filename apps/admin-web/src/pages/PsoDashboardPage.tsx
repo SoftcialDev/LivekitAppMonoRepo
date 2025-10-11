@@ -126,10 +126,10 @@ const PsoDashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Bitrate Dashboard */}
-        <div className="w-full max-w-4xl mb-4">
+        {/* Bitrate Dashboard - Hidden to avoid interference */}
+        {/* <div className="w-full max-w-4xl mb-4">
           <BitrateDashboard videoRef={videoRef} isStreaming={isStreaming} videoTrack={videoTrack} />
-        </div>
+        </div> */}
       </div>
 
     </>

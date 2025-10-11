@@ -88,7 +88,9 @@ export function useBitrateMonitor({ videoTrack, isStreaming }: BitrateMonitorPro
     const now = Date.now();
     const sessionDuration = Math.floor((now - sessionStartRef.current) / 1000);
     
-    const dataConsumedThisUpdate = (currentBitrate * 1000) / (8 * 1024 * 1024);
+    // Calculate data consumed in this 5-second interval
+    const intervalSeconds = 5; // Update interval
+    const dataConsumedThisUpdate = (currentBitrate * 1000 * intervalSeconds) / (8 * 1024 * 1024);
     dataConsumedRef.current += dataConsumedThisUpdate;
     
     bitrateHistoryRef.current.push(currentBitrate);

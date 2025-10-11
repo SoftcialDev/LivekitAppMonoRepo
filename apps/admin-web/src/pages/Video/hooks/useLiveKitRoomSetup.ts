@@ -154,6 +154,10 @@ export function useLiveKitRoomSetup({
       await room.localParticipant.publishTrack(videoTrack, {
         name: 'camera',
         simulcast: false,
+        videoEncoding: {
+          maxBitrate: 150_000, // 150 kbps max for 240p (maximum efficiency)
+          maxFramerate: 15
+        }
       });
       console.log('[LiveKit] Video track published successfully');
       

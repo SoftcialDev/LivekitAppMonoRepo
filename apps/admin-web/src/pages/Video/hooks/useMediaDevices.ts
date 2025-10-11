@@ -67,7 +67,14 @@ async function createVideoTrackWithFallback(cameras: MediaDeviceInfo[]): Promise
 
   for (const cam of prioritized) {
     try {
-      return await createLocalVideoTrack({ deviceId: { exact: cam.deviceId } });
+      return await createLocalVideoTrack({ 
+        deviceId: { exact: cam.deviceId },
+        resolution: {
+          width: 320,
+          height: 240,
+          frameRate: 15
+        }
+      });
     } catch (err: any) {
       if (err?.name === 'NotReadableError') {
         console.warn(`[Camera] "${cam.label}" busy, trying next…`, err);
@@ -77,7 +84,14 @@ async function createVideoTrackWithFallback(cameras: MediaDeviceInfo[]): Promise
     }
   }
 
-  return createLocalVideoTrack();
+  // Force 240p resolution for all video tracks
+  return createLocalVideoTrack({
+    resolution: {
+      width: 320,
+      height: 240,
+      frameRate: 15
+    }
+  });
 }
 
 /**
