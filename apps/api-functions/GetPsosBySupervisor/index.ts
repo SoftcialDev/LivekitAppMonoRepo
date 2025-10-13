@@ -57,8 +57,28 @@ const GetPsosBySupervisor: AzureFunction = withErrorHandler(
         deletedAt: null,
       };
 
-      // 3) If Supervisor, restrict to their team
-      if (caller.role === "Supervisor") {
+      // 3) Check for supervisorId parameter (for Admins to query specific supervisor)
+      const supervisorId = req.query?.supervisorId as string;
+      
+      if (supervisorId) {
+        // Admin/SuperAdmin/Supervisor querying specific supervisor's PSOs
+        if (caller.role !== "Admin" && caller.role !== "SuperAdmin" && caller.role !== "Supervisor") {
+          return unauthorized(ctx, "Only Admins, SuperAdmins, and Supervisors can query specific supervisor's PSOs");
+        }
+        
+        // Find supervisor by azureAdObjectId to get their database ID
+        const supervisor = await prisma.user.findFirst({
+          where: { azureAdObjectId: supervisorId },
+          select: { id: true }
+        });
+        
+        if (!supervisor) {
+          return unauthorized(ctx, "Supervisor not found");
+        }
+        
+        baseWhere.supervisorId = supervisor.id;
+      } else if (caller.role === "Supervisor") {
+        // Supervisor querying their own PSOs
         baseWhere.supervisorId = caller.id;
       } else if (caller.role !== "Admin" && caller.role !== "SuperAdmin") {
         return unauthorized(ctx, "Insufficient privileges");

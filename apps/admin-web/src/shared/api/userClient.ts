@@ -371,3 +371,17 @@ export async function transferPsos(
   );
   return res.data.transferredCount;
 }
+
+/**
+ * Fetches PSOs assigned to a specific supervisor by supervisor ID
+ * 
+ * @param supervisorId - The supervisor's Azure AD object ID
+ * @returns Promise resolving to an array of PSOs with supervisor info
+ * 
+ * @example
+ * const psos = await getPsosBySupervisorId("supervisor-oid-123");
+ */
+export async function getPsosBySupervisorId(supervisorId: string): Promise<PsoWithSupervisor[]> {
+  const response = await apiClient.get<{ psos: PsoWithSupervisor[] }>(`/api/GetPsosBySupervisor?supervisorId=${encodeURIComponent(supervisorId)}`);
+  return response.data.psos;
+}

@@ -39,7 +39,7 @@ export class AuthorizationService implements IAuthorizationService {
    * @returns Promise that resolves to true if authorized
    */
   async canManageUsers(callerId: string): Promise<boolean> {
-    const authorizedRoles = [UserRole.Admin, UserRole.SuperAdmin];
+    const authorizedRoles = [UserRole.Admin, UserRole.SuperAdmin, UserRole.Supervisor];
     return await this.userRepository.hasAnyRole(callerId, authorizedRoles);
   }
 

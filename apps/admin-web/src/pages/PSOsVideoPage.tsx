@@ -13,6 +13,7 @@ import VideoCard from './Video/components/VideoCard';
 import { useMultiUserStreams } from './Video/hooks/useMultiUserStreams';
 import { useMyPsos } from './Video/hooks/useMyPsos';
 import { useVideoActions } from './Video/hooks/UseVideoAction';
+import { useAdminRestrictions } from './Video/hooks/useAdminRestrictions';
 
 
 const LAYOUT_OPTIONS = [1,2,3,4,5,6,9,12,20,200] as const;
@@ -63,6 +64,15 @@ const PSOsPage: React.FC = () => {
 
   const { account } = useAuth();
   const viewerEmail = account?.username?.toLowerCase() ?? '';
+  
+  // Admin restrictions hook
+  const { 
+    isAdmin, 
+    isSupervisor, 
+    shouldApplyRestrictions, 
+    getNoPsosMessage, 
+    hideLayoutDropdown 
+  } = useAdminRestrictions();
 
   /* ------------------------------------------------------------------ */
   /* 1️⃣ Authorized PSO metadata (email + supervisorName)                 */
@@ -115,8 +125,6 @@ const PSOsPage: React.FC = () => {
   /* ------------------------------------------------------------------ */
 
   const allPsos: PSOWithStatus[] = useMemo(() => {
-
-
     const decorate = (u: UserStatus): PSOWithStatus => ({
       email:    u.email,
       fullName: u.fullName ?? u.name ?? u.email,
@@ -126,20 +134,24 @@ const PSOsPage: React.FC = () => {
       supervisorName: supMap.get(u.email.toLowerCase()) ?? '—',
     });
 
-    // Obtener usuarios online actuales (excluyendo al usuario actual)
-    const currentOnlineUsers = onlineUsers
-      .filter(u => 
-        allowedEmails.has(u.email.toLowerCase()) && 
-        u.email.toLowerCase() !== viewerEmail.toLowerCase()
-      )
-      .map(decorate);
+    // Para Supervisores: solo usuarios autorizados
+    // Para Admin/SuperAdmin: todos los usuarios online con rol Employee
+    const filteredUsers = isSupervisor 
+      ? onlineUsers.filter(u => 
+          allowedEmails.has(u.email.toLowerCase()) && 
+          u.email.toLowerCase() !== viewerEmail.toLowerCase()
+        )
+      : onlineUsers.filter(u => 
+          u.email.toLowerCase() !== viewerEmail.toLowerCase() &&
+          u.role === 'Employee' // Solo empleados para Admins
+        );
 
-
-    const result = currentOnlineUsers
+    const result = filteredUsers
+      .map(decorate)
       .sort((a, b) => Number(b.isOnline) - Number(a.isOnline));
       
     return result;
-  }, [onlineUsers, allowedEmails, supMap, viewerEmail]);
+  }, [onlineUsers, allowedEmails, supMap, viewerEmail, isSupervisor]);
 
   /* ------------------------------------------------------------------ */
   /* 4️⃣ Pinned PSOs (dropdown) — persisted                              */
@@ -180,10 +192,17 @@ useEffect(() => {
   /* 6️⃣ LiveKit credentials & handlers                                  */
   /* ------------------------------------------------------------------ */
   const targetEmails = useMemo(() => {
+    // For Supervisors: show all PSOs by default
+    // For Admin/SuperAdmin: only show explicitly selected PSOs
+    if (isSupervisor) {
+      return allPsos.map(p => p.email.toLowerCase());
+    }
+    
+    // Admin/SuperAdmin: only show PSOs that are explicitly selected in the dropdown
     return fixedEmails.length > 0
       ? allPsos.filter(p => fixedEmails.includes(p.email)).map(p => p.email.toLowerCase())
-      : allPsos.map(p => p.email.toLowerCase());
-  }, [allPsos, fixedEmails]);
+      : []; // Don't show any PSOs by default
+  }, [allPsos, fixedEmails, isSupervisor]);
 
   const rawCredsMap = useMultiUserStreams(viewerEmail, targetEmails);
   
@@ -201,10 +220,13 @@ useEffect(() => {
   /* 7️⃣ Compute display list                                             */
   /* ------------------------------------------------------------------ */
 const displayList = useMemo(() => {
-  // 1️⃣ Selecciona fijos o todos
-  const base = fixedEmails.length > 0
-    ? allPsos.filter(p => fixedEmails.includes(p.email))
-    : allPsos;
+  // 1️⃣ Para Supervisores: mostrar todos los PSOs disponibles
+  // Para Admin/SuperAdmin: solo mostrar PSOs explícitamente seleccionados
+  const base = isSupervisor 
+    ? allPsos // Supervisores ven todos los PSOs
+    : fixedEmails.length > 0
+      ? allPsos.filter(p => fixedEmails.includes(p.email))
+      : []; // Admin/SuperAdmin: no mostrar PSOs por defecto
 
   // 2️⃣ Ordena por quienes tienen token de stream primero, con sort estable
   const sortedByStreaming = [...base].sort((a, b) => {
@@ -217,7 +239,7 @@ const displayList = useMemo(() => {
   // 3️⃣ Toma solo los primeros `layout`
   const result = sortedByStreaming.slice(0, layout);
   return result;
-}, [allPsos, fixedEmails, layout, credsMap]);
+  }, [allPsos, fixedEmails, layout, credsMap, isSupervisor]);
 
 
   if (psosError || presenceError) {
@@ -242,13 +264,16 @@ const displayList = useMemo(() => {
           onSelectionChange={setFixedEmails}
           placeholder="Choose PSOs to display"
         />
-        <Dropdown
-          options={LAYOUT_OPTIONS.map(n => ({ label: `Layout ${n} - cams`, value: n }))}
-          value={layout}
-          onSelect={v => setLayout(Number(v) as typeof LAYOUT_OPTIONS[number])}
-          
-          menuClassName="bg-[var(--color-tertiary)] w-64"
-        />
+        {/* Hide layout dropdown for ADMIN users */}
+        {!hideLayoutDropdown && (
+          <Dropdown
+            options={LAYOUT_OPTIONS.map(n => ({ label: `Layout ${n} - cams`, value: n }))}
+            value={layout}
+            onSelect={v => setLayout(Number(v) as typeof LAYOUT_OPTIONS[number])}
+            
+            menuClassName="bg-[var(--color-tertiary)] w-64"
+          />
+        )}
       </div>
 
       {/* Content */}
@@ -258,7 +283,9 @@ const displayList = useMemo(() => {
         </div>
       ) : displayList.length === 0 ? (
         <div className="flex flex-1 items-center justify-center text-white">
-          No PSOs to display
+          <div className="max-w-2xl text-center px-4">
+            {shouldApplyRestrictions ? getNoPsosMessage() : 'No PSOs to display'}
+          </div>
         </div>
       ) : (
         <>
