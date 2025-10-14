@@ -55,4 +55,40 @@ export class PendingCommandRepository implements IPendingCommandRepository {
       throw new Error(`Failed to find commands by IDs: ${error.message}`);
     }
   }
+
+  /**
+   * Gets pending commands for an employee
+   * @param employeeId - The employee's database ID
+   * @returns Promise that resolves to array of pending command entities
+   * @throws Error if database operation fails
+   */
+  async getPendingCommandsForEmployee(employeeId: string): Promise<Array<{
+    id: string;
+    employeeId: string;
+    command: string;
+    timestamp: Date;
+    acknowledged: boolean;
+  }>> {
+    try {
+      const commands = await prisma.pendingCommand.findMany({
+        where: {
+          employeeId: employeeId,
+          acknowledged: false
+        },
+        orderBy: {
+          timestamp: 'desc'
+        }
+      });
+
+      return commands.map(cmd => ({
+        id: cmd.id,
+        employeeId: cmd.employeeId,
+        command: cmd.command,
+        timestamp: cmd.timestamp,
+        acknowledged: cmd.acknowledged
+      }));
+    } catch (error: any) {
+      throw new Error(`Failed to get pending commands for employee: ${error.message}`);
+    }
+  }
 }

@@ -9,7 +9,7 @@ import { withAuth } from "../shared/middleware/auth";
 import { withBodyValidation } from "../shared/middleware/validate";
 import { withCallerId } from "../shared/middleware/callerId";
 import { ok } from "../shared/utils/response";
-import { contactManagerFormSchema } from "../shared/domain/schema/ContactManagerFormSchema";
+import { contactManagerFormSchema } from "../shared/domain/schemas/ContactManagerFormSchema";
 import { ContactManagerFormRequest } from "../shared/domain/value-objects/ContactManagerFormRequest";
 import { ContactManagerFormApplicationService } from "../shared/application/services/ContactManagerFormApplicationService";
 import { serviceContainer } from "../shared/infrastructure/container/ServiceContainer";

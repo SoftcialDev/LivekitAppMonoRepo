@@ -1,73 +1,49 @@
-import { Context, HttpRequest } from "@azure/functions";
-import prisma from "../shared/services/prismaClienService";
+/**
+ * @fileoverview FetchStreamingSessions - Azure Function for fetching streaming sessions
+ * @summary Fetches all active streaming sessions based on user role
+ * @description Provides endpoint for retrieving streaming sessions using DDD pattern
+ */
+
+import { AzureFunction, Context, HttpRequest } from "@azure/functions";
 import { withAuth } from "../shared/middleware/auth";
 import { withErrorHandler } from "../shared/middleware/errorHandler";
-import { ok, unauthorized, badRequest } from "../shared/utils/response";
-import type { JwtPayload } from "jsonwebtoken";
-
-/**
- * Data Transfer Object for an active streaming session.
- *
- * @interface StreamingSessionDto
- * @property email     - The user's email address.
- * @property startedAt - ISO 8601 timestamp when the session started.
- * @property userId    - The user's database ID (used as LiveKit roomId).
- */
-interface StreamingSessionDto {
-  email:     string;
-  startedAt: string;
-  userId:    string;
-}
+import { withCallerId } from "../shared/middleware/callerId";
+import { ok } from "../shared/utils/response";
+import { FetchStreamingSessionsApplicationService } from "../shared/application/services/FetchStreamingSessionsApplicationService";
+import { serviceContainer } from "../shared/infrastructure/container/ServiceContainer";
 
 /**
  * Azure Function to fetch all currently active streaming sessions.
  *
  * @remarks
- * - Authenticates the caller via `withAuth`.  
- * - Only succeeds if a valid JWT is provided.  
- * - Queries `streamingSessionHistory` for records with `stoppedAt = null`.  
- * - Includes each related user's `email` and `id` (used as `roomId`).  
+ * - Authenticates the caller via `withAuth`.
+ * - Uses `withCallerId` middleware to extract caller ID.
+ * - Returns sessions based on user role:
+ *   - Admin/SuperAdmin: All active sessions
+ *   - Supervisor: Only sessions of their assigned PSOs
  * - Returns `{ sessions: StreamingSessionDto[] }` on success.
  *
  * @param ctx - Azure Functions context containing the HTTP request.
- *
- * @returns A 200 OK with JSON `{ sessions: StreamingSessionDto[] }` on success.  
- *          401 Unauthorized if no valid user identity.  
+ * @returns A 200 OK with JSON `{ sessions: StreamingSessionDto[] }` on success.
+ *          401 Unauthorized if no valid user identity.
  *          400 Bad Request on database or query failure.
  */
-export default withErrorHandler(async (ctx: Context): Promise<void> => {
-  const req: HttpRequest = ctx.req!;
-
-  await withAuth(ctx, async () => {
-    const claims = ctx.bindings.user as JwtPayload;
-    const azureAdId = (claims.oid ?? claims.sub) as string | undefined;
-    if (!azureAdId) {
-      return unauthorized(ctx, "Cannot determine user identity");
-    }
-
-    try {
-      const active = await prisma.streamingSessionHistory.findMany({
-        where: { stoppedAt: null },
-        include: {
-          user: {
-            select: {
-              email: true,
-              id:    true,  // this becomes the roomId
-            },
-          },
-        },
+const fetchHandler: AzureFunction = withErrorHandler(
+  async (ctx: Context, req: HttpRequest) => {
+    await withAuth(ctx, async () => {
+      await withCallerId(ctx, async () => {
+        serviceContainer.initialize();
+        
+        const applicationService = serviceContainer.resolve<FetchStreamingSessionsApplicationService>('FetchStreamingSessionsApplicationService');
+        const callerId = ctx.bindings.callerId as string;
+        
+        const response = await applicationService.fetchStreamingSessions(callerId);
+        
+        ok(ctx, response.toPayload());
       });
+    });
+  },
+  { genericMessage: "Failed to fetch streaming sessions" }
+);
 
-      const sessions: StreamingSessionDto[] = active.map(s => ({
-        email:     s.user.email,
-        startedAt: s.startedAt.toISOString(),
-        userId:    s.user.id,
-      }));
-
-      ok(ctx, { sessions });
-    } catch (err: any) {
-      ctx.log.error("FetchStreamingSessions error:", err);
-      badRequest(ctx, `Failed to fetch streaming sessions: ${err.message}`);
-    }
-  });
-});
+export default fetchHandler;

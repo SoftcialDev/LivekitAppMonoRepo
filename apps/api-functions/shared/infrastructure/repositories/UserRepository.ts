@@ -4,9 +4,11 @@
  */
 
 import prisma from '../../services/prismaClienService';
-import { UserRole } from '@prisma/client';
+import { UserRole, ContactManagerStatus } from '@prisma/client';
 import { IUserRepository } from '../../domain/interfaces/IUserRepository';
 import { User } from '../../domain/entities/User';
+import { ContactManagerProfile } from '../../domain/entities/ContactManagerProfile';
+import { SuperAdminProfile } from '../../domain/entities/SuperAdminProfile';
 import { getCentralAmericaTime } from '../../utils/dateUtils';
 
 /**
@@ -35,6 +37,31 @@ export class UserRepository implements IUserRepository {
       where: { email: email.toLowerCase() }
     });
     return prismaUser ? User.fromPrisma(prismaUser) : null;
+  }
+
+  /**
+   * Finds a user by database ID
+   * @param id - User database ID
+   * @returns Promise that resolves to user entity or null
+   */
+  async findById(id: string): Promise<User | null> {
+    const prismaUser = await prisma.user.findUnique({
+      where: { id }
+    });
+    
+    return prismaUser ? User.fromPrisma(prismaUser) : null;
+  }
+
+  /**
+   * Finds all users in the system
+   * @returns Promise that resolves to array of users
+   */
+  async findAllUsers(): Promise<User[]> {
+    const prismaUsers = await prisma.user.findMany({
+      orderBy: { createdAt: 'desc' }
+    });
+    
+    return prismaUsers.map(user => User.fromPrisma(user));
   }
 
   /**
@@ -279,5 +306,251 @@ export class UserRepository implements IUserRepository {
     // If role is Unassigned, keep deletedAt as is (user is deleted)
     // If role is anything else, set deletedAt to null (user is alive)
     return role === UserRole.Unassigned ? undefined : null;
+  }
+
+  /**
+   * Creates a user with ContactManager role
+   * @param userData - User data to create
+   * @returns Promise that resolves to the created User entity
+   */
+  async createContactManager(userData: {
+    azureAdObjectId: string;
+    email: string;
+    fullName: string;
+  }): Promise<User> {
+    const now = getCentralAmericaTime();
+    
+    const prismaUser = await prisma.user.create({
+      data: {
+        azureAdObjectId: userData.azureAdObjectId,
+        email: userData.email.toLowerCase(),
+        fullName: userData.fullName,
+        role: UserRole.ContactManager,
+        roleChangedAt: now,
+        createdAt: now,
+        updatedAt: now
+      }
+    });
+
+    return User.fromPrisma(prismaUser);
+  }
+
+  /**
+   * Creates a contact manager profile
+   * @param userId - The user ID
+   * @param status - The initial status
+   * @returns Promise that resolves to the created ContactManagerProfile entity
+   */
+  async createContactManagerProfile(userId: string, status: ContactManagerStatus): Promise<ContactManagerProfile> {
+    const now = getCentralAmericaTime();
+    
+    const prismaProfile = await prisma.contactManagerProfile.create({
+      data: {
+        userId,
+        status,
+        createdAt: now,
+        updatedAt: now
+      }
+    });
+
+    return ContactManagerProfile.fromPrisma(prismaProfile);
+  }
+
+  /**
+   * Creates a contact manager status history entry
+   * @param data - Status history data
+   * @returns Promise that resolves when history is created
+   */
+  async createContactManagerStatusHistory(data: {
+    profileId: string;
+    previousStatus: ContactManagerStatus;
+    newStatus: ContactManagerStatus;
+    changedById: string;
+  }): Promise<void> {
+    await prisma.contactManagerStatusHistory.create({
+      data: {
+        profileId: data.profileId,
+        previousStatus: data.previousStatus,
+        newStatus: data.newStatus,
+        changedById: data.changedById
+      }
+    });
+  }
+
+  /**
+   * Creates a new Super Admin user
+   * @param userData - Super Admin user data
+   * @returns Promise that resolves to the created user
+   */
+  async createSuperAdmin(userData: {
+    azureAdObjectId: string;
+    email: string;
+    fullName: string;
+  }): Promise<User> {
+    const now = getCentralAmericaTime();
+    
+    const prismaUser = await prisma.user.create({
+      data: {
+        azureAdObjectId: userData.azureAdObjectId,
+        email: userData.email.toLowerCase(),
+        fullName: userData.fullName,
+        role: UserRole.SuperAdmin,
+        roleChangedAt: now,
+        createdAt: now,
+        updatedAt: now
+      }
+    });
+
+    return User.fromPrisma(prismaUser);
+  }
+
+
+  /**
+   * Creates a Super Admin audit log entry using the general AuditLog table
+   * @param data - Audit log data
+   * @returns Promise that resolves when log is created
+   */
+  async createSuperAdminAuditLog(data: {
+    profileId: string;
+    action: string;
+    changedById: string;
+  }): Promise<void> {
+    await prisma.auditLog.create({
+      data: {
+        entity: 'SuperAdmin',
+        entityId: data.profileId,
+        action: data.action,
+        changedById: data.changedById
+      }
+    });
+  }
+
+  /**
+   * Finds a Contact Manager profile by ID
+   * @param profileId - Profile ID
+   * @returns Promise that resolves to the profile or null
+   */
+  async findContactManagerProfile(profileId: string): Promise<ContactManagerProfile | null> {
+    const prismaProfile = await prisma.contactManagerProfile.findUnique({
+      where: { id: profileId },
+      include: { user: true }
+    });
+
+    return prismaProfile ? ContactManagerProfile.fromPrisma(prismaProfile) : null;
+  }
+
+  /**
+   * Deletes a Contact Manager profile
+   * @param profileId - Profile ID
+   * @returns Promise that resolves when profile is deleted
+   */
+  async deleteContactManagerProfile(profileId: string): Promise<void> {
+    await prisma.contactManagerProfile.delete({
+      where: { id: profileId }
+    });
+  }
+
+  /**
+   * Creates a Contact Manager audit log entry using the general AuditLog table
+   * @param data - Audit log data
+   * @returns Promise that resolves when log is created
+   */
+  async createContactManagerAuditLog(data: {
+    profileId: string;
+    action: string;
+    changedById: string;
+  }): Promise<void> {
+    await prisma.auditLog.create({
+      data: {
+        entity: 'ContactManager',
+        entityId: data.profileId,
+        action: data.action,
+        changedById: data.changedById
+      }
+    });
+  }
+
+  /**
+   * Finds all Contact Manager profiles with their associated users
+   * @returns Promise that resolves to array of ContactManagerProfile entities
+   */
+  async findAllContactManagers(): Promise<ContactManagerProfile[]> {
+    const prismaProfiles = await prisma.contactManagerProfile.findMany({
+      include: { 
+        user: { 
+          select: { 
+            email: true, 
+            fullName: true 
+          } 
+        } 
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    return prismaProfiles.map(profile => ContactManagerProfile.fromPrisma(profile));
+  }
+
+  /**
+   * Finds a Contact Manager profile by user ID
+   * @param userId - User ID
+   * @returns Promise that resolves to the profile or null
+   */
+  async findContactManagerProfileByUserId(userId: string): Promise<ContactManagerProfile | null> {
+    const prismaProfile = await prisma.contactManagerProfile.findUnique({
+      where: { userId },
+      include: { 
+        user: { 
+          select: { 
+            email: true, 
+            fullName: true 
+          } 
+        } 
+      }
+    });
+
+    return prismaProfile ? ContactManagerProfile.fromPrisma(prismaProfile) : null;
+  }
+
+  /**
+   * Finds all Super Admin profiles with their associated users
+   * @returns Promise that resolves to array of SuperAdminProfile entities
+   */
+  async findAllSuperAdmins(): Promise<SuperAdminProfile[]> {
+    const prismaUsers = await prisma.user.findMany({
+      where: { role: UserRole.SuperAdmin },
+      select: {
+        id: true,
+        email: true,
+        fullName: true,
+        role: true,
+        createdAt: true,
+        updatedAt: true
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    return prismaUsers.map(user => new SuperAdminProfile(
+      user.id, // Use actual user ID, not prefixed
+      user.id,
+      user.createdAt,
+      user.updatedAt,
+      { email: user.email, fullName: user.fullName, role: user.role }
+    ));
+  }
+
+  /**
+   * Updates a Contact Manager's status
+   * @param profileId - Profile ID
+   * @param status - New status
+   * @returns Promise that resolves when status is updated
+   */
+  async updateContactManagerStatus(profileId: string, status: ContactManagerStatus): Promise<void> {
+    await prisma.contactManagerProfile.update({
+      where: { id: profileId },
+      data: { 
+        status,
+        updatedAt: getCentralAmericaTime()
+      }
+    });
   }
 }

@@ -1,6 +1,6 @@
 import { getLiveKitToken, RoomWithToken } from '@/shared/api/livekitClient';
 import { fetchStreamingSessions } from '@/shared/api/streamingStatusClient';
-import { MessageHandler, WebPubSubClientService } from '@/shared/api/webpubsubClient';
+import { MessageHandler, webPubSubClient } from '@/shared/api/webpubsubClient';
 import { useEffect, useRef, useState, useCallback } from 'react';
 
 
@@ -30,7 +30,7 @@ export function useUserStream(
   const [livekitUrl,  setLivekitUrl]  = useState<string>();
   const [loading,     setLoading]     = useState(false);
 
-  const wsRef = useRef<WebPubSubClientService>();
+  const wsRef = useRef<typeof webPubSubClient>();
   const fetchTimer = useRef<number>();
 
   // central fetcher: get sessionId + token + URL
@@ -74,17 +74,17 @@ export function useUserStream(
   }, [targetEmail, fetchAndSet]);
 
   useEffect(() => {
-    const client = new WebPubSubClientService();
+    const client = webPubSubClient;
     wsRef.current = client;
 
     client
       .connect(viewerEmail)
       .then(() => {
-        // you’re now in your own presence group
+        // you're now in your own presence group
         client.onMessage(handleStreamEvent);
-        // **also** join the target’s group so we get their “started/stopped”
-        return client['client']?.joinGroup?.(targetEmail);  
-        // note: if your wrapper doesn’t expose joinGroup, you can add a small helper
+        // **also** join the target's group so we get their "started/stopped"
+        return client.joinGroup(targetEmail);  
+        // note: if your wrapper doesn't expose joinGroup, you can add a small helper
       })
       .catch(err => {
         console.error('[useUserStream] WS connect error', err);

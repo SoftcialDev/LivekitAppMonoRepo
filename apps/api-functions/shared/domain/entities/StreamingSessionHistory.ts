@@ -14,6 +14,10 @@ export class StreamingSessionHistory {
   public readonly stopReason: string | null;
   public readonly createdAt: Date;
   public readonly updatedAt: Date;
+  public readonly user?: {
+    email: string;
+    id: string;
+  };
 
   /**
    * Creates a new StreamingSessionHistory entity
@@ -27,6 +31,10 @@ export class StreamingSessionHistory {
     stopReason?: string | null;
     createdAt: Date;
     updatedAt: Date;
+    user?: {
+      email: string;
+      id: string;
+    };
   }) {
     this.id = props.id;
     this.userId = props.userId;
@@ -35,6 +43,7 @@ export class StreamingSessionHistory {
     this.stopReason = props.stopReason || null;
     this.createdAt = props.createdAt;
     this.updatedAt = props.updatedAt;
+    this.user = props.user;
   }
 
   /**
@@ -51,6 +60,10 @@ export class StreamingSessionHistory {
       stopReason: prismaSession.stopReason,
       createdAt: prismaSession.createdAt,
       updatedAt: prismaSession.updatedAt,
+      user: prismaSession.user ? {
+        email: prismaSession.user.email,
+        id: prismaSession.user.id
+      } : undefined,
     });
   }
 

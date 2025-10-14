@@ -10,7 +10,7 @@ import { withBodyValidation } from "../shared/middleware/validate";
 import { ok, unauthorized } from "../shared/utils/response";
 import { UserRoleChangeApplicationService } from "../shared/application/services/UserRoleChangeApplicationService";
 import { UserRoleChangeRequest } from "../shared/domain/value-objects/UserRoleChangeRequest";
-import { userRoleChangeSchema } from "../shared/domain/schema/UserRoleChangeSchema";
+import { userRoleChangeSchema } from "../shared/domain/schemas/UserRoleChangeSchema";
 import { serviceContainer } from "../shared/infrastructure/container/ServiceContainer";
 import { handleAnyError } from "../shared/utils/errorHandler";
 import { getCallerAdId } from "../shared/utils/authHelpers";

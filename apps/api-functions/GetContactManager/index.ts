@@ -1,47 +1,49 @@
+/**
+ * @fileoverview GetContactManager - Azure Function for retrieving Contact Manager list
+ * @summary Handles the retrieval of Contact Manager profiles with proper authorization
+ * @description This function lists all Contact Manager profiles with their status and user information.
+ * Admin, SuperAdmin, and Employee roles can access this endpoint.
+ */
+
 import { AzureFunction, Context, HttpRequest } from "@azure/functions";
-import { withAuth }   from "../shared/middleware/auth";
+import { withAuth } from "../shared/middleware/auth";
 import { withErrorHandler } from "../shared/middleware/errorHandler";
-import { ok, forbidden }    from "../shared/utils/response";
-import { listContactManagers } from "../shared/services/contactManagerService";
-import prisma from "../shared/services/prismaClienService";
+import { withCallerId } from "../shared/middleware/callerId";
+import { ok } from "../shared/utils/response";
+import { ContactManagerApplicationService } from "../shared/application/services/ContactManagerApplicationService";
+import { serviceContainer } from "../shared/infrastructure/container/ServiceContainer";
 
 /**
+ * Azure Function handler for retrieving Contact Manager list.
+ * 
+ * This function handles the retrieval of Contact Manager profiles by:
+ * 1. Authenticating the caller using Azure AD token
+ * 2. Extracting caller ID
+ * 3. Delegating to ContactManagerApplicationService for business logic and authorization
+ * 4. Returning the list of Contact Managers
+ * 
+ * @param ctx - Azure Function context
+ * @param req - HTTP request
+ * @returns Promise that resolves when the Contact Manager list is retrieved
+ * @throws {ForbiddenError} when caller lacks appropriate privileges
+ * @throws {ServiceError} when Contact Manager retrieval fails
+ * 
+ * @example
  * GET /api/contactManagers
- *
- * Only users with the Admin role in your database may list Contact Managers.
- *
- * @remarks
- * 1. Validates the caller’s AAD token via `withAuth`.
- * 2. Looks up the calling user in your database by their AAD OID.
- * 3. Verifies they have role=`Admin`.
- * 4. Fetches and returns all Contact Manager profiles.
- *
- * @param ctx - Azure Functions execution context (includes `ctx.bindings.user` with token claims).
- * @param req - The incoming HTTP request.
- * @returns 200 OK with `{ contactManagers: ContactManagerDTO[] }` or 403 Forbidden.
+ * Response: { "contactManagers": [{ "id": "uuid", "email": "user@example.com", ... }] }
  */
 const getAll: AzureFunction = withErrorHandler(
   async (ctx: Context, req: HttpRequest) => {
     await withAuth(ctx, async () => {
-      // 1. Extract OID from the token claims
-      const claims = (ctx as any).bindings.user as { oid?: string; sub?: string };
-      const oid = claims.oid || claims.sub;
-      if (!oid) {
-        // Shouldn’t happen, withAuth would already reject, but guard anyway
-        return forbidden(ctx, "Cannot determine caller identity");
-      }
+      await withCallerId(ctx, async () => {
+        serviceContainer.initialize();
 
-      // 2. Look up the user in your database to get their role
-      const caller = await prisma.user.findUnique({
-        where: { azureAdObjectId: oid }
+        const applicationService = serviceContainer.resolve<ContactManagerApplicationService>('ContactManagerApplicationService');
+        const callerId = ctx.bindings.callerId as string;
+
+        const result = await applicationService.listContactManagers(callerId);
+        ok(ctx, result.toPayload());
       });
-      if (!caller) {
-        return forbidden(ctx, "Caller not found in database");
-      }
-
-      // 4. Fetch and return
-      const items = await listContactManagers();
-      return ok(ctx, { contactManagers: items });
     });
   },
   { genericMessage: "Failed to fetch Contact Managers" }

@@ -10,7 +10,7 @@ import { withBodyValidation } from "../shared/middleware/validate";
 import { ok } from "../shared/utils/response";
 import { SupervisorApplicationService } from "../shared/application/services/SupervisorApplicationService";
 import { SupervisorAssignment } from "../shared/domain/value-objects/SupervisorAssignment";
-import { supervisorAssignmentSchema } from "../shared/domain/schema/SupervisorAssignmentSchema";
+import { supervisorAssignmentSchema } from "../shared/domain/schemas/SupervisorAssignmentSchema";
 import { serviceContainer } from "../shared/infrastructure/container/ServiceContainer";
 import { handleAnyError } from "../shared/utils/errorHandler";
 import { getCallerAdId } from "../shared/utils/authHelpers";

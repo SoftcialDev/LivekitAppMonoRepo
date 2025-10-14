@@ -53,6 +53,38 @@ export class AuthorizationService implements IAuthorizationService {
   }
 
   /**
+   * Authorizes if a user can access Super Admin functions
+   * @param callerId - Azure AD object ID of the caller
+   * @returns Promise that resolves when authorized
+   * @throws AuthError if not authorized
+   */
+  async canAccessSuperAdmin(callerId: string): Promise<void> {
+    const allowedRoles: UserRole[] = [UserRole.SuperAdmin];
+    await this.validateUserWithRoles(callerId, allowedRoles, 'creating Super Admin');
+  }
+
+  /**
+   * Authorizes if a user can access Employee functions
+   * @param callerId - Azure AD object ID of the caller
+   * @returns Promise that resolves to true if authorized
+   */
+  async canAccessEmployee(callerId: string): Promise<boolean> {
+    const allowedRoles: UserRole[] = [UserRole.Employee];
+    return await this.userRepository.hasAnyRole(callerId, allowedRoles);
+  }
+
+  /**
+   * Authorizes if a user can access Contact Manager functions
+   * @param callerId - Azure AD object ID of the caller
+   * @returns Promise that resolves when authorized
+   * @throws AuthError if not authorized
+   */
+  async canAccessContactManager(callerId: string): Promise<void> {
+    const allowedRoles: UserRole[] = [UserRole.Employee, UserRole.ContactManager];
+    await this.validateUserWithRoles(callerId, allowedRoles, 'accessing Contact Manager functions');
+  }
+
+  /**
    * Validates if a user exists and is active
    * @param callerId - Azure AD object ID of the caller
    * @returns Promise that resolves to true if user exists and is active

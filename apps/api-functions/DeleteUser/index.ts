@@ -9,7 +9,7 @@ import { withErrorHandler } from '../shared/middleware/errorHandler';
 import { withBodyValidation } from '../shared/middleware/validate';
 import { UserDeletionRequest } from '../shared/domain/value-objects/UserDeletionRequest';
 import { UserDeletionType } from '../shared/domain/enums/UserDeletionType';
-import { userDeletionSchema } from '../shared/domain/schema/UserDeletionSchema';
+import { userDeletionSchema } from '../shared/domain/schemas/UserDeletionSchema';
 import { serviceContainer } from '../shared/infrastructure/container/ServiceContainer';
 import { handleAnyError } from '../shared/utils/errorHandler';
 import { getCallerAdId } from '../shared/utils/authHelpers';

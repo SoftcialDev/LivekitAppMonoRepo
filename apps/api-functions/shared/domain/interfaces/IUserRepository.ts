@@ -3,8 +3,11 @@
  * @description Defines the contract for user data access operations
  */
 
-import { UserRole } from '@prisma/client';
+import { UserRole, ContactManagerStatus } from '@prisma/client';
 import { User } from '../entities/User';
+import { ContactManagerProfile } from '../entities/ContactManagerProfile';
+import { SuperAdminProfile } from '../entities/SuperAdminProfile';
+
 
 /**
  * Repository interface for user data access
@@ -23,6 +26,19 @@ export interface IUserRepository {
    * @returns Promise that resolves to user or null
    */
   findByEmail(email: string): Promise<User | null>;
+
+  /**
+   * Finds a user by database ID
+   * @param id - User database ID
+   * @returns Promise that resolves to user or null
+   */
+  findById(id: string): Promise<User | null>;
+
+  /**
+   * Finds all users in the system
+   * @returns Promise that resolves to array of users
+   */
+  findAllUsers(): Promise<User[]>;
 
   /**
    * Checks if a user exists and is not deleted
@@ -124,5 +140,111 @@ export interface IUserRepository {
    * @returns Promise that resolves when role is changed
    */
   changeUserRole(userId: string, newRole: UserRole): Promise<void>;
+
+  /**
+   * Creates a user with ContactManager role
+   * @param userData - User data to create
+   * @returns Promise that resolves to the created User entity
+   */
+  createContactManager(userData: {
+    azureAdObjectId: string;
+    email: string;
+    fullName: string;
+  }): Promise<User>;
+
+  /**
+   * Creates a contact manager profile
+   * @param userId - The user ID
+   * @param status - The initial status
+   * @returns Promise that resolves to the created ContactManagerProfile entity
+   */
+  createContactManagerProfile(userId: string, status: ContactManagerStatus): Promise<ContactManagerProfile>;
+
+  /**
+   * Creates a contact manager status history entry
+   * @param data - Status history data
+   * @returns Promise that resolves when history is created
+   */
+  createContactManagerStatusHistory(data: {
+    profileId: string;
+    previousStatus: ContactManagerStatus;
+    newStatus: ContactManagerStatus;
+    changedById: string;
+  }): Promise<void>;
+
+  /**
+   * Creates a new Super Admin user
+   * @param userData - Super Admin user data
+   * @returns Promise that resolves to the created user
+   */
+  createSuperAdmin(userData: {
+    azureAdObjectId: string;
+    email: string;
+    fullName: string;
+  }): Promise<User>;
+
+
+  /**
+   * Creates a Super Admin audit log entry
+   * @param data - Audit log data
+   * @returns Promise that resolves when log is created
+   */
+  createSuperAdminAuditLog(data: {
+    profileId: string;
+    action: string;
+    changedById: string;
+  }): Promise<void>;
+
+  /**
+   * Finds a Contact Manager profile by ID
+   * @param profileId - Profile ID
+   * @returns Promise that resolves to the profile or null
+   */
+  findContactManagerProfile(profileId: string): Promise<ContactManagerProfile | null>;
+
+  /**
+   * Deletes a Contact Manager profile
+   * @param profileId - Profile ID
+   * @returns Promise that resolves when profile is deleted
+   */
+  deleteContactManagerProfile(profileId: string): Promise<void>;
+
+  /**
+   * Creates a Contact Manager audit log entry
+   * @param data - Audit log data
+   * @returns Promise that resolves when log is created
+   */
+  createContactManagerAuditLog(data: {
+    profileId: string;
+    action: string;
+    changedById: string;
+  }): Promise<void>;
+
+  /**
+   * Finds all Contact Manager profiles with their associated users
+   * @returns Promise that resolves to array of ContactManagerProfile entities
+   */
+  findAllContactManagers(): Promise<ContactManagerProfile[]>;
+
+  /**
+   * Finds a Contact Manager profile by user ID
+   * @param userId - User ID
+   * @returns Promise that resolves to the profile or null
+   */
+  findContactManagerProfileByUserId(userId: string): Promise<ContactManagerProfile | null>;
+
+  /**
+   * Finds all Super Admin profiles with their associated users
+   * @returns Promise that resolves to array of SuperAdminProfile entities
+   */
+  findAllSuperAdmins(): Promise<SuperAdminProfile[]>;
+
+  /**
+   * Updates a Contact Manager's status
+   * @param profileId - Profile ID
+   * @param status - New status
+   * @returns Promise that resolves when status is updated
+   */
+  updateContactManagerStatus(profileId: string, status: ContactManagerStatus): Promise<void>;
 
 }

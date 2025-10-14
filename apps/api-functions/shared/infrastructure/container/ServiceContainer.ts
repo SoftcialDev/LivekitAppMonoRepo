@@ -37,6 +37,17 @@ import { BlobStorageService } from '../services/BlobStorageService';
 import { ChatService } from '../services/ChatService';
 import { ContactManagerFormRepository } from '../repositories/ContactManagerFormRepository';
 import { ContactManagerFormApplicationService } from '../../application/services/ContactManagerFormApplicationService';
+import { ContactManagerDomainService } from '../../domain/services/ContactManagerDomainService';
+import { ContactManagerApplicationService } from '../../application/services/ContactManagerApplicationService';
+import { SuperAdminDomainService } from '../../domain/services/SuperAdminDomainService';
+import { SuperAdminApplicationService } from '../../application/services/SuperAdminApplicationService';
+import { PendingCommandDomainService } from '../../domain/services/PendingCommandDomainService';
+import { FetchPendingCommandsApplicationService } from '../../application/services/FetchPendingCommandsApplicationService';
+import { IStreamingSessionRepository } from '../../domain/interfaces/IStreamingSessionRepository';
+import { StreamingSessionRepository } from '../repositories/StreamingSessionRepository';
+import { StreamingSessionDomainService } from '../../domain/services/StreamingSessionDomainService';
+import { FetchStreamingSessionHistoryApplicationService } from '../../application/services/FetchStreamingSessionHistoryApplicationService';
+import { FetchStreamingSessionsApplicationService } from '../../application/services/FetchStreamingSessionsApplicationService';
 
 /**
  * Service container for dependency injection
@@ -163,6 +174,64 @@ export class ServiceContainer {
             const authorizationService = this.resolve<IAuthorizationService>('AuthorizationService');
             const userRepository = this.resolve<IUserRepository>('UserRepository');
             return new ContactManagerFormApplicationService(contactManagerFormService, authorizationService, userRepository);
+          });
+
+          // Register Contact Manager services
+          this.register<ContactManagerDomainService>('ContactManagerDomainService', () => {
+            const userRepository = this.resolve<IUserRepository>('UserRepository');
+            return new ContactManagerDomainService(userRepository);
+          });
+
+          this.register<ContactManagerApplicationService>('ContactManagerApplicationService', () => {
+            const contactManagerDomainService = this.resolve<ContactManagerDomainService>('ContactManagerDomainService');
+            const authorizationService = this.resolve<AuthorizationService>('AuthorizationService');
+            return new ContactManagerApplicationService(contactManagerDomainService, authorizationService);
+          });
+
+          // Register Super Admin services
+          this.register<SuperAdminDomainService>('SuperAdminDomainService', () => {
+            const userRepository = this.resolve<IUserRepository>('UserRepository');
+            return new SuperAdminDomainService(userRepository);
+          });
+
+          this.register<SuperAdminApplicationService>('SuperAdminApplicationService', () => {
+            const superAdminDomainService = this.resolve<SuperAdminDomainService>('SuperAdminDomainService');
+            const authorizationService = this.resolve<AuthorizationService>('AuthorizationService');
+            return new SuperAdminApplicationService(superAdminDomainService, authorizationService);
+          });
+
+          // Register Pending Command services
+          this.register<PendingCommandDomainService>('PendingCommandDomainService', () => {
+            const pendingCommandRepository = this.resolve<IPendingCommandRepository>('PendingCommandRepository');
+            const userRepository = this.resolve<IUserRepository>('UserRepository');
+            return new PendingCommandDomainService(pendingCommandRepository, userRepository);
+          });
+
+          this.register<FetchPendingCommandsApplicationService>('FetchPendingCommandsApplicationService', () => {
+            const pendingCommandDomainService = this.resolve<PendingCommandDomainService>('PendingCommandDomainService');
+            const authorizationService = this.resolve<AuthorizationService>('AuthorizationService');
+            return new FetchPendingCommandsApplicationService(pendingCommandDomainService, authorizationService);
+          });
+
+          // Register Streaming Session services
+          this.register<IStreamingSessionRepository>('StreamingSessionRepository', () => new StreamingSessionRepository());
+          
+          this.register<StreamingSessionDomainService>('StreamingSessionDomainService', () => {
+            const streamingSessionRepository = this.resolve<IStreamingSessionRepository>('StreamingSessionRepository');
+            const userRepository = this.resolve<IUserRepository>('UserRepository');
+            return new StreamingSessionDomainService(streamingSessionRepository, userRepository);
+          });
+
+          this.register<FetchStreamingSessionHistoryApplicationService>('FetchStreamingSessionHistoryApplicationService', () => {
+            const streamingSessionDomainService = this.resolve<StreamingSessionDomainService>('StreamingSessionDomainService');
+            const authorizationService = this.resolve<AuthorizationService>('AuthorizationService');
+            return new FetchStreamingSessionHistoryApplicationService(streamingSessionDomainService, authorizationService);
+          });
+
+          this.register<FetchStreamingSessionsApplicationService>('FetchStreamingSessionsApplicationService', () => {
+            const streamingSessionDomainService = this.resolve<StreamingSessionDomainService>('StreamingSessionDomainService');
+            const authorizationService = this.resolve<AuthorizationService>('AuthorizationService');
+            return new FetchStreamingSessionsApplicationService(streamingSessionDomainService, authorizationService);
           });
         }
       }
