@@ -247,4 +247,10 @@ export interface IUserRepository {
    */
   updateContactManagerStatus(profileId: string, status: ContactManagerStatus): Promise<void>;
 
+  /**
+   * Gets PSOs by supervisor with their supervisor information
+   * @param supervisorId - Optional supervisor ID to filter PSOs
+   * @returns Promise that resolves to array of PSOs with supervisor information
+   */
+  getPsosBySupervisor(supervisorId?: string): Promise<Array<{ email: string; supervisorName: string }>>;
 }

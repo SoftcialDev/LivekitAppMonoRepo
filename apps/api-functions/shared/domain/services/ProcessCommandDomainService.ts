@@ -1,0 +1,139 @@
+/**
+ * @fileoverview ProcessCommandDomainService - Domain service for process command operations
+ * @summary Handles business logic for command processing
+ * @description Encapsulates the business rules and operations for processing commands from Service Bus
+ */
+
+import { ProcessCommandRequest } from "../value-objects/ProcessCommandRequest";
+import { ProcessCommandResponse } from "../value-objects/ProcessCommandResponse";
+import { PendingCommandDomainService } from "./PendingCommandDomainService";
+import { StreamingSessionDomainService } from "./StreamingSessionDomainService";
+import { PresenceDomainService } from "./PresenceDomainService";
+import { IUserRepository } from "../interfaces/IUserRepository";
+import { ICommandMessagingService } from "../interfaces/ICommandMessagingService";
+import { CommandType } from "../enums/CommandType";
+import { Status } from "../enums/Status";
+import { UserNotFoundError } from "../errors/UserErrors";
+
+/**
+ * Domain service for handling process command operations
+ * @description Encapsulates business logic for processing commands from Service Bus
+ */
+export class ProcessCommandDomainService {
+  /**
+   * Creates a new ProcessCommandDomainService instance
+   * @param pendingCommandDomainService - Domain service for pending command operations
+   * @param streamingSessionDomainService - Domain service for streaming session operations
+   * @param presenceDomainService - Domain service for presence operations
+   * @param userRepository - Repository for user data access
+   * @param commandMessagingService - Service for command messaging
+   */
+  constructor(
+    private readonly pendingCommandDomainService: PendingCommandDomainService,
+    private readonly streamingSessionDomainService: StreamingSessionDomainService,
+    private readonly presenceDomainService: PresenceDomainService,
+    private readonly userRepository: IUserRepository,
+    private readonly commandMessagingService: ICommandMessagingService
+  ) {}
+
+  /**
+   * Processes a command from Service Bus
+   * @param request - The process command request
+   * @returns Promise that resolves to the process command response
+   * @throws UserNotFoundError when the user is not found
+   * @example
+   * const response = await processCommandDomainService.processCommand(request);
+   */
+  async processCommand(request: ProcessCommandRequest): Promise<ProcessCommandResponse> {
+    // 1. Find user by email
+    const user = await this.findUserByEmail(request.employeeEmail);
+    
+    // 2. Create pending command
+    const pendingCommand = await this.pendingCommandDomainService.createPendingCommand(
+      user.id,
+      request.command,
+      request.timestamp
+    );
+
+    // 3. Handle STOP command (stop streaming session)
+    if (request.command === CommandType.STOP) {
+      await this.streamingSessionDomainService.stopStreamingSession(user.id, 'COMMAND');
+    }
+
+    // 4. Attempt immediate delivery
+    const delivered = await this.attemptDelivery(pendingCommand.id, user.id, user.email, request.command, request.timestamp);
+
+    return new ProcessCommandResponse(
+      pendingCommand.id,
+      delivered,
+      `Command ${request.command} for ${request.employeeEmail} processed successfully`
+    );
+  }
+
+  /**
+   * Finds a user by email address
+   * @param email - The email address to search for
+   * @returns Promise that resolves to the user
+   * @throws UserNotFoundError when the user is not found
+   * @private
+   */
+  private async findUserByEmail(email: string): Promise<{ id: string; email: string }> {
+    const user = await this.userRepository.findByEmail(email);
+    
+    if (!user) {
+      throw new UserNotFoundError(`User not found for email: ${email}`);
+    }
+
+    return {
+      id: user.id,
+      email: user.email
+    };
+  }
+
+  /**
+   * Attempts to deliver a command immediately via Web PubSub
+   * @param commandId - The ID of the pending command
+   * @param userId - The ID of the user
+   * @param userEmail - The email of the user
+   * @param command - The command type
+   * @param timestamp - The command timestamp
+   * @returns Promise that resolves to whether the command was delivered
+   * @private
+   */
+  private async attemptDelivery(
+    commandId: string,
+    userId: string,
+    userEmail: string,
+    command: CommandType,
+    timestamp: Date
+  ): Promise<boolean> {
+    try {
+      // 1. Check if user is online
+      const presenceStatus = await this.presenceDomainService.getPresenceStatus(userId);
+      if (presenceStatus !== Status.Online) {
+        console.log(`User ${userEmail} is offline, command will be delivered later`);
+        return false; // User offline, command will be delivered later
+      }
+
+      // 2. Send via Web PubSub
+      const groupName = `commands:${userEmail.trim().toLowerCase()}`;
+      const message = {
+        id: commandId,
+        command: command,
+        timestamp: timestamp.toISOString(),
+      };
+
+      await this.commandMessagingService.sendToGroup(groupName, message);
+
+      // 3. Mark as published in database
+      await this.pendingCommandDomainService.markAsPublished(commandId);
+      
+      console.log(`Command ${command} delivered immediately to ${userEmail}`);
+      return true;
+    } catch (error) {
+      // Log error but don't throw - command is still persisted
+      console.error('Failed to deliver command immediately:', error);
+      return false;
+    }
+  }
+}

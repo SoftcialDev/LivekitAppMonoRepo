@@ -1,22 +1,8 @@
 ﻿import { Context } from "@azure/functions";
-import prisma from "../shared/services/prismaClienService";
-import {
-  createPendingCommand,
-  tryDeliverCommand,
-} from "../shared/services/pendingCommandService";
-import { stopStreamingSession } from "../shared/services/streamingService";
-
-/**
- * Describes the shape of a camera command message from Service Bus.
- */
-export interface ProcessCommandMessage {
-  /** "START" to begin streaming, or "STOP" to end it */
-  command: "START" | "STOP";
-  /** Employee’s email address used to identify the target user */
-  employeeEmail: string;
-  /** When the admin issued the command (ISO-8601 string) */
-  timestamp: string;
-}
+import { ServiceContainer } from "../shared/infrastructure/container/ServiceContainer";
+import { ProcessCommandRequest } from "../shared/domain/value-objects/ProcessCommandRequest";
+import { ProcessCommandApplicationService } from "../shared/application/services/ProcessCommandApplicationService";
+import { processCommandSchema } from "../shared/domain/schemas/ProcessCommandSchema";
 
 /**
  * Azure Function: ProcessCommand
@@ -42,44 +28,25 @@ export default async function processCommand(
 ): Promise<void> {
   context.log.info("ProcessCommand received:", message);
 
-  // 1) Deserialize and validate shape
-  const { command, employeeEmail, timestamp } =
-    message as ProcessCommandMessage;
-
-  // 2) Look up the employee record
-  const user = await prisma.user.findUnique({
-    where: { email: employeeEmail.toLowerCase() },
-  });
-  if (!user) {
-    context.log.error(`User not found for email: ${employeeEmail}`);
-    return; // drop or dead-letter as configured
-  }
-
   try {
-    // 3) Persist a pending command (deletes any older one first)
-    const pending = await createPendingCommand(
-      user.id,
-      command,
-      timestamp
-    );
+    // 1) Validate message structure
+    const validatedMessage = processCommandSchema.parse(message);
+    
+    // 2) Initialize service container
+    const serviceContainer = new ServiceContainer();
+    serviceContainer.initialize();
 
-    // 4) For STOP commands, also stop streaming session with COMMAND reason
-    if (command === 'STOP') {
-      context.log.info(`Processing STOP command for ${employeeEmail} - calling stopStreamingSession with COMMAND reason`);
-      await stopStreamingSession(user.id, 'COMMAND');
-      context.log.info(`✅ Streaming session stopped by COMMAND for ${employeeEmail}`);
-    }
+    // 3) Resolve application service
+    const applicationService = serviceContainer.resolve<ProcessCommandApplicationService>('ProcessCommandApplicationService');
 
-    // 5) Attempt immediate push over Web PubSub
-    const delivered = await tryDeliverCommand({
-      id:          pending.id,
-      employeeId:  pending.employeeId,
-      command:     pending.command,
-      timestamp:   pending.timestamp,
-    });
+    // 4) Create request object
+    const request = ProcessCommandRequest.fromMessage(validatedMessage);
+
+    // 5) Execute command processing
+    const response = await applicationService.processCommand(request);
 
     context.log.info(
-      `Command ${command} for ${employeeEmail} persisted (id=${pending.id}); delivered=${delivered}`
+      `Command ${request.command} for ${request.employeeEmail} processed (id=${response.commandId}); delivered=${response.delivered}`
     );
   } catch (err) {
     context.log.error("Error in ProcessCommand:", err);

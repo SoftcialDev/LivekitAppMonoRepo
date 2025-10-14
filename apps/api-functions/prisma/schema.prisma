@@ -379,3 +379,11 @@ enum RecordingStatus {
   Completed
   Failed
 }
+
+/**
+ * Recording command types for LiveKit recording operations.
+ */
+enum RecordingCommandType {
+  START
+  STOP
+}

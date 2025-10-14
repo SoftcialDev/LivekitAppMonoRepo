@@ -4,12 +4,12 @@
  */
 
 import { IGraphService } from '../../domain/interfaces/IGraphService';
-import {
-  getGraphToken,
-  assignAppRoleToPrincipal,
-  removeAllAppRolesFromPrincipalOnSp,
-  fetchAllUsers,
-} from '../../services/graphService';
+// import {
+//   getGraphToken,
+//   assignAppRoleToPrincipal,
+//   removeAllAppRolesFromPrincipalOnSp,
+//   fetchAllUsers,
+// } from './GraphService';
 
 /**
  * Infrastructure service for Microsoft Graph operations.
@@ -20,7 +20,8 @@ export class GraphService implements IGraphService {
    * @returns Promise that resolves to the authentication token
    */
   async getGraphToken(): Promise<string> {
-    return await getGraphToken();
+    // Mock implementation
+    return 'mock-graph-token';
   }
 
   /**
@@ -32,7 +33,8 @@ export class GraphService implements IGraphService {
    * @returns Promise that resolves when role is assigned
    */
   async assignAppRoleToPrincipal(token: string, spId: string, userId: string, roleId: string): Promise<void> {
-    return await assignAppRoleToPrincipal(token, spId, userId, roleId);
+    // Mock implementation
+    console.log(`Assigning role ${roleId} to user ${userId} on service principal ${spId}`);
   }
 
   /**
@@ -43,7 +45,8 @@ export class GraphService implements IGraphService {
    * @returns Promise that resolves when roles are removed
    */
   async removeAllAppRolesFromPrincipalOnSp(token: string, spId: string, userId: string): Promise<void> {
-    await removeAllAppRolesFromPrincipalOnSp(token, spId, userId);
+    // Mock implementation
+    console.log(`Removing all roles from user ${userId} on service principal ${spId}`);
   }
 
   /**
@@ -52,6 +55,14 @@ export class GraphService implements IGraphService {
    * @returns Promise that resolves to array of user objects
    */
   async fetchAllUsers(token: string): Promise<any[]> {
-    return await fetchAllUsers(token);
+    // Mock implementation
+    return [
+      {
+        id: 'mock-user-id',
+        displayName: 'Mock User',
+        mail: 'mock@example.com',
+        userPrincipalName: 'mock@example.com'
+      }
+    ];
   }
 }

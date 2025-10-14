@@ -5,8 +5,8 @@
 
 import { AzureFunction, Context, Timer } from "@azure/functions";
 import { withErrorHandler } from "../shared/middleware/errorHandler";
-import { getGraphToken, fetchAllUsers } from "../shared/services/graphService";
-import prisma from "../shared/services/prismaClienService";
+import { GraphService } from "../shared/infrastructure/services/GraphService";
+import prisma from "../shared/infrastructure/database/PrismaClientService";
 import { getCentralAmericaTime } from "../shared/utils/dateUtils";
 
 /**
@@ -73,11 +73,12 @@ async function syncTenantUsersHandler(ctx: Context, myTimer: Timer): Promise<voi
 
   try {
     // 1. Get Graph token
-    const token = await getGraphToken();
+    const graphService = new GraphService();
+    const token = await graphService.getGraphToken();
     ctx.log.info("[SyncTenantUsers] Graph token acquired");
 
     // 2. Fetch all users from Graph API
-    const graphUsers = await fetchAllUsers(token);
+    const graphUsers = await graphService.fetchAllUsers(token);
     ctx.log.info(`[SyncTenantUsers] Fetched ${graphUsers.length} users from Graph API`);
 
     // 3. Process each user

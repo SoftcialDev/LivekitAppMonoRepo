@@ -1,112 +1,61 @@
-import { AzureFunction, Context, HttpRequest } from "@azure/functions";
-import { randomUUID } from "crypto";
-import { z } from "zod";
+/**
+ * @fileoverview SendSnapshot - Azure Function for sending snapshot reports
+ * @summary Processes supervisor snapshot reports
+ * @description HTTP-triggered function that handles snapshot reports from supervisors
+ */
 
+import { Context, HttpRequest } from "@azure/functions";
 import { withAuth } from "../shared/middleware/auth";
 import { withErrorHandler } from "../shared/middleware/errorHandler";
-import { getCentralAmericaTime } from "../shared/utils/dateUtils";
+import { withCallerId } from "../shared/middleware/callerId";
 import { withBodyValidation } from "../shared/middleware/validate";
-import { ok, badRequest } from "../shared/utils/response";
-
-import { blobService } from "../shared/services/blobStorageService";
-import prisma from "../shared/services/prismaClienService";
-import { adminChatService } from "../shared/services/adminChatService";
-
-/**
- * Zod schema for validating incoming snapshot report payload.
- */
-const SnapshotSchema = z.object({
-  /** 
-   * The PSO’s email address (case‑insensitive), used to look up the PSO user record. 
-   */
-  psoEmail:    z.string().email(),
-  /** Text reason or details provided by the supervisor. */
-  reason:      z.string().min(1),
-  /** Base64‑encoded JPEG snapshot image. */
-  imageBase64: z.string().min(1),
-});
+import { ok } from "../shared/utils/response";
+import { ServiceContainer } from "../shared/infrastructure/container/ServiceContainer";
+import { SendSnapshotRequest } from "../shared/domain/value-objects/SendSnapshotRequest";
+import { SendSnapshotApplicationService } from "../shared/application/services/SendSnapshotApplicationService";
+import { sendSnapshotSchema } from "../shared/domain/schemas/SendSnapshotSchema";
 
 /**
- * HTTP-triggered Azure Function to process a supervisor’s snapshot report.
+ * HTTP-triggered Azure Function to process a supervisor's snapshot report.
  *
  * @remarks
  * This function:
  * 1. Authenticates the caller and verifies they are a Supervisor.
- * 2. Validates the request body against {@link SnapshotSchema}.
+ * 2. Validates the request body against the schema.
  * 3. Looks up the PSO user by their email address.
- * 4. Decodes the Base64 image and uploads it via {@link blobService}.
- * 5. Persists snapshot metadata (supervisorId, psoId, reason, imageUrl) in PostgreSQL.
- * 6. Retrieves or synchronizes the Administrators chat via {@link adminChatService.getOrSyncChat}.
- * 7. Sends a formatted report message to that chat via {@link adminChatService.sendMessage}.
+ * 4. Decodes the Base64 image and uploads it to blob storage.
+ * 5. Persists snapshot metadata in PostgreSQL.
+ * 6. Notifies administrators via Teams chat.
  *
- * @param ctx - The Azure Functions execution context, with auth claims in `ctx.bindings.user`.
- * @param req - The incoming HTTP request containing JSON matching {@link SnapshotSchema}.
- * @returns A 200 OK response with the new `snapshotId`, or a 400 error if validation or lookup fails.
+ * @param ctx - The Azure Functions execution context
+ * @param req - The incoming HTTP request containing snapshot data
+ * @returns A 200 OK response with the new `snapshotId`, or an error if validation fails
  */
-const snapshotFunction: AzureFunction = withErrorHandler(
+const sendSnapshotHandler = withErrorHandler(
   async (ctx: Context, req: HttpRequest) => {
     await withAuth(ctx, async () => {
-      // 1) Extract supervisor’s OID from token claims
-      const claims = (ctx as any).bindings.user as {
-        oid?: string;
-        sub?: string;
-        fullName: string;
-      };
-      const oid = claims.oid || claims.sub;
-      if (!oid) {
-        return badRequest(ctx, "Missing OID in token");
-      }
+      await withCallerId(ctx, async () => {
+        await withBodyValidation(sendSnapshotSchema)(ctx, async () => {
+          const serviceContainer = new ServiceContainer();
+          serviceContainer.initialize();
 
-      // 2) Verify supervisor exists
-      const supervisor = await prisma.user.findUnique({
-        where: { azureAdObjectId: oid },
-      });
-      if (!supervisor) {
-        return badRequest(ctx, "Supervisor not found");
-      }
+          const applicationService = serviceContainer.resolve<SendSnapshotApplicationService>('SendSnapshotApplicationService');
+          const callerId = ctx.bindings.callerId as string;
 
-      // 3) Validate payload
-      await withBodyValidation(SnapshotSchema)(ctx, async () => {
-        const { psoEmail, reason, imageBase64 } =
-          ctx.bindings.validatedBody as z.infer<typeof SnapshotSchema>;
+          const validatedBody = (ctx as any).bindings.validatedBody;
+          const request = SendSnapshotRequest.fromBody(callerId, validatedBody);
 
-        // 4) Lookup PSO by email
-        const pso = await prisma.user.findUnique({
-          where: { email: psoEmail.toLowerCase() },
+          // Extract supervisor name from token claims
+          const claims = (ctx as any).bindings.user as { fullName: string };
+          const supervisorName = claims.fullName;
+
+          // Extract token for chat notifications
+          const token = (req.headers.authorization || "").split(" ")[1];
+
+          const response = await applicationService.sendSnapshot(callerId, request, supervisorName, token);
+
+          return ok(ctx, response.toPayload());
         });
-        if (!pso) {
-          return badRequest(ctx, "PSO user not found");
-        }
-
-        // 5) Decode and upload image
-        const buffer = Buffer.from(imageBase64, "base64");
-        const datePath = getCentralAmericaTime().toISOString().slice(0, 10);
-        const filename = `${datePath}/${randomUUID()}.jpg`;
-        const imageUrl = await blobService.uploadSnapshot(buffer, filename);
-
-        // 6) Persist snapshot record
-        const snap = await prisma.snapshot.create({
-          data: {
-            supervisorId: supervisor.id,
-            psoId:        pso.id,
-            reason,
-            imageUrl,
-          },
-        });
-
-        // 7) Notify Admins via Teams chat
-        const token  = (req.headers.authorization || "").split(" ")[1];
-        const chatId = await adminChatService.getOrSyncChat(token);
-        await adminChatService.sendMessage(token, chatId, {
-          subject:        "📸 New Snapshot Report",
-          supervisorName: supervisor.fullName,
-          psoEmail:          pso.email,
-          reason,
-          imageBase64,
-        });
-
-        // 8) Return success
-        return ok(ctx, { snapshotId: snap.id });
       });
     });
   },
@@ -116,4 +65,4 @@ const snapshotFunction: AzureFunction = withErrorHandler(
   }
 );
 
-export default snapshotFunction;
+export default sendSnapshotHandler;

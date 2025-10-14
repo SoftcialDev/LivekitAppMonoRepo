@@ -1,6 +1,6 @@
 import { AzureFunction, Context } from "@azure/functions";
 import { config } from "../shared/config";
-import { listAllGroupsAndUsers } from "../shared/services/webPubSubService";
+import { WebPubSubService } from "../shared/infrastructure/services/WebPubSubService";
 
 /**
  * Debug endpoint to list Web PubSub connections using existing service
@@ -36,11 +36,12 @@ const debugWebPubSubConnections: AzureFunction = async (context: Context): Promi
     context.log(`[DEBUG] Endpoint: ${endpoint}`);
     context.log(`[DEBUG] Access Key: ${accessKey ? '***' + accessKey.slice(-4) : 'NOT SET'}`);
 
-    // Use the existing service that already works
-    context.log(`[DEBUG] Calling listAllGroupsAndUsers from existing service...`);
+    // Use the new DDD service
+    context.log(`[DEBUG] Calling listAllGroupsAndUsers from new DDD service...`);
     
     try {
-      await listAllGroupsAndUsers();
+      const webPubSubService = new WebPubSubService();
+      await webPubSubService.listAllGroupsAndUsers();
       context.log(`[DEBUG] ✅ listAllGroupsAndUsers completed successfully`);
     } catch (error: any) {
       context.log(`[DEBUG] ❌ listAllGroupsAndUsers failed:`, error.message);

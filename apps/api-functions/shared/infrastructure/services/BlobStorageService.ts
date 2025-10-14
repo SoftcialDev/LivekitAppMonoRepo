@@ -83,4 +83,20 @@ export class BlobStorageService implements IBlobStorageService {
       throw new Error(`Failed to delete image: ${error.message}`);
     }
   }
+
+  /**
+   * Deletes a recording from blob storage by path
+   * @param blobPath - Path of the recording blob to delete
+   * @returns Promise that resolves to true if deleted, false if not found
+   * @throws Error if deletion fails
+   */
+  async deleteRecordingByPath(blobPath: string): Promise<boolean> {
+    try {
+      const blobClient = this.containerClient.getBlockBlobClient(blobPath);
+      const result = await blobClient.deleteIfExists();
+      return result.succeeded;
+    } catch (error: any) {
+      throw new Error(`Failed to delete recording: ${error.message}`);
+    }
+  }
 }

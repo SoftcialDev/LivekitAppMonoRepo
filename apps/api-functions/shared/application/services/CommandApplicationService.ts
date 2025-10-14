@@ -8,8 +8,8 @@ import { MessagingResult } from '../../domain/value-objects/MessagingResult';
 import { IUserRepository } from '../../domain/interfaces/IUserRepository';
 import { IAuthorizationService } from '../../domain/interfaces/IAuthorizationService';
 import { ICommandMessagingService } from '../../domain/interfaces/ICommandMessagingService';
-import { AuthError, ValidationError, MessagingError } from '../../domain/errors/DomainError';
-import { AuthErrorCode, ValidationErrorCode, MessagingErrorCode } from '../../domain/errors/ErrorCodes';
+import {  MessagingError } from '../../domain/errors/DomainError';
+import {  MessagingErrorCode } from '../../domain/errors/ErrorCodes';
 import { ValidationUtils } from '../../domain/utils/ValidationUtils';
 import { AuthorizationUtils } from '../../domain/utils/AuthorizationUtils';
 
@@ -64,7 +64,11 @@ export class CommandApplicationService {
    */
   async sendCameraCommand(command: Command): Promise<MessagingResult> {
     try {
-      return await this.commandMessagingService.sendCommand(command);
+      // Use the existing CommandMessagingService to send the command
+      const groupName = `commands:${command.employeeEmail}`;
+      await this.commandMessagingService.sendToGroup(groupName, command.toPayload());
+      
+      return { success: true, sentVia: 'WEB_PUBSUB' as any };
     } catch (error) {
       throw new MessagingError(
         `Failed to send command: ${(error as Error).message}`,

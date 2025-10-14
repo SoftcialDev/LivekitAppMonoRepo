@@ -133,6 +133,21 @@ export class AuthorizationService implements IAuthorizationService {
   }
 
   /**
+   * Public method to authorize user with specific roles
+   * @param callerId - Azure AD object ID of the caller
+   * @param allowedRoles - Array of allowed roles
+   * @param operationName - Name of the operation for error messages
+   * @throws AuthError if validation fails
+   */
+  async authorizeUserWithRoles(
+    callerId: string, 
+    allowedRoles: UserRole[], 
+    operationName: string
+  ): Promise<void> {
+    await this.validateUserWithRoles(callerId, allowedRoles, operationName);
+  }
+
+  /**
    * Authorizes if a user can query users
    * @param callerId - Azure AD object ID of the caller
    * @returns Promise that resolves when authorized

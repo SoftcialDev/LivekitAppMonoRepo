@@ -70,4 +70,37 @@ export interface IStreamingSessionRepository {
    * @throws Error if database operation fails
    */
   getActiveSessionsForSupervisor(supervisorId: string): Promise<StreamingSessionHistory[]>;
+
+  /**
+   * Starts a new streaming session for a user
+   * @param userId - The user's database ID
+   * @returns Promise that resolves when the session is started
+   * @throws Error if database operation fails
+   */
+  startStreamingSession(userId: string): Promise<void>;
+
+  /**
+   * Stops a streaming session for a user
+   * @param userId - The user's database ID
+   * @param reason - The reason for stopping the session
+   * @returns Promise that resolves when the session is stopped
+   * @throws Error if database operation fails
+   */
+  stopStreamingSession(userId: string, reason: string): Promise<void>;
+
+  /**
+   * Gets the last streaming session for a user
+   * @param userId - The user's database ID
+   * @returns Promise that resolves to the last session or null
+   * @throws Error if database operation fails
+   */
+  getLastStreamingSession(userId: string): Promise<StreamingSessionHistory | null>;
+
+  /**
+   * Checks if a user is currently streaming
+   * @param userId - The user's database ID
+   * @returns Promise that resolves to true if streaming, false otherwise
+   * @throws Error if database operation fails
+   */
+  isUserStreaming(userId: string): Promise<boolean>;
 }

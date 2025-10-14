@@ -6,7 +6,7 @@
 
 import { IStreamingSessionRepository } from '../../domain/interfaces/IStreamingSessionRepository';
 import { StreamingSessionHistory } from '../../domain/entities/StreamingSessionHistory';
-import prisma from '../../services/prismaClienService';
+import prisma from '../database/PrismaClientService';
 import { getCentralAmericaTime } from '../../utils/dateUtils';
 
 /**
@@ -124,18 +124,13 @@ export class StreamingSessionRepository implements IStreamingSessionRepository {
     try {
       const sessions = await prisma.streamingSessionHistory.findMany({
         where: {
-          stoppedAt: null,
-          user: {
-            deletedAt: null  // Only include sessions from non-deleted users
-          }
+          stoppedAt: null
         },
         include: {
           user: {
             select: {
               email: true,
-              id: true,
-              fullName: true,
-              role: true
+              id: true
             }
           }
         },
@@ -160,17 +155,14 @@ export class StreamingSessionRepository implements IStreamingSessionRepository {
         where: {
           stoppedAt: null,
           user: {
-            supervisorId: supervisorId,
-            deletedAt: null  // Only include sessions from non-deleted users
+            supervisorId: supervisorId
           }
         },
         include: {
           user: {
             select: {
               email: true,
-              id: true,
-              fullName: true,
-              role: true
+              id: true
             }
           }
         },
@@ -180,6 +172,108 @@ export class StreamingSessionRepository implements IStreamingSessionRepository {
       return sessions.map(session => StreamingSessionHistory.fromPrisma(session));
     } catch (error: any) {
       throw new Error(`Failed to get active sessions for supervisor: ${error.message}`);
+    }
+  }
+
+  /**
+   * Stops a streaming session for a user
+   * @param userId - The ID of the user
+   * @param reason - The reason for stopping the session
+   * @returns Promise that resolves when the session is stopped
+   * @throws Error if database operation fails
+   */
+  async stopStreamingSession(userId: string, reason: string): Promise<void> {
+    try {
+      const now = getCentralAmericaTime();
+      
+      // Find the latest open session for the user
+      const openSession = await prisma.streamingSessionHistory.findFirst({
+        where: {
+          userId,
+          stoppedAt: null
+        },
+        orderBy: {
+          startedAt: 'desc'
+        }
+      });
+
+      if (openSession) {
+        // Update the session with stop information
+        await prisma.streamingSessionHistory.update({
+          where: { id: openSession.id },
+          data: {
+            stoppedAt: now,
+            stopReason: reason as any
+          }
+        });
+      }
+    } catch (error: any) {
+      throw new Error(`Failed to stop streaming session: ${error.message}`);
+    }
+  }
+
+  /**
+   * Starts a new streaming session for a user
+   * @param userId - The user's database ID
+   * @returns Promise that resolves when the session is started
+   * @throws Error if database operation fails
+   */
+  async startStreamingSession(userId: string): Promise<void> {
+    try {
+      const now = getCentralAmericaTime();
+      
+      // 1. Close any previous open session
+      await prisma.streamingSessionHistory.updateMany({
+        where: { userId, stoppedAt: null },
+        data: { stoppedAt: now },
+      });
+
+      // 2. Create a new streaming session record
+      await prisma.streamingSessionHistory.create({
+        data: { 
+          userId,
+          startedAt: now
+        },
+      });
+    } catch (error: any) {
+      throw new Error(`Failed to start streaming session: ${error.message}`);
+    }
+  }
+
+  /**
+   * Gets the last streaming session for a user
+   * @param userId - The user's database ID
+   * @returns Promise that resolves to the last session or null
+   * @throws Error if database operation fails
+   */
+  async getLastStreamingSession(userId: string): Promise<StreamingSessionHistory | null> {
+    try {
+      const session = await prisma.streamingSessionHistory.findFirst({
+        where: { userId },
+        orderBy: { startedAt: 'desc' }
+      });
+
+      return session ? StreamingSessionHistory.fromPrisma(session) : null;
+    } catch (error: any) {
+      throw new Error(`Failed to get last streaming session: ${error.message}`);
+    }
+  }
+
+  /**
+   * Checks if a user is currently streaming
+   * @param userId - The user's database ID
+   * @returns Promise that resolves to true if streaming, false otherwise
+   * @throws Error if database operation fails
+   */
+  async isUserStreaming(userId: string): Promise<boolean> {
+    try {
+      const openCount = await prisma.streamingSessionHistory.count({
+        where: { userId, stoppedAt: null }
+      });
+      
+      return openCount > 0;
+    } catch (error: any) {
+      throw new Error(`Failed to check if user is streaming: ${error.message}`);
     }
   }
 }

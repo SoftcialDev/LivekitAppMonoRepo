@@ -3,7 +3,7 @@
  * @description Handles all database operations related to users
  */
 
-import prisma from '../../services/prismaClienService';
+import prisma from '../database/PrismaClientService';
 import { UserRole, ContactManagerStatus } from '@prisma/client';
 import { IUserRepository } from '../../domain/interfaces/IUserRepository';
 import { User } from '../../domain/entities/User';
@@ -552,5 +552,40 @@ export class UserRepository implements IUserRepository {
         updatedAt: getCentralAmericaTime()
       }
     });
+  }
+
+  /**
+   * Gets PSOs by supervisor with their supervisor information
+   * @param supervisorId - Optional supervisor ID to filter PSOs
+   * @returns Promise that resolves to array of PSOs with supervisor information
+   */
+  async getPsosBySupervisor(supervisorId?: string): Promise<Array<{ email: string; supervisorName: string }>> {
+    try {
+      const baseWhere: Record<string, any> = {
+        role: "Employee",
+        deletedAt: null,
+      };
+
+      if (supervisorId) {
+        baseWhere.supervisorId = supervisorId;
+      }
+
+      const employees = await prisma.user.findMany({
+        where: baseWhere,
+        select: {
+          email: true,
+          supervisor: {
+            select: { fullName: true }
+          }
+        }
+      });
+
+      return employees.map(employee => ({
+        email: employee.email.toLowerCase(),
+        supervisorName: employee.supervisor?.fullName || ""
+      }));
+    } catch (error: any) {
+      throw new Error(`Failed to get PSOs by supervisor: ${error.message}`);
+    }
   }
 }

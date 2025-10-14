@@ -26,6 +26,41 @@ export class PendingCommandDomainService implements IPendingCommandDomainService
   ) {}
 
   /**
+   * Creates a new pending command for an employee
+   * @param employeeId - The ID of the employee
+   * @param command - The command type
+   * @param timestamp - When the command was issued
+   * @returns Promise that resolves to the created pending command
+   * @throws Error if the operation fails
+   */
+  async createPendingCommand(employeeId: string, command: string, timestamp: string | Date): Promise<{ id: string; employeeId: string; command: string; timestamp: Date }> {
+    const ts = typeof timestamp === 'string' ? new Date(timestamp) : timestamp;
+    
+    // Delete any existing pending commands for this employee
+    await this.pendingCommandRepository.deletePendingCommandsForEmployee(employeeId);
+    
+    // Create new pending command
+    const pendingCommand = await this.pendingCommandRepository.createPendingCommand(employeeId, command as any, ts);
+    
+    return {
+      id: pendingCommand.id,
+      employeeId: pendingCommand.employeeId,
+      command: pendingCommand.command,
+      timestamp: pendingCommand.timestamp
+    };
+  }
+
+  /**
+   * Marks a pending command as published
+   * @param commandId - The ID of the command to mark as published
+   * @returns Promise that resolves when the operation completes
+   * @throws Error if the operation fails
+   */
+  async markAsPublished(commandId: string): Promise<void> {
+    await this.pendingCommandRepository.markAsPublished(commandId);
+  }
+
+  /**
    * Fetches pending commands for the authenticated user
    * @param callerId - The Azure AD Object ID of the caller
    * @returns Promise that resolves to the response with pending commands

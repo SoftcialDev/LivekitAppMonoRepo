@@ -7,7 +7,7 @@ import { IChatService } from '../../domain/interfaces/IChatService';
 import { OnBehalfOfCredential, ClientSecretCredential } from '@azure/identity';
 import { Client } from '@microsoft/microsoft-graph-client';
 import { TokenCredentialAuthenticationProvider } from '@microsoft/microsoft-graph-client/authProviders/azureTokenCredentials';
-import prisma from '../../services/prismaClienService';
+import prisma from '../database/PrismaClientService';
 
 /**
  * Infrastructure service for chat operations
@@ -23,9 +23,16 @@ export class ChatService implements IChatService {
    * @returns Promise that resolves to chat ID
    * @throws Error if chat operation fails
    */
-  async getOrSyncChat(token: string): Promise<string> {
+  async getOrSyncChat(token: string): Promise<string>;
+  async getOrSyncChat(token: string, participants?: Array<{ userId: string; azureAdObjectId: string }>, topic?: string): Promise<string> {
     try {
-      const topic = 'InContactApp – Contact Managers';
+      // If participants and topic are provided, use them for specific chat creation
+      if (participants && topic) {
+        return await this.createSpecificChat(token, participants, topic);
+      }
+
+      // Default behavior: Contact Managers chat
+      const chatTopic = 'InContactApp – Contact Managers';
 
       // Load only Contact Managers, Admins, and Super Admins from DB
       const users = await prisma.user.findMany({
@@ -38,7 +45,7 @@ export class ChatService implements IChatService {
 
       // Check for existing record
       const record = await prisma.chat.findFirst({
-        where: { topic },
+        where: { topic: chatTopic },
         include: { members: true }
       });
 
@@ -46,14 +53,14 @@ export class ChatService implements IChatService {
       if (!record) {
         console.log('No existing chat found, creating new one...');
         // Create new chat in Graph using user token
-        chatId = await this.createGraphChat(token, desired, topic);
+        chatId = await this.createGraphChat(token, desired, chatTopic);
         console.log('Created chat with ID:', chatId);
 
         // Persist in DB with correct ID
         await prisma.chat.create({
           data: {
             id: chatId,
-            topic,
+            topic: chatTopic,
             members: { create: desired.map(d => ({ userId: d.userId })) }
           }
         });
@@ -366,6 +373,98 @@ export class ChatService implements IChatService {
         console.warn(`Failed to remove member ${g.oid}:`, error.message);
       }
     }
+  }
+
+  /**
+   * Creates a specific chat between two participants
+   * @param token - Authentication token
+   * @param participants - Array of exactly two participants
+   * @param topic - Chat topic
+   * @returns Promise that resolves to chat ID
+   * @private
+   */
+  private async createSpecificChat(
+    token: string, 
+    participants: Array<{ userId: string; azureAdObjectId: string }>, 
+    topic: string
+  ): Promise<string> {
+    if (participants.length !== 2) {
+      throw new Error("createSpecificChat requires exactly 2 participants");
+    }
+
+    const [p1, p2] = participants;
+    const participantIds = [p1.userId, p2.userId].sort();
+
+    // Check for existing chat
+    const existingChat = await prisma.chat.findFirst({
+      where: {
+        topic,
+        AND: [
+          { members: { some: { userId: participantIds[0] } } },
+          { members: { some: { userId: participantIds[1] } } },
+          { members: { every: { userId: { in: participantIds } } } },
+        ],
+      },
+      include: { members: { select: { userId: true } } },
+    });
+
+    if (existingChat) {
+      return existingChat.id;
+    }
+
+    // Create new chat using Microsoft Graph API (moved from legacy)
+    return await this.createGraphOneOnOneChat(token, participants, topic);
+  }
+
+  /**
+   * Creates a one-on-one chat via Microsoft Graph API
+   * @param token - Authentication token
+   * @param participants - Array of exactly two participants
+   * @param topic - Chat topic
+   * @returns Promise that resolves to chat ID
+   * @private
+   */
+  private async createGraphOneOnOneChat(
+    token: string,
+    participants: Array<{ userId: string; azureAdObjectId: string }>,
+    topic: string
+  ): Promise<string> {
+    const graph = this.initGraphClient(token);
+
+    // Resolve roles for both participants (owner vs guest)
+    const membersPayload = await Promise.all(
+      participants.map(async (p) => {
+        const user = await graph
+          .api(`/users/${p.azureAdObjectId}`)
+          .select("userType")
+          .get();
+        const role = user.userType === "Guest" ? "guest" : "owner";
+        return {
+          "@odata.type": "#microsoft.graph.aadUserConversationMember",
+          roles: [role],
+          "user@odata.bind": `https://graph.microsoft.com/v1.0/users('${p.azureAdObjectId}')`,
+        };
+      })
+    );
+
+    const payload = {
+      chatType: "oneOnOne",
+      members: membersPayload,
+    };
+
+    const graphChat = await graph.api("/chats").post(payload);
+    const chatId: string = graphChat.id;
+
+    // Persist in database
+    await prisma.chat.create({
+      data: {
+        id: chatId,
+        topic,
+        members: { create: participants.map((p) => ({ userId: p.userId })) },
+      },
+    });
+
+    return chatId;
   }
 
   /**

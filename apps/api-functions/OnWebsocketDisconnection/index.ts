@@ -1,27 +1,40 @@
 import { AzureFunction, Context } from "@azure/functions";
-import { handleCmDisconnect } from "../shared/handlers/contactManagerDisconnectHandler";
-import { presenceAndStreamingHandler } from "../shared/handlers/presenceAndStreamingHandler";
-
+import { ServiceContainer } from "../shared/infrastructure/container/ServiceContainer";
+import { WebSocketEventRequest } from "../shared/domain/value-objects/WebSocketEventRequest";
+import { WebSocketConnectionApplicationService } from "../shared/application/services/WebSocketConnectionApplicationService";
+import { ContactManagerDisconnectApplicationService } from "../shared/application/services/ContactManagerDisconnectApplicationService";
 
 /**
- * onDisconnected
+ * Azure Function: handles WebSocket disconnection events
+ * 
+ * @remarks
+ * 1. Extracts user information from connection context.  
+ * 2. Sets user offline status and stops streaming sessions.  
+ * 3. Handles Contact Manager specific logic (if applicable).  
+ * 4. Returns success response.
  *
- * Entry point for Web PubSub "system/disconnected" events.
- *
- * 1) Calls presenceAndStreamingHandler to mark **everyone** offline & stop streaming.
- * 2) Calls handleCmDisconnect to additionally set CM → Unavailable + notify Employees.
- *
- * Both handlers internally check the event phase and userId; non-CM users are ignored
- * by handleCmDisconnect.
- *
- * @param context - Azure Functions execution context with `bindingData.connectionContext`.
+ * @param context - Azure Functions execution context with connection data
  */
 const onDisconnected: AzureFunction = async (context: Context) => {
-  // 1) Generic presence + streaming logic for all users
-  await presenceAndStreamingHandler(context);
+  try {
+    const serviceContainer = new ServiceContainer();
+    serviceContainer.initialize();
 
-  // 2) Additional Contact Manager logic (no-op for non-CMs)
-  await handleCmDisconnect(context);
+    const request = WebSocketEventRequest.fromContext(context);
+
+    // 1) Generic presence + streaming logic for all users
+    const connectionService = serviceContainer.resolve<WebSocketConnectionApplicationService>('WebSocketConnectionApplicationService');
+    await connectionService.handleDisconnection(request);
+
+    // 2) Additional Contact Manager logic (no-op for non-CMs)
+    const cmService = serviceContainer.resolve<ContactManagerDisconnectApplicationService>('ContactManagerDisconnectApplicationService');
+    await cmService.handleContactManagerDisconnect(request);
+
+    context.res = { status: 200 };
+  } catch (error: any) {
+    console.error('OnWebsocketDisconnection error:', error);
+    context.res = { status: 500, body: `Internal error: ${error.message}` };
+  }
 };
 
 export default onDisconnected;

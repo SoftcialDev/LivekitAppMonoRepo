@@ -1,5 +1,5 @@
 import { Context } from "@azure/functions";
-import prisma from "../services/prismaClienService";
+import prisma from "../infrastructure/database/PrismaClientService";
 import { ContactManagerStatus } from "@prisma/client";
 import { CommandMessagingService } from "../infrastructure/messaging/CommandMessagingService";
 

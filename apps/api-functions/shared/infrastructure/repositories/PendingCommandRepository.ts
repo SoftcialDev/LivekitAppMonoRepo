@@ -4,7 +4,7 @@
  */
 
 import { IPendingCommandRepository } from '../../domain/interfaces/IPendingCommandRepository';
-import prisma from '../../services/prismaClienService';
+import prisma from '../database/PrismaClientService';
 import { getCentralAmericaTime } from '../../utils/dateUtils';
 
 /**
@@ -89,6 +89,72 @@ export class PendingCommandRepository implements IPendingCommandRepository {
       }));
     } catch (error: any) {
       throw new Error(`Failed to get pending commands for employee: ${error.message}`);
+    }
+  }
+
+  /**
+   * Deletes all pending commands for an employee
+   * @param employeeId - The ID of the employee
+   * @returns Promise that resolves when the operation completes
+   * @throws Error if database operation fails
+   */
+  async deletePendingCommandsForEmployee(employeeId: string): Promise<void> {
+    try {
+      await prisma.pendingCommand.deleteMany({
+        where: { employeeId }
+      });
+    } catch (error: any) {
+      throw new Error(`Failed to delete pending commands for employee: ${error.message}`);
+    }
+  }
+
+  /**
+   * Creates a new pending command
+   * @param employeeId - The ID of the employee
+   * @param command - The command type
+   * @param timestamp - When the command was issued
+   * @returns Promise that resolves to the created pending command
+   * @throws Error if database operation fails
+   */
+  async createPendingCommand(employeeId: string, command: any, timestamp: Date): Promise<{ id: string; employeeId: string; command: string; timestamp: Date }> {
+    try {
+      const pendingCommand = await prisma.pendingCommand.create({
+        data: {
+          employeeId,
+          command,
+          timestamp
+        }
+      });
+
+      return {
+        id: pendingCommand.id,
+        employeeId: pendingCommand.employeeId,
+        command: pendingCommand.command,
+        timestamp: pendingCommand.timestamp
+      };
+    } catch (error: any) {
+      throw new Error(`Failed to create pending command: ${error.message}`);
+    }
+  }
+
+  /**
+   * Marks a pending command as published
+   * @param commandId - The ID of the command to mark as published
+   * @returns Promise that resolves when the operation completes
+   * @throws Error if database operation fails
+   */
+  async markAsPublished(commandId: string): Promise<void> {
+    try {
+      await prisma.pendingCommand.update({
+        where: { id: commandId },
+        data: {
+          published: true,
+          publishedAt: getCentralAmericaTime(),
+          attemptCount: { increment: 1 }
+        }
+      });
+    } catch (error: any) {
+      throw new Error(`Failed to mark command as published: ${error.message}`);
     }
   }
 }

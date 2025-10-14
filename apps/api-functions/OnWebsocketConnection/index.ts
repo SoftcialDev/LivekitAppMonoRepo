@@ -1,9 +1,34 @@
 import { AzureFunction, Context } from "@azure/functions";
-import { presenceAndStreamingHandler } from "../shared/handlers/presenceAndStreamingHandler"
+import { ServiceContainer } from "../shared/infrastructure/container/ServiceContainer";
+import { WebSocketEventRequest } from "../shared/domain/value-objects/WebSocketEventRequest";
+import { WebSocketConnectionApplicationService } from "../shared/application/services/WebSocketConnectionApplicationService";
 
+/**
+ * Azure Function: handles WebSocket connection events
+ * 
+ * @remarks
+ * 1. Extracts user information from connection context.  
+ * 2. Sets user online status.  
+ * 3. Logs connection event.  
+ * 4. Returns success response.
+ *
+ * @param context - Azure Functions execution context with connection data
+ */
 const onConnect: AzureFunction = async (context: Context) => {
-  // Delegates to shared handler – it already builds the HTTP response.
-  await presenceAndStreamingHandler(context);
+  try {
+    const serviceContainer = new ServiceContainer();
+    serviceContainer.initialize();
+
+    const applicationService = serviceContainer.resolve<WebSocketConnectionApplicationService>('WebSocketConnectionApplicationService');
+    const request = WebSocketEventRequest.fromContext(context);
+    
+    const response = await applicationService.handleConnection(request);
+    
+    context.res = { status: response.status };
+  } catch (error: any) {
+    console.error('OnWebsocketConnection error:', error);
+    context.res = { status: 500, body: `Internal error: ${error.message}` };
+  }
 };
 
 export default onConnect;

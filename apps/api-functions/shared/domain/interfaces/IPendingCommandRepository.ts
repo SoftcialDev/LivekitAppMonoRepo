@@ -36,4 +36,30 @@ export interface IPendingCommandRepository {
     timestamp: Date;
     acknowledged: boolean;
   }>>;
+
+  /**
+   * Deletes all pending commands for an employee
+   * @param employeeId - The ID of the employee
+   * @returns Promise that resolves when the operation completes
+   * @throws Error if database operation fails
+   */
+  deletePendingCommandsForEmployee(employeeId: string): Promise<void>;
+
+  /**
+   * Creates a new pending command
+   * @param employeeId - The ID of the employee
+   * @param command - The command type
+   * @param timestamp - When the command was issued
+   * @returns Promise that resolves to the created pending command
+   * @throws Error if database operation fails
+   */
+  createPendingCommand(employeeId: string, command: any, timestamp: Date): Promise<{ id: string; employeeId: string; command: string; timestamp: Date }>;
+
+  /**
+   * Marks a pending command as published
+   * @param commandId - The ID of the command to mark as published
+   * @returns Promise that resolves when the operation completes
+   * @throws Error if database operation fails
+   */
+  markAsPublished(commandId: string): Promise<void>;
 }

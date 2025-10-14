@@ -9,6 +9,7 @@ import { IUserRepository } from '../interfaces/IUserRepository';
 import { IStreamingSessionDomainService } from '../interfaces/IStreamingSessionDomainService';
 import { FetchStreamingSessionHistoryResponse } from '../value-objects/FetchStreamingSessionHistoryResponse';
 import { FetchStreamingSessionsResponse } from '../value-objects/FetchStreamingSessionsResponse';
+import { StreamingSessionHistory } from '../entities/StreamingSessionHistory';
 import { 
   StreamingSessionFetchError 
 } from '../errors/StreamingSessionErrors';
@@ -23,6 +24,69 @@ export class StreamingSessionDomainService implements IStreamingSessionDomainSer
     private readonly streamingSessionRepository: IStreamingSessionRepository,
     private readonly userRepository: IUserRepository
   ) {}
+
+  /**
+   * Starts a new streaming session for a user
+   * @param userId - The ID of the user
+   * @returns Promise that resolves when the session is started
+   * @throws Error if the operation fails
+   */
+  async startStreamingSession(userId: string): Promise<void> {
+    try {
+      await this.streamingSessionRepository.startStreamingSession(userId);
+      console.log(`Streaming session started for user ${userId}`);
+    } catch (error) {
+      console.error(`Failed to start streaming session for user ${userId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Stops a streaming session for a user
+   * @param userId - The ID of the user
+   * @param reason - The reason for stopping the session
+   * @returns Promise that resolves when the session is stopped
+   * @throws Error if the operation fails
+   */
+  async stopStreamingSession(userId: string, reason: string): Promise<void> {
+    try {
+      await this.streamingSessionRepository.stopStreamingSession(userId, reason);
+      console.log(`Streaming session stopped for user ${userId} with reason: ${reason}`);
+    } catch (error) {
+      console.error(`Failed to stop streaming session for user ${userId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Gets the last streaming session for a user
+   * @param userId - The ID of the user
+   * @returns Promise that resolves to the last session or null
+   * @throws Error if the operation fails
+   */
+  async getLastStreamingSession(userId: string): Promise<StreamingSessionHistory | null> {
+    try {
+      return await this.streamingSessionRepository.getLastStreamingSession(userId);
+    } catch (error) {
+      console.error(`Failed to get last streaming session for user ${userId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Checks if a user is currently streaming
+   * @param userId - The ID of the user
+   * @returns Promise that resolves to true if streaming, false otherwise
+   * @throws Error if the operation fails
+   */
+  async isUserStreaming(userId: string): Promise<boolean> {
+    try {
+      return await this.streamingSessionRepository.isUserStreaming(userId);
+    } catch (error) {
+      console.error(`Failed to check if user ${userId} is streaming:`, error);
+      throw error;
+    }
+  }
 
   /**
    * Fetches the latest streaming session for a user

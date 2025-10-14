@@ -16,6 +16,16 @@ export interface IChatService {
   getOrSyncChat(token: string): Promise<string>;
 
   /**
+   * Gets or creates a chat between specific participants
+   * @param token - Authentication token
+   * @param participants - Array of chat participants
+   * @param topic - Chat topic/title
+   * @returns Promise that resolves to chat ID
+   * @throws Error if chat operation fails
+   */
+  getOrSyncChat(token: string, participants: Array<{ userId: string; azureAdObjectId: string }>, topic: string): Promise<string>;
+
+  /**
    * Sends a message to a chat
    * @param token - Authentication token
    * @param chatId - ID of the chat

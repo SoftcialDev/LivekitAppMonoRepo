@@ -48,6 +48,56 @@ import { StreamingSessionRepository } from '../repositories/StreamingSessionRepo
 import { StreamingSessionDomainService } from '../../domain/services/StreamingSessionDomainService';
 import { FetchStreamingSessionHistoryApplicationService } from '../../application/services/FetchStreamingSessionHistoryApplicationService';
 import { FetchStreamingSessionsApplicationService } from '../../application/services/FetchStreamingSessionsApplicationService';
+import { IRecordingSessionRepository } from '../../domain/interfaces/IRecordingSessionRepository';
+import { RecordingSessionRepository } from '../repositories/RecordingSessionRepository';
+import { RecordingDomainService } from '../../domain/services/RecordingDomainService';
+import { GetLivekitRecordingsApplicationService } from '../../application/services/GetLivekitRecordingsApplicationService';
+import { ILivekitRecordingDomainService } from '../../domain/interfaces/ILivekitRecordingDomainService';
+import { LivekitRecordingDomainService } from '../../domain/services/LivekitRecordingDomainService';
+import { DeleteRecordingApplicationService } from '../../application/services/DeleteRecordingApplicationService';
+import { DeleteRecordingDomainService } from '../../domain/services/DeleteRecordingDomainService';
+import { LiveKitTokenApplicationService } from '../../application/services/LiveKitTokenApplicationService';
+import { LiveKitTokenDomainService } from '../../domain/services/LiveKitTokenDomainService';
+import { ILiveKitService } from '../../domain/interfaces/ILiveKitService';
+import { LiveKitService } from '../services/LiveKitService';
+import { IPresenceRepository } from '../../domain/interfaces/IPresenceRepository';
+import { PresenceRepository } from '../repositories/PresenceRepository';
+import { PresenceDomainService } from '../../domain/services/PresenceDomainService';
+import { PresenceUpdateApplicationService } from '../../application/services/PresenceUpdateApplicationService';
+import { PrismaClient } from '@prisma/client';
+import { ProcessCommandDomainService } from '../../domain/services/ProcessCommandDomainService';
+import { ProcessCommandApplicationService } from '../../application/services/ProcessCommandApplicationService';
+import { LivekitRecordingApplicationService } from '../../application/services/LivekitRecordingApplicationService';
+import { StreamingSessionUpdateDomainService } from '../../domain/services/StreamingSessionUpdateDomainService';
+import { StreamingSessionUpdateApplicationService } from '../../application/services/StreamingSessionUpdateApplicationService';
+import { WebPubSubTokenDomainService } from '../../domain/services/WebPubSubTokenDomainService';
+import { WebPubSubTokenApplicationService } from '../../application/services/WebPubSubTokenApplicationService';
+import { IWebPubSubService } from '../../domain/interfaces/IWebPubSubService';
+import { WebPubSubService } from '../services/WebPubSubService';
+import { TransferPsosDomainService } from '../../domain/services/TransferPsosDomainService';
+import { TransferPsosApplicationService } from '../../application/services/TransferPsosApplicationService';
+import { SendSnapshotDomainService } from '../../domain/services/SendSnapshotDomainService';
+import { SendSnapshotApplicationService } from '../../application/services/SendSnapshotApplicationService';
+import { DeleteSnapshotDomainService } from '../../domain/services/DeleteSnapshotDomainService';
+import { DeleteSnapshotApplicationService } from '../../application/services/DeleteSnapshotApplicationService';
+import { GetSnapshotsDomainService } from '../../domain/services/GetSnapshotsDomainService';
+import { GetSnapshotsApplicationService } from '../../application/services/GetSnapshotsApplicationService';
+import { GetOrCreateChatDomainService } from '../../domain/services/GetOrCreateChatDomainService';
+import { GetOrCreateChatApplicationService } from '../../application/services/GetOrCreateChatApplicationService';
+import { WebSocketConnectionDomainService } from '../../domain/services/WebSocketConnectionDomainService';
+import { WebSocketConnectionApplicationService } from '../../application/services/WebSocketConnectionApplicationService';
+import { ContactManagerDisconnectDomainService } from '../../domain/services/ContactManagerDisconnectDomainService';
+import { ContactManagerDisconnectApplicationService } from '../../application/services/ContactManagerDisconnectApplicationService';
+import { GetSupervisorByIdentifierDomainService } from '../../domain/services/GetSupervisorByIdentifierDomainService';
+import { GetSupervisorByIdentifierApplicationService } from '../../application/services/GetSupervisorByIdentifierApplicationService';
+import { GetPsosBySupervisorDomainService } from '../../domain/services/GetPsosBySupervisorDomainService';
+import { GetPsosBySupervisorApplicationService } from '../../application/services/GetPsosBySupervisorApplicationService';
+import { GetSupervisorForPsoDomainService } from '../../domain/services/GetSupervisorForPsoDomainService';
+import { GetSupervisorForPsoApplicationService } from '../../application/services/GetSupervisorForPsoApplicationService';
+import { ISnapshotRepository } from '../../domain/interfaces/ISnapshotRepository';
+import { SnapshotRepository } from '../repositories/SnapshotRepository';
+import { IAuditRepository } from '../../domain/interfaces/IAuditRepository';
+import { AuditRepository } from '../repositories/AuditRepository';
 
 /**
  * Service container for dependency injection
@@ -96,6 +146,14 @@ export class ServiceContainer {
     // Register repositories
     this.register<IUserRepository>('UserRepository', () => new UserRepository() as IUserRepository);
     this.register<ISupervisorRepository>('SupervisorRepository', () => new SupervisorRepository());
+    this.register<ISnapshotRepository>('ISnapshotRepository', () => new SnapshotRepository());
+
+    // Register Audit services
+    this.register<IAuditRepository>('IAuditRepository', () => new AuditRepository());
+    this.register<IAuditService>('IAuditService', () => {
+      const auditRepository = this.resolve<IAuditRepository>('IAuditRepository');
+      return new AuditService(auditRepository);
+    });
 
     // Register domain services
     this.register<IAuthorizationService>('AuthorizationService', () => {
@@ -111,8 +169,16 @@ export class ServiceContainer {
 
           // Register infrastructure services
           this.register<ICommandMessagingService>('CommandMessagingService', () => new CommandMessagingService());
-          this.register<IAuditService>('AuditService', () => new AuditService());
-          this.register<IPresenceService>('PresenceService', () => new PresenceService());
+          this.register<IAuditService>('IAuditService', () => {
+      const auditRepository = this.resolve<IAuditRepository>('IAuditRepository');
+      return new AuditService(auditRepository);
+    });
+          this.register<IPresenceService>('PresenceService', () => {
+            const userRepository = this.resolve<IUserRepository>('UserRepository');
+            const presenceDomainService = this.resolve<PresenceDomainService>('PresenceDomainService');
+            const webPubSubService = this.resolve<IWebPubSubService>('IWebPubSubService');
+            return new PresenceService(userRepository, presenceDomainService, webPubSubService);
+          });
 
           // Register application services
           this.register<UserDeletionApplicationService>('UserDeletionApplicationService', () => {
@@ -232,6 +298,259 @@ export class ServiceContainer {
             const streamingSessionDomainService = this.resolve<StreamingSessionDomainService>('StreamingSessionDomainService');
             const authorizationService = this.resolve<AuthorizationService>('AuthorizationService');
             return new FetchStreamingSessionsApplicationService(streamingSessionDomainService, authorizationService);
+          });
+
+          // Register Recording Session services
+          this.register<IRecordingSessionRepository>('RecordingSessionRepository', () => new RecordingSessionRepository());
+          
+          this.register<RecordingDomainService>('RecordingDomainService', () => {
+            const recordingRepository = this.resolve<IRecordingSessionRepository>('RecordingSessionRepository');
+            const userRepository = this.resolve<IUserRepository>('UserRepository');
+            return new RecordingDomainService(recordingRepository, userRepository);
+          });
+
+          this.register<GetLivekitRecordingsApplicationService>('GetLivekitRecordingsApplicationService', () => {
+            const recordingDomainService = this.resolve<RecordingDomainService>('RecordingDomainService');
+            const authorizationService = this.resolve<AuthorizationService>('AuthorizationService');
+            return new GetLivekitRecordingsApplicationService(recordingDomainService, authorizationService);
+          });
+
+          // Register LiveKit Recording services
+          this.register<ILivekitRecordingDomainService>('LivekitRecordingDomainService', () => {
+            const recordingRepository = this.resolve<IRecordingSessionRepository>('RecordingSessionRepository');
+            const userRepository = this.resolve<IUserRepository>('UserRepository');
+            const blobStorageService = this.resolve<IBlobStorageService>('IBlobStorageService');
+            return new LivekitRecordingDomainService(recordingRepository, userRepository, blobStorageService);
+          });
+
+          this.register<LivekitRecordingApplicationService>('LivekitRecordingApplicationService', () => {
+            const recordingDomainService = this.resolve<ILivekitRecordingDomainService>('LivekitRecordingDomainService');
+            const userRepository = this.resolve<IUserRepository>('UserRepository');
+            const authorizationService = this.resolve<AuthorizationService>('AuthorizationService');
+            return new LivekitRecordingApplicationService(recordingDomainService, userRepository, authorizationService);
+          });
+
+          // Register Delete Recording services
+          this.register<DeleteRecordingDomainService>('DeleteRecordingDomainService', () => {
+            const recordingRepository = this.resolve<IRecordingSessionRepository>('RecordingSessionRepository');
+            const blobStorageService = this.resolve<IBlobStorageService>('IBlobStorageService');
+            return new DeleteRecordingDomainService(recordingRepository, blobStorageService);
+          });
+
+          this.register<DeleteRecordingApplicationService>('DeleteRecordingApplicationService', () => {
+            const deleteRecordingDomainService = this.resolve<DeleteRecordingDomainService>('DeleteRecordingDomainService');
+            const authorizationService = this.resolve<AuthorizationService>('AuthorizationService');
+            return new DeleteRecordingApplicationService(deleteRecordingDomainService, authorizationService);
+          });
+
+          // Register Config service
+
+          // Register LiveKit services
+          this.register<ILiveKitService>('ILiveKitService', () => new LiveKitService());
+
+          this.register<LiveKitTokenDomainService>('LiveKitTokenDomainService', () => {
+            const liveKitService = this.resolve<ILiveKitService>('ILiveKitService');
+            const userRepository = this.resolve<IUserRepository>('UserRepository');
+            return new LiveKitTokenDomainService(liveKitService, userRepository);
+          });
+
+          this.register<LiveKitTokenApplicationService>('LiveKitTokenApplicationService', () => {
+            const liveKitTokenDomainService = this.resolve<LiveKitTokenDomainService>('LiveKitTokenDomainService');
+            const authorizationService = this.resolve<AuthorizationService>('AuthorizationService');
+            return new LiveKitTokenApplicationService(liveKitTokenDomainService, authorizationService);
+          });
+
+          // Register Presence services
+          this.register<IPresenceRepository>('IPresenceRepository', () => {
+            const prisma = this.resolve<PrismaClient>('PrismaClient');
+            return new PresenceRepository(prisma);
+          });
+
+          this.register<IWebPubSubService>('IWebPubSubService', () => new WebPubSubService());
+
+          this.register<PresenceDomainService>('PresenceDomainService', () => {
+            const presenceRepository = this.resolve<IPresenceRepository>('IPresenceRepository');
+            const userRepository = this.resolve<IUserRepository>('UserRepository');
+            const webPubSubService = this.resolve<IWebPubSubService>('IWebPubSubService');
+            return new PresenceDomainService(presenceRepository, userRepository, webPubSubService);
+          });
+
+          this.register<PresenceUpdateApplicationService>('PresenceUpdateApplicationService', () => {
+            const presenceDomainService = this.resolve<PresenceDomainService>('PresenceDomainService');
+            const authorizationService = this.resolve<AuthorizationService>('AuthorizationService');
+            return new PresenceUpdateApplicationService(presenceDomainService, authorizationService);
+          });
+
+          // Register Process Command services
+          this.register<ICommandMessagingService>('ICommandMessagingService', () => new CommandMessagingService());
+
+          this.register<ProcessCommandDomainService>('ProcessCommandDomainService', () => {
+            const pendingCommandDomainService = this.resolve<PendingCommandDomainService>('PendingCommandDomainService');
+            const streamingSessionDomainService = this.resolve<StreamingSessionDomainService>('StreamingSessionDomainService');
+            const presenceDomainService = this.resolve<PresenceDomainService>('PresenceDomainService');
+            const userRepository = this.resolve<IUserRepository>('UserRepository');
+            const commandMessagingService = this.resolve<ICommandMessagingService>('ICommandMessagingService');
+            return new ProcessCommandDomainService(pendingCommandDomainService, streamingSessionDomainService, presenceDomainService, userRepository, commandMessagingService);
+          });
+
+          this.register<ProcessCommandApplicationService>('ProcessCommandApplicationService', () => {
+            const processCommandDomainService = this.resolve<ProcessCommandDomainService>('ProcessCommandDomainService');
+            return new ProcessCommandApplicationService(processCommandDomainService);
+          });
+
+          // Register Streaming Session Update services
+          this.register<StreamingSessionUpdateDomainService>('StreamingSessionUpdateDomainService', () => {
+            const streamingSessionDomainService = this.resolve<StreamingSessionDomainService>('StreamingSessionDomainService');
+            const userRepository = this.resolve<IUserRepository>('UserRepository');
+            return new StreamingSessionUpdateDomainService(streamingSessionDomainService, userRepository);
+          });
+
+          this.register<StreamingSessionUpdateApplicationService>('StreamingSessionUpdateApplicationService', () => {
+            const streamingSessionUpdateDomainService = this.resolve<StreamingSessionUpdateDomainService>('StreamingSessionUpdateDomainService');
+            const authorizationService = this.resolve<AuthorizationService>('AuthorizationService');
+            return new StreamingSessionUpdateApplicationService(streamingSessionUpdateDomainService, authorizationService);
+          });
+
+          // Register WebPubSub services
+          this.register<IWebPubSubService>('IWebPubSubService', () => new WebPubSubService());
+
+          this.register<WebPubSubTokenDomainService>('WebPubSubTokenDomainService', () => {
+            const userRepository = this.resolve<IUserRepository>('UserRepository');
+            const webPubSubService = this.resolve<IWebPubSubService>('IWebPubSubService');
+            return new WebPubSubTokenDomainService(userRepository, webPubSubService);
+          });
+
+          this.register<WebPubSubTokenApplicationService>('WebPubSubTokenApplicationService', () => {
+            const webPubSubTokenDomainService = this.resolve<WebPubSubTokenDomainService>('WebPubSubTokenDomainService');
+            const authorizationService = this.resolve<AuthorizationService>('AuthorizationService');
+            return new WebPubSubTokenApplicationService(webPubSubTokenDomainService, authorizationService);
+          });
+
+          // Register Transfer PSOs services
+          this.register<TransferPsosDomainService>('TransferPsosDomainService', () => {
+            const userRepository = this.resolve<IUserRepository>('UserRepository');
+            const commandMessagingService = this.resolve<ICommandMessagingService>('ICommandMessagingService');
+            return new TransferPsosDomainService(userRepository, commandMessagingService);
+          });
+
+          this.register<TransferPsosApplicationService>('TransferPsosApplicationService', () => {
+            const transferPsosDomainService = this.resolve<TransferPsosDomainService>('TransferPsosDomainService');
+            const authorizationService = this.resolve<AuthorizationService>('AuthorizationService');
+            return new TransferPsosApplicationService(transferPsosDomainService, authorizationService);
+          });
+
+          // Register Send Snapshot services
+          this.register<SendSnapshotDomainService>('SendSnapshotDomainService', () => {
+            const userRepository = this.resolve<IUserRepository>('UserRepository');
+            const blobStorageService = this.resolve<IBlobStorageService>('IBlobStorageService');
+            const chatService = this.resolve<IChatService>('IChatService');
+            const snapshotRepository = this.resolve<ISnapshotRepository>('ISnapshotRepository');
+            return new SendSnapshotDomainService(userRepository, blobStorageService, chatService, snapshotRepository);
+          });
+
+          this.register<SendSnapshotApplicationService>('SendSnapshotApplicationService', () => {
+            const sendSnapshotDomainService = this.resolve<SendSnapshotDomainService>('SendSnapshotDomainService');
+            const authorizationService = this.resolve<AuthorizationService>('AuthorizationService');
+            return new SendSnapshotApplicationService(sendSnapshotDomainService, authorizationService);
+          });
+
+          // Register Delete Snapshot services
+          this.register<DeleteSnapshotDomainService>('DeleteSnapshotDomainService', () => {
+            const userRepository = this.resolve<IUserRepository>('UserRepository');
+            const blobStorageService = this.resolve<IBlobStorageService>('IBlobStorageService');
+            const snapshotRepository = this.resolve<ISnapshotRepository>('ISnapshotRepository');
+            return new DeleteSnapshotDomainService(userRepository, blobStorageService, snapshotRepository);
+          });
+
+          this.register<DeleteSnapshotApplicationService>('DeleteSnapshotApplicationService', () => {
+            const deleteSnapshotDomainService = this.resolve<DeleteSnapshotDomainService>('DeleteSnapshotDomainService');
+            const authorizationService = this.resolve<AuthorizationService>('AuthorizationService');
+            return new DeleteSnapshotApplicationService(deleteSnapshotDomainService, authorizationService);
+          });
+
+          // Register Get Snapshots services
+          this.register<GetSnapshotsDomainService>('GetSnapshotsDomainService', () => {
+            const userRepository = this.resolve<IUserRepository>('UserRepository');
+            const snapshotRepository = this.resolve<ISnapshotRepository>('ISnapshotRepository');
+            return new GetSnapshotsDomainService(userRepository, snapshotRepository);
+          });
+
+          this.register<GetSnapshotsApplicationService>('GetSnapshotsApplicationService', () => {
+            const getSnapshotsDomainService = this.resolve<GetSnapshotsDomainService>('GetSnapshotsDomainService');
+            const authorizationService = this.resolve<AuthorizationService>('AuthorizationService');
+            return new GetSnapshotsApplicationService(getSnapshotsDomainService, authorizationService);
+          });
+
+          // Register Get Or Create Chat services
+          this.register<GetOrCreateChatDomainService>('GetOrCreateChatDomainService', () => {
+            const userRepository = this.resolve<IUserRepository>('UserRepository');
+            const chatService = this.resolve<IChatService>('IChatService');
+            return new GetOrCreateChatDomainService(userRepository, chatService);
+          });
+
+          this.register<GetOrCreateChatApplicationService>('GetOrCreateChatApplicationService', () => {
+            const getOrCreateChatDomainService = this.resolve<GetOrCreateChatDomainService>('GetOrCreateChatDomainService');
+            const authorizationService = this.resolve<AuthorizationService>('AuthorizationService');
+            return new GetOrCreateChatApplicationService(getOrCreateChatDomainService, authorizationService);
+          });
+
+          // Register WebSocket Connection services
+          this.register<WebSocketConnectionDomainService>('WebSocketConnectionDomainService', () => {
+            const presenceDomainService = this.resolve<PresenceDomainService>('PresenceDomainService');
+            const streamingSessionDomainService = this.resolve<StreamingSessionDomainService>('StreamingSessionDomainService');
+            return new WebSocketConnectionDomainService(presenceDomainService, streamingSessionDomainService);
+          });
+
+          this.register<WebSocketConnectionApplicationService>('WebSocketConnectionApplicationService', () => {
+            const webSocketConnectionDomainService = this.resolve<WebSocketConnectionDomainService>('WebSocketConnectionDomainService');
+            return new WebSocketConnectionApplicationService(webSocketConnectionDomainService);
+          });
+
+          // Register Contact Manager Disconnect services
+          this.register<ContactManagerDisconnectDomainService>('ContactManagerDisconnectDomainService', () => {
+            const commandMessagingService = this.resolve<ICommandMessagingService>('ICommandMessagingService');
+            return new ContactManagerDisconnectDomainService(commandMessagingService);
+          });
+
+          this.register<ContactManagerDisconnectApplicationService>('ContactManagerDisconnectApplicationService', () => {
+            const contactManagerDisconnectDomainService = this.resolve<ContactManagerDisconnectDomainService>('ContactManagerDisconnectDomainService');
+            return new ContactManagerDisconnectApplicationService(contactManagerDisconnectDomainService);
+          });
+
+          // Register Get Supervisor By Identifier services
+          this.register<GetSupervisorByIdentifierDomainService>('GetSupervisorByIdentifierDomainService', () => {
+            const supervisorRepository = this.resolve<ISupervisorRepository>('ISupervisorRepository');
+            return new GetSupervisorByIdentifierDomainService(supervisorRepository);
+          });
+
+          this.register<GetSupervisorByIdentifierApplicationService>('GetSupervisorByIdentifierApplicationService', () => {
+            const getSupervisorByIdentifierDomainService = this.resolve<GetSupervisorByIdentifierDomainService>('GetSupervisorByIdentifierDomainService');
+            const authorizationService = this.resolve<AuthorizationService>('AuthorizationService');
+            return new GetSupervisorByIdentifierApplicationService(getSupervisorByIdentifierDomainService, authorizationService);
+          });
+
+          // Register Get PSOs By Supervisor services
+          this.register<GetPsosBySupervisorDomainService>('GetPsosBySupervisorDomainService', () => {
+            const userRepository = this.resolve<IUserRepository>('UserRepository');
+            return new GetPsosBySupervisorDomainService(userRepository);
+          });
+
+          this.register<GetPsosBySupervisorApplicationService>('GetPsosBySupervisorApplicationService', () => {
+            const getPsosBySupervisorDomainService = this.resolve<GetPsosBySupervisorDomainService>('GetPsosBySupervisorDomainService');
+            const userRepository = this.resolve<IUserRepository>('UserRepository');
+            return new GetPsosBySupervisorApplicationService(getPsosBySupervisorDomainService, userRepository);
+          });
+
+          // Register Get Supervisor For PSO services
+          this.register<GetSupervisorForPsoDomainService>('GetSupervisorForPsoDomainService', () => {
+            const supervisorRepository = this.resolve<ISupervisorRepository>('ISupervisorRepository');
+            return new GetSupervisorForPsoDomainService(supervisorRepository);
+          });
+
+          this.register<GetSupervisorForPsoApplicationService>('GetSupervisorForPsoApplicationService', () => {
+            const getSupervisorForPsoDomainService = this.resolve<GetSupervisorForPsoDomainService>('GetSupervisorForPsoDomainService');
+            const userRepository = this.resolve<IUserRepository>('UserRepository');
+            return new GetSupervisorForPsoApplicationService(getSupervisorForPsoDomainService, userRepository);
           });
         }
       }

@@ -1,27 +1,20 @@
 /**
- * @fileoverview ICommandMessagingService - Domain interface for command messaging
- * @description Defines the contract for command messaging operations
+ * @fileoverview ICommandMessagingService - Interface for command messaging operations
+ * @summary Defines the contract for command messaging service operations
+ * @description Interface for command messaging and Web PubSub operations
  */
-
-import { Command } from '../value-objects/Command';
-import { MessagingResult } from '../value-objects/MessagingResult';
 
 /**
  * Interface for command messaging service operations
+ * @description Defines the contract for command messaging and Web PubSub operations
  */
 export interface ICommandMessagingService {
   /**
-   * Sends a command with WebSocket primary and Service Bus fallback
-   * @param command - The command to send
-   * @returns Promise that resolves to messaging result
+   * Sends a command message to a specific group
+   * @param groupName - The name of the group to send the message to
+   * @param message - The message payload to send
+   * @returns Promise that resolves when the message is sent
+   * @throws Error if the message sending fails
    */
-  sendCommand(command: Command): Promise<MessagingResult>;
-
-  /**
-   * Sends a message to a WebSocket group
-   * @param groupName - Name of the target group
-   * @param payload - Payload to send
-   * @returns Promise that resolves when message is sent
-   */
-  sendToGroup(groupName: string, payload: unknown): Promise<void>;
+  sendToGroup(groupName: string, message: any): Promise<void>;
 }
