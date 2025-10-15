@@ -56,47 +56,111 @@ export class SupervisorRepository implements ISupervisorRepository {
   }
 
   /**
+   * Finds a PSO by identifier (ID, Azure AD Object ID, or email)
+   * @param identifier - The identifier to search for
+   * @returns Promise that resolves to PSO or null
+   */
+  async findPsoByIdentifier(identifier: string): Promise<User | null> {
+    try {
+      console.log(`[SupervisorRepository] Searching for PSO with identifier: ${identifier}`);
+      
+      // Try to find by ID first (UUID format)
+      if (identifier.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+        console.log(`[SupervisorRepository] Identifier looks like UUID, searching by ID`);
+        const user = await this.findById(identifier);
+        console.log(`[SupervisorRepository] User found by ID:`, user ? { id: user.id, email: user.email, role: user.role, supervisorId: user.supervisorId } : null);
+        return user;
+      }
+
+      // Try to find by Azure AD Object ID
+      if (identifier.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+        console.log(`[SupervisorRepository] Identifier looks like Azure AD Object ID, searching by azureAdObjectId`);
+        const user = await prisma.user.findUnique({
+          where: { azureAdObjectId: identifier }
+        });
+        console.log(`[SupervisorRepository] User found by Azure AD Object ID:`, user ? { id: user.id, email: user.email, role: user.role, supervisorId: user.supervisorId } : null);
+        if (user) {
+          return User.fromPrisma(user);
+        }
+      }
+
+      // Try to find by email
+      if (identifier.includes('@')) {
+        console.log(`[SupervisorRepository] Identifier looks like email, searching by email`);
+        const user = await this.findByEmail(identifier);
+        console.log(`[SupervisorRepository] User found by email:`, user ? { id: user.id, email: user.email, role: user.role, supervisorId: user.supervisorId } : null);
+        return user;
+      }
+
+      console.log(`[SupervisorRepository] No user found for identifier: ${identifier}`);
+      return null;
+    } catch (error: any) {
+      console.error(`[SupervisorRepository] Error finding PSO by identifier: ${error.message}`);
+      throw new Error(`Failed to find PSO by identifier: ${error.message}`);
+    }
+  }
+
+  /**
    * Finds a supervisor by identifier (ID, Azure AD Object ID, or email)
    * @param identifier - The identifier to search for
    * @returns Promise that resolves to supervisor or error message
    */
   async findSupervisorByIdentifier(identifier: string): Promise<User | string> {
     try {
+      console.log(`[SupervisorRepository] Searching for supervisor with identifier: ${identifier}`);
+      
       // Try to find by ID first (UUID format)
       if (identifier.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+        console.log(`[SupervisorRepository] Identifier looks like UUID, searching by ID`);
         const user = await this.findById(identifier);
+        console.log(`[SupervisorRepository] User found by ID:`, user ? { id: user.id, email: user.email, role: user.role } : null);
         if (user && user.isSupervisor()) {
+          console.log(`[SupervisorRepository] User is a supervisor, returning user`);
           return user;
+        }
+        if (user && !user.isSupervisor()) {
+          console.log(`[SupervisorRepository] User found but is not a supervisor`);
+          return "User found but is not a supervisor";
         }
       }
 
       // Try to find by Azure AD Object ID
       if (identifier.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+        console.log(`[SupervisorRepository] Identifier looks like Azure AD Object ID, searching by azureAdObjectId`);
         const user = await prisma.user.findUnique({
           where: { azureAdObjectId: identifier }
         });
+        console.log(`[SupervisorRepository] User found by Azure AD Object ID:`, user ? { id: user.id, email: user.email, role: user.role } : null);
         if (user) {
           const userEntity = User.fromPrisma(user);
           if (userEntity.isSupervisor()) {
+            console.log(`[SupervisorRepository] User is a supervisor, returning user`);
             return userEntity;
           }
+          console.log(`[SupervisorRepository] User found but is not a supervisor`);
           return "User found but is not a supervisor";
         }
       }
 
       // Try to find by email
       if (identifier.includes('@')) {
+        console.log(`[SupervisorRepository] Identifier looks like email, searching by email`);
         const user = await this.findByEmail(identifier);
+        console.log(`[SupervisorRepository] User found by email:`, user ? { id: user.id, email: user.email, role: user.role } : null);
         if (user && user.isSupervisor()) {
+          console.log(`[SupervisorRepository] User is a supervisor, returning user`);
           return user;
         }
         if (user && !user.isSupervisor()) {
+          console.log(`[SupervisorRepository] User found but is not a supervisor`);
           return "User found but is not a supervisor";
         }
       }
 
+      console.log(`[SupervisorRepository] No user found for identifier: ${identifier}`);
       return "User not found";
     } catch (error: any) {
+      console.error(`[SupervisorRepository] Error finding supervisor by identifier: ${error.message}`);
       throw new Error(`Failed to find supervisor by identifier: ${error.message}`);
     }
   }

@@ -16,6 +16,7 @@ import { serviceContainer } from "../shared/infrastructure/container/ServiceCont
 import { IUserRepository } from "../shared/domain/interfaces/IUserRepository";
 import { IAuthorizationService } from "../shared/domain/interfaces/IAuthorizationService";
 import { ICommandMessagingService } from "../shared/domain/interfaces/ICommandMessagingService";
+import { IWebPubSubService } from "../shared/domain/interfaces/IWebPubSubService";
 import { getCallerAdId } from "../shared/utils/authHelpers";
 import { handleAnyError } from "../shared/utils/errorHandler";
 
@@ -52,10 +53,12 @@ export default withErrorHandler(async (ctx: Context) => {
     const userRepository = serviceContainer.resolve<IUserRepository>('UserRepository');
     const authorizationService = serviceContainer.resolve<IAuthorizationService>('AuthorizationService');
     const commandMessagingService = serviceContainer.resolve<ICommandMessagingService>('CommandMessagingService');
+    const webPubSubService = serviceContainer.resolve<IWebPubSubService>('IWebPubSubService');
     const commandApplicationService = new CommandApplicationService(
       userRepository,
       authorizationService,
-      commandMessagingService
+      commandMessagingService,
+      webPubSubService
     );
 
     // Validate request body

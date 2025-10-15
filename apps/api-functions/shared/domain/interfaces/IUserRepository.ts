@@ -253,4 +253,17 @@ export interface IUserRepository {
    * @returns Promise that resolves to array of PSOs with supervisor information
    */
   getPsosBySupervisor(supervisorId?: string): Promise<Array<{ email: string; supervisorName: string }>>;
+
+  /**
+   * Finds users by roles with supervisor information (returns raw Prisma data)
+   * @param roles - Array of user roles
+   * @returns Promise that resolves to array of raw Prisma users with supervisor info
+   */
+  findByRolesWithSupervisor(roles: UserRole[]): Promise<any[]>;
+
+  /**
+   * Finds users with unassigned role with supervisor information (returns raw Prisma data)
+   * @returns Promise that resolves to array of raw Prisma users with supervisor info
+   */
+  findUsersWithUnassignedRoleWithSupervisor(): Promise<any[]>;
 }

@@ -31,7 +31,7 @@ const getOrCreateChatFunction = withErrorHandler(
     await withAuth(ctx, async () => {
       await withCallerId(ctx, async () => {
         await withBodyValidation(getOrCreateChatSchema)(ctx, async () => {
-          const serviceContainer = new ServiceContainer();
+          const serviceContainer = ServiceContainer.getInstance();
           serviceContainer.initialize();
 
           const applicationService = serviceContainer.resolve<GetOrCreateChatApplicationService>('GetOrCreateChatApplicationService');

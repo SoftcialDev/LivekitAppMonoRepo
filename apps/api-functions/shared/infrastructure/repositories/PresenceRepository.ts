@@ -8,6 +8,7 @@ import { PrismaClient } from "@prisma/client";
 import { IPresenceRepository } from "../../domain/interfaces/IPresenceRepository";
 import { Presence } from "../../domain/entities/Presence";
 import { Status } from "../../domain/enums/Status";
+import { getCentralAmericaTime } from "../../utils/dateUtils";
 
 /**
  * Infrastructure repository for presence data operations
@@ -31,8 +32,8 @@ export class PresenceRepository implements IPresenceRepository {
   async upsertPresence(userId: string, status: Status, lastSeenAt: Date): Promise<void> {
     await this.prisma.presence.upsert({
       where: { userId },
-      create: { userId, status: status as any, lastSeenAt },
-      update: { status: status as any, lastSeenAt },
+      create: { userId, status: status as any, lastSeenAt, updatedAt: getCentralAmericaTime() },
+      update: { status: status as any, lastSeenAt, updatedAt: getCentralAmericaTime() },
     });
   }
 
@@ -64,7 +65,11 @@ export class PresenceRepository implements IPresenceRepository {
    */
   async createPresenceHistory(userId: string, connectedAt: Date): Promise<void> {
     await this.prisma.presenceHistory.create({
-      data: { userId, connectedAt },
+      data: { 
+        userId, 
+        connectedAt,
+        updatedAt: getCentralAmericaTime()
+      },
     });
   }
 

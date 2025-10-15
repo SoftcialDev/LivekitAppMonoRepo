@@ -7,6 +7,7 @@
 import { IRecordingSessionRepository, CreateRecordingSessionData, ListRecordingsParams } from '../../domain/interfaces/IRecordingSessionRepository';
 import { RecordingSession } from '../../domain/entities/RecordingSession';
 import { RecordingStatus } from '@prisma/client';
+import { getCentralAmericaTime } from '../../utils/dateUtils';
 import prisma from '../database/PrismaClientService';
 
 /**
@@ -100,6 +101,8 @@ export class RecordingSessionRepository implements IRecordingSessionRepository {
           status: RecordingStatus.Active,
           blobPath: data.blobPath,
           startedAt: data.startedAt,
+          createdAt: getCentralAmericaTime(),
+          updatedAt: getCentralAmericaTime()
         },
         include: {
           user: {

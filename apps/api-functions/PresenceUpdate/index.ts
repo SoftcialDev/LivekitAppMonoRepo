@@ -28,7 +28,7 @@ const presenceUpdateHandler = withErrorHandler(
       await withCallerId(ctx, async () => {
         await withBodyValidation(presenceUpdateSchema)(ctx, async () => {
           // Initialize service container
-          const serviceContainer = new ServiceContainer();
+          const serviceContainer = ServiceContainer.getInstance();
           serviceContainer.initialize();
 
           // Resolve application service

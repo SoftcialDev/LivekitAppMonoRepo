@@ -40,7 +40,7 @@ const liveKitTokenHandler = withErrorHandler(
       await withCallerId(ctx, async () => {
         await withQueryValidation(ctx, liveKitTokenSchema, async (validatedQuery) => {
           // Initialize service container
-          const serviceContainer = new ServiceContainer();
+          const serviceContainer = ServiceContainer.getInstance();
           serviceContainer.initialize();
 
           // Resolve application service

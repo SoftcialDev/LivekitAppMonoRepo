@@ -29,13 +29,13 @@ export class UserQueryService implements IUserQueryService {
 
     // 1. Find users with specific roles from database
     if (request.getPrismaRoles().length > 0) {
-      const dbUsers = await this.userRepository.findByRoles(request.getPrismaRoles());
+      const dbUsers = await this.userRepository.findByRolesWithSupervisor(request.getPrismaRoles());
       users.push(...dbUsers.map((user: any) => UserSummary.fromPrismaUser(user)));
     }
 
     // 2. Find users with unassigned role if requested
     if (request.hasNullRole()) {
-      const unassignedUsers = await this.userRepository.findUsersWithUnassignedRole();
+      const unassignedUsers = await this.userRepository.findUsersWithUnassignedRoleWithSupervisor();
       users.push(...unassignedUsers.map((user: any) => UserSummary.fromPrismaUser(user)));
     }
 

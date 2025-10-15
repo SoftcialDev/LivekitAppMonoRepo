@@ -11,6 +11,7 @@ import { StreamingSessionDomainService } from "./StreamingSessionDomainService";
 import { PresenceDomainService } from "./PresenceDomainService";
 import { IUserRepository } from "../interfaces/IUserRepository";
 import { ICommandMessagingService } from "../interfaces/ICommandMessagingService";
+import { IWebPubSubService } from "../interfaces/IWebPubSubService";
 import { CommandType } from "../enums/CommandType";
 import { Status } from "../enums/Status";
 import { UserNotFoundError } from "../errors/UserErrors";
@@ -27,13 +28,15 @@ export class ProcessCommandDomainService {
    * @param presenceDomainService - Domain service for presence operations
    * @param userRepository - Repository for user data access
    * @param commandMessagingService - Service for command messaging
+   * @param webPubSubService - Service for WebSocket broadcasting
    */
   constructor(
     private readonly pendingCommandDomainService: PendingCommandDomainService,
     private readonly streamingSessionDomainService: StreamingSessionDomainService,
     private readonly presenceDomainService: PresenceDomainService,
     private readonly userRepository: IUserRepository,
-    private readonly commandMessagingService: ICommandMessagingService
+    private readonly commandMessagingService: ICommandMessagingService,
+    private readonly webPubSubService: IWebPubSubService
   ) {}
 
   /**
@@ -55,9 +58,15 @@ export class ProcessCommandDomainService {
       request.timestamp
     );
 
-    // 3. Handle STOP command (stop streaming session)
-    if (request.command === CommandType.STOP) {
+    // 3. Handle START/STOP commands and broadcast events
+    if (request.command === CommandType.START) {
+      await this.streamingSessionDomainService.startStreamingSession(user.id);
+      // Broadcast START event to supervisors
+      await this.broadcastStreamEvent(user.email, 'started');
+    } else if (request.command === CommandType.STOP) {
       await this.streamingSessionDomainService.stopStreamingSession(user.id, 'COMMAND');
+      // Broadcast STOP event to supervisors
+      await this.broadcastStreamEvent(user.email, 'stopped');
     }
 
     // 4. Attempt immediate delivery
@@ -136,4 +145,32 @@ export class ProcessCommandDomainService {
       return false;
     }
   }
+
+  /**
+   * Broadcasts stream events to supervisors via WebSocket
+   * @param email - The email of the PSO
+   * @param status - The stream status (started/stopped)
+   * @private
+   */
+  private async broadcastStreamEvent(email: string, status: 'started' | 'stopped'): Promise<void> {
+    try {
+      const message = {
+        email: email,
+        status: status
+      };
+      
+      console.log(`[ProcessCommandDomainService] Broadcasting stream ${status} event for ${email} to group: ${email}`);
+      console.log(`[ProcessCommandDomainService] Message:`, message);
+      
+      // Send to the PSO's group so supervisors can receive the event
+      await this.webPubSubService.broadcastMessage(email, message);
+      
+      console.log(`[ProcessCommandDomainService] ✅ Successfully broadcasted stream ${status} event for ${email}`);
+    } catch (error: any) {
+      console.error(`[ProcessCommandDomainService] ❌ Failed to broadcast stream event: ${error.message}`);
+      console.error(`[ProcessCommandDomainService] Error details:`, error);
+      // Don't throw error - WebSocket failure shouldn't break command processing
+    }
+  }
+
 }

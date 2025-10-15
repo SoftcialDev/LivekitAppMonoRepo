@@ -280,7 +280,7 @@ export async function changeSupervisor(
  * @throws Will propagate any network or parsing error from axios.
  */
 export async function getMyPsos(): Promise<PsoWithSupervisor[]> {
-  const response = await apiClient.get<{ psos: PsoWithSupervisor[] }>('/api/GetPsosBySupervisor');
+  const response = await apiClient.get<{ psos: PsoWithSupervisor[] }>('/api/GetMyPsos');
   return response.data.psos;
 }
 

@@ -104,7 +104,7 @@ export class LivekitRecordingDomainService implements ILivekitRecordingDomainSer
         `Recording stopped for room "${command.roomName}".`,
         command.roomName,
         results,
-        results[0]?.sasUrl || 'https://mock.sas.url'
+        results[0]?.sasUrl || undefined
       );
     } catch (error) {
       if (error instanceof NoActiveRecordingsError) {

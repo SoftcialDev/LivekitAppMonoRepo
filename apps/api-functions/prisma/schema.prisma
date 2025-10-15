@@ -82,9 +82,9 @@ model ContactManagerProfile {
   /// Current status of the contact manager
   status     ContactManagerStatus
   /// Timestamp when this profile was created
-  createdAt  DateTime                         @default(now())
+  createdAt  DateTime
   /// Timestamp when this profile was last updated
-  updatedAt  DateTime                         @updatedAt
+  updatedAt  DateTime
   /// History of status changes for this contact manager
   history    ContactManagerStatusHistory[]
 
@@ -110,7 +110,7 @@ model ContactManagerStatusHistory {
   changedById    String                   @db.Uuid
   changedBy      User                     @relation(fields: [changedById], references: [id], onDelete: Cascade)
   /// When the change was made
-  timestamp      DateTime                 @default(now())
+  timestamp      DateTime
 
   @@map("contact_manager_status_history")
 }
@@ -151,11 +151,11 @@ model User {
   // Teams/Graph chat memberships
   chatParticipants             ChatParticipant[]
 
-  createdAt                    DateTime                    @default(now())
+  createdAt                    DateTime
   /// Forms this user has submitted to the Contact Managers chat
   contactManagerForms          ContactManagerForm[]
 
-  updatedAt                    DateTime                    @updatedAt
+  updatedAt                    DateTime
   deletedAt                    DateTime?
 
   /// Inverse relation for status history (optional convenience)
@@ -172,7 +172,7 @@ model Presence {
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   status     Status
   lastSeenAt DateTime
-  updatedAt  DateTime @updatedAt
+  updatedAt  DateTime
 
   @@index([status])
 }
@@ -184,9 +184,9 @@ model PresenceHistory {
   id             String   @id @default(uuid()) @db.Uuid
   userId         String   @db.Uuid
   user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  connectedAt    DateTime @default(now())
+  connectedAt    DateTime
   disconnectedAt DateTime?
-  updatedAt      DateTime @updatedAt
+  updatedAt      DateTime
 
   @@index([userId])
   @@index([connectedAt])
@@ -207,8 +207,8 @@ model PendingCommand {
   acknowledgedAt  DateTime?
   attemptCount    Int         @default(0)
   expiresAt       DateTime?
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
+  createdAt       DateTime
+  updatedAt       DateTime
 
   @@index([employeeId, acknowledged])
   @@index([expiresAt])
@@ -221,11 +221,11 @@ model StreamingSessionHistory {
   id            String    @id @default(uuid()) @db.Uuid
   userId        String    @db.Uuid
   user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  startedAt     DateTime  @default(now())
+  startedAt     DateTime
   stoppedAt     DateTime?
   stopReason    String?   // 'COMMAND' | 'DISCONNECT'
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  createdAt     DateTime
+  updatedAt     DateTime
 
   @@index([userId])
   @@index([startedAt])
@@ -241,7 +241,7 @@ model AuditLog {
   action       String
   changedById  String   @db.Uuid
   changedBy    User     @relation("UserAuditLogs", fields: [changedById], references: [id], onDelete: Cascade)
-  timestamp    DateTime @default(now())
+  timestamp    DateTime
   dataBefore   Json?
   dataAfter    Json?
 
@@ -258,8 +258,8 @@ model Chat {
   id        String         @id @db.VarChar(100)
   /// A human-readable topic, e.g., "InContactApp".
   topic     String?
-  createdAt DateTime       @default(now())
-  updatedAt DateTime       @updatedAt
+  createdAt DateTime
+  updatedAt DateTime
   /// Participants in this chat.
   members   ChatParticipant[]
 
@@ -274,7 +274,7 @@ model ChatParticipant {
   chatId      String   @db.VarChar(100)
   /// The user identifier.
   userId      String   @db.Uuid
-  joinedAt    DateTime @default(now())
+  joinedAt    DateTime
 
   /// Relation to the Chat.
   chat        Chat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
@@ -294,7 +294,7 @@ model Snapshot {
   supervisorId String   @db.Uuid
   psoId        String   @db.Uuid
   reason       String
-  takenAt      DateTime @default(now())
+  takenAt      DateTime
   imageUrl     String
 
   supervisor   User     @relation("SupervisorSnapshots", fields: [supervisorId], references: [id], onDelete: Cascade)
@@ -326,10 +326,10 @@ model ContactManagerForm {
   data      Json
 
   /// When this form was received
-  createdAt DateTime  @default(now())
+  createdAt DateTime
 
   /// When this record was last updated
-  updatedAt DateTime  @updatedAt
+  updatedAt DateTime
 }
 
 /**
@@ -362,8 +362,8 @@ model RecordingSession {
   status     RecordingStatus @default(Active)
   startedAt  String?
   stoppedAt  String?
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  createdAt  DateTime
+  updatedAt  DateTime
 
   @@index([roomName])
   @@index([userId])

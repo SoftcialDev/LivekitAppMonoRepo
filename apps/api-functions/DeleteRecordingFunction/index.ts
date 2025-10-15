@@ -29,7 +29,7 @@ const deleteRecordingFunction: AzureFunction = withErrorHandler(
       await withCallerId(ctx, async () => {
         await withPathValidation(ctx, deleteRecordingSchema, async (validatedParams) => {
           // Initialize service container
-          const serviceContainer = new ServiceContainer();
+          const serviceContainer = ServiceContainer.getInstance();
           serviceContainer.initialize();
 
           // Resolve application service

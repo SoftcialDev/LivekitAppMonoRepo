@@ -17,7 +17,7 @@ import { ContactManagerDisconnectApplicationService } from "../shared/applicatio
  */
 const onDisconnected: AzureFunction = async (context: Context) => {
   try {
-    const serviceContainer = new ServiceContainer();
+    const serviceContainer = ServiceContainer.getInstance();
     serviceContainer.initialize();
 
     const request = WebSocketEventRequest.fromContext(context);

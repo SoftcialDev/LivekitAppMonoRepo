@@ -27,7 +27,7 @@ const GetSupervisorByIdentifier: AzureFunction = withErrorHandler(
     await withAuth(ctx, async () => {
       await withCallerId(ctx, async () => {
         await withQueryValidation(getSupervisorByIdentifierSchema)(ctx, async () => {
-          const serviceContainer = new ServiceContainer();
+          const serviceContainer = ServiceContainer.getInstance();
           serviceContainer.initialize();
 
           const applicationService = serviceContainer.resolve<GetSupervisorByIdentifierApplicationService>('GetSupervisorByIdentifierApplicationService');

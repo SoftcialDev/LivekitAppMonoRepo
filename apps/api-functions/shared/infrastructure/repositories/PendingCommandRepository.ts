@@ -122,7 +122,9 @@ export class PendingCommandRepository implements IPendingCommandRepository {
         data: {
           employeeId,
           command,
-          timestamp
+          timestamp,
+          createdAt: getCentralAmericaTime(),
+          updatedAt: getCentralAmericaTime()
         }
       });
 

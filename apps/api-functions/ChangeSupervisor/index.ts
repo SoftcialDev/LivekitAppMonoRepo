@@ -51,7 +51,7 @@ const changeSupervisor: AzureFunction = withErrorHandler(
       const commandMessagingService = serviceContainer.resolve<ICommandMessagingService>('CommandMessagingService');
       const supervisorManagementService = serviceContainer.resolve<ISupervisorManagementService>('SupervisorManagementService');
 
-      const auditService = serviceContainer.resolve<IAuditService>('AuditService');
+      const auditService = serviceContainer.resolve<IAuditService>('IAuditService');
 
       const supervisorApplicationService = new SupervisorApplicationService(
         userRepository,

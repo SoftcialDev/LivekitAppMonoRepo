@@ -41,14 +41,16 @@ export class GetSupervisorForPsoApplicationService {
       throw new Error("Caller not found");
     }
 
-    // 2. Authorization: Only Admins, SuperAdmins, and Supervisors can query supervisor information
-    if (caller.role !== UserRole.Admin && caller.role !== UserRole.SuperAdmin && caller.role !== UserRole.Supervisor) {
-      throw new Error("Insufficient privileges to access supervisor information");
-    }
-
-    // 3. Additional authorization for Supervisors: they can only query their own PSOs
-    if (caller.role === UserRole.Supervisor) {
-      // Check if the identifier belongs to one of the supervisor's PSOs
+    // 2. Authorization logic based on caller role
+    if (caller.role === UserRole.Employee) {
+      // Employees can only query their own supervisor
+      if (request.identifier !== caller.azureAdObjectId && 
+          request.identifier !== caller.id && 
+          request.identifier !== caller.email) {
+        throw new Error("Employees can only query their own supervisor information");
+      }
+    } else if (caller.role === UserRole.Supervisor) {
+      // Supervisors can query supervisor information for their assigned PSOs
       const pso = await this.userRepository.findByAzureAdObjectId(request.identifier) || 
                   await this.userRepository.findByEmail(request.identifier) ||
                   await this.userRepository.findById(request.identifier);
@@ -56,6 +58,9 @@ export class GetSupervisorForPsoApplicationService {
       if (!pso || pso.supervisorId !== caller.id) {
         throw new Error("Supervisors can only query supervisor information for their assigned PSOs");
       }
+    } else if (caller.role !== UserRole.Admin && caller.role !== UserRole.SuperAdmin) {
+      // Only Admins and SuperAdmins can query any supervisor information
+      throw new Error("Insufficient privileges to access supervisor information");
     }
 
     return await this.getSupervisorForPsoDomainService.getSupervisorForPso(request);

@@ -16,7 +16,7 @@ import { WebSocketConnectionApplicationService } from "../shared/application/ser
  */
 const onConnect: AzureFunction = async (context: Context) => {
   try {
-    const serviceContainer = new ServiceContainer();
+    const serviceContainer = ServiceContainer.getInstance();
     serviceContainer.initialize();
 
     const applicationService = serviceContainer.resolve<WebSocketConnectionApplicationService>('WebSocketConnectionApplicationService');

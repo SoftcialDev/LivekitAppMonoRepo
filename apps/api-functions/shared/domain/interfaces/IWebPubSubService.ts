@@ -41,6 +41,20 @@ export interface IWebPubSubService {
   }): Promise<void>;
 
   /**
+   * Broadcasts a custom message to all clients in a specific group
+   * @param group - The group to broadcast to
+   * @param message - The message to broadcast
+   * @returns Promise that resolves when the broadcast is complete
+   * @throws Error when broadcast fails
+   * @example
+   * await webPubSubService.broadcastMessage('presence', {
+   *   type: 'contactManagerStatusChange',
+   *   contactManager: { email: 'cm@example.com', status: 'Available' }
+   * });
+   */
+  broadcastMessage(group: string, message: any): Promise<void>;
+
+  /**
    * Lists all groups and users with detailed connection information
    * @returns Promise that resolves when listing is complete
    * @throws Error when listing fails

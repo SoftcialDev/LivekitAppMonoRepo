@@ -57,13 +57,8 @@ export class ContactManagerApplicationService {
    * @returns Promise that resolves to the list of contact managers
    */
   async listContactManagers(callerId: string): Promise<ContactManagerListResponse> {
-    // Admin, SuperAdmin, and Employee can access this endpoint
-    const canAccess = await this.authorizationService.canAccessAdmin(callerId) || 
-                     await this.authorizationService.canAccessEmployee(callerId);
-    
-    if (!canAccess) {
-      throw new Error('Insufficient privileges to list contact managers');
-    }
+    // Any authenticated user can access this endpoint
+    // No additional authorization required - just need to be authenticated
     
     return await this.contactManagerDomainService.listContactManagers();
   }

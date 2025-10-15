@@ -17,11 +17,15 @@ const SignOutButton: React.FC = () => {
   const navigate = useNavigate()
 
   /**
-   * Handle click on "Sign Out": performs logout, then navigates to login page.
+   * Handle click on "Sign Out": performs logout, clears localStorage, then navigates to login page.
    */
   const handleSignOut = async () => {
     try {
       await logout()
+      
+      // Clear all localStorage data
+      localStorage.clear()
+      
       // After logout, redirect to login page
       navigate('/login', { replace: true })
     } catch (err) {

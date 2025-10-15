@@ -232,7 +232,9 @@ export class StreamingSessionRepository implements IStreamingSessionRepository {
       await prisma.streamingSessionHistory.create({
         data: { 
           userId,
-          startedAt: now
+          startedAt: now,
+          createdAt: getCentralAmericaTime(),
+          updatedAt: getCentralAmericaTime()
         },
       });
     } catch (error: any) {

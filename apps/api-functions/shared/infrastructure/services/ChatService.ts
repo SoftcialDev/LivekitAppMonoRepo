@@ -7,6 +7,7 @@ import { IChatService } from '../../domain/interfaces/IChatService';
 import { OnBehalfOfCredential, ClientSecretCredential } from '@azure/identity';
 import { Client } from '@microsoft/microsoft-graph-client';
 import { TokenCredentialAuthenticationProvider } from '@microsoft/microsoft-graph-client/authProviders/azureTokenCredentials';
+import { getCentralAmericaTime } from '../../utils/dateUtils';
 import prisma from '../database/PrismaClientService';
 
 /**
@@ -61,7 +62,9 @@ export class ChatService implements IChatService {
           data: {
             id: chatId,
             topic: chatTopic,
-            members: { create: desired.map(d => ({ userId: d.userId })) }
+            createdAt: getCentralAmericaTime(),
+            updatedAt: getCentralAmericaTime(),
+            members: { create: desired.map(d => ({ userId: d.userId, joinedAt: getCentralAmericaTime() })) }
           }
         });
         console.log('Chat persisted to database');
@@ -460,7 +463,9 @@ export class ChatService implements IChatService {
       data: {
         id: chatId,
         topic,
-        members: { create: participants.map((p) => ({ userId: p.userId })) },
+        createdAt: getCentralAmericaTime(),
+        updatedAt: getCentralAmericaTime(),
+        members: { create: participants.map((p) => ({ userId: p.userId, joinedAt: getCentralAmericaTime() })) },
       },
     });
 

@@ -119,10 +119,12 @@ const PSOsPage: React.FC = () => {
       supervisorName: supMap.get(u.email.toLowerCase()) ?? '—',
     });
 
-    // Para todos los roles: mostrar todos los usuarios online con rol Employee
+    // Solo mostrar PSOs que el supervisor tiene asignados (autorizados)
+    // El filtro se basa en allowedEmails que viene de getMyPsos() (nuevo endpoint)
     const filteredUsers = onlineUsers.filter(u => 
       u.email.toLowerCase() !== viewerEmail.toLowerCase() &&
-      u.role === 'Employee' // Solo empleados
+      u.role === 'Employee' && // Solo empleados
+      allowedEmails.has(u.email.toLowerCase()) // Solo PSOs autorizados para este supervisor
     );
 
     const result = filteredUsers

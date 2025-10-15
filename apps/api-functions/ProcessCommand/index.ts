@@ -32,8 +32,8 @@ export default async function processCommand(
     // 1) Validate message structure
     const validatedMessage = processCommandSchema.parse(message);
     
-    // 2) Initialize service container
-    const serviceContainer = new ServiceContainer();
+    // 2) Get service container singleton
+    const serviceContainer = ServiceContainer.getInstance();
     serviceContainer.initialize();
 
     // 3) Resolve application service

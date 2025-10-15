@@ -28,7 +28,7 @@ export class AuditRepository implements IAuditRepository {
           entityId: auditLog.entityId,
           action: auditLog.action,
           changedById: auditLog.changedById,
-          timestamp: auditLog.timestamp,
+          timestamp: getCentralAmericaTime(),
           dataBefore: auditLog.dataBefore,
           dataAfter: auditLog.dataAfter,
         }

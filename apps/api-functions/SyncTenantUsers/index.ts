@@ -6,7 +6,7 @@
 import { AzureFunction, Context, Timer } from "@azure/functions";
 import { withErrorHandler } from "../shared/middleware/errorHandler";
 import { GraphService } from "../shared/infrastructure/services/GraphService";
-import prisma from "../shared/infrastructure/database/PrismaClientService";
+import prisma, { ensureCentralAmericaTimezone } from "../shared/infrastructure/database/PrismaClientService";
 import { getCentralAmericaTime } from "../shared/utils/dateUtils";
 
 /**
@@ -72,6 +72,10 @@ async function syncTenantUsersHandler(ctx: Context, myTimer: Timer): Promise<voi
   ctx.log.info("[SyncTenantUsers] Starting tenant users synchronization");
 
   try {
+
+    await ensureCentralAmericaTimezone();
+    ctx.log.info("[SyncTenantUsers] Database timezone configured to Central America");
+
     // 1. Get Graph token
     const graphService = new GraphService();
     const token = await graphService.getGraphToken();

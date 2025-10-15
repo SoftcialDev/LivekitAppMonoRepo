@@ -5,6 +5,8 @@
 
 import { ContactManagerStatus, UserRole } from '@prisma/client';
 import { IUserRepository } from '../interfaces/IUserRepository';
+import { IWebPubSubService } from '../interfaces/IWebPubSubService';
+import { getCentralAmericaTime } from '../../utils/dateUtils';
 import { ContactManagerProfile } from '../entities/ContactManagerProfile';
 import { CreateContactManagerRequest } from '../value-objects/CreateContactManagerRequest';
 import { DeleteContactManagerRequest } from '../value-objects/DeleteContactManagerRequest';
@@ -16,7 +18,8 @@ import { UpdateContactManagerStatusRequest } from '../value-objects/UpdateContac
  */
 export class ContactManagerDomainService {
   constructor(
-    private userRepository: IUserRepository
+    private userRepository: IUserRepository,
+    private webPubSubService: IWebPubSubService
   ) {}
 
   /**
@@ -104,14 +107,21 @@ export class ContactManagerDomainService {
 
   /**
    * Gets the current Contact Manager's status.
-   * @param userId - User ID
+   * @param azureAdObjectId - Azure AD Object ID
    * @returns Promise that resolves to the Contact Manager status
    */
-  async getMyContactManagerStatus(userId: string): Promise<ContactManagerStatusResponse> {
-    const profile = await this.userRepository.findContactManagerProfileByUserId(userId);
+  async getMyContactManagerStatus(azureAdObjectId: string): Promise<ContactManagerStatusResponse> {
+    // First find the user by Azure AD Object ID
+    const user = await this.userRepository.findByAzureAdObjectId(azureAdObjectId);
+    
+    if (!user) {
+      throw new Error(`User with Azure AD Object ID "${azureAdObjectId}" not found`);
+    }
+
+    const profile = await this.userRepository.findContactManagerProfileByUserId(user.id);
 
     if (!profile) {
-      throw new Error(`Contact Manager profile for user "${userId}" not found`);
+      throw new Error(`Contact Manager profile for user "${user.email}" not found`);
     }
 
     return ContactManagerStatusResponse.fromProfile(profile);
@@ -119,25 +129,35 @@ export class ContactManagerDomainService {
 
   /**
    * Updates the current Contact Manager's status.
-   * @param userId - User ID
+   * @param azureAdObjectId - Azure AD Object ID
    * @param request - The status update request
    * @returns Promise that resolves to the updated Contact Manager status
    */
-  async updateMyContactManagerStatus(userId: string, request: UpdateContactManagerStatusRequest): Promise<ContactManagerStatusResponse> {
-    const profile = await this.userRepository.findContactManagerProfileByUserId(userId);
+  async updateMyContactManagerStatus(azureAdObjectId: string, request: UpdateContactManagerStatusRequest): Promise<ContactManagerStatusResponse> {
+    // First find the user by Azure AD Object ID
+    const user = await this.userRepository.findByAzureAdObjectId(azureAdObjectId);
+    
+    if (!user) {
+      throw new Error(`User with Azure AD Object ID "${azureAdObjectId}" not found`);
+    }
+
+    const profile = await this.userRepository.findContactManagerProfileByUserId(user.id);
 
     if (!profile) {
-      throw new Error(`Contact Manager profile for user "${userId}" not found`);
+      throw new Error(`Contact Manager profile for user "${user.email}" not found`);
     }
 
     // Update the status
     await this.userRepository.updateContactManagerStatus(profile.id, request.status);
 
     // Log the status change
-    await this.logStatusChange(profile.id, profile.status, request.status, userId);
+    await this.logStatusChange(profile.id, profile.status, request.status, user.id);
+
+    // Broadcast status change to PSOs via WebSocket
+    await this.broadcastContactManagerStatusChange(user.email, user.fullName, request.status);
 
     // Return updated profile
-    const updatedProfile = await this.userRepository.findContactManagerProfileByUserId(userId);
+    const updatedProfile = await this.userRepository.findContactManagerProfileByUserId(user.id);
     return ContactManagerStatusResponse.fromProfile(updatedProfile!);
   }
 
@@ -156,5 +176,32 @@ export class ContactManagerDomainService {
       newStatus,
       changedById: userId
     });
+  }
+
+  /**
+   * Broadcasts Contact Manager status change to PSOs via WebSocket.
+   * @param email - Contact Manager email
+   * @param fullName - Contact Manager full name
+   * @param status - New status (Available, Unavailable, OnBreak, OnAnotherTask)
+   * @returns Promise that resolves when broadcast is complete
+   */
+  private async broadcastContactManagerStatusChange(email: string, fullName: string, status: ContactManagerStatus): Promise<void> {
+    try {
+      // Create a message that matches the frontend ContactManagerStatusUpdate interface
+      const message = {
+        managerId: email, // Use email as managerId for identification
+        status: status, // ✅ Envía el estado real: Available, Unavailable, OnBreak, OnAnotherTask
+        updatedAt: getCentralAmericaTime().toISOString(),
+        channel: 'cm-status-updates'
+      };
+
+      // Send custom message to 'cm-status-updates' group so PSOs receive the notification
+      await this.webPubSubService.broadcastMessage('cm-status-updates', message);
+      
+      console.log(`[ContactManagerDomainService] Broadcasted Contact Manager status change for ${email}: ${status}`);
+    } catch (error: any) {
+      console.error(`[ContactManagerDomainService] Failed to broadcast status change: ${error.message}`);
+      // Don't throw error - WebSocket failure shouldn't break the status update
+    }
   }
 }

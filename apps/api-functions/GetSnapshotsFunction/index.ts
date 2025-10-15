@@ -28,7 +28,7 @@ const getSnapshotsFunction = withErrorHandler(
   async (ctx: Context, req: HttpRequest) => {
     await withAuth(ctx, async () => {
       await withCallerId(ctx, async () => {
-        const serviceContainer = new ServiceContainer();
+        const serviceContainer = ServiceContainer.getInstance();
         serviceContainer.initialize();
 
         const applicationService = serviceContainer.resolve<GetSnapshotsApplicationService>('GetSnapshotsApplicationService');

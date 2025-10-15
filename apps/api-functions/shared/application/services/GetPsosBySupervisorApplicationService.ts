@@ -43,13 +43,16 @@ export class GetPsosBySupervisorApplicationService {
 
     // 2. Authorization logic based on caller role
     if (caller.role === UserRole.Supervisor) {
-      // Supervisors can only see their own PSOs
-      if (request.supervisorId && request.supervisorId !== caller.id) {
-        throw new Error("Supervisors can only query their own PSOs");
+      // Supervisors can query PSOs of any supervisor, but if no supervisorId is provided,
+      // or if supervisorId matches their own ID, they get their own PSOs
+      if (!request.supervisorId || request.supervisorId === caller.id || request.supervisorId === caller.azureAdObjectId) {
+        // Force to caller's own PSOs
+        const supervisorRequest = new GetPsosBySupervisorRequest(callerId, caller.id);
+        return await this.getPsosBySupervisorDomainService.getPsosBySupervisor(supervisorRequest);
+      } else {
+        // Query PSOs of other supervisors
+        return await this.getPsosBySupervisorDomainService.getPsosBySupervisor(request);
       }
-      // Override supervisorId to caller's ID for supervisors
-      const supervisorRequest = new GetPsosBySupervisorRequest(callerId, caller.id);
-      return await this.getPsosBySupervisorDomainService.getPsosBySupervisor(supervisorRequest);
     } else if (caller.role === UserRole.Admin || caller.role === UserRole.SuperAdmin) {
       // Admins and SuperAdmins can see all PSOs or filter by specific supervisor
       return await this.getPsosBySupervisorDomainService.getPsosBySupervisor(request);

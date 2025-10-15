@@ -17,9 +17,11 @@
     },
     "logLevel": {
       "default": "Information",
-      "Host.Results": "Trace",
-      "Host.Aggregator": "Trace",
-      "Function.*": "Trace"
+      "Host.Results": "Information",
+      "Host.Aggregator": "Information",
+      "Function.*": "Information",
+      "Azure.ServiceBus": "Warning",
+      "Azure.*": "Warning"
     }
   }
 }

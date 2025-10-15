@@ -8,6 +8,7 @@ import { WebPubSubServiceClient } from "@azure/web-pubsub";
 import { AzureKeyCredential } from "@azure/core-auth";
 import { IWebPubSubService } from "../../domain/interfaces/IWebPubSubService";
 import { config } from "../../config";
+import { getCentralAmericaTime } from "../../utils/dateUtils";
 
 /**
  * Infrastructure implementation of WebPubSub service
@@ -82,6 +83,27 @@ export class WebPubSubService implements IWebPubSubService {
       console.debug("Presence broadcast:", event);
     } catch (error: any) {
       throw new Error(`Failed to broadcast presence: ${error.message}`);
+    }
+  }
+
+  /**
+   * Broadcasts a custom message to all clients in a specific group
+   * @param group - The group to broadcast to
+   * @param message - The message to broadcast
+   * @returns Promise that resolves when the broadcast is complete
+   * @throws Error when broadcast fails
+   * @example
+   * await webPubSubService.broadcastMessage('presence', {
+   *   type: 'contactManagerStatusChange',
+   *   contactManager: { email: 'cm@example.com', status: 'Available' }
+   * });
+   */
+  async broadcastMessage(group: string, message: any): Promise<void> {
+    try {
+      await this.client.group(group).sendToAll(JSON.stringify(message));
+      console.debug(`Message broadcast to group '${group}':`, message);
+    } catch (error: any) {
+      throw new Error(`Failed to broadcast message to group '${group}': ${error.message}`);
     }
   }
 
@@ -237,8 +259,8 @@ export class WebPubSubService implements IWebPubSubService {
           try {
             await prisma.presence.upsert({
               where: { userId: user.id },
-              update: { status: 'online', lastSeenAt: new Date() },
-              create: { userId: user.id, status: 'online', lastSeenAt: new Date() }
+              update: { status: 'online', lastSeenAt: new Date(), updatedAt: getCentralAmericaTime() },
+              create: { userId: user.id, status: 'online', lastSeenAt: new Date(), updatedAt: getCentralAmericaTime() }
             });
             corrections.push({
               email: user.email,
@@ -254,8 +276,8 @@ export class WebPubSubService implements IWebPubSubService {
           try {
             await prisma.presence.upsert({
               where: { userId: user.id },
-              update: { status: 'offline', lastSeenAt: new Date() },
-              create: { userId: user.id, status: 'offline', lastSeenAt: new Date() }
+              update: { status: 'offline', lastSeenAt: new Date(), updatedAt: getCentralAmericaTime() },
+              create: { userId: user.id, status: 'offline', lastSeenAt: new Date(), updatedAt: getCentralAmericaTime() }
             });
             corrections.push({
               email: user.email,

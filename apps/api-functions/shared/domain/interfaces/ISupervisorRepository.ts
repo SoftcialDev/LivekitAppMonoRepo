@@ -43,4 +43,11 @@ export interface ISupervisorRepository {
    * @returns Promise that resolves to supervisor or error message
    */
   findSupervisorByIdentifier(identifier: string): Promise<User | string>;
+
+  /**
+   * Finds a PSO by identifier (ID, Azure AD Object ID, or email)
+   * @param identifier - The identifier to search for
+   * @returns Promise that resolves to PSO or null
+   */
+  findPsoByIdentifier(identifier: string): Promise<User | null>;
 }

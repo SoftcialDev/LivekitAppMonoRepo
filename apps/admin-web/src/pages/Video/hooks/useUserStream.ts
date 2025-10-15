@@ -61,12 +61,22 @@ export function useUserStream(
     email: string;
     status: 'started' | 'stopped';
   }> = useCallback(({ email, status }) => {
-    if (email !== targetEmail) return;
+    console.log(`[useUserStream] Received stream event:`, { email, status, targetEmail });
+    
+    if (email !== targetEmail) {
+      console.log(`[useUserStream] Ignoring event for different user: ${email} !== ${targetEmail}`);
+      return;
+    }
+    
+    console.log(`[useUserStream] Processing stream event for ${targetEmail}: ${status}`);
+    
     window.clearTimeout(fetchTimer.current);
     if (status === 'started') {
+      console.log(`[useUserStream] Starting stream for ${targetEmail}`);
       // debounce rapid back-to-back events
       fetchTimer.current = window.setTimeout(fetchAndSet, STREAM_FETCH_DEBOUNCE_MS);
     } else {
+      console.log(`[useUserStream] Stopping stream for ${targetEmail}`);
       setAccessToken(undefined);
       setRoomName(undefined);
       setLivekitUrl(undefined);
@@ -80,11 +90,16 @@ export function useUserStream(
     client
       .connect(viewerEmail)
       .then(() => {
+        console.log(`[useUserStream] Connected to WebSocket for viewer: ${viewerEmail}`);
         // you're now in your own presence group
         client.onMessage(handleStreamEvent);
         // **also** join the target's group so we get their "started/stopped"
+        console.log(`[useUserStream] Joining group for target: ${targetEmail}`);
         return client.joinGroup(targetEmail);  
         // note: if your wrapper doesn't expose joinGroup, you can add a small helper
+      })
+      .then(() => {
+        console.log(`[useUserStream] Successfully joined group: ${targetEmail}`);
       })
       .catch(err => {
         console.error('[useUserStream] WS connect error', err);

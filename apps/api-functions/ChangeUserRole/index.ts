@@ -45,7 +45,7 @@ const changeUserRole: AzureFunction = withErrorHandler(
       // Resolve dependencies from container
       const userRepository = serviceContainer.resolve<IUserRepository>('UserRepository');
       const authorizationService = serviceContainer.resolve<IAuthorizationService>('AuthorizationService');
-      const auditService = serviceContainer.resolve<IAuditService>('AuditService');
+      const auditService = serviceContainer.resolve<IAuditService>('IAuditService');
       const presenceService = serviceContainer.resolve<IPresenceService>('PresenceService');
 
       const userRoleChangeApplicationService = new UserRoleChangeApplicationService(
