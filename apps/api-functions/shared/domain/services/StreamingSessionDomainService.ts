@@ -27,14 +27,37 @@ export class StreamingSessionDomainService implements IStreamingSessionDomainSer
 
   /**
    * Starts a new streaming session for a user
-   * @param userId - The ID of the user
+   * @param userId - The ID of the user (can be email or UUID)
    * @returns Promise that resolves when the session is started
    * @throws Error if the operation fails
    */
   async startStreamingSession(userId: string): Promise<void> {
     try {
-      await this.streamingSessionRepository.startStreamingSession(userId);
-      console.log(`Streaming session started for user ${userId}`);
+      // Convert email to database ID if needed
+      let databaseUserId = userId;
+      
+      // Check if userId is an email (contains @) or UUID (contains -)
+      const isEmail = userId.includes('@');
+      const isUUID = userId.includes('-') && !userId.includes('@');
+      
+      if (isEmail) {
+        // If it's an email, find the user by email to get the database ID
+        const user = await this.userRepository.findByEmail(userId);
+        if (!user) {
+          throw new Error(`User not found for email: ${userId}`);
+        }
+        databaseUserId = user.id;
+      } else if (!isUUID) {
+        // If it's neither email nor UUID, try to find by Azure AD Object ID
+        const user = await this.userRepository.findByAzureAdObjectId(userId);
+        if (!user) {
+          throw new Error(`User not found for ID: ${userId}`);
+        }
+        databaseUserId = user.id;
+      }
+      
+      await this.streamingSessionRepository.startStreamingSession(databaseUserId);
+      console.log(`Streaming session started for user ${userId} (DB ID: ${databaseUserId})`);
     } catch (error) {
       console.error(`Failed to start streaming session for user ${userId}:`, error);
       throw error;
@@ -43,15 +66,38 @@ export class StreamingSessionDomainService implements IStreamingSessionDomainSer
 
   /**
    * Stops a streaming session for a user
-   * @param userId - The ID of the user
+   * @param userId - The ID of the user (can be email or UUID)
    * @param reason - The reason for stopping the session
    * @returns Promise that resolves when the session is stopped
    * @throws Error if the operation fails
    */
   async stopStreamingSession(userId: string, reason: string): Promise<void> {
     try {
-      await this.streamingSessionRepository.stopStreamingSession(userId, reason);
-      console.log(`Streaming session stopped for user ${userId} with reason: ${reason}`);
+      // Convert email to database ID if needed
+      let databaseUserId = userId;
+      
+      // Check if userId is an email (contains @) or UUID (contains -)
+      const isEmail = userId.includes('@');
+      const isUUID = userId.includes('-') && !userId.includes('@');
+      
+      if (isEmail) {
+        // If it's an email, find the user by email to get the database ID
+        const user = await this.userRepository.findByEmail(userId);
+        if (!user) {
+          throw new Error(`User not found for email: ${userId}`);
+        }
+        databaseUserId = user.id;
+      } else if (!isUUID) {
+        // If it's neither email nor UUID, try to find by Azure AD Object ID
+        const user = await this.userRepository.findByAzureAdObjectId(userId);
+        if (!user) {
+          throw new Error(`User not found for ID: ${userId}`);
+        }
+        databaseUserId = user.id;
+      }
+      
+      await this.streamingSessionRepository.stopStreamingSession(databaseUserId, reason);
+      console.log(`Streaming session stopped for user ${userId} (DB ID: ${databaseUserId}) with reason: ${reason}`);
     } catch (error) {
       console.error(`Failed to stop streaming session for user ${userId}:`, error);
       throw error;
