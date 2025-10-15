@@ -36,9 +36,9 @@ const DatabaseStatus: AzureFunction = withErrorHandler(
           ORDER BY connections DESC
         `;
         
-        const totalCurrent = currentConn.reduce((sum: number, conn: any) => sum + parseInt(conn.connections), 0);
-        const maxConnections = parseInt(maxConn[0].max_connections);
-        const reservedConnections = parseInt(reservedConn[0].reserved_connections);
+        const totalCurrent = (currentConn as any[]).reduce((sum: number, conn: any) => sum + parseInt(conn.connections), 0);
+        const maxConnections = parseInt((maxConn as any[])[0].max_connections);
+        const reservedConnections = parseInt((reservedConn as any[])[0].reserved_connections);
         const availableForApps = maxConnections - reservedConnections;
         
         return ok(ctx, {
