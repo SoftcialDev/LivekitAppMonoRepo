@@ -5,13 +5,16 @@ import { useHeader } from '@/app/providers/HeaderContext';
 import { useAuth } from '@/shared/auth/useAuth';
 import { useUserInfo } from '@/shared/hooks/useUserInfo';
 import { usePresenceStore } from '@/shared/presence/usePresenceStore';
+import { useUserWithSupervisor } from '@/shared/presence/usePresenceSelectors';
 import { PSOWithStatus } from '@/shared/types/PsosWithStatus';
 import { Dropdown } from '@/shared/ui/Dropdown';
 import Loading from '@/shared/ui/Loading';
 import { SearchableDropdown } from '@/shared/ui/SearchableDropdown';
-import VideoCard from './Video/components/VideoCard';
-import { useMultiUserStreams } from './Video/hooks/useMultiUserStreams';
+import SimpleVideoCard from './Video/components/SimpleVideoCard';
+import { useIsolatedStreams } from './Video/hooks/useIsolatedStreams';
 import { useVideoActions } from './Video/hooks/UseVideoAction';
+import { useVideoCardOptimization } from './Video/hooks/useVideoCardOptimization';
+import { useStablePSOs } from './Video/hooks/useStablePSOs';
 
 
 const LAYOUT_OPTIONS = [1,2,3,4,5,6,9,12,20,200] as const;
@@ -83,108 +86,16 @@ const PSOsPage: React.FC = () => {
   /* ------------------------------------------------------------------ */
   /* 2️⃣ Presence data (already initialized by layout)                   */
   /* ------------------------------------------------------------------ */
-  // Memoized selectors to prevent unnecessary re-renders
+  // ✅ OPTIMIZADO: Selectores específicos que NO causan re-renders globales
   const onlineUsers = usePresenceStore(useCallback(s => s.onlineUsers, []));
-  const offlineUsers = usePresenceStore(useCallback(s => s.offlineUsers, []));
   const presenceLoading = usePresenceStore(useCallback(s => s.loading, []));
   const presenceError = usePresenceStore(useCallback(s => s.error, []));
 
   /* ------------------------------------------------------------------ */
-  /* 3️⃣ Build PSO list                                                 */
+  /* 3️⃣ Build PSO list - ESTABLE                                         */
   /* ------------------------------------------------------------------ */
-
-  const allPsos: PSOWithStatus[] = useMemo(() => {
-    console.log('🔍 [PSOsVideoPage] Building allPsos with data:', {
-      onlineUsersCount: onlineUsers.length,
-      viewerEmail,
-      viewerRole,
-      viewerId,
-      userInfo
-    });
-
-    const decorate = (u: UserStatus): PSOWithStatus => {
-      console.log('🔍 [PSOsVideoPage] Decorating user:', {
-        email: u.email,
-        supervisorId: u.supervisorId,
-        supervisorEmail: u.supervisorEmail,
-        hasSupervisorEmail: !!u.supervisorEmail,
-        hasSupervisorId: !!u.supervisorId
-      });
-      
-      // If we have supervisorId but no supervisorEmail, try to find it in the presence store
-      let supervisorName = u.supervisorEmail || (u.supervisorId ? 'Supervisor Assigned' : '—');
-      
-      if (u.supervisorId && !u.supervisorEmail) {
-        // Look for the supervisor in the presence store
-        const supervisor = onlineUsers.find(user => 
-          user.azureAdObjectId === u.supervisorId || 
-          user.email === u.supervisorId ||
-          user.supervisorId === u.supervisorId
-        );
-        
-        if (supervisor) {
-          supervisorName = supervisor.email;
-          console.log(`🔍 [PSOsVideoPage] Found supervisor for ${u.email}: ${supervisor.email}`);
-        } else {
-          console.log(`🔍 [PSOsVideoPage] Supervisor not found in presence store for ${u.email} with supervisorId: ${u.supervisorId}`);
-        }
-      }
-      
-      return {
-        email:    u.email,
-        fullName: u.fullName ?? u.name ?? u.email,
-        name:     u.fullName ?? u.name ?? u.email,
-        status:   (u.status === 'online' ? 'online' : 'offline') as PSOWithStatus['status'],
-        isOnline: u.status === 'online',
-        supervisorName,
-      };
-    };
-
-    // Filter based on viewer role
-    const filteredUsers = onlineUsers.filter(u => {
-      console.log('🔍 [PSOsVideoPage] Checking user:', {
-        email: u.email,
-        role: u.role,
-        status: u.status,
-        isSelf: u.email.toLowerCase() === viewerEmail.toLowerCase(),
-        isEmployee: u.role === 'Employee'
-      });
-
-      // Don't show self
-      if (u.email.toLowerCase() === viewerEmail.toLowerCase()) {
-        console.log('🔍 [PSOsVideoPage] Skipping self:', u.email);
-        return false;
-      }
-      
-      // Only show employees (including those with undefined role, assuming they are employees)
-      if (u.role !== 'Employee' && u.role !== undefined) {
-        console.log('🔍 [PSOsVideoPage] Skipping non-employee:', u.email, u.role);
-        return false;
-      }
-      
-      // TEMPORARY: Show all employees until role detection is fixed
-      // TODO: Fix role detection to properly identify SuperAdmin
-      console.log('🔍 [PSOsVideoPage] Including employee:', {
-        email: u.email,
-        role: u.role,
-        viewerRole,
-        willShow: true
-      });
-      
-      return true; // Show all employees for now
-    });
-
-    console.log('🔍 [PSOsVideoPage] Filtered users count:', filteredUsers.length);
-
-    const result = filteredUsers
-      .map(decorate)
-      .sort((a, b) => Number(b.isOnline) - Number(a.isOnline));
-      
-    console.log('🔍 [PSOsVideoPage] Final result count:', result.length);
-    console.log('🔍 [PSOsVideoPage] Final result:', result.map(p => ({ email: p.email, isOnline: p.isOnline })));
-    
-    return result;
-  }, [onlineUsers, viewerEmail, viewerRole, viewerId, userInfo]);
+  // ✅ OPTIMIZADO: Hook estable que NO causa re-renders innecesarios
+  const allPsos = useStablePSOs(viewerEmail, viewerRole || undefined);
 
   /* ------------------------------------------------------------------ */
   /* 4️⃣ Pinned PSOs (dropdown) — persisted                              */
@@ -229,17 +140,14 @@ useEffect(() => {
     return allPsos.map(p => p.email.toLowerCase());
   }, [allPsos]);
 
-  const rawCredsMap = useMultiUserStreams(viewerEmail, targetEmails);
+  const rawCredsMap = useIsolatedStreams(viewerEmail, targetEmails);
   
   // Usar credsMap directamente sin memoización problemática
   const credsMap = rawCredsMap;
   
   const { handlePlay, handleStop, handleChat } = useVideoActions();
-
-  // Función estable para onToggle que no cambia entre renders
-  const createToggleHandler = useCallback((email: string, isLive: boolean) => {
-    return () => isLive ? handleStop(email) : handlePlay(email);
-  }, [handleStop, handlePlay]);
+  
+  // ✅ OPTIMIZACIÓN: Ya no necesitamos handlers aquí, el componente optimizado los maneja
 
   /* ------------------------------------------------------------------ */
   /* 7️⃣ Compute display list                                             */
@@ -366,20 +274,15 @@ const displayList = useMemo(() => {
                   className={`video-card-wrapper w-full h-full ${alignClass}`}
                   style={itemStyle}
                 >
-                  <VideoCard
-                    // 🚫 sin key aquí para evitar re-mounts por claves anidadas
-                    name={`${p.fullName} — Supervisor: ${p.supervisorName}`}
+                  <SimpleVideoCard
                     email={p.email}
+                    name={`${p.fullName} — Supervisor: ${p.supervisorName}`}
                     accessToken={c.accessToken}
                     roomName={c.roomName}
                     livekitUrl={c.livekitUrl}
                     shouldStream={isLive}
                     connecting={connecting}
                     disableControls={!p.isOnline || connecting}
-                    onToggle={createToggleHandler(p.email, isLive)}
-                    onPlay={handlePlay}
-                    onStop={handleStop}
-                    onChat={handleChat}
                     className="w-full h-full"
                   />
                 </div>

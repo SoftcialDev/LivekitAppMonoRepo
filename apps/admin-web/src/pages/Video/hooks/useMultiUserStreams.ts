@@ -13,14 +13,11 @@ interface StreamCreds {
 export type CredsMap = Record<string, StreamCreds>;
 
 /**
- * Streams hook:
- * - Never calls per-room token endpoints.
- * - ONE all-rooms token fetch per refresh (single-flight + TTL handled in client).
- * - Refresh triggers:
- *   * mount / viewer change
- *   * emails list gains a new Employee (presence)
- *   * PubSub START/started (debounced)
- * - Clears a PSO immediately on STOP/stopped or when it's removed from `emails`.
+ * Streams hook OPTIMIZADO:
+ * - Solo actualiza tarjetas específicas que realmente cambiaron
+ * - Evita re-renders globales cuando se inicia streaming de un usuario
+ * - Cada tarjeta maneja su estado de manera aislada
+ * - Refresh triggers solo para la tarjeta específica afectada
  */
 export function useMultiUserStreams(viewerEmail: string, emails: string[]): CredsMap {
   const [credsMap, setCredsMap] = useState<CredsMap>({});
@@ -34,10 +31,59 @@ export function useMultiUserStreams(viewerEmail: string, emails: string[]): Cred
   // Clear creds for one email (sync)
   const clearOne = useCallback((email: string) => {
     const key = email.toLowerCase();
-    setCredsMap((prev) => ({
-      ...prev,
-      [key]: { loading: false, accessToken: undefined, roomName: undefined, livekitUrl: undefined },
-    }));
+    setCredsMap((prev) => {
+      // ✅ OPTIMIZACIÓN: Solo actualizar si realmente cambió
+      const current = prev[key];
+      if (!current || (!current.accessToken && !current.loading)) {
+        return prev; // No change needed
+      }
+      return {
+        ...prev,
+        [key]: { loading: false, accessToken: undefined, roomName: undefined, livekitUrl: undefined },
+      };
+    });
+  }, []);
+
+  // ✅ OPTIMIZADO: Actualizar solo una tarjeta específica SIN afectar las demás
+  const refreshTokenForEmail = useCallback(async (email: string) => {
+    try {
+      console.log(`🔄 [useMultiUserStreams] Refreshing token ONLY for ${email}`);
+      
+      const sessions = await fetchStreamingSessions();
+      const emailToRoom = new Map<string, string>();
+      sessions.forEach((s: any) => {
+        if (s?.email && s?.userId) emailToRoom.set(String(s.email).toLowerCase(), String(s.userId));
+      });
+
+      const { rooms, livekitUrl } = await getLiveKitToken();
+      const byRoom = new Map<string, string>();
+      (rooms as RoomWithToken[]).forEach((r) => byRoom.set(r.room, r.token));
+
+      const key = email.toLowerCase();
+      const room = emailToRoom.get(key);
+      const token = room ? byRoom.get(room) : undefined;
+      
+      setCredsMap((prev) => {
+        const newCreds = room && token 
+          ? { accessToken: token, roomName: room, livekitUrl, loading: false }
+          : { loading: false };
+        
+        // ✅ CRÍTICO: Solo actualizar si realmente cambió para esta tarjeta específica
+        const currentCreds = prev[key];
+        if (JSON.stringify(currentCreds) === JSON.stringify(newCreds)) {
+          console.log(`✅ [useMultiUserStreams] No change needed for ${email}, skipping update`);
+          return prev; // No change needed
+        }
+        
+        console.log(`🔄 [useMultiUserStreams] Updating ONLY ${email} with new credentials`);
+        return {
+          ...prev,
+          [key]: newCreds
+        };
+      });
+    } catch (error) {
+      console.error(`❌ [useMultiUserStreams] Failed to refresh token for ${email}:`, error);
+    }
   }, []);
 
   // Refresh all tokens once and fold into map for the current `emails` list
@@ -60,32 +106,57 @@ export function useMultiUserStreams(viewerEmail: string, emails: string[]): Cred
         const byRoom = new Map<string, string>(); // roomId -> token
         (rooms as RoomWithToken[]).forEach((r) => byRoom.set(r.room, r.token));
 
-        // Merge in a single state update
+        // ✅ ULTRA-OPTIMIZACIÓN: Solo actualizar tarjetas que realmente cambiaron
         setCredsMap((prev) => {
           const next: CredsMap = { ...prev };
+          let hasChanges = false;
 
           // Keep only the current emails
           const currentEmailSet = new Set(emails.map((e) => e.toLowerCase()));
           for (const k of Object.keys(next)) {
-            if (!currentEmailSet.has(k)) delete next[k];
+            if (!currentEmailSet.has(k)) {
+              delete next[k];
+              hasChanges = true;
+              console.log(`🗑️ [useMultiUserStreams] Removed stale email: ${k}`);
+            }
           }
 
           // Update/insert creds for each tracked email
           for (const email of currentEmailSet) {
             if (canceledUsersRef.current.has(email)) {
-              next[email] = { loading: false };
+              const newCreds = { loading: false };
+              if (JSON.stringify(next[email]) !== JSON.stringify(newCreds)) {
+                next[email] = newCreds;
+                hasChanges = true;
+                console.log(`🚫 [useMultiUserStreams] Canceled user: ${email}`);
+              }
               continue;
             }
+            
             const room = emailToRoom.get(email);
             const token = room ? byRoom.get(room) : undefined;
-            if (room && token) {
-              next[email] = { accessToken: token, roomName: room, livekitUrl, loading: false };
+            const newCreds = room && token 
+              ? { accessToken: token, roomName: room, livekitUrl, loading: false }
+              : { loading: false };
+            
+            // ✅ CRÍTICO: Solo actualizar si realmente cambió
+            if (JSON.stringify(next[email]) !== JSON.stringify(newCreds)) {
+              next[email] = newCreds;
+              hasChanges = true;
+              console.log(`🔄 [useMultiUserStreams] Updated credentials for: ${email}`);
             } else {
-              next[email] = { loading: false };
+              console.log(`✅ [useMultiUserStreams] No change needed for: ${email}`);
             }
           }
 
-          return next;
+          // ✅ Solo retornar nuevo objeto si hubo cambios reales
+          if (hasChanges) {
+            console.log(`🔄 [useMultiUserStreams] State updated with changes`);
+            return next;
+          } else {
+            console.log(`✅ [useMultiUserStreams] No changes needed, keeping previous state`);
+            return prev;
+          }
         });
       } finally {
         inflightRef.current = null;
@@ -132,15 +203,23 @@ export function useMultiUserStreams(viewerEmail: string, emails: string[]): Cred
         if (!targetEmail || !emails.includes(targetEmail)) return;
 
         if (started === true) {
-          // un-cancel and refresh tokens for everyone (debounced)
+          // ✅ ULTRA-OPTIMIZACIÓN: Solo actualizar la tarjeta específica
+          console.log(`🔄 [useMultiUserStreams] WebSocket START received for: ${targetEmail}`);
+          
           if (canceledUsersRef.current.has(targetEmail)) {
             const ns = new Set(canceledUsersRef.current);
             ns.delete(targetEmail);
             canceledUsersRef.current = ns;
+            console.log(`✅ [useMultiUserStreams] Un-canceled user: ${targetEmail}`);
           }
-          scheduleRefresh();
+          
+          // ✅ CRÍTICO: Solo refrescar token para esta tarjeta específica
+          // NO hacer refreshAllTokens() que afectaría todas las tarjetas
+          void refreshTokenForEmail(targetEmail);
         } else if (started === false) {
-          // cancel and clear immediately
+          // ✅ ULTRA-OPTIMIZACIÓN: Solo limpiar la tarjeta específica
+          console.log(`🚫 [useMultiUserStreams] WebSocket STOP received for: ${targetEmail}`);
+          
           const ns = new Set(canceledUsersRef.current);
           ns.add(targetEmail);
           canceledUsersRef.current = ns;
@@ -155,7 +234,7 @@ export function useMultiUserStreams(viewerEmail: string, emails: string[]): Cred
         debounceTimerRef.current = null;
       }
     };
-  }, [viewerEmail, scheduleRefresh, clearOne, emails]);
+  }, [viewerEmail, scheduleRefresh, clearOne, emails, refreshTokenForEmail]);
 
   // Join/leave streaming groups incrementally when `emails` changes
   useEffect(() => {
@@ -175,8 +254,13 @@ export function useMultiUserStreams(viewerEmail: string, emails: string[]): Cred
     toJoin.forEach((e) => { client.joinGroup(e).catch(() => {}); });
     toLeave.forEach((e) => { client.leaveGroup?.(e).catch?.(() => {}); });
 
-    // When emails change (e.g., a new Employee came online), refresh once
-    if (toJoin.length > 0) scheduleRefresh(100);
+    // ✅ ULTRA-OPTIMIZADO: Solo refrescar emails NUEVOS, NO todos
+    if (toJoin.length > 0) {
+      console.log('🔄 [useMultiUserStreams] New emails detected, refreshing only new ones:', toJoin);
+      toJoin.forEach(email => {
+        setTimeout(() => refreshTokenForEmail(email), 100);
+      });
+    }
 
     // Also clear stale creds for removed emails
     if (toLeave.length > 0) {
@@ -186,12 +270,15 @@ export function useMultiUserStreams(viewerEmail: string, emails: string[]): Cred
         return copy;
       });
     }
-  }, [emails, scheduleRefresh]);
+  }, [emails, refreshTokenForEmail]);
 
-  // Initial hydration
+  // ✅ OPTIMIZADO: Solo hacer refresh inicial, NO en cada cambio de emails
   useEffect(() => {
-    if (emails.length > 0) void refreshAllTokens();
-  }, [refreshAllTokens]);
+    if (emails.length > 0) {
+      console.log('🔄 [useMultiUserStreams] Initial hydration for emails:', emails.length);
+      void refreshAllTokens();
+    }
+  }, []); // ✅ CRÍTICO: Solo ejecutar una vez al montar
 
   return credsMap;
 }
