@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from './useAuth';
+import { UserInfoService } from '../services/UserInfoService';
+import { getCurrentUser } from '../api/userInfoClient';
 
 /**
  * Hook to get the current user's role
@@ -18,22 +20,37 @@ export function useUserRole() {
       return;
     }
 
-    // For now, we'll determine role based on email patterns or other logic
-    // This is a temporary solution - ideally we'd get this from the backend
-    const determineRole = () => {
-      // You can implement your own logic here to determine the role
-      // For example, based on email domain, or by calling an API
-      return 'Supervisor'; // Default for now
+    const loadUserRole = async () => {
+      try {
+        setLoading(true);
+        
+        // First, try to get from localStorage
+        const cachedUserInfo = UserInfoService.load();
+        if (cachedUserInfo?.role) {
+          setRole(cachedUserInfo.role);
+          setLoading(false);
+          return;
+        }
+
+        // If not in cache, fetch from API
+        const userInfo = await getCurrentUser();
+        if (userInfo?.role) {
+          // Cache the user info
+          UserInfoService.save(userInfo);
+          setRole(userInfo.role);
+        } else {
+          setRole(null);
+        }
+      } catch (err: any) {
+        console.error('Failed to load user role:', err);
+        setError(err.message);
+        setRole(null);
+      } finally {
+        setLoading(false);
+      }
     };
 
-    try {
-      const userRole = determineRole();
-      setRole(userRole);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
+    loadUserRole();
   }, [account, initialized]);
 
   return { role, loading, error };

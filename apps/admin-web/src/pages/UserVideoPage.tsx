@@ -35,21 +35,12 @@ const UserVideoPage: React.FC = () => {
 
   const [supervisorName, setSupervisorName] = useState<string | null>(null);
 
-  const loadSnapshot        = usePresenceStore(s => s.loadSnapshot);
-  const connectWebSocket    = usePresenceStore(s => s.connectWebSocket);
-  const disconnectWebSocket = usePresenceStore(s => s.disconnectWebSocket);
+  // Presence store state (already initialized by main layout)
   const streamingMap        = usePresenceStore(s => s.streamingMap);
   const presenceLoading     = usePresenceStore(s => s.loading);
   const onlineUsers         = usePresenceStore(s => s.onlineUsers);
   const isConnected         = onlineUsers.some(u => u.email === targetEmail);
   const presenceError       = usePresenceStore(s => s.error);
-
-  // Fetch initial presence and open WebSocket
-  useEffect(() => {
-    loadSnapshot();
-    connectWebSocket(viewerEmail);
-    return () => void disconnectWebSocket();
-  }, [loadSnapshot, connectWebSocket, disconnectWebSocket, viewerEmail]);
 
   // Lookup the PSO’s supervisor once on mount
   useEffect(() => {

@@ -58,18 +58,46 @@ export const usePresenceStore = create<PresenceState>((set, get) => {
       // Mark current user as online (best-effort)
       await presenceClient.setOnline().catch(() => {});
 
-      // Listen only to presence messages
-      svc.onMessage<any>((msg) => {
-        if (msg?.type !== 'presence' || !msg?.user) return;
-        const u = msg.user as UserStatus;
-        const isOnline = u.status === 'online';
+        // Listen only to presence messages
+        svc.onMessage<any>((msg) => {
+          console.log('🔌 [usePresenceStore] WebSocket message received:', {
+            type: msg?.type,
+            hasUser: !!msg?.user,
+            userEmail: msg?.user?.email,
+            userRole: msg?.user?.role,
+            userStatus: msg?.user?.status
+          });
+
+          if (msg?.type !== 'presence' || !msg?.user) {
+            console.log('🔌 [usePresenceStore] Ignoring message (not presence or no user)');
+            return;
+          }
+          
+          const u = msg.user as UserStatus;
+          const isOnline = u.status === 'online';
+          console.log('🔌 [usePresenceStore] Processing presence update:', {
+            email: u.email,
+            role: u.role,
+            status: u.status,
+            isOnline
+          });
 
         set((state) => {
           const wasOnline = state.onlineUsers.some((x) => x.email === u.email);
           const wasOffline = state.offlineUsers.some((x) => x.email === u.email);
 
+          console.log('🔌 [usePresenceStore] Current state check:', {
+            wasOnline,
+            wasOffline,
+            currentOnlineCount: state.onlineUsers.length,
+            currentOfflineCount: state.offlineUsers.length
+          });
+
           // No change → skip set()
-          if ((isOnline && wasOnline) || (!isOnline && wasOffline)) return state;
+          if ((isOnline && wasOnline) || (!isOnline && wasOffline)) {
+            console.log('🔌 [usePresenceStore] No change needed, skipping update');
+            return state;
+          }
 
           const onlineUsers = isOnline
             ? wasOnline
@@ -82,6 +110,13 @@ export const usePresenceStore = create<PresenceState>((set, get) => {
               ? state.offlineUsers
               : [...state.offlineUsers, u]
             : state.offlineUsers.filter((x) => x.email !== u.email);
+
+          console.log('🔌 [usePresenceStore] State update:', {
+            newOnlineCount: onlineUsers.length,
+            newOfflineCount: offlineUsers.length,
+            addedUser: isOnline ? u.email : null,
+            removedUser: !isOnline ? u.email : null
+          });
 
           return { onlineUsers, offlineUsers };
         });

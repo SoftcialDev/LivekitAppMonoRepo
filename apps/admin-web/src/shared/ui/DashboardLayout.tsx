@@ -41,27 +41,13 @@ const Layout: React.FC<LayoutProps> = () => {
    */
   const handleToggleCollapse = () => setIsCollapsed(prev => !prev);
 
-  // Presence store actions
-  const loadSnapshot = usePresenceStore(s => s.loadSnapshot);
-  const connectWebSocket = usePresenceStore(s => s.connectWebSocket);
-  const disconnectWebSocket = usePresenceStore(s => s.disconnectWebSocket);
-
-  // Presence store state
+  // Presence store state (already initialized by main layout)
   const rawOnlineUsers = usePresenceStore(s => s.onlineUsers);
   const rawOfflineUsers = usePresenceStore(s => s.offlineUsers);
 
   // Exclude self from sidebar
   const onlineUsers = rawOnlineUsers.filter(u => u.email !== currentEmail);
   const offlineUsers = rawOfflineUsers.filter(u => u.email !== currentEmail);
-
-  useEffect(() => {
-    if (!currentEmail) return;
-    loadSnapshot();
-    connectWebSocket(currentEmail);
-    return () => {
-      disconnectWebSocket();
-    };
-  }, [currentEmail, loadSnapshot, connectWebSocket, disconnectWebSocket]);
 
   return (
     <HeaderProvider>

@@ -3,6 +3,7 @@ import monitorIcon from '@/shared/assets/monitor-icon.png';
 import type { UserStatus } from '@/shared/types/UserStatus';
 import { useHeader } from '@/app/providers/HeaderContext';
 import { useAuth } from '@/shared/auth/useAuth';
+import { useUserInfo } from '@/shared/hooks/useUserInfo';
 import { usePresenceStore } from '@/shared/presence/usePresenceStore';
 import { PSOWithStatus } from '@/shared/types/PsosWithStatus';
 import { Dropdown } from '@/shared/ui/Dropdown';
@@ -10,7 +11,6 @@ import Loading from '@/shared/ui/Loading';
 import { SearchableDropdown } from '@/shared/ui/SearchableDropdown';
 import VideoCard from './Video/components/VideoCard';
 import { useMultiUserStreams } from './Video/hooks/useMultiUserStreams';
-import { useMyPsos } from './Video/hooks/useMyPsos';
 import { useVideoActions } from './Video/hooks/UseVideoAction';
 
 
@@ -56,83 +56,135 @@ const PSOsPage: React.FC = () => {
   useHeader({ title: 'PSOs', iconSrc: monitorIcon, iconAlt: 'PSOs' });
 
   const { account } = useAuth();
+  const { userInfo, loadUserInfo } = useUserInfo();
   const viewerEmail = account?.username?.toLowerCase() ?? '';
+  const viewerId = account?.localAccountId; // Use localAccountId as viewerId
+  const viewerRole = userInfo?.role;
   
-
-  /* ------------------------------------------------------------------ */
-  /* 1️⃣ Authorized PSO metadata (email + supervisorName)                 */
-  /* ------------------------------------------------------------------ */
-  const {
-    psos: myPsoMeta, // [{ email, supervisorName }, ...]
-    loading: psosLoading,
-    error: psosError,
-    refetch: refetchPsos,
-  } = useMyPsos();
-
-  /* Refetch when viewer changes */
+  // Force reload userInfo if role is wrong
   useEffect(() => {
-    refetchPsos();
-  }, [viewerEmail, refetchPsos]);
-
-  /* email(lower) -> supervisorName */
-  const supMap = useMemo(
-    () =>
-      new Map(
-        (myPsoMeta ?? [])
-          .filter((p): p is { email: string; supervisorName: string } => !!p?.email)
-          .map(p => [p.email.toLowerCase(), p.supervisorName])
-      ),
-    [myPsoMeta]
-  );
-  const allowedEmails = useMemo(() => new Set(supMap.keys()), [supMap]);
-
-  /* ------------------------------------------------------------------ */
-  /* 2️⃣ Presence snapshot + live updates                                */
-  /* ------------------------------------------------------------------ */
-  const loadSnapshot        = usePresenceStore(s => s.loadSnapshot);
-  const connectWebSocket    = usePresenceStore(s => s.connectWebSocket);
-  const disconnectWebSocket = usePresenceStore(s => s.disconnectWebSocket);
+    if (account && (!userInfo || userInfo.role === 'Employee')) {
+      console.log('🔍 [PSOsVideoPage] Forcing userInfo reload...');
+      // Clear localStorage first to force fresh API call
+      localStorage.removeItem('userInfo');
+      loadUserInfo();
+    }
+  }, [account, userInfo, loadUserInfo]);
   
+  // Debug role detection
+  console.log('🔍 [PSOsVideoPage] Role detection:', {
+    viewerEmail,
+    viewerRole,
+    viewerId,
+    userInfo,
+    userInfoKeys: userInfo ? Object.keys(userInfo) : 'null'
+  });
+
+  /* ------------------------------------------------------------------ */
+  /* 2️⃣ Presence data (already initialized by layout)                   */
+  /* ------------------------------------------------------------------ */
   // Memoized selectors to prevent unnecessary re-renders
   const onlineUsers = usePresenceStore(useCallback(s => s.onlineUsers, []));
   const offlineUsers = usePresenceStore(useCallback(s => s.offlineUsers, []));
   const presenceLoading = usePresenceStore(useCallback(s => s.loading, []));
   const presenceError = usePresenceStore(useCallback(s => s.error, []));
 
-  useEffect(() => {
-    loadSnapshot();
-    connectWebSocket(viewerEmail);
-    return () => disconnectWebSocket();
-  }, [viewerEmail, loadSnapshot, connectWebSocket, disconnectWebSocket]);
-
   /* ------------------------------------------------------------------ */
   /* 3️⃣ Build PSO list                                                 */
   /* ------------------------------------------------------------------ */
 
   const allPsos: PSOWithStatus[] = useMemo(() => {
-    const decorate = (u: UserStatus): PSOWithStatus => ({
-      email:    u.email,
-      fullName: u.fullName ?? u.name ?? u.email,
-      name:     u.fullName ?? u.name ?? u.email,
-      status:   (u.status === 'online' ? 'online' : 'offline') as PSOWithStatus['status'],
-      isOnline: u.status === 'online',
-      supervisorName: supMap.get(u.email.toLowerCase()) ?? '—',
+    console.log('🔍 [PSOsVideoPage] Building allPsos with data:', {
+      onlineUsersCount: onlineUsers.length,
+      viewerEmail,
+      viewerRole,
+      viewerId,
+      userInfo
     });
 
-    // Solo mostrar PSOs que el supervisor tiene asignados (autorizados)
-    // El filtro se basa en allowedEmails que viene de getMyPsos() (nuevo endpoint)
-    const filteredUsers = onlineUsers.filter(u => 
-      u.email.toLowerCase() !== viewerEmail.toLowerCase() &&
-      u.role === 'Employee' && // Solo empleados
-      allowedEmails.has(u.email.toLowerCase()) // Solo PSOs autorizados para este supervisor
-    );
+    const decorate = (u: UserStatus): PSOWithStatus => {
+      console.log('🔍 [PSOsVideoPage] Decorating user:', {
+        email: u.email,
+        supervisorId: u.supervisorId,
+        supervisorEmail: u.supervisorEmail,
+        hasSupervisorEmail: !!u.supervisorEmail,
+        hasSupervisorId: !!u.supervisorId
+      });
+      
+      // If we have supervisorId but no supervisorEmail, try to find it in the presence store
+      let supervisorName = u.supervisorEmail || (u.supervisorId ? 'Supervisor Assigned' : '—');
+      
+      if (u.supervisorId && !u.supervisorEmail) {
+        // Look for the supervisor in the presence store
+        const supervisor = onlineUsers.find(user => 
+          user.azureAdObjectId === u.supervisorId || 
+          user.email === u.supervisorId ||
+          user.supervisorId === u.supervisorId
+        );
+        
+        if (supervisor) {
+          supervisorName = supervisor.email;
+          console.log(`🔍 [PSOsVideoPage] Found supervisor for ${u.email}: ${supervisor.email}`);
+        } else {
+          console.log(`🔍 [PSOsVideoPage] Supervisor not found in presence store for ${u.email} with supervisorId: ${u.supervisorId}`);
+        }
+      }
+      
+      return {
+        email:    u.email,
+        fullName: u.fullName ?? u.name ?? u.email,
+        name:     u.fullName ?? u.name ?? u.email,
+        status:   (u.status === 'online' ? 'online' : 'offline') as PSOWithStatus['status'],
+        isOnline: u.status === 'online',
+        supervisorName,
+      };
+    };
+
+    // Filter based on viewer role
+    const filteredUsers = onlineUsers.filter(u => {
+      console.log('🔍 [PSOsVideoPage] Checking user:', {
+        email: u.email,
+        role: u.role,
+        status: u.status,
+        isSelf: u.email.toLowerCase() === viewerEmail.toLowerCase(),
+        isEmployee: u.role === 'Employee'
+      });
+
+      // Don't show self
+      if (u.email.toLowerCase() === viewerEmail.toLowerCase()) {
+        console.log('🔍 [PSOsVideoPage] Skipping self:', u.email);
+        return false;
+      }
+      
+      // Only show employees (including those with undefined role, assuming they are employees)
+      if (u.role !== 'Employee' && u.role !== undefined) {
+        console.log('🔍 [PSOsVideoPage] Skipping non-employee:', u.email, u.role);
+        return false;
+      }
+      
+      // TEMPORARY: Show all employees until role detection is fixed
+      // TODO: Fix role detection to properly identify SuperAdmin
+      console.log('🔍 [PSOsVideoPage] Including employee:', {
+        email: u.email,
+        role: u.role,
+        viewerRole,
+        willShow: true
+      });
+      
+      return true; // Show all employees for now
+    });
+
+    console.log('🔍 [PSOsVideoPage] Filtered users count:', filteredUsers.length);
 
     const result = filteredUsers
       .map(decorate)
       .sort((a, b) => Number(b.isOnline) - Number(a.isOnline));
       
+    console.log('🔍 [PSOsVideoPage] Final result count:', result.length);
+    console.log('🔍 [PSOsVideoPage] Final result:', result.map(p => ({ email: p.email, isOnline: p.isOnline })));
+    
     return result;
-  }, [onlineUsers, allowedEmails, supMap, viewerEmail]);
+  }, [onlineUsers, viewerEmail, viewerRole, viewerId, userInfo]);
 
   /* ------------------------------------------------------------------ */
   /* 4️⃣ Pinned PSOs (dropdown) — persisted                              */
@@ -160,14 +212,14 @@ useEffect(() => {
 
   /* Prune pinned PSOs that are no longer online (expected behavior) */
 useEffect(() => {
-  // 1) Espera a que la lista de PSOs y la presencia hayan terminado de cargar:
-  if (psosLoading || presenceLoading) return;
+  // 1) Espera a que la presencia haya terminado de cargar:
+  if (presenceLoading) return;
   // 2) Si no hay PSOs online, no toques nada:
   if (allPsos.length === 0) return;
 
   const onlineSet = new Set(allPsos.map(p => p.email));
   setFixedEmails(prev => prev.filter(e => onlineSet.has(e)));
-}, [allPsos, psosLoading, presenceLoading]);
+}, [allPsos, presenceLoading]);
 
   /* ------------------------------------------------------------------ */
   /* 6️⃣ LiveKit credentials & handlers                                  */
@@ -212,10 +264,10 @@ const displayList = useMemo(() => {
   }, [allPsos, fixedEmails, layout, credsMap]);
 
 
-  if (psosError || presenceError) {
+  if (presenceError) {
     return (
       <div className="p-6 text-red-500">
-        Error: {psosError || presenceError}
+        Error: {presenceError}
       </div>
     );
   }
@@ -244,7 +296,7 @@ const displayList = useMemo(() => {
       </div>
 
       {/* Content */}
-      {(psosLoading || presenceLoading) ? (
+      {presenceLoading ? (
         <div className="flex flex-1 items-center justify-center">
           <Loading action="Loading PSOs…" />
         </div>

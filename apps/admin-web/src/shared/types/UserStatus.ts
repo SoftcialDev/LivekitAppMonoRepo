@@ -9,5 +9,6 @@ export interface UserStatus {
   lastSeenAt?: string;  
   role?:           'Admin' | 'Supervisor' | 'Employee' | 'ContactManager' | 'SuperAdmin'; 
   cmStatus?: ManagerStatus;
-  
+  supervisorId?: string | null;
+  supervisorEmail?: string | null;
 }

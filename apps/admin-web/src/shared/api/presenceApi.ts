@@ -8,6 +8,8 @@ interface PresenceItem {
   status:     'online' | 'offline'
   lastSeenAt: string
   role?:         'Admin' | 'Supervisor' | 'Employee';
+  supervisorId?: string | null;
+  supervisorEmail?: string | null;
 }
 
 /** Shape of the paged presence response */
@@ -87,6 +89,8 @@ export async function fetchPresence(): Promise<{
       name:       u.fullName, 
       role:            u.role,  
       azureAdObjectId: (u as any).azureAdObjectId ?? null,
+      supervisorId:    u.supervisorId ?? null,
+      supervisorEmail: u.supervisorEmail ?? null,
     }))
 
   const offline = allItems
@@ -99,6 +103,8 @@ export async function fetchPresence(): Promise<{
       name:       u.fullName, 
       role:            u.role,  
       azureAdObjectId: (u as any).azureAdObjectId ?? null,
+      supervisorId:    u.supervisorId ?? null,
+      supervisorEmail: u.supervisorEmail ?? null,
     }))
 
   return { online, offline }
