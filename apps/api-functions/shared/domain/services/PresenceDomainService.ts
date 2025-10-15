@@ -121,17 +121,33 @@ export class PresenceDomainService {
    * @private
    */
   private async findActiveUser(key: string): Promise<{ id: string; email: string; fullName: string; role: string; supervisorId: string | null; supervisorEmail: string | null }> {
-    // Try to find user by Azure AD Object ID first
-    let user = await this.userRepository.findByAzureAdObjectId(key);
+    // Check if key is an email (contains @) or UUID (contains -)
+    const isEmail = key.includes('@');
+    const isUUID = key.includes('-') && !key.includes('@');
     
-    if (!user) {
-      // Try to find by database ID
-      user = await this.userRepository.findById(key);
-    }
-
-    if (!user) {
-      // Try to find by email
+    let user = null;
+    
+    if (isEmail) {
+      // If it's an email, try to find by email first
       user = await this.userRepository.findByEmail(key);
+    } else if (isUUID) {
+      // If it's a UUID, try Azure AD Object ID first, then database ID
+      user = await this.userRepository.findByAzureAdObjectId(key);
+      
+      if (!user) {
+        user = await this.userRepository.findById(key);
+      }
+    } else {
+      // Fallback: try all methods in order
+      user = await this.userRepository.findByAzureAdObjectId(key);
+      
+      if (!user) {
+        user = await this.userRepository.findById(key);
+      }
+      
+      if (!user) {
+        user = await this.userRepository.findByEmail(key);
+      }
     }
 
     if (!user) {
