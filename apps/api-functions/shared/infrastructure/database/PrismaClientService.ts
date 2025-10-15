@@ -25,7 +25,7 @@ class PrismaClientSingleton {
       PrismaClientSingleton.instance = new PrismaClient({
         datasources: {
           db: {
-            url: process.env.DATABASE_URL + '?connection_limit=10&pool_timeout=20&connect_timeout=10'
+            url: process.env.DATABASE_URL + '?connection_limit=1&pool_timeout=20&connect_timeout=10'
           }
         },
         log: ['error', 'warn'],
