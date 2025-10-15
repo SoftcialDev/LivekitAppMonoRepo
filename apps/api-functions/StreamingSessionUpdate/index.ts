@@ -1,39 +1,25 @@
 import { Context, HttpRequest } from "@azure/functions";
-import { z } from "zod";
 import { withAuth } from "../shared/middleware/auth";
 import { withErrorHandler } from "../shared/middleware/errorHandler";
+import { withCallerId } from "../shared/middleware/callerId";
 import { withBodyValidation } from "../shared/middleware/validate";
-import { ok, badRequest, unauthorized } from "../shared/utils/response";
-import { startStreamingSession, stopStreamingSession } from "../shared/services/streamingService";
-import prisma from "../shared/services/prismaClienService";
-import { JwtPayload } from "jsonwebtoken";
-
-/**
- * Schema for validating the body of a streaming session update request.
- *
- * @remarks
- * The request body must be a JSON object with a single property `status`,
- * whose value is either `"started"` or `"stopped"`.
- */
-const schema = z.object({
-  /** Indicates whether to start or stop the streaming session. */
-  status: z.enum(["started", "stopped"]),
-  /** Optional flag to indicate if this was triggered by a command */
-  isCommand: z.boolean().optional()
-});
+import { ok } from "../shared/utils/response";
+import { ServiceContainer } from "../shared/infrastructure/container/ServiceContainer";
+import { StreamingSessionUpdateRequest } from "../shared/domain/value-objects/StreamingSessionUpdateRequest";
+import { StreamingSessionUpdateApplicationService } from "../shared/application/services/StreamingSessionUpdateApplicationService";
+import { streamingSessionUpdateSchema } from "../shared/domain/schemas/StreamingSessionUpdateSchema";
 
 /**
  * HTTP-triggered Azure Function that updates the streaming session for the authenticated user.
  *
  * - **Endpoint:** POST `/api/StreamingSessionUpdate`
  * - **Authentication:** Azure AD JWT
- * - **Request Body:** `{ status: "started" | "stopped" }`
+ * - **Request Body:** `{ status: "started" | "stopped", isCommand?: boolean }`
  * - **Behavior:**
- *   1. Validates the JWT and parses the user’s Azure AD Object ID.
- *   2. Validates the request body against the `schema`.
- *   3. Looks up the user in the database by `azureAdObjectId`.
- *   4. Calls `startStreamingSession(user.id)` if `status === "started"`.
- *      Otherwise calls `stopStreamingSession(user.id)`.
+ *   1. Validates the JWT and parses the user's Azure AD Object ID.
+ *   2. Validates the request body against the schema.
+ *   3. Looks up the user in the database by Azure AD Object ID.
+ *   4. Calls start or stop streaming session based on status.
  *   5. Returns a 200 OK response with a confirmation message.
  *
  * @param ctx - The Azure Functions execution context.
@@ -41,47 +27,26 @@ const schema = z.object({
  * @throws 401 Unauthorized if the user's identity cannot be determined or the user record is missing/deleted.
  * @throws 400 Bad Request if the streaming service call fails.
  */
-export default withErrorHandler(async (ctx: Context) => {
-  const req: HttpRequest = ctx.req!;
+export default withErrorHandler(
+  async (ctx: Context, req: HttpRequest) => {
+    await withAuth(ctx, async () => {
+      await withCallerId(ctx, async () => {
+        await withBodyValidation(streamingSessionUpdateSchema)(ctx, async () => {
+          const serviceContainer = ServiceContainer.getInstance();
+          serviceContainer.initialize();
 
-  await withAuth(ctx, async () => {
-    await withBodyValidation(schema)(ctx, async () => {
-      const { status, isCommand } = (ctx as any).bindings.validatedBody as { 
-        status: "started" | "stopped";
-        isCommand?: boolean;
-      };
+          const applicationService = serviceContainer.resolve<StreamingSessionUpdateApplicationService>('StreamingSessionUpdateApplicationService');
+          const callerId = ctx.bindings.callerId as string;
 
-      const claims = (ctx as any).bindings.user as JwtPayload;
-      const azureAdId = (claims.oid || claims.sub) as string;
-      if (!azureAdId) {
-        unauthorized(ctx, "Cannot determine user identity");
-        return;
-      }
+          const validatedBody = (ctx as any).bindings.validatedBody;
+          const request = StreamingSessionUpdateRequest.fromBody(callerId, validatedBody);
 
-      // Find user by Azure AD object ID
-      const user = await prisma.user.findUnique({
-        where: { azureAdObjectId: azureAdId }
+          const response = await applicationService.updateStreamingSession(callerId, request);
+
+          return ok(ctx, response.toPayload());
+        });
       });
-      if (!user || user.deletedAt) {
-        unauthorized(ctx, "User not found or deleted");
-        return;
-      }
-
-      try {
-        if (status === "started") {
-          await startStreamingSession(user.id);
-          ok(ctx, { message: "Streaming session started" });
-        } else {
-          // Use COMMAND reason if this was triggered by a command, otherwise DISCONNECT
-          const stopReason = isCommand ? 'COMMAND' : 'DISCONNECT';
-          ctx.log.info(`StreamingSessionUpdate: isCommand=${isCommand}, stopReason=${stopReason} for user ${azureAdId}`);
-          await stopStreamingSession(user.id, stopReason);
-          ok(ctx, { message: `Streaming session stopped (${stopReason})` });
-        }
-      } catch (err: any) {
-        ctx.log.error("StreamingSessionUpdate error:", err);
-        badRequest(ctx, `Failed to update streaming session: ${err.message}`);
-      }
     });
-  });
-});
+  },
+  { genericMessage: "Failed to update streaming session" }
+);

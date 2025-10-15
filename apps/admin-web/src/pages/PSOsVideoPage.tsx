@@ -3,7 +3,6 @@ import monitorIcon from '@/shared/assets/monitor-icon.png';
 import type { UserStatus } from '@/shared/types/UserStatus';
 import { useHeader } from '@/app/providers/HeaderContext';
 import { useAuth } from '@/shared/auth/useAuth';
-import { useUserInfo } from '@/shared/hooks/useUserInfo';
 import { usePresenceStore } from '@/shared/presence/usePresenceStore';
 import { PSOWithStatus } from '@/shared/types/PsosWithStatus';
 import { Dropdown } from '@/shared/ui/Dropdown';
@@ -16,11 +15,6 @@ import { useVideoActions } from './Video/hooks/UseVideoAction';
 
 
 const LAYOUT_OPTIONS = [1,2,3,4,5,6,9,12,20,200] as const;
-
-
-/* ------------------------------------------------------------------ */
-/* LocalStorage helpers: persist dropdown selection + layout          */
-/* ------------------------------------------------------------------ */
 
   
 const LS_PREFIX = 'psoDash';
@@ -63,6 +57,7 @@ const PSOsPage: React.FC = () => {
 
   const { account } = useAuth();
   const viewerEmail = account?.username?.toLowerCase() ?? '';
+  
 
   /* ------------------------------------------------------------------ */
   /* 1️⃣ Authorized PSO metadata (email + supervisorName)                 */
@@ -115,8 +110,6 @@ const PSOsPage: React.FC = () => {
   /* ------------------------------------------------------------------ */
 
   const allPsos: PSOWithStatus[] = useMemo(() => {
-
-
     const decorate = (u: UserStatus): PSOWithStatus => ({
       email:    u.email,
       fullName: u.fullName ?? u.name ?? u.email,
@@ -126,16 +119,16 @@ const PSOsPage: React.FC = () => {
       supervisorName: supMap.get(u.email.toLowerCase()) ?? '—',
     });
 
-    // Obtener usuarios online actuales (excluyendo al usuario actual)
-    const currentOnlineUsers = onlineUsers
-      .filter(u => 
-        allowedEmails.has(u.email.toLowerCase()) && 
-        u.email.toLowerCase() !== viewerEmail.toLowerCase()
-      )
-      .map(decorate);
+    // Solo mostrar PSOs que el supervisor tiene asignados (autorizados)
+    // El filtro se basa en allowedEmails que viene de getMyPsos() (nuevo endpoint)
+    const filteredUsers = onlineUsers.filter(u => 
+      u.email.toLowerCase() !== viewerEmail.toLowerCase() &&
+      u.role === 'Employee' && // Solo empleados
+      allowedEmails.has(u.email.toLowerCase()) // Solo PSOs autorizados para este supervisor
+    );
 
-
-    const result = currentOnlineUsers
+    const result = filteredUsers
+      .map(decorate)
       .sort((a, b) => Number(b.isOnline) - Number(a.isOnline));
       
     return result;
@@ -180,10 +173,9 @@ useEffect(() => {
   /* 6️⃣ LiveKit credentials & handlers                                  */
   /* ------------------------------------------------------------------ */
   const targetEmails = useMemo(() => {
-    return fixedEmails.length > 0
-      ? allPsos.filter(p => fixedEmails.includes(p.email)).map(p => p.email.toLowerCase())
-      : allPsos.map(p => p.email.toLowerCase());
-  }, [allPsos, fixedEmails]);
+    // Para todos los roles: mostrar todos los PSOs por defecto
+    return allPsos.map(p => p.email.toLowerCase());
+  }, [allPsos]);
 
   const rawCredsMap = useMultiUserStreams(viewerEmail, targetEmails);
   
@@ -201,10 +193,8 @@ useEffect(() => {
   /* 7️⃣ Compute display list                                             */
   /* ------------------------------------------------------------------ */
 const displayList = useMemo(() => {
-  // 1️⃣ Selecciona fijos o todos
-  const base = fixedEmails.length > 0
-    ? allPsos.filter(p => fixedEmails.includes(p.email))
-    : allPsos;
+  // 1️⃣ Para todos los roles: mostrar todos los PSOs disponibles
+  const base = allPsos;
 
   // 2️⃣ Ordena por quienes tienen token de stream primero, con sort estable
   const sortedByStreaming = [...base].sort((a, b) => {
@@ -217,7 +207,7 @@ const displayList = useMemo(() => {
   // 3️⃣ Toma solo los primeros `layout`
   const result = sortedByStreaming.slice(0, layout);
   return result;
-}, [allPsos, fixedEmails, layout, credsMap]);
+  }, [allPsos, layout, credsMap]);
 
 
   if (psosError || presenceError) {
@@ -258,7 +248,9 @@ const displayList = useMemo(() => {
         </div>
       ) : displayList.length === 0 ? (
         <div className="flex flex-1 items-center justify-center text-white">
-          No PSOs to display
+          <div className="max-w-2xl text-center px-4">
+            No PSOs to display
+          </div>
         </div>
       ) : (
         <>

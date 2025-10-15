@@ -3,10 +3,12 @@
  * @description Handles all database operations related to users
  */
 
-import prisma from '../../services/prismaClienService';
-import { UserRole } from '@prisma/client';
+import prisma from '../database/PrismaClientService';
+import { UserRole, ContactManagerStatus } from '@prisma/client';
 import { IUserRepository } from '../../domain/interfaces/IUserRepository';
 import { User } from '../../domain/entities/User';
+import { ContactManagerProfile } from '../../domain/entities/ContactManagerProfile';
+import { SuperAdminProfile } from '../../domain/entities/SuperAdminProfile';
 import { getCentralAmericaTime } from '../../utils/dateUtils';
 
 /**
@@ -35,6 +37,31 @@ export class UserRepository implements IUserRepository {
       where: { email: email.toLowerCase() }
     });
     return prismaUser ? User.fromPrisma(prismaUser) : null;
+  }
+
+  /**
+   * Finds a user by database ID
+   * @param id - User database ID
+   * @returns Promise that resolves to user entity or null
+   */
+  async findById(id: string): Promise<User | null> {
+    const prismaUser = await prisma.user.findUnique({
+      where: { id }
+    });
+    
+    return prismaUser ? User.fromPrisma(prismaUser) : null;
+  }
+
+  /**
+   * Finds all users in the system
+   * @returns Promise that resolves to array of users
+   */
+  async findAllUsers(): Promise<User[]> {
+    const prismaUsers = await prisma.user.findMany({
+      orderBy: { createdAt: 'desc' }
+    });
+    
+    return prismaUsers.map(user => User.fromPrisma(user));
   }
 
   /**
@@ -111,8 +138,8 @@ export class UserRepository implements IUserRepository {
         role: UserRole.Employee,
         supervisorId,
         azureAdObjectId: '', // Will be updated when user logs in
-        createdAt: now,
-        updatedAt: now
+        createdAt: getCentralAmericaTime(),
+        updatedAt: getCentralAmericaTime()
       }
     });
     return User.fromPrisma(prismaUser);
@@ -200,8 +227,8 @@ export class UserRepository implements IUserRepository {
         fullName: userData.fullName,
         role: userData.role,
         deletedAt: deletedAtValue,
-        createdAt: now,
-        updatedAt: now
+        createdAt: getCentralAmericaTime(),
+        updatedAt: getCentralAmericaTime()
       }
     });
     return User.fromPrisma(prismaUser);
@@ -230,6 +257,25 @@ export class UserRepository implements IUserRepository {
   }
 
   /**
+   * Finds users by roles with supervisor information (returns raw Prisma data)
+   * @param roles - Array of user roles
+   * @returns Promise that resolves to array of raw Prisma users with supervisor info
+   */
+  async findByRolesWithSupervisor(roles: UserRole[]): Promise<any[]> {
+    return await prisma.user.findMany({
+      where: { 
+        role: { in: roles }
+      },
+      include: {
+        supervisor: {
+          select: { azureAdObjectId: true, fullName: true }
+        }
+      },
+      orderBy: { fullName: 'asc' }
+    });
+  }
+
+  /**
    * Finds users with unassigned role
    * @returns Promise that resolves to array of users with unassigned role
    */
@@ -248,6 +294,24 @@ export class UserRepository implements IUserRepository {
     });
 
     return prismaUsers.map(user => User.fromPrisma(user));
+  }
+
+  /**
+   * Finds users with unassigned role with supervisor information (returns raw Prisma data)
+   * @returns Promise that resolves to array of raw Prisma users with supervisor info
+   */
+  async findUsersWithUnassignedRoleWithSupervisor(): Promise<any[]> {
+    return await prisma.user.findMany({
+      where: { 
+        role: UserRole.Unassigned
+      },
+      include: {
+        supervisor: {
+          select: { azureAdObjectId: true, fullName: true }
+        }
+      },
+      orderBy: { fullName: 'asc' }
+    });
   }
 
   /**
@@ -279,5 +343,328 @@ export class UserRepository implements IUserRepository {
     // If role is Unassigned, keep deletedAt as is (user is deleted)
     // If role is anything else, set deletedAt to null (user is alive)
     return role === UserRole.Unassigned ? undefined : null;
+  }
+
+  /**
+   * Creates a user with ContactManager role
+   * @param userData - User data to create
+   * @returns Promise that resolves to the created User entity
+   */
+  async createContactManager(userData: {
+    azureAdObjectId: string;
+    email: string;
+    fullName: string;
+  }): Promise<User> {
+    const now = getCentralAmericaTime();
+    
+    const prismaUser = await prisma.user.create({
+      data: {
+        azureAdObjectId: userData.azureAdObjectId,
+        email: userData.email.toLowerCase(),
+        fullName: userData.fullName,
+        role: UserRole.ContactManager,
+        roleChangedAt: now,
+        createdAt: getCentralAmericaTime(),
+        updatedAt: getCentralAmericaTime()
+      }
+    });
+
+    return User.fromPrisma(prismaUser);
+  }
+
+  /**
+   * Creates a contact manager profile
+   * @param userId - The user ID
+   * @param status - The initial status
+   * @returns Promise that resolves to the created ContactManagerProfile entity
+   */
+  async createContactManagerProfile(userId: string, status: ContactManagerStatus): Promise<ContactManagerProfile> {
+    const now = getCentralAmericaTime();
+    
+    const prismaProfile = await prisma.contactManagerProfile.create({
+      data: {
+        userId,
+        status,
+        createdAt: getCentralAmericaTime(),
+        updatedAt: getCentralAmericaTime()
+      }
+    });
+
+    return ContactManagerProfile.fromPrisma(prismaProfile);
+  }
+
+  /**
+   * Creates a contact manager status history entry
+   * @param data - Status history data
+   * @returns Promise that resolves when history is created
+   */
+  async createContactManagerStatusHistory(data: {
+    profileId: string;
+    previousStatus: ContactManagerStatus;
+    newStatus: ContactManagerStatus;
+    changedById: string;
+  }): Promise<void> {
+    await prisma.contactManagerStatusHistory.create({
+      data: {
+        profileId: data.profileId,
+        previousStatus: data.previousStatus,
+        newStatus: data.newStatus,
+        changedById: data.changedById,
+        timestamp: getCentralAmericaTime()
+      }
+    });
+  }
+
+  /**
+   * Creates a new Super Admin user
+   * @param userData - Super Admin user data
+   * @returns Promise that resolves to the created user
+   */
+  async createSuperAdmin(userData: {
+    azureAdObjectId: string;
+    email: string;
+    fullName: string;
+  }): Promise<User> {
+    const now = getCentralAmericaTime();
+    
+    const prismaUser = await prisma.user.create({
+      data: {
+        azureAdObjectId: userData.azureAdObjectId,
+        email: userData.email.toLowerCase(),
+        fullName: userData.fullName,
+        role: UserRole.SuperAdmin,
+        roleChangedAt: now,
+        createdAt: getCentralAmericaTime(),
+        updatedAt: getCentralAmericaTime()
+      }
+    });
+
+    return User.fromPrisma(prismaUser);
+  }
+
+
+  /**
+   * Creates a Super Admin audit log entry using the general AuditLog table
+   * @param data - Audit log data
+   * @returns Promise that resolves when log is created
+   */
+  async createSuperAdminAuditLog(data: {
+    profileId: string;
+    action: string;
+    changedById: string;
+  }): Promise<void> {
+    await prisma.auditLog.create({
+      data: {
+        entity: 'SuperAdmin',
+        entityId: data.profileId,
+        action: data.action,
+        changedById: data.changedById,
+        timestamp: getCentralAmericaTime()
+      }
+    });
+  }
+
+  /**
+   * Finds a Contact Manager profile by ID
+   * @param profileId - Profile ID
+   * @returns Promise that resolves to the profile or null
+   */
+  async findContactManagerProfile(profileId: string): Promise<ContactManagerProfile | null> {
+    const prismaProfile = await prisma.contactManagerProfile.findUnique({
+      where: { id: profileId },
+      include: { user: true }
+    });
+
+    return prismaProfile ? ContactManagerProfile.fromPrisma(prismaProfile) : null;
+  }
+
+  /**
+   * Deletes a Contact Manager profile
+   * @param profileId - Profile ID
+   * @returns Promise that resolves when profile is deleted
+   */
+  async deleteContactManagerProfile(profileId: string): Promise<void> {
+    await prisma.contactManagerProfile.delete({
+      where: { id: profileId }
+    });
+  }
+
+  /**
+   * Creates a Contact Manager audit log entry using the general AuditLog table
+   * @param data - Audit log data
+   * @returns Promise that resolves when log is created
+   */
+  async createContactManagerAuditLog(data: {
+    profileId: string;
+    action: string;
+    changedById: string;
+  }): Promise<void> {
+    await prisma.auditLog.create({
+      data: {
+        entity: 'ContactManager',
+        entityId: data.profileId,
+        action: data.action,
+        changedById: data.changedById,
+        timestamp: getCentralAmericaTime()
+      }
+    });
+  }
+
+  /**
+   * Finds all Contact Manager profiles with their associated users
+   * @returns Promise that resolves to array of ContactManagerProfile entities
+   */
+  async findAllContactManagers(): Promise<ContactManagerProfile[]> {
+    const prismaProfiles = await prisma.contactManagerProfile.findMany({
+      include: { 
+        user: { 
+          select: { 
+            email: true, 
+            fullName: true 
+          } 
+        } 
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    return prismaProfiles.map(profile => ContactManagerProfile.fromPrisma(profile));
+  }
+
+  /**
+   * Finds a Contact Manager profile by user ID
+   * @param userId - User ID
+   * @returns Promise that resolves to the profile or null
+   */
+  async findContactManagerProfileByUserId(userId: string): Promise<ContactManagerProfile | null> {
+    const prismaProfile = await prisma.contactManagerProfile.findUnique({
+      where: { userId },
+      include: { 
+        user: { 
+          select: { 
+            email: true, 
+            fullName: true 
+          } 
+        } 
+      }
+    });
+
+    return prismaProfile ? ContactManagerProfile.fromPrisma(prismaProfile) : null;
+  }
+
+  /**
+   * Finds all Super Admin profiles with their associated users
+   * @returns Promise that resolves to array of SuperAdminProfile entities
+   */
+  async findAllSuperAdmins(): Promise<SuperAdminProfile[]> {
+    const prismaUsers = await prisma.user.findMany({
+      where: { role: UserRole.SuperAdmin },
+      select: {
+        id: true,
+        email: true,
+        fullName: true,
+        role: true,
+        createdAt: true,
+        updatedAt: true
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    return prismaUsers.map(user => new SuperAdminProfile(
+      user.id, // Use actual user ID, not prefixed
+      user.id,
+      user.createdAt,
+      user.updatedAt,
+      { email: user.email, fullName: user.fullName, role: user.role }
+    ));
+  }
+
+  /**
+   * Updates a Contact Manager's status
+   * @param profileId - Profile ID
+   * @param status - New status
+   * @returns Promise that resolves when status is updated
+   */
+  async updateContactManagerStatus(profileId: string, status: ContactManagerStatus): Promise<void> {
+    await prisma.contactManagerProfile.update({
+      where: { id: profileId },
+      data: { 
+        status,
+        updatedAt: getCentralAmericaTime()
+      }
+    });
+  }
+
+  /**
+   * Gets PSOs by supervisor with their supervisor information
+   * @param supervisorId - Optional supervisor ID to filter PSOs
+   * @returns Promise that resolves to array of PSOs with supervisor information
+   */
+  async getPsosBySupervisor(supervisorId?: string): Promise<Array<{ email: string; supervisorName: string }>> {
+    try {
+      console.log(`[DEBUG] getPsosBySupervisor called with supervisorId: ${supervisorId}`);
+      
+      let supervisor: any = null;
+      
+      // First, check if supervisor exists
+      if (supervisorId) {
+        // Try to find by azureAdObjectId first, then by id
+        supervisor = await prisma.user.findUnique({
+          where: { azureAdObjectId: supervisorId },
+          select: { id: true, email: true, fullName: true, role: true, azureAdObjectId: true }
+        });
+        
+        // If not found by azureAdObjectId, try by id
+        if (!supervisor) {
+          supervisor = await prisma.user.findUnique({
+            where: { id: supervisorId },
+            select: { id: true, email: true, fullName: true, role: true, azureAdObjectId: true }
+          });
+        }
+        
+        console.log(`[DEBUG] Supervisor lookup result:`, supervisor);
+        
+        if (!supervisor) {
+          console.log(`[DEBUG] Supervisor with ID ${supervisorId} not found`);
+          return [];
+        }
+        
+        if (supervisor.role !== "Supervisor") {
+          console.log(`[DEBUG] User ${supervisor.email} is not a supervisor (role: ${supervisor.role})`);
+          return [];
+        }
+      }
+
+      const baseWhere: Record<string, any> = {
+        role: "Employee",
+        deletedAt: null,
+      };
+
+      if (supervisorId && supervisor) {
+        // Use the internal ID of the supervisor for the query
+        baseWhere.supervisorId = supervisor.id;
+      }
+
+      console.log(`[DEBUG] Query where clause:`, baseWhere);
+
+      const employees = await prisma.user.findMany({
+        where: baseWhere,
+        select: {
+          email: true,
+          supervisor: {
+            select: { fullName: true }
+          }
+        }
+      });
+
+      console.log(`[DEBUG] Found ${employees.length} employees for supervisor ${supervisorId}`);
+
+      return employees.map(employee => ({
+        email: employee.email.toLowerCase(),
+        supervisorName: employee.supervisor?.fullName || ""
+      }));
+    } catch (error: any) {
+      console.error(`[DEBUG] Error in getPsosBySupervisor:`, error);
+      throw new Error(`Failed to get PSOs by supervisor: ${error.message}`);
+    }
   }
 }

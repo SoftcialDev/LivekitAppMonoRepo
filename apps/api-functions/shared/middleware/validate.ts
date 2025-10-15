@@ -127,3 +127,58 @@ export function withQueryValidation(schema: ZodSchema<any>) {
     }
   };
 }
+
+/**
+ * Creates Azure Functions middleware that validates HTTP path parameters
+ * against the provided Zod schema.
+ *
+ * @param {ZodSchema<any>} schema
+ *   A Zod schema object defining the expected shape of path parameters.
+ * @returns {import("@azure/functions").Middleware}
+ *   An async middleware function which:
+ *     1. Ensures `ctx.req` exists (i.e. the function was HTTP-triggered).
+ *     2. Validates path parameters against the schema.
+ *     3. On success, attaches `validatedParams` to `ctx.bindings` and calls `next()`.
+ *     4. On validation failure, returns 400 with a list of errors.
+ *     5. On missing `ctx.req`, returns 500.
+ */
+export function withPathValidation(schema: ZodSchema<any>) {
+  return async (ctx: Context, next: () => Promise<void>) => {
+    // Ensure this function was invoked via HTTP trigger
+    const req = ctx.req;
+    if (!req) {
+      ctx.res = {
+        status: 500,
+        body: "No HTTP request context",
+      };
+      return;
+    }
+
+    try {
+      // Get path parameters from the request
+      const pathParams = ctx.bindingData || {};
+
+      // Validate and parse the path parameters against the schema
+      const validated = schema.parse(pathParams);
+
+      // Attach the validated result for downstream handlers
+      (ctx as any).bindings = (ctx as any).bindings || {};
+      (ctx as any).bindings.validatedParams = validated;
+
+      // Proceed to the next middleware or handler
+      await next();
+    } catch (err) {
+      if (err instanceof ZodError) {
+        // Transform Zod errors into a client-friendly format
+        const validationErrors = err.errors.map(e => ({
+          path: e.path,
+          message: e.message,
+        }));
+        badRequest(ctx, { validationErrors });
+      } else {
+        // Rethrow unexpected errors
+        throw err;
+      }
+    }
+  };
+}

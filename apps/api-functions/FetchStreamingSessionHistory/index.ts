@@ -1,22 +1,16 @@
-import { Context, HttpRequest } from "@azure/functions";
-import prisma from "../shared/services/prismaClienService";
+/**
+ * @fileoverview FetchStreamingSessionHistory - Azure Function for fetching streaming session history
+ * @summary Fetches the most recent streaming session for the authenticated user
+ * @description Provides endpoint for retrieving streaming session history using DDD pattern
+ */
+
+import { AzureFunction, Context, HttpRequest } from "@azure/functions";
 import { withAuth } from "../shared/middleware/auth";
 import { withErrorHandler } from "../shared/middleware/errorHandler";
-import { ok, unauthorized } from "../shared/utils/response";
-import type { JwtPayload } from "jsonwebtoken";
-
-/**
- * Data Transfer Object for streaming session history.
- */
-interface StreamingSessionHistoryDto {
-  id: string;
-  userId: string;
-  startedAt: string;
-  stoppedAt: string | null;
-  stopReason: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
+import { withCallerId } from "../shared/middleware/callerId";
+import { ok, noContent } from "../shared/utils/response";
+import { FetchStreamingSessionHistoryApplicationService } from "../shared/application/services/FetchStreamingSessionHistoryApplicationService";
+import { serviceContainer } from "../shared/infrastructure/container/ServiceContainer";
 
 /**
  * Azure Function to fetch the most recent streaming session history
@@ -24,7 +18,7 @@ interface StreamingSessionHistoryDto {
  *
  * @remarks
  * - Authenticates the caller via `withAuth`.
- * - Only succeeds if a valid JWT is provided.
+ * - Uses `withCallerId` middleware to extract caller ID.
  * - Returns the most recent session (active or stopped) for the user.
  * - Returns `{ session: StreamingSessionHistoryDto | null }` on success.
  *
@@ -33,56 +27,26 @@ interface StreamingSessionHistoryDto {
  *          401 Unauthorized if no valid user identity.
  *          400 Bad Request on database or query failure.
  */
-export default withErrorHandler(async (ctx: Context): Promise<void> => {
-  const req: HttpRequest = ctx.req!;
-
-  await withAuth(ctx, async () => {
-    const claims = ctx.bindings.user as JwtPayload;
-    const azureAdId = (claims.oid ?? claims.sub) as string | undefined;
-    if (!azureAdId) {
-      return unauthorized(ctx, "Cannot determine user identity");
-    }
-
-    try {
-      // Find the user by Azure AD Object ID
-      const user = await prisma.user.findUnique({
-        where: { azureAdObjectId: azureAdId },
-        select: { id: true }
+const fetchHandler: AzureFunction = withErrorHandler(
+  async (ctx: Context, req: HttpRequest) => {
+    await withAuth(ctx, async () => {
+      await withCallerId(ctx, async () => {
+        serviceContainer.initialize();
+        
+        const applicationService = serviceContainer.resolve<FetchStreamingSessionHistoryApplicationService>('FetchStreamingSessionHistoryApplicationService');
+        const callerId = ctx.bindings.callerId as string;
+        
+        const response = await applicationService.fetchStreamingSessionHistory(callerId);
+        
+        if (response.session) {
+          ok(ctx, response.toPayload());
+        } else {
+          noContent(ctx);
+        }
       });
+    });
+  },
+  { genericMessage: "Failed to fetch streaming session history" }
+);
 
-      if (!user) {
-        ctx.log.warn(`User not found for Azure AD ID: ${azureAdId}`);
-        ok(ctx, { session: null });
-        return;
-      }
-
-      // Get the most recent session for this user
-      const latestSession = await prisma.streamingSessionHistory.findFirst({
-        where: { userId: user.id },
-        orderBy: { startedAt: 'desc' }
-      });
-
-      if (!latestSession) {
-        ctx.log.info(`No streaming session history found for user ${azureAdId}`);
-        ok(ctx, { session: null });
-        return;
-      }
-
-      const session: StreamingSessionHistoryDto = {
-        id: latestSession.id,
-        userId: latestSession.userId,
-        startedAt: latestSession.startedAt.toISOString(),
-        stoppedAt: latestSession.stoppedAt?.toISOString() || null,
-        stopReason: latestSession.stopReason,
-        createdAt: latestSession.createdAt.toISOString(),
-        updatedAt: latestSession.updatedAt.toISOString()
-      };
-
-      ctx.log.info(`Found latest session for user ${azureAdId}: ${session.id} (stopReason: ${session.stopReason})`);
-      ok(ctx, { session });
-    } catch (err: any) {
-      ctx.log.error("FetchStreamingSessionHistory error:", err);
-      throw err;
-    }
-  });
-});
+export default fetchHandler;

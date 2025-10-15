@@ -15,7 +15,7 @@ import { withAuth } from "../shared/middleware/auth";
 import { withErrorHandler } from "../shared/middleware/errorHandler";
 import { withQueryValidation } from "../shared/middleware/validate";
 import { UserQueryRequest } from "../shared/domain/value-objects/UserQueryRequest";
-import { userQuerySchema } from "../shared/domain/schema/UserQuerySchema";
+import { userQuerySchema } from "../shared/domain/schemas/UserQuerySchema";
 import { serviceContainer } from "../shared/infrastructure/container/ServiceContainer";
 import { getCallerAdId } from "../shared/utils/authHelpers";
 import { UserQueryApplicationService } from "../shared/application/services/UserQueryApplicationService";

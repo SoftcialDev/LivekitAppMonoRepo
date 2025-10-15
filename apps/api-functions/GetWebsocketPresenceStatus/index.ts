@@ -3,7 +3,7 @@ import { z } from "zod";
 import { withAuth } from "../shared/middleware/auth";
 import { withErrorHandler } from "../shared/middleware/errorHandler";
 import { ok, badRequest, unauthorized, forbidden } from "../shared/utils/response";
-import prisma from "../shared/services/prismaClienService";
+import prisma from "../shared/infrastructure/database/PrismaClientService";
 import { JwtPayload } from "jsonwebtoken";
 
 ////////////////////////////////////////////////////////////////////////////////

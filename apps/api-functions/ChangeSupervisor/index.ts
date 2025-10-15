@@ -10,7 +10,7 @@ import { withBodyValidation } from "../shared/middleware/validate";
 import { ok } from "../shared/utils/response";
 import { SupervisorApplicationService } from "../shared/application/services/SupervisorApplicationService";
 import { SupervisorAssignment } from "../shared/domain/value-objects/SupervisorAssignment";
-import { supervisorAssignmentSchema } from "../shared/domain/schema/SupervisorAssignmentSchema";
+import { supervisorAssignmentSchema } from "../shared/domain/schemas/SupervisorAssignmentSchema";
 import { serviceContainer } from "../shared/infrastructure/container/ServiceContainer";
 import { handleAnyError } from "../shared/utils/errorHandler";
 import { getCallerAdId } from "../shared/utils/authHelpers";
@@ -51,7 +51,7 @@ const changeSupervisor: AzureFunction = withErrorHandler(
       const commandMessagingService = serviceContainer.resolve<ICommandMessagingService>('CommandMessagingService');
       const supervisorManagementService = serviceContainer.resolve<ISupervisorManagementService>('SupervisorManagementService');
 
-      const auditService = serviceContainer.resolve<IAuditService>('AuditService');
+      const auditService = serviceContainer.resolve<IAuditService>('IAuditService');
 
       const supervisorApplicationService = new SupervisorApplicationService(
         userRepository,

@@ -14,6 +14,10 @@ export class ContactManagerProfile {
   public readonly status: ContactManagerStatus;
   public readonly createdAt: Date;
   public readonly updatedAt: Date;
+  public readonly user?: {
+    email: string;
+    fullName: string;
+  };
 
   /**
    * Creates a new ContactManagerProfile entity
@@ -25,12 +29,17 @@ export class ContactManagerProfile {
     status: ContactManagerStatus;
     createdAt: Date;
     updatedAt: Date;
+    user?: {
+      email: string;
+      fullName: string;
+    };
   }) {
     this.id = props.id;
     this.userId = props.userId;
     this.status = props.status;
     this.createdAt = props.createdAt;
     this.updatedAt = props.updatedAt;
+    this.user = props.user;
   }
 
   /**
@@ -45,6 +54,10 @@ export class ContactManagerProfile {
       status: prismaProfile.status,
       createdAt: prismaProfile.createdAt,
       updatedAt: prismaProfile.updatedAt,
+      user: prismaProfile.user ? {
+        email: prismaProfile.user.email,
+        fullName: prismaProfile.user.fullName
+      } : undefined
     });
   }
 
@@ -187,5 +200,19 @@ export class ContactManagerProfile {
       default:
         return 5; // Unknown priority
     }
+  }
+
+  /**
+   * Converts the entity to a payload format for API responses
+   * @returns Payload representation of the contact manager profile
+   */
+  toPayload(): { id: string; userId: string; status: ContactManagerStatus; createdAt: string; updatedAt: string } {
+    return {
+      id: this.id,
+      userId: this.userId,
+      status: this.status,
+      createdAt: this.createdAt.toISOString(),
+      updatedAt: this.updatedAt.toISOString(),
+    };
   }
 }

@@ -51,7 +51,13 @@ export function requireAdminAccess() {
   const authorizationService = new AuthorizationService(new UserRepository());
   
   return async (ctx: Context): Promise<void> => {
-    const callerId = extractCallerId(ctx);
+    // Use the callerId that was already extracted by withCallerId middleware
+    const callerId = (ctx as any).bindings?.callerId;
+    
+    if (!callerId) {
+      throw new Error('Caller ID not found in context');
+    }
+    
     const isAuthorized = await authorizationService.canAccessAdmin(callerId);
     
     if (!isAuthorized) {

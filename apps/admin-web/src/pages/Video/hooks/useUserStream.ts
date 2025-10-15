@@ -1,6 +1,6 @@
 import { getLiveKitToken, RoomWithToken } from '@/shared/api/livekitClient';
 import { fetchStreamingSessions } from '@/shared/api/streamingStatusClient';
-import { MessageHandler, WebPubSubClientService } from '@/shared/api/webpubsubClient';
+import { MessageHandler, webPubSubClient } from '@/shared/api/webpubsubClient';
 import { useEffect, useRef, useState, useCallback } from 'react';
 
 
@@ -30,7 +30,7 @@ export function useUserStream(
   const [livekitUrl,  setLivekitUrl]  = useState<string>();
   const [loading,     setLoading]     = useState(false);
 
-  const wsRef = useRef<WebPubSubClientService>();
+  const wsRef = useRef<typeof webPubSubClient>();
   const fetchTimer = useRef<number>();
 
   // central fetcher: get sessionId + token + URL
@@ -61,12 +61,22 @@ export function useUserStream(
     email: string;
     status: 'started' | 'stopped';
   }> = useCallback(({ email, status }) => {
-    if (email !== targetEmail) return;
+    console.log(`[useUserStream] Received stream event:`, { email, status, targetEmail });
+    
+    if (email !== targetEmail) {
+      console.log(`[useUserStream] Ignoring event for different user: ${email} !== ${targetEmail}`);
+      return;
+    }
+    
+    console.log(`[useUserStream] Processing stream event for ${targetEmail}: ${status}`);
+    
     window.clearTimeout(fetchTimer.current);
     if (status === 'started') {
+      console.log(`[useUserStream] Starting stream for ${targetEmail}`);
       // debounce rapid back-to-back events
       fetchTimer.current = window.setTimeout(fetchAndSet, STREAM_FETCH_DEBOUNCE_MS);
     } else {
+      console.log(`[useUserStream] Stopping stream for ${targetEmail}`);
       setAccessToken(undefined);
       setRoomName(undefined);
       setLivekitUrl(undefined);
@@ -74,17 +84,22 @@ export function useUserStream(
   }, [targetEmail, fetchAndSet]);
 
   useEffect(() => {
-    const client = new WebPubSubClientService();
+    const client = webPubSubClient;
     wsRef.current = client;
 
     client
       .connect(viewerEmail)
       .then(() => {
-        // you’re now in your own presence group
+        console.log(`[useUserStream] Connected to WebSocket for viewer: ${viewerEmail}`);
+        // you're now in your own presence group
         client.onMessage(handleStreamEvent);
-        // **also** join the target’s group so we get their “started/stopped”
-        return client['client']?.joinGroup?.(targetEmail);  
-        // note: if your wrapper doesn’t expose joinGroup, you can add a small helper
+        // **also** join the target's group so we get their "started/stopped"
+        console.log(`[useUserStream] Joining group for target: ${targetEmail}`);
+        return client.joinGroup(targetEmail);  
+        // note: if your wrapper doesn't expose joinGroup, you can add a small helper
+      })
+      .then(() => {
+        console.log(`[useUserStream] Successfully joined group: ${targetEmail}`);
       })
       .catch(err => {
         console.error('[useUserStream] WS connect error', err);

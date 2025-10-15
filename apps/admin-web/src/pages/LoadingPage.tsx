@@ -58,8 +58,8 @@ export const LoadingPage: React.FC = (): JSX.Element => {
   // Show loading spinner
   return (
     <Loading 
-      action="loading your information" 
-      bgClassName="bg-blue-600"
+      action="is loading your  user information" 
+      bgClassName="bg-(--color-primary)"
     />
   );
 };

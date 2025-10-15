@@ -4,6 +4,7 @@ import managementIcon from '@/shared/assets/manage_icon_sidebar.png';
 import {
   getUsersByRole,
   changeSupervisor as changeSupervisorRole,
+  getPsosBySupervisorId,
 } from '@/shared/api/userClient';
 import { useToast } from '@/shared/ui/ToastContext';
 import { useAuth } from '@/shared/auth/useAuth';
@@ -34,6 +35,7 @@ const SupervisorDetailPage: React.FC = () => {
   const [modalOpen,       setModalOpen]       = useState(false);
   const [selected,        setSelected]        = useState<string[]>([]);
   const [candidatesLoading, setCandidatesLoading] = useState(false);
+  const [psosLoading, setPsosLoading] = useState(false);
 
   // 1) Lookup supervisor’s email & name
   useEffect(() => {
@@ -54,26 +56,37 @@ const SupervisorDetailPage: React.FC = () => {
     iconAlt: 'Supervisor',
   });
 
-  // Load only PSOs for this supervisor
+  // Load only PSOs for this supervisor using the specific API
   const loadPSOs = useCallback(async () => {
-    const emp = await getUsersByRole('Employee', 1, 1000);
-    setCandidatesLoading(true); 
-    setPsos(
-      emp.users
-        .filter(u => u.supervisorAdId === supervisorAdId)
-        .map(u => ({
-          azureAdObjectId: u.azureAdObjectId,
-          email:           u.email,
-          firstName:       u.firstName,
-          lastName:        u.lastName,
-          supervisorName, // display name of current supervisor
-        }))
-    );
-  }, [supervisorAdId, supervisorName]);
+    if (!supervisorAdId) return;
+    
+    try {
+      setPsosLoading(true);
+      const psosData = await getPsosBySupervisorId(supervisorAdId);
+      
+      // Convert to the expected format
+      const psosList = psosData.map(pso => ({
+        azureAdObjectId: '', // Not available in this API response
+        email: pso.email,
+        firstName: pso.email.split('@')[0], // Extract from email as fallback
+        lastName: '',
+        supervisorName: pso.supervisorName,
+      }));
+      
+      setPsos(psosList);
+    } catch (error) {
+      console.error('Failed to load PSOs for supervisor:', error);
+      showToast('Failed to load PSOs for this supervisor', 'error');
+    } finally {
+      setPsosLoading(false);
+    }
+  }, [supervisorAdId, showToast]);
 
-  // Modal: list ALL employees + tenants, excluding those already assigned
+  // Modal: list ALL employees, excluding those already assigned
 const loadCandidates = useCallback(async () => {
   try {
+    setCandidatesLoading(true);
+    
     // 1) Fetch employees
     const empResp = await getUsersByRole('Employee', 1, 1000);
 
@@ -91,32 +104,15 @@ const loadCandidates = useCallback(async () => {
         supervisorName:  u.supervisorName ?? '—',
       }));
 
-    // 3) Fetch tenants and drop any with a non-null role
-    const tenResp = await getUsersByRole('Tenant', 1, 1000);
-
-    const availableTenants = tenResp.users
-      .filter(u => u.role === null)    // only pure tenants
-      .map(u => ({
-        azureAdObjectId: u.azureAdObjectId,
-        email:           u.email,
-        firstName:       u.firstName,
-        lastName:        u.lastName,
-        supervisorName:  '—',
-      }));
-
-    // 4) Combine both and set state
-    setCandidates([
-      ...availableEmployees,
-      ...availableTenants,
-    ]);
-
-    setCandidates([...availableEmployees, ...availableTenants]);
+    // 3) Set only employees as candidates
+    setCandidates(availableEmployees);
   } catch (err) {
     console.error('loadCandidates error', err);
-  }finally {
-   setCandidatesLoading(false); 
+    showToast('Failed to load candidate employees', 'error');
+  } finally {
+    setCandidatesLoading(false); 
   }
-}, [supervisorAdId]);
+}, [supervisorAdId, showToast]);
 
 
   useEffect(() => {
@@ -212,6 +208,8 @@ const loadCandidates = useCallback(async () => {
         columns={psoColumns}
         data={psos}
         pageSize={9}
+        loading={psosLoading}
+        loadingAction="Loading PSOs for this supervisor"
         addButton={
           <AddButton
             label="Add PSO"

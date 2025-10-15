@@ -32,4 +32,12 @@ export interface IBlobStorageService {
    * @throws Error if deletion fails
    */
   deleteImage(blobName: string): Promise<boolean>;
+
+  /**
+   * Deletes a recording from blob storage by path
+   * @param blobPath - Path of the recording blob to delete
+   * @returns Promise that resolves to true if deleted, false if not found
+   * @throws Error if deletion fails
+   */
+  deleteRecordingByPath(blobPath: string): Promise<boolean>;
 }

@@ -1,51 +1,52 @@
 import { AzureFunction, Context, HttpRequest } from "@azure/functions";
 import { withAuth } from "../shared/middleware/auth";
 import { withErrorHandler } from "../shared/middleware/errorHandler";
-import { findSupervisorByIdentifier } from "../shared/services/userService";
-import { badRequest, ok } from "../shared/utils/response";
+import { withCallerId } from "../shared/middleware/callerId";
+import { withQueryValidation } from "../shared/middleware/validate";
+import { ok, badRequest } from "../shared/utils/response";
+import { ServiceContainer } from "../shared/infrastructure/container/ServiceContainer";
+import { GetSupervisorForPsoRequest } from "../shared/domain/value-objects/GetSupervisorForPsoRequest";
+import { GetSupervisorForPsoApplicationService } from "../shared/application/services/GetSupervisorForPsoApplicationService";
+import { getSupervisorForPsoSchema } from "../shared/domain/schemas/GetSupervisorForPsoSchema";
 
 /**
- * HTTP-triggered Azure Function: GetSupervisorForPso
+ * Azure Function: handles supervisor lookup by PSO identifier
+ * 
+ * @remarks
+ * 1. Validates query parameters using Zod schema.  
+ * 2. Extracts caller ID from JWT token.  
+ * 3. Creates request value object.  
+ * 4. Delegates to application service for business logic and authorization.  
+ * 5. Returns supervisor information or appropriate error message.
  *
- * Looks up and returns the supervisor for a given PSO (Employee).
- *
- * - Secured via JWT bearer (`withAuth`).
- * - Accepts a query parameter `identifier`:
- *    • PSO’s database UUID (`id`)
- *    • PSO’s Azure AD Object ID (`azureAdObjectId`)
- *    • PSO’s email address (UPN)
- * - Delegates lookup to `findSupervisorByIdentifier`.
- * - Response codes:
- *    - 200 OK + `{ supervisor: {...} }` if a supervisor record is found.
- *    - 200 OK + `{ message: "No supervisor assigned" }` if PSO exists but has no supervisor.
- *    - 400 Bad Request + `{ error: "..."} ` if identifier is missing, PSO not found, or user is not an Employee.
- *
- * @param ctx  Azure Functions execution context
- * @param req  Incoming HTTP request with `req.query.identifier`
+ * @param context - Azure Functions execution context
+ * @param req - HTTP request with query parameters
  */
 const GetSupervisorForPso: AzureFunction = withErrorHandler(
   async (ctx: Context, req: HttpRequest) => {
-    return withAuth(ctx, async () => {
-      const identifier = (req.query.identifier as string)?.trim();
-      if (!identifier) {
-        return badRequest(ctx, "Missing required query parameter: identifier");
-      }
+    await withAuth(ctx, async () => {
+      await withCallerId(ctx, async () => {
+        await withQueryValidation(getSupervisorForPsoSchema)(ctx, async () => {
+          const serviceContainer = ServiceContainer.getInstance();
+          serviceContainer.initialize();
 
-      const result = await findSupervisorByIdentifier(identifier);
+          const applicationService = serviceContainer.resolve<GetSupervisorForPsoApplicationService>('GetSupervisorForPsoApplicationService');
+          const callerId = ctx.bindings.callerId as string;
 
-      if (typeof result === "string") {
-        // PSO exists but has no supervisor
-        if (result === "No supervisor assigned") {
-          return ok(ctx, { message: result });
-        }
-        // PSO not found or wrong role
-        return badRequest(ctx, { error: result });
-      }
+          const validatedQuery = (ctx as any).bindings.validatedQuery;
+          const request = GetSupervisorForPsoRequest.fromQuery(validatedQuery);
 
-      // Supervisor found
-      const { id, azureAdObjectId, email, fullName } = result;
-      return ok(ctx, {
-        supervisor: { id, azureAdObjectId, email, fullName }
+          const response = await applicationService.getSupervisorForPso(callerId, request);
+
+          const payload = response.toPayload();
+          
+          // Handle different response types
+          if (payload.error) {
+            return badRequest(ctx, payload);
+          }
+          
+          return ok(ctx, payload);
+        });
       });
     });
   },

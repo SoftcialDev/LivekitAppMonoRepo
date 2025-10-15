@@ -1,72 +1,59 @@
+/**
+ * @fileoverview CreateContactManager - Azure Function for promoting users to Contact Manager role
+ * @summary Handles the creation of Contact Manager profiles with proper authorization
+ * @description This function promotes a user to Contact Manager role, including Azure AD app role assignment,
+ * database profile creation, and audit logging. Only users with Admin or SuperAdmin roles can perform this action.
+ */
+
 import { AzureFunction, Context, HttpRequest } from "@azure/functions";
-import { z } from "zod";
-import { withAuth }   from "../shared/middleware/auth";
+import { withAuth } from "../shared/middleware/auth";
 import { withErrorHandler } from "../shared/middleware/errorHandler";
 import { withBodyValidation } from "../shared/middleware/validate";
-import { ok, forbidden, badRequest } from "../shared/utils/response";
-import { addContactManager } from "../shared/services/contactManagerService";
-import prisma from "../shared/services/prismaClienService";
+import { withCallerId } from "../shared/middleware/callerId";
+import { requireAdminAccess } from "../shared/middleware/authorization";
+import { ok } from "../shared/utils/response";
+import { createContactManagerSchema } from "../shared/domain/schemas/CreateContactManagerSchema";
+import { CreateContactManagerRequest } from "../shared/domain/value-objects/CreateContactManagerRequest";
+import { ContactManagerApplicationService } from "../shared/application/services/ContactManagerApplicationService";
+import { serviceContainer } from "../shared/infrastructure/container/ServiceContainer";
 
 /**
- * Request schema for creating a Contact Manager profile.
- */
-const schema = z.object({
-  /** The user's email to promote */
-  email:  z.string().email(),
-  /** Initial status for the new Contact Manager */
-  status: z.enum(["Available","Unavailable","OnBreak","OnAnotherTask"]),
-});
-
-/**
+ * Azure Function handler for creating Contact Manager profiles.
+ * 
+ * This function handles the promotion of a user to Contact Manager role by:
+ * 1. Authenticating the caller using Azure AD token
+ * 2. Extracting caller ID and validating admin access
+ * 3. Validating the request body (email and status)
+ * 4. Delegating to ContactManagerApplicationService for business logic
+ * 5. Returning the created Contact Manager profile
+ * 
+ * @param ctx - Azure Function context
+ * @param req - HTTP request containing the Contact Manager creation data
+ * @returns Promise that resolves when the Contact Manager is created
+ * @throws {ForbiddenError} when caller lacks admin privileges
+ * @throws {BadRequestError} when request validation fails
+ * @throws {ServiceError} when Contact Manager creation fails
+ * 
+ * @example
  * POST /api/contactManagers
- *
- * Promotes an existing user to ContactManager by:
- * 1. Validating the caller’s AAD token.
- * 2. Looking up the caller in the database to verify `role==="Admin"`.
- * 3. Validating the request body.
- * 4. Calling `addContactManager(email, status)` to assign the AppRole and upsert the profile.
- *
- * Body:
- *   `{ email: "user@example.com", status: "Available" }`
- *
- * Response:
- *   `{ id: "<new‑profile‑uuid>" }`
- *
- * Errors:
- *   - 403 Forbidden if caller is not Admin.
- *   - 400 Bad Request if validation or service errors occur.
+ * Body: { "email": "user@example.com", "status": "Active" }
+ * Response: { "id": "uuid", "userId": "uuid", "status": "Active", ... }
  */
 const create: AzureFunction = withErrorHandler(
   async (ctx: Context, req: HttpRequest) => {
     await withAuth(ctx, async () => {
-      // 1) Extract AAD OID from token claims
-      const claims = (ctx as any).bindings.user as { oid?: string; sub?: string };
-      const oid = claims.oid || claims.sub;
-      if (!oid) {
-        return forbidden(ctx, "Cannot determine caller identity");
-      }
+      await withCallerId(ctx, async () => {
+        await requireAdminAccess()(ctx);
+        await withBodyValidation(createContactManagerSchema)(ctx, async () => {
+          serviceContainer.initialize();
 
-      // 2) Lookup caller in DB to confirm Admin role
-      const caller = await prisma.user.findUnique({
-        where: { azureAdObjectId: oid }
-      });
-      if (!caller) {
-        return forbidden(ctx, "Caller not found");
-      }
-      if (caller.role !== "Admin" && caller.role !== "SuperAdmin") {
-        return forbidden(ctx, "Only Admin may add Contact Managers");
-      }
+          const applicationService = serviceContainer.resolve<ContactManagerApplicationService>('ContactManagerApplicationService');
+          const request = CreateContactManagerRequest.fromBody(ctx.bindings.validatedBody);
+          const callerId = ctx.bindings.callerId as string;
 
-      // 3) Body validation
-      await withBodyValidation(schema)(ctx, async () => {
-        const { email, status } = ctx.bindings.validatedBody as z.infer<typeof schema>;
-        try {
-          // 4) Promote to Contact Manager
-          const profile = await addContactManager(email.toLowerCase(), status);
-          return ok(ctx, { id: profile.id });
-        } catch (err: any) {
-          return badRequest(ctx, err.message);
-        }
+          const result = await applicationService.createContactManager(request, callerId);
+          ok(ctx, result.toPayload());
+        });
       });
     });
   },

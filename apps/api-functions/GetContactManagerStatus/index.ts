@@ -1,63 +1,51 @@
+/**
+ * @fileoverview GetContactManagerStatus - Azure Function for retrieving Contact Manager status
+ * @summary Handles the retrieval of current Contact Manager status with proper authorization
+ * @description This function returns the current Contact Manager's status and profile information.
+ * Only users with ContactManager role can access this endpoint.
+ */
+
 import { AzureFunction, Context, HttpRequest } from "@azure/functions";
 import { withAuth } from "../shared/middleware/auth";
 import { withErrorHandler } from "../shared/middleware/errorHandler";
-import { ok, forbidden, notFound } from "../shared/utils/response";
-import prisma from "../shared/services/prismaClienService";
-import { getMyContactManagerProfile, ContactManagerProfileDto } from "../shared/services/contactManagerService";
-import { getUserByAzureOid } from "../shared/services/userService";
-import type { JwtPayload } from "jsonwebtoken";
+import { withCallerId } from "../shared/middleware/callerId";
+import { ok } from "../shared/utils/response";
+import { ContactManagerApplicationService } from "../shared/application/services/ContactManagerApplicationService";
+import { serviceContainer } from "../shared/infrastructure/container/ServiceContainer";
 
 /**
- * HTTP-triggered Azure Function to fetch the current user’s Contact Manager status.
- *
- * @remarks
- * - Caller must first be authenticated, then looked up in the Users table.
- * - Only users whose `role === "ContactManager"` in your DB may call.
- * - Returns:
- *    - 200 + profile DTO on success,
- *    - 403 if caller isn’t a Contact Manager,
- *    - 404 if no profile exists for them,
- *    - 405 for non-GET methods.
+ * Azure Function handler for retrieving Contact Manager status.
+ * 
+ * This function handles the retrieval of Contact Manager status by:
+ * 1. Authenticating the caller using Azure AD token
+ * 2. Extracting caller ID
+ * 3. Delegating to ContactManagerApplicationService for business logic and authorization
+ * 4. Returning the Contact Manager status
+ * 
+ * @param ctx - Azure Function context
+ * @param req - HTTP request
+ * @returns Promise that resolves when the Contact Manager status is retrieved
+ * @throws {ForbiddenError} when caller lacks Contact Manager privileges
+ * @throws {NotFoundError} when Contact Manager profile is not found
+ * @throws {ServiceError} when Contact Manager status retrieval fails
+ * 
+ * @example
+ * GET /api/contactManagers/status
+ * Response: { "id": "uuid", "userId": "uuid", "email": "user@example.com", "status": "Available", ... }
  */
 const getMyStatusFunction: AzureFunction = withErrorHandler(
   async (ctx: Context, req: HttpRequest) => {
-    // 1) Only GET allowed
-    if (req.method !== "GET") {
-      ctx.res = { status: 405, body: { error: "Method Not Allowed" } };
-      return;
-    }
 
-    // 2) Authenticate
     await withAuth(ctx, async () => {
-      const claims = ctx.bindings.user as JwtPayload;
-      const azureAdOid = (claims.oid ?? claims.sub) as string | undefined;
-      if (!azureAdOid) {
-        // Shouldn’t happen if withAuth enforced properly
-        return forbidden(ctx, "Unable to determine caller identity");
-      }
+      await withCallerId(ctx, async () => {
+        serviceContainer.initialize();
 
-      // 3) Lookup user in your DB
-      const caller = await getUserByAzureOid(azureAdOid);
-      if (!caller) {
-        return forbidden(ctx, "User not found in application database");
-      }
+        const applicationService = serviceContainer.resolve<ContactManagerApplicationService>('ContactManagerApplicationService');
+        const callerId = ctx.bindings.callerId as string;
 
-      // 4) Check role in your DB
-      if (caller.role !== "ContactManager") {
-        return forbidden(
-          ctx,
-          `Access denied: user role is "${caller.role}", must be ContactManager`
-        );
-      }
-
-      // 5) Fetch their ContactManagerProfile
-      try {
-        const profile: ContactManagerProfileDto =
-          await getMyContactManagerProfile(azureAdOid);
-        return ok(ctx, profile);
-      } catch (err: any) {
-        return notFound(ctx, err.message);
-      }
+        const result = await applicationService.getMyContactManagerStatus(callerId);
+        ok(ctx, result.toPayload());
+      });
     });
   },
   {

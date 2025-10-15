@@ -8,10 +8,12 @@ import { MessagingResult } from '../../domain/value-objects/MessagingResult';
 import { IUserRepository } from '../../domain/interfaces/IUserRepository';
 import { IAuthorizationService } from '../../domain/interfaces/IAuthorizationService';
 import { ICommandMessagingService } from '../../domain/interfaces/ICommandMessagingService';
-import { AuthError, ValidationError, MessagingError } from '../../domain/errors/DomainError';
-import { AuthErrorCode, ValidationErrorCode, MessagingErrorCode } from '../../domain/errors/ErrorCodes';
+import { IWebPubSubService } from '../../domain/interfaces/IWebPubSubService';
+import {  MessagingError } from '../../domain/errors/DomainError';
+import {  MessagingErrorCode } from '../../domain/errors/ErrorCodes';
 import { ValidationUtils } from '../../domain/utils/ValidationUtils';
 import { AuthorizationUtils } from '../../domain/utils/AuthorizationUtils';
+import { CommandType } from '../../domain/enums/CommandType';
 
 /**
  * Application service for command operations
@@ -20,21 +22,25 @@ export class CommandApplicationService {
   private commandMessagingService: ICommandMessagingService;
   private userRepository: IUserRepository;
   private authorizationService: IAuthorizationService;
+  private webPubSubService: IWebPubSubService;
 
   /**
    * Creates a new CommandApplicationService instance
    * @param userRepository - User repository for data access
    * @param authorizationService - Authorization service for permission checks
    * @param commandMessagingService - Messaging service for command delivery
+   * @param webPubSubService - WebSocket service for broadcasting events
    */
   constructor(
     userRepository: IUserRepository,
     authorizationService: IAuthorizationService,
-    commandMessagingService: ICommandMessagingService
+    commandMessagingService: ICommandMessagingService,
+    webPubSubService: IWebPubSubService
   ) {
     this.userRepository = userRepository;
     this.authorizationService = authorizationService;
     this.commandMessagingService = commandMessagingService;
+    this.webPubSubService = webPubSubService;
   }
 
   /**
@@ -64,12 +70,47 @@ export class CommandApplicationService {
    */
   async sendCameraCommand(command: Command): Promise<MessagingResult> {
     try {
-      return await this.commandMessagingService.sendCommand(command);
+      // Use the existing CommandMessagingService to send the command
+      const groupName = `commands:${command.employeeEmail}`;
+      await this.commandMessagingService.sendToGroup(groupName, command.toPayload());
+      
+      // Broadcast stream event to supervisors
+      await this.broadcastStreamEvent(command.employeeEmail, command.type);
+      
+      return { success: true, sentVia: 'WEB_PUBSUB' as any };
     } catch (error) {
       throw new MessagingError(
         `Failed to send command: ${(error as Error).message}`,
         MessagingErrorCode.COMMAND_DELIVERY_FAILED
       );
+    }
+  }
+
+  /**
+   * Broadcasts stream events to supervisors via WebSocket
+   * @param email - The email of the PSO
+   * @param command - The command type (START/STOP)
+   * @private
+   */
+  private async broadcastStreamEvent(email: string, command: CommandType): Promise<void> {
+    try {
+      const status = command === CommandType.START ? 'started' : 'stopped';
+      const message = {
+        email: email,
+        status: status
+      };
+      
+      console.log(`[CommandApplicationService] Broadcasting stream ${status} event for ${email} to group: ${email}`);
+      console.log(`[CommandApplicationService] Message:`, message);
+      
+      // Send to the PSO's group so supervisors can receive the event
+      await this.webPubSubService.broadcastMessage(email, message);
+      
+      console.log(`[CommandApplicationService] ✅ Successfully broadcasted stream ${status} event for ${email}`);
+    } catch (error: any) {
+      console.error(`[CommandApplicationService] ❌ Failed to broadcast stream event: ${error.message}`);
+      console.error(`[CommandApplicationService] Error details:`, error);
+      // Don't throw error - WebSocket failure shouldn't break command processing
     }
   }
 }

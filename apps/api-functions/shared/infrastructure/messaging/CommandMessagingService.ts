@@ -15,14 +15,17 @@ import { config } from '../../config';
  * Service for sending commands with WebSocket primary and Service Bus fallback
  */
 export class CommandMessagingService implements ICommandMessagingService {
-  private serviceBusSender: ServiceBusSender;
+  private static serviceBusClient: ServiceBusClient;
+  private static serviceBusSender: ServiceBusSender;
 
   /**
    * Creates a new CommandMessagingService instance
    */
   constructor() {
-    const sbClient = new ServiceBusClient(config.serviceBusConnection);
-    this.serviceBusSender = sbClient.createSender(config.serviceBusTopicName);
+    if (!CommandMessagingService.serviceBusClient) {
+      CommandMessagingService.serviceBusClient = new ServiceBusClient(config.serviceBusConnection);
+      CommandMessagingService.serviceBusSender = CommandMessagingService.serviceBusClient.createSender(config.serviceBusTopicName);
+    }
   }
 
   /**
@@ -78,6 +81,19 @@ export class CommandMessagingService implements ICommandMessagingService {
       body: command.toPayload(),
       contentType: 'application/json'
     };
-    await this.serviceBusSender.sendMessages(message);
+    await CommandMessagingService.serviceBusSender.sendMessages(message);
+  }
+
+  /**
+   * Closes Service Bus connections
+   * @returns Promise that resolves when connections are closed
+   */
+  static async closeConnections(): Promise<void> {
+    if (CommandMessagingService.serviceBusSender) {
+      await CommandMessagingService.serviceBusSender.close();
+    }
+    if (CommandMessagingService.serviceBusClient) {
+      await CommandMessagingService.serviceBusClient.close();
+    }
   }
 }

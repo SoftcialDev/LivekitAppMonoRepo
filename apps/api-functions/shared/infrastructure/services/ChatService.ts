@@ -7,7 +7,8 @@ import { IChatService } from '../../domain/interfaces/IChatService';
 import { OnBehalfOfCredential, ClientSecretCredential } from '@azure/identity';
 import { Client } from '@microsoft/microsoft-graph-client';
 import { TokenCredentialAuthenticationProvider } from '@microsoft/microsoft-graph-client/authProviders/azureTokenCredentials';
-import prisma from '../../services/prismaClienService';
+import { getCentralAmericaTime } from '../../utils/dateUtils';
+import prisma from '../database/PrismaClientService';
 
 /**
  * Infrastructure service for chat operations
@@ -19,13 +20,20 @@ export class ChatService implements IChatService {
 
   /**
    * Gets or creates a chat for contact managers
-   * @param token - Authentication token (can be from any user, we'll use system token for chat operations)
+   * @param token - Authentication token from the user
    * @returns Promise that resolves to chat ID
    * @throws Error if chat operation fails
    */
-  async getOrSyncChat(token: string): Promise<string> {
+  async getOrSyncChat(token: string): Promise<string>;
+  async getOrSyncChat(token: string, participants?: Array<{ userId: string; azureAdObjectId: string }>, topic?: string): Promise<string> {
     try {
-      const topic = 'InContactApp – Contact Managers';
+      // If participants and topic are provided, use them for specific chat creation
+      if (participants && topic) {
+        return await this.createSpecificChat(token, participants, topic);
+      }
+
+      // Default behavior: Contact Managers chat
+      const chatTopic = 'InContactApp – Contact Managers';
 
       // Load only Contact Managers, Admins, and Super Admins from DB
       const users = await prisma.user.findMany({
@@ -38,32 +46,33 @@ export class ChatService implements IChatService {
 
       // Check for existing record
       const record = await prisma.chat.findFirst({
-        where: { topic },
+        where: { topic: chatTopic },
         include: { members: true }
       });
 
       let chatId: string;
       if (!record) {
         console.log('No existing chat found, creating new one...');
-        // Create new chat in Graph using system credentials
-        chatId = await this.createGraphChatWithSystem(desired, topic);
+        // Create new chat in Graph using user token
+        chatId = await this.createGraphChat(token, desired, chatTopic);
         console.log('Created chat with ID:', chatId);
 
         // Persist in DB with correct ID
         await prisma.chat.create({
           data: {
             id: chatId,
-            topic,
-            members: { create: desired.map(d => ({ userId: d.userId })) }
+            topic: chatTopic,
+            createdAt: getCentralAmericaTime(),
+            updatedAt: getCentralAmericaTime(),
+            members: { create: desired.map(d => ({ userId: d.userId, joinedAt: getCentralAmericaTime() })) }
           }
         });
         console.log('Chat persisted to database');
       } else {
         chatId = record.id;
         console.log('Found existing chat:', chatId);
-        // Sync membership
-        await this.syncGraphMembers(token, record.members, desired, chatId);
-        console.log('Chat membership synced');
+        // Skip sync - Employee is not a member and cannot sync
+        console.log('Skipping chat membership sync - Employee is not a member');
       }
 
       return chatId;
@@ -74,8 +83,8 @@ export class ChatService implements IChatService {
   }
 
   /**
-   * Sends a message to a chat
-   * @param token - Authentication token
+   * Sends a message to a chat by temporarily adding the user to the chat
+   * @param token - Authentication token from the user
    * @param chatId - ID of the chat
    * @param message - Message content
    * @returns Promise that resolves when message is sent
@@ -84,7 +93,78 @@ export class ChatService implements IChatService {
   async sendMessage(token: string, chatId: string, message: any): Promise<void> {
     try {
       const graph = this.initGraphClient(token);
+      
+      // 1. Get current user info to add them temporarily to the chat
+      const currentUser = await graph.api('/me').get();
+      const userId = currentUser.id;
+      
+      console.log(`Temporarily adding user ${userId} to chat ${chatId}`);
+      
+      // 2. Add user to chat temporarily
+      await this.addUserToChatTemporarily(token, chatId, userId);
+      
+      // 3. Send the message
+      await this.sendMessageToChat(graph, chatId, message);
+      
+      // 4. Remove user from chat
+      await this.removeUserFromChat(token, chatId, userId);
+      
+      console.log(`User ${userId} removed from chat ${chatId}`);
+    } catch (error: any) {
+      console.error('Failed to send message:', error);
+      throw new Error(`Failed to send message: ${error.message}`);
+    }
+  }
 
+  /**
+   * Adds a user to a chat temporarily
+   */
+  private async addUserToChatTemporarily(token: string, chatId: string, userId: string): Promise<void> {
+    const graph = this.initGraphClient(token);
+    
+    try {
+      await graph.api(`/chats/${chatId}/members`).post({
+        '@odata.type': '#microsoft.graph.aadUserConversationMember',
+        roles: ['owner'],
+        'user@odata.bind': `https://graph.microsoft.com/v1.0/users('${userId}')`
+      });
+      console.log(`Successfully added user ${userId} to chat ${chatId}`);
+    } catch (error: any) {
+      // If user is already in chat, that's fine
+      if (error.message?.includes('already a member')) {
+        console.log(`User ${userId} is already a member of chat ${chatId}`);
+      } else {
+        throw error;
+      }
+    }
+  }
+
+  /**
+   * Removes a user from a chat
+   */
+  private async removeUserFromChat(token: string, chatId: string, userId: string): Promise<void> {
+    const graph = this.initGraphClient(token);
+    
+    try {
+      // First, get the member ID
+      const members = await graph.api(`/chats/${chatId}/members`).get();
+      const member = members.value.find((m: any) => m.userId === userId);
+      
+      if (member) {
+        await graph.api(`/chats/${chatId}/members/${member.id}`).delete();
+        console.log(`Successfully removed user ${userId} from chat ${chatId}`);
+      }
+    } catch (error: any) {
+      console.warn(`Failed to remove user ${userId} from chat ${chatId}:`, error.message);
+      // Don't throw error - this is cleanup
+    }
+  }
+
+  /**
+   * Sends the actual message to the chat
+   */
+  private async sendMessageToChat(graph: any, chatId: string, message: any): Promise<void> {
+    try {
       // Build the Adaptive Card JSON object
       const cardPayload = {
         $schema: 'http://adaptivecards.io/schemas/adaptive-card.json',
@@ -157,57 +237,25 @@ export class ChatService implements IChatService {
   }
 
   /**
-   * Creates a new Teams group chat via Microsoft Graph using system credentials.
-   * @param participants - Array of { userId, oid } for each member.
-   * @param topic - The chat topic/title.
-   * @returns The newly created chatId.
+   * Initializes a Graph client with user token
    */
-  private async createGraphChatWithSystem(
-    participants: readonly { userId: string; oid: string }[],
-    topic: string
-  ): Promise<string> {
-    console.log('Creating Graph chat with participants:', participants.length);
-    
-    const graph = this.initSystemGraphClient();
+  private initGraphClient(userAssertion: string): Client {
+    const credential = new OnBehalfOfCredential({
+      tenantId: this.tenantId,
+      clientId: this.clientId,
+      clientSecret: this.clientSecret,
+      userAssertionToken: userAssertion,
+    });
 
-    // Microsoft Teams has limits on chat creation - try with smaller batches
-    const MAX_INITIAL_MEMBERS = 20; // Start with a smaller group
-    const initialParticipants = participants.slice(0, MAX_INITIAL_MEMBERS);
-    
-    const members = initialParticipants.map(p => ({
-      '@odata.type': '#microsoft.graph.aadUserConversationMember',
-      roles: ['owner'],
-      'user@odata.bind': `https://graph.microsoft.com/v1.0/users('${p.oid}')`
-    }));
+    const authProvider = new TokenCredentialAuthenticationProvider(credential, {
+      scopes: ['https://graph.microsoft.com/.default'],
+    });
 
-    console.log(`Creating chat with ${initialParticipants.length} initial members`);
-
-    try {
-      const graphChat: any = await graph
-        .api('/chats')
-        .post({ chatType: 'group', topic, members });
-
-      console.log('Graph chat created successfully:', graphChat.id);
-      
-      // Add remaining participants in batches
-      if (participants.length > MAX_INITIAL_MEMBERS) {
-        console.log(`Adding remaining ${participants.length - MAX_INITIAL_MEMBERS} participants in batches`);
-        await this.addParticipantsInBatchesWithSystem(graphChat.id, participants.slice(MAX_INITIAL_MEMBERS));
-      }
-      
-      return graphChat.id;
-    } catch (error: any) {
-      console.error('Failed to create Graph chat:', error);
-      throw error;
-    }
+    return Client.initWithMiddleware({ authProvider });
   }
 
   /**
    * Creates a new Teams group chat via Microsoft Graph
-   * @param token - The OBO token
-   * @param participants - Array of { userId, oid } for each member
-   * @param topic - The chat topic/title
-   * @returns The newly created chatId
    */
   private async createGraphChat(
     token: string,
@@ -237,7 +285,6 @@ export class ChatService implements IChatService {
 
       console.log('Graph chat created successfully:', graphChat.id);
       
-      // Add remaining participants in batches
       if (participants.length > MAX_INITIAL_MEMBERS) {
         console.log(`Adding remaining ${participants.length - MAX_INITIAL_MEMBERS} participants in batches`);
         await this.addParticipantsInBatches(token, graphChat.id, participants.slice(MAX_INITIAL_MEMBERS));
@@ -251,7 +298,7 @@ export class ChatService implements IChatService {
   }
 
   /**
-   * Adds participants to an existing chat in smaller batches
+   * Adds participants to a chat in batches
    */
   private async addParticipantsInBatches(
     token: string,
@@ -275,11 +322,9 @@ export class ChatService implements IChatService {
           console.log(`Successfully added participant: ${participant.oid}`);
         } catch (error: any) {
           console.warn(`Failed to add participant ${participant.oid}:`, error.message);
-          // Continue with other participants
         }
       }
       
-      // Small delay between batches to avoid rate limiting
       if (i + BATCH_SIZE < remainingParticipants.length) {
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
@@ -287,47 +332,7 @@ export class ChatService implements IChatService {
   }
 
   /**
-   * Adds participants to an existing chat in smaller batches using system credentials
-   */
-  private async addParticipantsInBatchesWithSystem(
-    chatId: string,
-    remainingParticipants: readonly { userId: string; oid: string }[]
-  ): Promise<void> {
-    const graph = this.initSystemGraphClient();
-    const BATCH_SIZE = 10; // Add 10 participants at a time
-    
-    for (let i = 0; i < remainingParticipants.length; i += BATCH_SIZE) {
-      const batch = remainingParticipants.slice(i, i + BATCH_SIZE);
-      console.log(`Adding batch ${Math.floor(i / BATCH_SIZE) + 1}: ${batch.length} participants`);
-      
-      for (const participant of batch) {
-        try {
-          await graph.api(`/chats/${chatId}/members`).post({
-            '@odata.type': '#microsoft.graph.aadUserConversationMember',
-            roles: ['owner'],
-            'user@odata.bind': `https://graph.microsoft.com/v1.0/users('${participant.oid}')`
-          });
-          console.log(`Successfully added participant: ${participant.oid}`);
-        } catch (error: any) {
-          console.warn(`Failed to add participant ${participant.oid}:`, error.message);
-          // Continue with other participants
-        }
-      }
-      
-      // Small delay between batches to avoid rate limiting
-      if (i + BATCH_SIZE < remainingParticipants.length) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      }
-    }
-  }
-
-
-  /**
-   * Synchronizes the Teams chat's membership
-   * @param token - The OBO token
-   * @param currentParticipants - The array of ChatParticipant records from DB
-   * @param desired - The up-to-date list of { userId, oid }
-   * @param chatId - The Teams chat identifier
+   * Syncs chat members with desired participants
    */
   private async syncGraphMembers(
     token: string,
@@ -337,89 +342,143 @@ export class ChatService implements IChatService {
   ): Promise<void> {
     const graph = this.initGraphClient(token);
 
-    // Fetch live Graph members
+    // Get current Graph members
     const resp: any = await graph.api(`/chats/${chatId}/members`).get();
     const graphMembers = (resp.value as any[]).map(m => ({
-      memberId: m.id as string,
-      oid: (m.userId as string).toLowerCase()
+      oid: m.user?.id?.toLowerCase(),
+      memberId: m.id
     }));
 
     const desiredOids = desired.map(d => d.oid);
     const toAdd = desired.filter(d => !graphMembers.some(g => g.oid === d.oid));
     const toRemove = graphMembers.filter(g => !desiredOids.includes(g.oid));
 
-    // Add missing
+    // Add missing members
     for (const d of toAdd) {
-      await graph.api(`/chats/${chatId}/members`).post({
-        '@odata.type': '#microsoft.graph.aadUserConversationMember',
-        roles: ['owner'],
-        'user@odata.bind': `https://graph.microsoft.com/v1.0/users('${d.oid}')`
-      });
-      
-      // DB
-      await prisma.chatParticipant
-        .create({ data: { chatId, userId: d.userId } })
-        .catch((e: any) => { if (e.code !== 'P2002') throw e; });
+      try {
+        await graph.api(`/chats/${chatId}/members`).post({
+          '@odata.type': '#microsoft.graph.aadUserConversationMember',
+          roles: ['owner'],
+          'user@odata.bind': `https://graph.microsoft.com/v1.0/users('${d.oid}')`
+        });
+        console.log(`Added member: ${d.oid}`);
+      } catch (error: any) {
+        console.warn(`Failed to add member ${d.oid}:`, error.message);
+      }
     }
 
-    // Remove obsolete
+    // Remove extra members
     for (const g of toRemove) {
-      await graph.api(`/chats/${chatId}/members/${g.memberId}`).delete();
-      
-      // DB
-      const user = await prisma.user.findUnique({ where: { azureAdObjectId: g.oid } });
-      if (user) {
-        await prisma.chatParticipant.delete({
-          where: { chatId_userId: { chatId, userId: user.id } }
-        });
+      try {
+        await graph.api(`/chats/${chatId}/members/${g.memberId}`).delete();
+        console.log(`Removed member: ${g.oid}`);
+      } catch (error: any) {
+        console.warn(`Failed to remove member ${g.oid}:`, error.message);
       }
     }
   }
 
   /**
-   * Initializes a Microsoft Graph client using the On-Behalf-Of flow
-   * @param userAssertion - The raw OBO JWT token
+   * Creates a specific chat between two participants
+   * @param token - Authentication token
+   * @param participants - Array of exactly two participants
+   * @param topic - Chat topic
+   * @returns Promise that resolves to chat ID
+   * @private
    */
-  private initGraphClient(userAssertion: string) {
-    const credential = new OnBehalfOfCredential({
-      tenantId: this.tenantId,
-      clientId: this.clientId,
-      clientSecret: this.clientSecret,
-      userAssertionToken: userAssertion
+  private async createSpecificChat(
+    token: string, 
+    participants: Array<{ userId: string; azureAdObjectId: string }>, 
+    topic: string
+  ): Promise<string> {
+    if (participants.length !== 2) {
+      throw new Error("createSpecificChat requires exactly 2 participants");
+    }
+
+    const [p1, p2] = participants;
+    const participantIds = [p1.userId, p2.userId].sort();
+
+    // Check for existing chat
+    const existingChat = await prisma.chat.findFirst({
+      where: {
+        topic,
+        AND: [
+          { members: { some: { userId: participantIds[0] } } },
+          { members: { some: { userId: participantIds[1] } } },
+          { members: { every: { userId: { in: participantIds } } } },
+        ],
+      },
+      include: { members: { select: { userId: true } } },
     });
-    const authProvider = new TokenCredentialAuthenticationProvider(credential, {
-      scopes: ['https://graph.microsoft.com/.default']
-    });
-    return Client.initWithMiddleware({ authProvider });
+
+    if (existingChat) {
+      return existingChat.id;
+    }
+
+    // Create new chat using Microsoft Graph API (moved from legacy)
+    return await this.createGraphOneOnOneChat(token, participants, topic);
   }
 
   /**
-   * Initializes a Microsoft Graph client with Client Credentials authentication.
-   * This is used for system-level operations that don't require user context.
-   * @returns An initialized Microsoft Graph client.
+   * Creates a one-on-one chat via Microsoft Graph API
+   * @param token - Authentication token
+   * @param participants - Array of exactly two participants
+   * @param topic - Chat topic
+   * @returns Promise that resolves to chat ID
+   * @private
    */
-  private initSystemGraphClient(): Client {
-    const credential = new ClientSecretCredential(
-      this.tenantId,
-      this.clientId,
-      this.clientSecret
+  private async createGraphOneOnOneChat(
+    token: string,
+    participants: Array<{ userId: string; azureAdObjectId: string }>,
+    topic: string
+  ): Promise<string> {
+    const graph = this.initGraphClient(token);
+
+    // Resolve roles for both participants (owner vs guest)
+    const membersPayload = await Promise.all(
+      participants.map(async (p) => {
+        const user = await graph
+          .api(`/users/${p.azureAdObjectId}`)
+          .select("userType")
+          .get();
+        const role = user.userType === "Guest" ? "guest" : "owner";
+        return {
+          "@odata.type": "#microsoft.graph.aadUserConversationMember",
+          roles: [role],
+          "user@odata.bind": `https://graph.microsoft.com/v1.0/users('${p.azureAdObjectId}')`,
+        };
+      })
     );
-    const authProvider = new TokenCredentialAuthenticationProvider(credential, {
-      scopes: ['https://graph.microsoft.com/.default'],
+
+    const payload = {
+      chatType: "oneOnOne",
+      members: membersPayload,
+    };
+
+    const graphChat = await graph.api("/chats").post(payload);
+    const chatId: string = graphChat.id;
+
+    // Persist in database
+    await prisma.chat.create({
+      data: {
+        id: chatId,
+        topic,
+        createdAt: getCentralAmericaTime(),
+        updatedAt: getCentralAmericaTime(),
+        members: { create: participants.map((p) => ({ userId: p.userId, joinedAt: getCentralAmericaTime() })) },
+      },
     });
-    return Client.initWithMiddleware({ authProvider });
+
+    return chatId;
   }
 
   /**
-   * Utility to convert camelCase keys into "Title Case" with spaces
-   * @param key - The key to humanize
-   * @returns Humanized key
+   * Humanizes a key for display in the adaptive card
    */
   private humanizeKey(key: string): string {
     return key
-      .replace(/([a-z])([A-Z])/g, '$1 $2')
-      .split(' ')
-      .map(w => w.charAt(0).toUpperCase() + w.slice(1))
-      .join(' ');
+      .replace(/([A-Z])/g, ' $1')
+      .replace(/^./, str => str.toUpperCase())
+      .trim();
   }
 }

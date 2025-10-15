@@ -1,22 +1,13 @@
 import { Context, HttpRequest } from "@azure/functions";
-import { z } from "zod";
 import { withAuth } from "../shared/middleware/auth";
 import { withErrorHandler } from "../shared/middleware/errorHandler";
+import { withCallerId } from "../shared/middleware/callerId";
 import { withBodyValidation } from "../shared/middleware/validate";
-import { ok, badRequest, unauthorized } from "../shared/utils/response";
-import { setUserOnline, setUserOffline } from "../shared/services/presenceService";
-import prisma from "../shared/services/prismaClienService";
-import { JwtPayload } from "jsonwebtoken";
-
-/**
- * Zod schema for PresenceUpdate request.
- *
- * @remarks
- * Body must be `{ status: "online" | "offline" }`.
- */
-const schema = z.object({
-  status: z.enum(["online", "offline"])
-});
+import { ok } from "../shared/utils/response";
+import { ServiceContainer } from "../shared/infrastructure/container/ServiceContainer";
+import { PresenceUpdateRequest } from "../shared/domain/value-objects/PresenceUpdateRequest";
+import { PresenceUpdateApplicationService } from "../shared/application/services/PresenceUpdateApplicationService";
+import { presenceUpdateSchema } from "../shared/domain/schemas/PresenceUpdateSchema";
 
 /**
  * PresenceUpdateFunction
@@ -31,38 +22,32 @@ const schema = z.object({
  * @param ctx - Azure Functions execution context containing HTTP request.
  * @returns Promise<void> - 200 OK on success, or appropriate 4xx/5xx on error.
  */
-export default withErrorHandler(async (ctx: Context) => {
-  const req: HttpRequest = ctx.req!;
-  await withAuth(ctx, async () => {
-    await withBodyValidation(schema)(ctx, async () => {
-      const { status } = (ctx as any).bindings.validatedBody as { status: "online" | "offline" };
+const presenceUpdateHandler = withErrorHandler(
+  async (ctx: Context, req: HttpRequest) => {
+    await withAuth(ctx, async () => {
+      await withCallerId(ctx, async () => {
+        await withBodyValidation(presenceUpdateSchema)(ctx, async () => {
+          // Initialize service container
+          const serviceContainer = ServiceContainer.getInstance();
+          serviceContainer.initialize();
 
-      const claims = (ctx as any).bindings.user as JwtPayload;
-      const azureAdId = (claims.oid || claims.sub) as string;
-      if (!azureAdId) {
-        unauthorized(ctx, "Cannot determine user identity");
-        return;
-      }
-      const user = await prisma.user.findUnique({
-        where: { azureAdObjectId: azureAdId }
+          // Resolve application service
+          const applicationService = serviceContainer.resolve<PresenceUpdateApplicationService>('PresenceUpdateApplicationService');
+          const callerId = ctx.bindings.callerId as string;
+
+          // Create request object
+          const request = PresenceUpdateRequest.fromBody(callerId, ctx.bindings.validatedBody as any);
+
+          // Execute presence update
+          const response = await applicationService.updatePresence(callerId, request);
+
+          // Return response
+          return ok(ctx, response.toPayload());
+        });
       });
-      if (!user || user.deletedAt) {
-        unauthorized(ctx, "User not found or deleted");
-        return;
-      }
-
-      try {
-        if (status === "online") {
-          await setUserOnline(azureAdId);
-          ok(ctx, { message: "Presence set to online" });
-        } else {
-          await setUserOffline(azureAdId);
-          ok(ctx, { message: "Presence set to offline" });
-        }
-      } catch (err: any) {
-        ctx.log.error("PresenceUpdate error:", err);
-        badRequest(ctx, `Failed to update presence: ${err.message}`);
-      }
     });
-  });
-});
+  },
+  { genericMessage: "Failed to update presence" }
+);
+
+export default presenceUpdateHandler;

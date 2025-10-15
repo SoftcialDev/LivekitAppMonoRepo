@@ -7,16 +7,16 @@ import { Context } from "@azure/functions";
 import { withAuth } from "../shared/middleware/auth";
 import { withErrorHandler } from "../shared/middleware/errorHandler";
 import { withBodyValidation } from "../shared/middleware/validate";
-import { ok, badRequest, unauthorized } from "../shared/utils/response";
+import { ok, unauthorized } from "../shared/utils/response";
 import { CommandApplicationService } from "../shared/application/services/CommandApplicationService";
 import { Command } from "../shared/domain/value-objects/Command";
 import { MessagingChannel } from "../shared/domain/enums/MessagingChannel";
-import { commandRequestSchema } from "../shared/domain/schema/CommandRequestSchema";
+import { commandRequestSchema } from "../shared/domain/schemas/CommandRequestSchema";
 import { serviceContainer } from "../shared/infrastructure/container/ServiceContainer";
-import { AuthError, ValidationError, MessagingError } from "../shared/domain/errors/DomainError";
 import { IUserRepository } from "../shared/domain/interfaces/IUserRepository";
 import { IAuthorizationService } from "../shared/domain/interfaces/IAuthorizationService";
 import { ICommandMessagingService } from "../shared/domain/interfaces/ICommandMessagingService";
+import { IWebPubSubService } from "../shared/domain/interfaces/IWebPubSubService";
 import { getCallerAdId } from "../shared/utils/authHelpers";
 import { handleAnyError } from "../shared/utils/errorHandler";
 
@@ -53,10 +53,12 @@ export default withErrorHandler(async (ctx: Context) => {
     const userRepository = serviceContainer.resolve<IUserRepository>('UserRepository');
     const authorizationService = serviceContainer.resolve<IAuthorizationService>('AuthorizationService');
     const commandMessagingService = serviceContainer.resolve<ICommandMessagingService>('CommandMessagingService');
+    const webPubSubService = serviceContainer.resolve<IWebPubSubService>('IWebPubSubService');
     const commandApplicationService = new CommandApplicationService(
       userRepository,
       authorizationService,
-      commandMessagingService
+      commandMessagingService,
+      webPubSubService
     );
 
     // Validate request body

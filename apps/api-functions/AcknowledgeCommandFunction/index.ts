@@ -9,7 +9,7 @@ import { withAuth } from "../shared/middleware/auth";
 import { withBodyValidation } from "../shared/middleware/validate";
 import { withCallerId } from "../shared/middleware/callerId";
 import { ok } from "../shared/utils/response";
-import { acknowledgeCommandSchema } from "../shared/domain/schema/AcknowledgeCommandSchema";
+import { acknowledgeCommandSchema } from "../shared/domain/schemas/AcknowledgeCommandSchema";
 import { AcknowledgeCommandRequest } from "../shared/domain/value-objects/AcknowledgeCommandRequest";
 import { CommandAcknowledgmentApplicationService } from "../shared/application/services/CommandAcknowledgmentApplicationService";
 import { serviceContainer } from "../shared/infrastructure/container/ServiceContainer";

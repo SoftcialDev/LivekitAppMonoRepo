@@ -1,66 +1,44 @@
-import { AzureFunction, Context, HttpRequest } from "@azure/functions";
-import { withAuth }         from "../shared/middleware/auth";
+import { Context, HttpRequest } from "@azure/functions";
+import { withAuth } from "../shared/middleware/auth";
 import { withErrorHandler } from "../shared/middleware/errorHandler";
-import { ok, unauthorized } from "../shared/utils/response";
-import prisma               from "../shared/services/prismaClienService";
-
-interface SnapshotReport {
-  id:             string;
-  supervisorName: string;
-  psoFullName:    string;
-  psoEmail:       string;
-  reason:         string;
-  imageUrl:       string;
-  takenAt:        string;  // ISO timestamp
-}
+import { withCallerId } from "../shared/middleware/callerId";
+import { ok } from "../shared/utils/response";
+import { ServiceContainer } from "../shared/infrastructure/container/ServiceContainer";
+import { GetSnapshotsRequest } from "../shared/domain/value-objects/GetSnapshotsRequest";
+import { GetSnapshotsApplicationService } from "../shared/application/services/GetSnapshotsApplicationService";
 
 /**
  * HTTP GET /api/snapshots
  *
- * Returns all snapshot reports, newest first.  
- * Only users with User.role === "Admin" may call this.
+ * Returns all snapshot reports, newest first.
+ * Only users with Admin or SuperAdmin roles may call this endpoint.
  *
- * @param ctx – Function context, with OBO claims on ctx.bindings.user.
- * @param req – Incoming HTTP request.
- * @returns 200 OK with `{ reports: SnapshotReport[] }`, or 401 if not Admin.
+ * @remarks
+ * 1. Authenticates the caller via JWT (On-Behalf-Of).  
+ * 2. Extracts caller ID from token.  
+ * 3. Authorizes the caller (Admin or SuperAdmin only).  
+ * 4. Retrieves all snapshots with supervisor and PSO relations.  
+ * 5. Returns `{ reports: SnapshotReport[] }` on success.
+ *
+ * @param ctx - The Azure Functions execution context.
+ * @param req - The incoming HTTP request.
+ * @returns A 200 OK response with `{ reports }`, or error response.
  */
-const getSnapshotsFunction: AzureFunction = withErrorHandler(
+const getSnapshotsFunction = withErrorHandler(
   async (ctx: Context, req: HttpRequest) => {
     await withAuth(ctx, async () => {
-      // 1) Identify caller
-      const claims = (ctx as any).bindings.user as { oid?: string; sub?: string };
-      const oid    = claims.oid || claims.sub;
-      if (!oid) {
-        return unauthorized(ctx, "Missing OID in token");
-      }
+      await withCallerId(ctx, async () => {
+        const serviceContainer = ServiceContainer.getInstance();
+        serviceContainer.initialize();
 
-      // 2) Load caller record and enforce Admin role
-      const caller = await prisma.user.findUnique({ where: { azureAdObjectId: oid } });
-      if (!caller || caller.role !== "Admin" && caller.role !== "SuperAdmin") {
-        return unauthorized(ctx, "Admins only");
-      }
+        const applicationService = serviceContainer.resolve<GetSnapshotsApplicationService>('GetSnapshotsApplicationService');
+        const callerId = ctx.bindings.callerId as string;
 
-      // 3) Fetch snapshots with supervisor & pso relations
-      const snaps = await prisma.snapshot.findMany({
-        include: {
-          supervisor: { select: { fullName: true } },
-          pso:        { select: { fullName: true, email: true } },
-        },
-        orderBy: { takenAt: "desc" },
+        const request = GetSnapshotsRequest.fromCallerId(callerId);
+        const response = await applicationService.getSnapshots(callerId, request);
+
+        return ok(ctx, response.toPayload());
       });
-
-      // 4) Map to transport DTO
-      const reports: SnapshotReport[] = snaps.map(s => ({
-        id:             s.id,
-        supervisorName: s.supervisor.fullName,
-        psoFullName:    s.pso.fullName,
-        psoEmail:       s.pso.email,
-        reason:         s.reason,
-        imageUrl:       s.imageUrl,
-        takenAt:        s.takenAt.toISOString(),
-      }));
-
-      return ok(ctx, { reports });
     });
   },
   {

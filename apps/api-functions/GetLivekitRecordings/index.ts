@@ -1,81 +1,55 @@
+/**
+ * @fileoverview GetLivekitRecordings - Azure Function for fetching LiveKit recordings
+ * @summary Provides endpoint for retrieving recording sessions using DDD pattern
+ * @description Handles authentication, authorization, and delegates to application service
+ */
+
 import { AzureFunction, Context, HttpRequest } from "@azure/functions";
-import { z } from "zod";
 import { withAuth } from "../shared/middleware/auth";
 import { withErrorHandler } from "../shared/middleware/errorHandler";
-import { ok, badRequest, forbidden } from "../shared/utils/response";
-import { LiveKitRecordingService } from "../shared/services/livekitRecordingService";
-import { UserRepository } from "../shared/repositories/userRepo";
+import { withCallerId } from "../shared/middleware/callerId";
+import { withQueryValidation } from "../shared/middleware/queryValidation";
+import { ok } from "../shared/utils/response";
+import { GetLivekitRecordingsApplicationService } from "../shared/application/services/GetLivekitRecordingsApplicationService";
+import { GetLivekitRecordingsRequest } from "../shared/domain/value-objects/GetLivekitRecordingsRequest";
+import { getLivekitRecordingsSchema } from "../shared/domain/schemas/GetLivekitRecordingsSchema";
+import { serviceContainer } from "../shared/infrastructure/container/ServiceContainer";
 
 /**
- * Zod schema for query parameters to list recordings.
+ * Azure Function to fetch LiveKit recording sessions
  *
- * Supported querystring:
- * - roomName?: string
- * - limit?: number (default 50, max 200)
- * - order?: "asc" | "desc" (default "desc")
- * - includeSas?: boolean (default true)
- * - sasMinutes?: number (default 60, min 1)
+ * @remarks
+ * - Authenticates the caller via `withAuth`
+ * - Uses `withCallerId` middleware to extract caller ID
+ * - Validates query parameters using `withQueryValidation`
+ * - Only Admin and SuperAdmin roles are authorized
+ * - Returns recording sessions with UI-ready data including user resolution and SAS URLs
+ *
+ * @param ctx - Azure Functions context containing the HTTP request
+ * @returns A 200 OK with JSON `{ items: RecordingListItem[], count: number }` on success
+ *          401 Unauthorized if no valid user identity
+ *          403 Forbidden if insufficient permissions
+ *          400 Bad Request on invalid query parameters
  */
-const ListRecordingsQuerySchema = z.object({
-  roomName: z.string().min(1).optional(),
-  limit: z.coerce.number().int().positive().max(200).default(50),
-  order: z.enum(["asc", "desc"]).default("desc"),
-  includeSas: z.coerce.boolean().default(true),
-  sasMinutes: z.coerce.number().int().positive().default(60),
-});
-
-/**
- * Azure Function HTTP trigger for listing LiveKit recording sessions.
- *
- * @route GET /api/recordings
- *
- * Security:
- * - Caller must be authenticated via `withAuth`.
- * - Only users with role Admin or Supervisor are authorized.
- *
- * Behavior:
- * - Validates query parameters using Zod.
- * - Delegates to `LiveKitRecordingService.listRecordings` to build UI-ready items.
- * - Returns `{ items, count }`.
- *
- * Responses:
- * - 200 OK with items and count.
- * - 403 Forbidden when the caller is not found or lacks permissions.
- * - 400 Bad Request when query parameters are invalid.
- */
-const listRecordingsFunction: AzureFunction = withErrorHandler(
+const getLivekitRecordingsHandler: AzureFunction = withErrorHandler(
   async (ctx: Context, req: HttpRequest) => {
     await withAuth(ctx, async () => {
-      const claims = (ctx as any).bindings.user as { oid?: string; sub?: string };
-      const oid = claims.oid || claims.sub;
-      if (!oid) return forbidden(ctx, "Cannot determine caller identity");
-
-      const caller = await UserRepository.findByAzureAdOid(oid);
-      if (!caller) return forbidden(ctx, "Caller not found in database");
-      if (!["Admin", "SuperAdmin"].includes((caller as any).role as string)) {
-        return forbidden(ctx, "Insufficient permissions");
-      }
-
-      const parsed = ListRecordingsQuerySchema.safeParse(req.query);
-      if (!parsed.success) {
-        const issues = parsed.error.issues.map(i => i.path.join(".") + ": " + i.message);
-        return badRequest(ctx, `Invalid query: ${issues.join(", ")}`);
-      }
-
-      const { roomName, limit, order, includeSas, sasMinutes } = parsed.data;
-
-      const items = await LiveKitRecordingService.listRecordings({
-        roomName,
-        limit,
-        order,
-        includeSas,
-        sasMinutes,
+      await withCallerId(ctx, async () => {
+        await withQueryValidation(ctx, getLivekitRecordingsSchema, async (validatedQuery: any) => {
+          serviceContainer.initialize();
+          
+          const applicationService = serviceContainer.resolve<GetLivekitRecordingsApplicationService>('GetLivekitRecordingsApplicationService');
+          const callerId = ctx.bindings.callerId as string;
+          
+          const request = GetLivekitRecordingsRequest.fromQuery(validatedQuery);
+          const response = await applicationService.getLivekitRecordings(callerId, request);
+          
+          ok(ctx, response.toPayload());
+        });
       });
-
-      return ok(ctx, { items, count: items.length });
     });
   },
-  { genericMessage: "Error listing recordings", showStackInDev: true }
+  { genericMessage: "Failed to fetch recordings" }
 );
 
-export default listRecordingsFunction;
+export default getLivekitRecordingsHandler;

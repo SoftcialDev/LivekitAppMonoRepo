@@ -39,7 +39,7 @@ export class AuthorizationService implements IAuthorizationService {
    * @returns Promise that resolves to true if authorized
    */
   async canManageUsers(callerId: string): Promise<boolean> {
-    const authorizedRoles = [UserRole.Admin, UserRole.SuperAdmin];
+    const authorizedRoles = [UserRole.Admin, UserRole.SuperAdmin, UserRole.Supervisor];
     return await this.userRepository.hasAnyRole(callerId, authorizedRoles);
   }
 
@@ -50,6 +50,38 @@ export class AuthorizationService implements IAuthorizationService {
    */
   async canAccessAdmin(callerId: string): Promise<boolean> {
     return await this.userRepository.hasRole(callerId, UserRole.SuperAdmin);
+  }
+
+  /**
+   * Authorizes if a user can access Super Admin functions
+   * @param callerId - Azure AD object ID of the caller
+   * @returns Promise that resolves when authorized
+   * @throws AuthError if not authorized
+   */
+  async canAccessSuperAdmin(callerId: string): Promise<void> {
+    const allowedRoles: UserRole[] = [UserRole.SuperAdmin];
+    await this.validateUserWithRoles(callerId, allowedRoles, 'creating Super Admin');
+  }
+
+  /**
+   * Authorizes if a user can access Employee functions
+   * @param callerId - Azure AD object ID of the caller
+   * @returns Promise that resolves to true if authorized
+   */
+  async canAccessEmployee(callerId: string): Promise<boolean> {
+    const allowedRoles: UserRole[] = [UserRole.Employee];
+    return await this.userRepository.hasAnyRole(callerId, allowedRoles);
+  }
+
+  /**
+   * Authorizes if a user can access Contact Manager functions
+   * @param callerId - Azure AD object ID of the caller
+   * @returns Promise that resolves when authorized
+   * @throws AuthError if not authorized
+   */
+  async canAccessContactManager(callerId: string): Promise<void> {
+    const allowedRoles: UserRole[] = [UserRole.Employee, UserRole.ContactManager];
+    await this.validateUserWithRoles(callerId, allowedRoles, 'accessing Contact Manager functions');
   }
 
   /**
@@ -98,6 +130,21 @@ export class AuthorizationService implements IAuthorizationService {
     if (!user || !allowedRoles.includes(user.role)) {
       throw new AuthError(`Insufficient permissions for ${operationName}`, AuthErrorCode.INSUFFICIENT_PRIVILEGES);
     }
+  }
+
+  /**
+   * Public method to authorize user with specific roles
+   * @param callerId - Azure AD object ID of the caller
+   * @param allowedRoles - Array of allowed roles
+   * @param operationName - Name of the operation for error messages
+   * @throws AuthError if validation fails
+   */
+  async authorizeUserWithRoles(
+    callerId: string, 
+    allowedRoles: UserRole[], 
+    operationName: string
+  ): Promise<void> {
+    await this.validateUserWithRoles(callerId, allowedRoles, operationName);
   }
 
   /**

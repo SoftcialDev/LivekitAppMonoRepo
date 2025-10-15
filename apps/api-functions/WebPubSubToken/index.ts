@@ -1,17 +1,23 @@
-import { AzureFunction, Context } from "@azure/functions";
-import prisma from "../shared/services/prismaClienService";
+/**
+ * @fileoverview WebPubSubToken - Azure Function for generating WebPubSub tokens
+ * @summary Issues client access tokens for Azure Web PubSub
+ * @description HTTP-triggered function that generates WebPubSub tokens based on user roles
+ */
+
+import { Context, HttpRequest } from "@azure/functions";
 import { withAuth } from "../shared/middleware/auth";
 import { withErrorHandler } from "../shared/middleware/errorHandler";
-import { ok, unauthorized } from "../shared/utils/response";
-import { generateWebPubSubToken } from "../shared/services/webPubSubService";
-import { JwtPayload } from "jsonwebtoken";
-import { config } from "../shared/config/index";
+import { withCallerId } from "../shared/middleware/callerId";
+import { ok } from "../shared/utils/response";
+import { ServiceContainer } from "../shared/infrastructure/container/ServiceContainer";
+import { WebPubSubTokenRequest } from "../shared/domain/value-objects/WebPubSubTokenRequest";
+import { WebPubSubTokenApplicationService } from "../shared/application/services/WebPubSubTokenApplicationService";
 
 /**
  * HTTP-triggered function that issues a client access token for Azure Web PubSub.
  *
- * Based on the caller’s role, the token will allow them to join:
- * - **All roles**: the `"presence"` group (so everyone’s online/offline shows up)
+ * Based on the caller's role, the token will allow them to join:
+ * - **All roles**: the `"presence"` group (so everyone's online/offline shows up)
  * - **Employees** additionally:
  *    - their personal group (`user.email`)
  *    - the `"cm-status-updates"` group (to receive Contact-Manager status broadcasts)
@@ -19,52 +25,25 @@ import { config } from "../shared/config/index";
  * @remarks
  * - Caller must be authenticated via `withAuth`.
  * - If the user record is missing or deleted, replies 401.
- * - Otherwise returns `{ token, endpoint, hubName }`.
+ * - Otherwise returns `{ token, endpoint, hubName, groups }`.
  *
- * @param ctx - Azure Functions execution context,
- *              with `ctx.bindings.user` populated by `withAuth`.
+ * @param ctx - Azure Functions execution context
+ * @param req - HTTP request object
  */
-const issueWebPubSubToken: AzureFunction = withErrorHandler(
-  async (ctx: Context) => {
+const webPubSubTokenHandler = withErrorHandler(
+  async (ctx: Context, req: HttpRequest) => {
     await withAuth(ctx, async () => {
-      const claims = ctx.bindings.user as JwtPayload;
-      const oid = (claims.oid ?? claims.sub) as string | undefined;
-      if (!oid) {
-        return unauthorized(ctx, "Cannot determine user identity");
-      }
+      await withCallerId(ctx, async () => {
+        const serviceContainer = ServiceContainer.getInstance();
+        serviceContainer.initialize();
 
-      const user = await prisma.user.findUnique({
-        where: { azureAdObjectId: oid }
-      });
-      if (!user || user.deletedAt) {
-        return unauthorized(ctx, "User not found or deleted");
-      }
+        const applicationService = serviceContainer.resolve<WebPubSubTokenApplicationService>('WebPubSubTokenApplicationService');
+        const callerId = ctx.bindings.callerId as string;
 
-      const normalizedEmail = user.email.trim().toLowerCase();
-      const role = user.role;
+        const request = new WebPubSubTokenRequest(callerId);
+        const response = await applicationService.generateToken(callerId, request);
 
-      // Always include the global presence channel
-      const groups: string[] = ["presence"];
-
-      if (role === "Employee") {
-        // Employees also need:
-        // 1) their personal group for commands
-        // 2) the CM‐status‐updates channel
-        groups.unshift(normalizedEmail);
-        groups.push("cm-status-updates");
-      }
-      // Admins, Supervisors, ContactManagers remain on "presence"
-
-      // Generate token scoped to the chosen groups
-      const token = await generateWebPubSubToken({
-        userId: normalizedEmail,
-        groups,
-      });
-
-      return ok(ctx, {
-        token,
-        endpoint: config.webPubSubEndpoint,
-        hubName:  config.webPubSubHubName,
+        return ok(ctx, response.toPayload());
       });
     });
   },
@@ -74,4 +53,4 @@ const issueWebPubSubToken: AzureFunction = withErrorHandler(
   }
 );
 
-export default issueWebPubSubToken;
+export default webPubSubTokenHandler;

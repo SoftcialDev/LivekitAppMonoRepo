@@ -4,7 +4,7 @@
  */
 
 import { IContactManagerFormRepository, ContactManagerFormData } from '../../domain/interfaces/IContactManagerFormRepository';
-import prisma from '../../services/prismaClienService';
+import prisma from '../database/PrismaClientService';
 import { getCentralAmericaTime } from '../../utils/dateUtils';
 
 /**

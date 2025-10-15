@@ -1,90 +1,51 @@
 import { AzureFunction, Context, HttpRequest } from "@azure/functions";
 import { withAuth } from "../shared/middleware/auth";
 import { withErrorHandler } from "../shared/middleware/errorHandler";
-import { ok, unauthorized } from "../shared/utils/response";
-import prisma from "../shared/services/prismaClienService";
-import { getUserByAzureOid } from "../shared/services/userService";
-import type { JwtPayload } from "jsonwebtoken";
-
-export interface PsoWithSupervisor {
-  /** The PSO’s email address, always lower‑cased */
-  email: string;
-  /** The full name of this PSO’s supervisor (e.g. "Ana Gómez") */
-  supervisorName: string;
-}
+import { withCallerId } from "../shared/middleware/callerId";
+import { withQueryValidation } from "../shared/middleware/validate";
+import { ok } from "../shared/utils/response";
+import { ServiceContainer } from "../shared/infrastructure/container/ServiceContainer";
+import { GetPsosBySupervisorRequest } from "../shared/domain/value-objects/GetPsosBySupervisorRequest";
+import { GetPsosBySupervisorApplicationService } from "../shared/application/services/GetPsosBySupervisorApplicationService";
+import { getPsosBySupervisorSchema } from "../shared/domain/schemas/GetPsosBySupervisorSchema";
 
 /**
- * GET /api/GetPsosBySupervisor
+ * Azure Function: handles PSOs lookup by supervisor
+ * 
+ * @remarks
+ * 1. Validates query parameters using Zod schema.  
+ * 2. Extracts caller ID from JWT token.  
+ * 3. Creates request value object.  
+ * 4. Delegates to application service for business logic and authorization.  
+ * 5. Returns PSOs data with supervisor information.
  *
- * Returns the list of PSOs (employees) the caller is allowed to see,
- * each with their supervisor’s full name.
- *
- * Behavior:
- * - If caller.role === "Admin":
- *   • returns every Employee’s email + that employee’s supervisor fullName.
- * - If caller.role === "Supervisor":
- *   • returns only those Employees whose supervisorId === caller.id,
- *     and each entry carries the caller’s own fullName as supervisorName.
- *
- * Response JSON:
- * ```json
- * {
- *   "psos": [
- *     { "email": "alice@example.com", "supervisorName": "Carlos Pérez" },
- *     { "email": "bob@example.com",   "supervisorName": "María Rodrí­guez" }
- *   ]
- * }
- * ```
+ * @param context - Azure Functions execution context
+ * @param req - HTTP request with query parameters
  */
 const GetPsosBySupervisor: AzureFunction = withErrorHandler(
   async (ctx: Context, req: HttpRequest) => {
-    return withAuth(ctx, async () => {
-      const claims = (ctx as any).bindings.user as JwtPayload;
-      const oid    = claims.oid || claims.sub;
-      if (!oid) {
-        return unauthorized(ctx, "Cannot determine caller OID");
-      }
+    await withAuth(ctx, async () => {
+      await withCallerId(ctx, async () => {
+        await withQueryValidation(getPsosBySupervisorSchema)(ctx, async () => {
+          const serviceContainer = ServiceContainer.getInstance();
+          serviceContainer.initialize();
 
-      // 1) Lookup caller in our Users table
-      const caller = await getUserByAzureOid(oid as string);
-      if (!caller) {
-        return unauthorized(ctx, "User not found in application database");
-      }
+          const applicationService = serviceContainer.resolve<GetPsosBySupervisorApplicationService>('GetPsosBySupervisorApplicationService');
+          const callerId = ctx.bindings.callerId as string;
 
-      // 2) Build base filter for Employees only
-      const baseWhere: Record<string, any> = {
-        role:      "Employee",
-        deletedAt: null,
-      };
+          const validatedQuery = (ctx as any).bindings.validatedQuery;
+          const request = GetPsosBySupervisorRequest.fromQuery(callerId, validatedQuery);
 
-      // 3) If Supervisor, restrict to their team
-      if (caller.role === "Supervisor") {
-        baseWhere.supervisorId = caller.id;
-      } else if (caller.role !== "Admin" && caller.role !== "SuperAdmin") {
-        return unauthorized(ctx, "Insufficient privileges");
-      }
+          const response = await applicationService.getPsosBySupervisor(callerId, request);
 
-      // 4) Fetch matching Users plus their supervisor’s fullName
-      const employees = await prisma.user.findMany({
-        where: baseWhere,
-        select: {
-          email:      true,
-          supervisor: {
-            select: { fullName: true }
-          }
-        }
+          return ok(ctx, response.toPayload());
+        });
       });
-
-      // 5) Map to DTO shape
-      const psos: PsoWithSupervisor[] = employees.map(e => ({
-        email: e.email.toLowerCase(),
-        supervisorName: e.supervisor
-          ? e.supervisor.fullName
-          : ""
-      }));
-
-      return ok(ctx, { psos });
     });
+  },
+  {
+    genericMessage: "Internal Server Error in GetPsosBySupervisor",
+    showStackInDev: true,
   }
 );
 

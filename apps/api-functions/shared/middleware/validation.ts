@@ -4,7 +4,6 @@
  */
 
 import { Context } from '@azure/functions';
-import { badRequest } from '../utils/response';
 import { UserRepository } from '../infrastructure/repositories/UserRepository';
 
 /**

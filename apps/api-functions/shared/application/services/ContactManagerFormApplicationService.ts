@@ -41,7 +41,7 @@ export class ContactManagerFormApplicationService {
       throw new Error('User not found');
     }
 
-    // 3. Execute the domain service
+    // 3. Execute the domain service with user token
     return await this.contactManagerFormService.processForm(request, user.id, token, user.fullName);
   }
 
@@ -54,4 +54,5 @@ export class ContactManagerFormApplicationService {
     // Only Employees can submit contact manager forms
     await this.authorizationService.authorizeCommandAcknowledgment(callerId);
   }
+
 }

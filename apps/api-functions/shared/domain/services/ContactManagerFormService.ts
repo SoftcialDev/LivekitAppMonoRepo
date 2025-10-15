@@ -63,10 +63,10 @@ export class ContactManagerFormService implements IContactManagerFormService {
   }
 
   /**
-   * Sends notification to chat asynchronously
+   * Sends notification to chat asynchronously using admin token
    * @param request - Contact manager form request
    * @param imageUrl - Optional image URL
-   * @param token - Authentication token for chat notifications
+   * @param token - Authentication token from admin user
    * @param senderName - Name of the user submitting the form
    */
   private async sendNotificationAsync(
@@ -76,7 +76,7 @@ export class ContactManagerFormService implements IContactManagerFormService {
     senderName: string
   ): Promise<void> {
     try {
-      // Get or sync chat
+      // Get or sync chat using admin token
       const chatId = await this.chatService.getOrSyncChat(token);
 
       // Create message payload
@@ -88,7 +88,7 @@ export class ContactManagerFormService implements IContactManagerFormService {
         imageUrl
       };
 
-      // Send message
+      // Send message using admin token
       await this.chatService.sendMessage(token, chatId, message);
     } catch (error) {
       // Log error but don't fail the main operation

@@ -207,15 +207,15 @@ const setupLiveKitRoom = useCallback(async (room: Room, videoTrack: LocalVideoTr
    * Starts a streaming session with camera and LiveKit connection
    * @remarks Ensures WebSocket connection, camera permissions, and LiveKit room setup
    */
-  const startStream = useCallback(async () => {
+const startStream = useCallback(async () => {
     setManualStop(false);
-    
-    if (streamingRef.current) {
-      return;
-    }
+  
+  if (streamingRef.current) {
+    return;
+  }
 
-    if (!pubSubService.isConnected()) {
-      await pubSubService.connect(userEmail);
+  if (!pubSubService.isConnected()) {
+    await pubSubService.connect(userEmail);
       await new Promise((r) => setTimeout(r, 200));
       try { await pubSubService.joinGroup('presence'); } catch {}
       try { await pubSubService.joinGroup(`commands:${userEmail}`); } catch {}
@@ -223,60 +223,60 @@ const setupLiveKitRoom = useCallback(async (room: Room, videoTrack: LocalVideoTr
 
     try {
       await mediaDevices.requestCameraPermission();
-    } catch (e) {
-      return;
-    }
+  } catch (e) {
+    return;
+  }
 
-    let videoTrack: LocalVideoTrack;
-    try {
+  let videoTrack: LocalVideoTrack;
+  try {
       videoTrack = await mediaDevices.createVideoTrackFromDevices();
-    } catch (err) {
-      console.error('[Stream] video setup failed', err);
-      alert('Unable to access any camera.');
-      return;
-    }
+  } catch (err) {
+    console.error('[Stream] video setup failed', err);
+    alert('Unable to access any camera.');
+    return;
+  }
 
-    console.log('[Stream] DEBUG - Getting LiveKit token...');
-    const { rooms, livekitUrl } = await getLiveKitToken();
-    console.log('[Stream] DEBUG - LiveKit URL:', livekitUrl);
-    console.log('[Stream] DEBUG - Rooms:', rooms.length);
-    console.log('[Stream] DEBUG - Token preview:', rooms[0]?.token?.substring(0, 20) + '...');
-    console.log('[Stream] DEBUG - Room name:', rooms[0]?.room);
-
+  console.log('[Stream] DEBUG - Getting LiveKit token...');
+  const { rooms, livekitUrl } = await getLiveKitToken();
+  console.log('[Stream] DEBUG - LiveKit URL:', livekitUrl);
+  console.log('[Stream] DEBUG - Rooms:', rooms.length);
+  console.log('[Stream] DEBUG - Token preview:', rooms[0]?.token?.substring(0, 20) + '...');
+  console.log('[Stream] DEBUG - Room name:', rooms[0]?.room);
+  
     if (!window.RTCPeerConnection || !navigator.onLine) {
       alert('Cannot stream: browser does not support WebRTC or is offline.');
-      return;
-    }
+    return;
+  }
 
     try {
       const room = await liveKit.connectToRoom(livekitUrl, rooms[0].token);
-      await setupLiveKitRoom(room, videoTrack);
+    await setupLiveKitRoom(room, videoTrack);
       videoWatchdog.start(async () => await mediaDevices.createVideoTrackFromDevices());
       console.log('[Stream] DEBUG - Stream started successfully');
-    } catch (err) {
+  } catch (err) {
       console.error('[Stream] LiveKit connection failed:', err);
       const retrySuccess = await reconnectWithRetry();
-      if (!retrySuccess) {
+    if (!retrySuccess) {
         try { videoTrack?.stop(); videoTrack?.detach(); } catch {}
-        return;
-      }
+      return;
     }
+  }
   }, [userEmail, mediaDevices, liveKit, setupLiveKitRoom, videoWatchdog, reconnectWithRetry, setManualStop]);
 
   /**
    * Stops an active streaming session
    * @remarks Unpublishes tracks, cleans up resources, and notifies backend
-   */
-  const stopStream = useCallback(async () => {
-    if (!streamingRef.current) return;
+ */
+const stopStream = useCallback(async () => {
+  if (!streamingRef.current) return;
 
     const room = liveKit.getCurrentRoom();
-    const { video, audio } = tracksRef.current;
+  const { video, audio } = tracksRef.current;
 
     try {
       if (room && video) { liveKit.unpublishVideoTrack(room, video, false); }
       if (room && audio) { liveKit.unpublishAudioTrack(room, audio, true); }
-    } catch {}
+  } catch {}
 
     try { video?.detach(); video?.stop(); } catch {}
     try { audio?.stop(); } catch {}
@@ -285,13 +285,13 @@ const setupLiveKitRoom = useCallback(async (room: Room, videoTrack: LocalVideoTr
     try {
       if (videoRef.current) { videoRef.current.srcObject = null; videoRef.current.src = ''; }
       if (audioRef.current) { audioRef.current.pause?.(); audioRef.current.srcObject = null; audioRef.current.src = ''; }
-    } catch {}
+  } catch {}
 
     if (!KEEP_AWAKE_WHEN_IDLE) { await releaseWakeLock(); }
 
     try { await liveKit.disconnectFromRoom(); } finally {}
 
-    streamingRef.current = false;
+  streamingRef.current = false;
     setStreaming(false);
     await setStreamingStatusWithRetry('stopped');
     videoWatchdog.stop();
@@ -301,18 +301,18 @@ const setupLiveKitRoom = useCallback(async (room: Room, videoTrack: LocalVideoTr
   /**
    * Stops streaming when triggered by external command
    * @remarks Sets manual stop flag to prevent automatic reconnection
-   */
-  const stopStreamForCommand = useCallback(async () => {
-    if (!streamingRef.current) return;
+ */
+const stopStreamForCommand = useCallback(async () => {
+  if (!streamingRef.current) return;
 
     setManualStop(true);
     const room = liveKit.getCurrentRoom();
-    const { video, audio } = tracksRef.current;
+  const { video, audio } = tracksRef.current;
 
     try {
       if (room && video) { liveKit.unpublishVideoTrack(room, video, false); }
       if (room && audio) { liveKit.unpublishAudioTrack(room, audio, true); }
-    } catch {}
+  } catch {}
 
     try { video?.detach(); video?.stop(); } catch {}
     try { audio?.stop(); } catch {}
@@ -321,24 +321,24 @@ const setupLiveKitRoom = useCallback(async (room: Room, videoTrack: LocalVideoTr
     try {
       if (videoRef.current) { videoRef.current.srcObject = null; videoRef.current.src = ''; }
       if (audioRef.current) { audioRef.current.pause?.(); audioRef.current.srcObject = null; audioRef.current.src = ''; }
-    } catch {}
+  } catch {}
 
     if (!KEEP_AWAKE_WHEN_IDLE) { await releaseWakeLock(); }
 
     try { await liveKit.disconnectFromRoom(); } finally {}
 
-    streamingRef.current = false;
+  streamingRef.current = false;
     setStreaming(false);
-    console.info('[Streaming] INACTIVE by COMMAND');
-    
-    try {
-      await apiClient.post('/api/StreamingSessionUpdate', { 
-        status: 'stopped',
-        isCommand: true
-      });
-    } catch (err) {
-      console.warn('Failed to notify backend of command stop:', err);
-    }
+  console.info('[Streaming] INACTIVE by COMMAND');
+  
+  try {
+    await apiClient.post('/api/StreamingSessionUpdate', { 
+      status: 'stopped',
+      isCommand: true
+    });
+  } catch (err) {
+    console.warn('Failed to notify backend of command stop:', err);
+  }
     videoWatchdog.stop();
     streamHealth.stop();
   }, [releaseWakeLock, liveKit, videoWatchdog, streamHealth, setManualStop]);
