@@ -77,12 +77,21 @@ export class WebPubSubService implements IWebPubSubService {
     fullName: string;
     status: "online" | "offline";
     lastSeenAt: string;
+    role?: string;
+    supervisorId?: string | null;
+    supervisorEmail?: string | null;
   }): Promise<void> {
     try {
+      console.log(`📡 [WebPubSubService] broadcastPresence: Starting broadcast for user ${payload.email} with status ${payload.status}`);
+      
       const event = { type: "presence", user: payload };
+      console.log(`📡 [WebPubSubService] broadcastPresence: Event to send:`, event);
+      
       await this.client.group("presence").sendToAll(JSON.stringify(event));
+      console.log(`📡 [WebPubSubService] broadcastPresence: Message sent successfully to presence group for user ${payload.email}`);
       console.debug("Presence broadcast:", event);
     } catch (error: any) {
+      console.error(`📡 [WebPubSubService] broadcastPresence: Failed to send message for user ${payload.email}:`, error);
       throw new Error(`Failed to broadcast presence: ${error.message}`);
     }
   }

@@ -38,6 +38,9 @@ export interface IWebPubSubService {
     fullName: string;
     status: "online" | "offline";
     lastSeenAt: string;
+    role?: string;
+    supervisorId?: string | null;
+    supervisorEmail?: string | null;
   }): Promise<void>;
 
   /**

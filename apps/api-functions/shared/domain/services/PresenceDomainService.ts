@@ -60,18 +60,32 @@ export class PresenceDomainService {
    * await presenceDomainService.setUserOffline(userId);
    */
   async setUserOffline(userId: string): Promise<void> {
+    console.log(`📊 [PresenceDomainService] setUserOffline: Starting for user ${userId}`);
+    
     // 1. Find user
     const user = await this.findActiveUser(userId);
     const now = getCentralAmericaTime();
+    console.log(`📊 [PresenceDomainService] setUserOffline: User found:`, {
+      email: user.email,
+      role: user.role,
+      supervisorId: user.supervisorId,
+      supervisorEmail: user.supervisorEmail
+    });
 
     // 2. Update presence to offline
+    console.log(`📊 [PresenceDomainService] setUserOffline: Updating presence to offline...`);
     await this.presenceRepository.upsertPresence(user.id, Status.Offline, now);
+    console.log(`📊 [PresenceDomainService] setUserOffline: Presence updated successfully`);
 
     // 3. Close open history entry
+    console.log(`📊 [PresenceDomainService] setUserOffline: Closing open history entry...`);
     await this.presenceRepository.closeOpenPresenceHistory(user.id, now);
+    console.log(`📊 [PresenceDomainService] setUserOffline: History entry closed successfully`);
 
     // 4. Broadcast change
+    console.log(`📊 [PresenceDomainService] setUserOffline: Broadcasting presence change...`);
     await this.broadcastPresenceChange(user, Status.Offline, now);
+    console.log(`📊 [PresenceDomainService] setUserOffline: Broadcast completed successfully`);
   }
 
   /**
@@ -95,7 +109,7 @@ export class PresenceDomainService {
    * @throws UserNotFoundError when the user is not found
    * @private
    */
-  private async findActiveUser(key: string): Promise<{ id: string; email: string; fullName: string }> {
+  private async findActiveUser(key: string): Promise<{ id: string; email: string; fullName: string; role: string; supervisorId: string | null; supervisorEmail: string | null }> {
     // Try to find user by Azure AD Object ID first
     let user = await this.userRepository.findByAzureAdObjectId(key);
     
@@ -113,10 +127,24 @@ export class PresenceDomainService {
       throw new UserNotFoundError(`User not found for presence operation (${key})`);
     }
 
+    // Get supervisor email if supervisorId exists
+    let supervisorEmail: string | null = null;
+    if (user.supervisorId) {
+      try {
+        const supervisor = await this.userRepository.findById(user.supervisorId);
+        supervisorEmail = supervisor?.email || null;
+      } catch (error) {
+        console.warn(`Failed to get supervisor email for user ${user.email}:`, error);
+      }
+    }
+
     return {
       id: user.id,
       email: user.email,
-      fullName: user.fullName
+      fullName: user.fullName,
+      role: user.role,
+      supervisorId: user.supervisorId,
+      supervisorEmail
     };
   }
 
@@ -128,17 +156,30 @@ export class PresenceDomainService {
    * @private
    */
   private async broadcastPresenceChange(
-    user: { email: string; fullName: string },
+    user: { email: string; fullName: string; role: string; supervisorId: string | null; supervisorEmail: string | null },
     status: Status,
     lastSeenAt: Date
   ): Promise<void> {
+    console.log(`📢 [PresenceDomainService] broadcastPresenceChange: Starting broadcast for user ${user.email} with status ${status}`);
+    
     const broadcast = {
       email: user.email,
       fullName: user.fullName,
       status: status,
       lastSeenAt: lastSeenAt.toISOString(),
+      role: user.role,
+      supervisorId: user.supervisorId,
+      supervisorEmail: user.supervisorEmail,
     };
 
-    await this.webPubSubService.broadcastPresence(broadcast);
+    console.log(`📢 [PresenceDomainService] broadcastPresenceChange: Broadcast payload:`, broadcast);
+    
+    try {
+      await this.webPubSubService.broadcastPresence(broadcast);
+      console.log(`📢 [PresenceDomainService] broadcastPresenceChange: Broadcast sent successfully for user ${user.email}`);
+    } catch (error: any) {
+      console.error(`📢 [PresenceDomainService] broadcastPresenceChange: Failed to broadcast for user ${user.email}:`, error);
+      throw error;
+    }
   }
 }
