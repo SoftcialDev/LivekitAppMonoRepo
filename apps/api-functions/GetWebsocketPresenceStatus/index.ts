@@ -15,9 +15,9 @@ import { JwtPayload } from "jsonwebtoken";
  * including their supervisor’s email and name if assigned.
  */
 interface PresenceItem {
-  /** User’s email address */
+  /** User's email address */
   email: string;
-  /** User’s full name (empty string if null) */
+  /** User's full name (empty string if null) */
   fullName: string;
   /** Azure AD object ID */
   azureAdObjectId: string;
@@ -27,10 +27,12 @@ interface PresenceItem {
   status: string;
   /** ISO timestamp of last seen, or null if unavailable */
   lastSeenAt: string | null;
-  /** Supervisor’s email address, or null if none assigned */
+  /** Supervisor's email address, or null if none assigned */
   supervisorEmail: string | null;
-  /** Supervisor’s full name, or null if none assigned */
+  /** Supervisor's full name, or null if none assigned */
   supervisorName: string | null;
+  /** Supervisor's ID, or null if none assigned */
+  supervisorId: string | null;
 }
 
 /**
@@ -126,22 +128,36 @@ const getWebsocketPresenceStatuses: AzureFunction = withErrorHandler(
               select: { status: true, lastSeenAt: true },
             },
             supervisor: {
-              select: { email: true, fullName: true },
+              select: { id: true, email: true, fullName: true },
             },
           },
         });
 
         // 6) Map database records to response items
-        const items: PresenceItem[] = users.map(u => ({
-          email:           u.email,
-          fullName:        u.fullName ?? "",
-          azureAdObjectId: u.azureAdObjectId,
-          role:            u.role,
-          status:          u.presence?.status   ?? "offline",
-          lastSeenAt:      u.presence?.lastSeenAt?.toISOString() ?? null,
-          supervisorEmail: u.supervisor?.email   ?? null,
-          supervisorName:  u.supervisor?.fullName ?? null,
-        }));
+        const items: PresenceItem[] = users.map(u => {
+          const item = {
+            email:           u.email,
+            fullName:        u.fullName ?? "",
+            azureAdObjectId: u.azureAdObjectId,
+            role:            u.role,
+            status:          u.presence?.status   ?? "offline",
+            lastSeenAt:      u.presence?.lastSeenAt?.toISOString() ?? null,
+            supervisorEmail: u.supervisor?.email   ?? null,
+            supervisorName:  u.supervisor?.fullName ?? null,
+            supervisorId:    u.supervisor?.id       ?? null,
+          };
+          
+          // Debug supervisor info
+          if (u.role === 'Employee' && u.supervisor) {
+            console.log(`🔍 [GetWebsocketPresenceStatus] Employee ${u.email} has supervisor:`, {
+              supervisorId: u.supervisor.id,
+              supervisorEmail: u.supervisor.email,
+              supervisorName: u.supervisor.fullName
+            });
+          }
+          
+          return item;
+        });
 
         // 7) Return paginated presence
         const response: PaginatedPresence = {

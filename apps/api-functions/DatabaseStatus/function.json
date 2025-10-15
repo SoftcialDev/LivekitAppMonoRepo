@@ -1,5 +1,5 @@
 {
-  "scriptFile": "../dist/DatabaseStatus/index.js",
+  "scriptFile": "./index.js",
   "bindings": [
     {
       "authLevel": "function",
