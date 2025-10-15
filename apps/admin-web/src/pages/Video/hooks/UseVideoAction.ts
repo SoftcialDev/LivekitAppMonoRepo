@@ -45,18 +45,6 @@ export function useVideoActions() {
         await commandClient.start(email);
         showToast(`Sending start stream command for ${email}`, 'success');
         
-        // ✅ DISPARO OPTIMISTA - Intentar fetch inmediato tras START
-        // Esto evita depender solo de streamingMap o eventos WS
-
-        setTimeout(async () => {
-          try {
-            const { fetchForOptimistic } = await import('@/pages/Video/hooks/useMultiUserStreams');
-            await fetchForOptimistic(email);
-
-          } catch (err) {
-
-          }
-        }, 1000); // Pequeño delay para que el backend procese el START
         
       } catch (err: any) {
 

@@ -158,11 +158,19 @@ export class PresenceDomainService {
     let supervisorEmail: string | null = null;
     if (user.supervisorId) {
       try {
+        console.log(`🔍 [PresenceDomainService] Finding supervisor for user ${user.email} with supervisorId: ${user.supervisorId}`);
         const supervisor = await this.userRepository.findById(user.supervisorId);
         supervisorEmail = supervisor?.email || null;
+        console.log(`🔍 [PresenceDomainService] Supervisor found for ${user.email}:`, {
+          supervisorId: user.supervisorId,
+          supervisorEmail,
+          supervisorFound: !!supervisor
+        });
       } catch (error) {
-        console.warn(`Failed to get supervisor email for user ${user.email}:`, error);
+        console.warn(`❌ [PresenceDomainService] Failed to get supervisor email for user ${user.email}:`, error);
       }
+    } else {
+      console.log(`🔍 [PresenceDomainService] No supervisorId for user ${user.email}`);
     }
 
     return {
