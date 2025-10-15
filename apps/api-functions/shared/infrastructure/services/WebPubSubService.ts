@@ -165,7 +165,7 @@ export class WebPubSubService implements IWebPubSubService {
    * @param groupName - Name of the group to list connections for
    * @returns Promise that resolves to array of connections
    */
-  private async listConnectionsInGroup(groupName: string): Promise<Array<{connectionId: string, userId?: string}>> {
+  public async listConnectionsInGroup(groupName: string): Promise<Array<{connectionId: string, userId?: string}>> {
     try {
       const groupClient = this.client.group(groupName);
       const connections = await groupClient.listConnections();

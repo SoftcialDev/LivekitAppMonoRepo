@@ -7,6 +7,8 @@
 import { WebSocketEventRequest } from "../../domain/value-objects/WebSocketEventRequest";
 import { WebSocketEventResponse } from "../../domain/value-objects/WebSocketEventResponse";
 import { ContactManagerDisconnectDomainService } from "../../domain/services/ContactManagerDisconnectDomainService";
+import { PresenceDomainService } from "../../domain/services/PresenceDomainService";
+import { IWebPubSubService } from "../../domain/interfaces/IWebPubSubService";
 
 /**
  * Application service for handling Contact Manager disconnect operations
@@ -16,9 +18,13 @@ export class ContactManagerDisconnectApplicationService {
   /**
    * Creates a new ContactManagerDisconnectApplicationService instance
    * @param contactManagerDisconnectDomainService - Domain service for Contact Manager disconnect business logic
+   * @param presenceDomainService - Domain service for presence operations
+   * @param webPubSubService - Service for WebPubSub operations
    */
   constructor(
-    private readonly contactManagerDisconnectDomainService: ContactManagerDisconnectDomainService
+    private readonly contactManagerDisconnectDomainService: ContactManagerDisconnectDomainService,
+    private readonly presenceDomainService: PresenceDomainService,
+    private readonly webPubSubService: IWebPubSubService
   ) {}
 
   /**

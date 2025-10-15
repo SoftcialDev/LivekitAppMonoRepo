@@ -508,7 +508,8 @@ export class ServiceContainer {
           this.register<WebSocketConnectionDomainService>('WebSocketConnectionDomainService', () => {
             const presenceDomainService = this.resolve<PresenceDomainService>('PresenceDomainService');
             const streamingSessionDomainService = this.resolve<StreamingSessionDomainService>('StreamingSessionDomainService');
-            return new WebSocketConnectionDomainService(presenceDomainService, streamingSessionDomainService);
+            const webPubSubService = this.resolve<IWebPubSubService>('IWebPubSubService');
+            return new WebSocketConnectionDomainService(presenceDomainService, streamingSessionDomainService, webPubSubService);
           });
 
           this.register<WebSocketConnectionApplicationService>('WebSocketConnectionApplicationService', () => {
@@ -524,7 +525,9 @@ export class ServiceContainer {
 
           this.register<ContactManagerDisconnectApplicationService>('ContactManagerDisconnectApplicationService', () => {
             const contactManagerDisconnectDomainService = this.resolve<ContactManagerDisconnectDomainService>('ContactManagerDisconnectDomainService');
-            return new ContactManagerDisconnectApplicationService(contactManagerDisconnectDomainService);
+            const presenceDomainService = this.resolve<PresenceDomainService>('PresenceDomainService');
+            const webPubSubService = this.resolve<IWebPubSubService>('IWebPubSubService');
+            return new ContactManagerDisconnectApplicationService(contactManagerDisconnectDomainService, presenceDomainService, webPubSubService);
           });
 
           // Register Get Supervisor By Identifier services

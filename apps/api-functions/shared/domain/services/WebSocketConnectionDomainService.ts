@@ -8,6 +8,7 @@ import { WebSocketEventRequest } from "../value-objects/WebSocketEventRequest";
 import { WebSocketEventResponse } from "../value-objects/WebSocketEventResponse";
 import { PresenceDomainService } from "./PresenceDomainService";
 import { StreamingSessionDomainService } from "./StreamingSessionDomainService";
+import { IWebPubSubService } from "../interfaces/IWebPubSubService";
 
 /**
  * Domain service for WebSocket connection business logic
@@ -18,10 +19,12 @@ export class WebSocketConnectionDomainService {
    * Creates a new WebSocketConnectionDomainService instance
    * @param presenceDomainService - Domain service for presence operations
    * @param streamingSessionDomainService - Domain service for streaming session operations
+   * @param webPubSubService - Service for WebPubSub operations and sync
    */
   constructor(
     private readonly presenceDomainService: PresenceDomainService,
-    private readonly streamingSessionDomainService: StreamingSessionDomainService
+    private readonly streamingSessionDomainService: StreamingSessionDomainService,
+    private readonly webPubSubService: IWebPubSubService
   ) {}
 
   /**
@@ -33,12 +36,19 @@ export class WebSocketConnectionDomainService {
    */
   async handleConnection(request: WebSocketEventRequest): Promise<WebSocketEventResponse> {
     try {
+      if (!request.userId) return WebSocketEventResponse.error("Missing userId in connection event");
+      
       // 1. Set user online
       await this.presenceDomainService.setUserOnline(request.userId);
-      
-      // 2. Log connection
-      console.log(`User ${request.userId} connected via WebSocket`);
-      
+      console.log(`User ${request.userId} connected (phase=${request.phase})`);
+
+      // 2. Optional: light reconciliation on connect (cheap)
+      try {
+        await this.webPubSubService.syncAllUsersWithDatabase();
+      } catch (e: any) {
+        console.warn("[ws] light sync on connect failed:", e?.message ?? e);
+      }
+
       return WebSocketEventResponse.success(`User ${request.userId} connected successfully`);
     } catch (error: any) {
       console.error(`Failed to handle connection for user ${request.userId}:`, error);
@@ -55,6 +65,8 @@ export class WebSocketConnectionDomainService {
    */
   async handleDisconnection(request: WebSocketEventRequest): Promise<WebSocketEventResponse> {
     try {
+      if (!request.userId) return WebSocketEventResponse.error("Missing userId in disconnection event");
+
       // 1. Set user offline
       await this.presenceDomainService.setUserOffline(request.userId);
       
@@ -62,7 +74,15 @@ export class WebSocketConnectionDomainService {
       await this.streamingSessionDomainService.stopStreamingSession(request.userId, 'DISCONNECT');
       
       // 3. Log disconnection 
-      console.log(`User ${request.userId} disconnected via WebSocket`);
+      console.log(`User ${request.userId} disconnected (phase=${request.phase})`);
+
+      // 4. Do the full reconciliation here (authoritative cleanup)
+      try {
+        const res = await this.webPubSubService.syncAllUsersWithDatabase();
+        console.log(`[ws] full sync: ${res.corrected} corrections, ${res.warnings.length} warnings, ${res.errors.length} errors`);
+      } catch (e: any) {
+        console.warn("[ws] full sync failed:", e?.message ?? e);
+      }
       
       return WebSocketEventResponse.success(`User ${request.userId} disconnected successfully`);
     } catch (error: any) {
