@@ -26,7 +26,6 @@ export function useIsolatedStreams(viewerEmail: string, emails: string[]): Creds
   // ✅ Función para actualizar solo una tarjeta específica
   const refreshTokenForEmail = useCallback(async (email: string) => {
     try {
-      console.log(`🔄 [useIsolatedStreams] Refreshing token ONLY for ${email}`);
       
       const sessions = await fetchStreamingSessions();
       const emailToRoom = new Map<string, string>();
@@ -50,18 +49,15 @@ export function useIsolatedStreams(viewerEmail: string, emails: string[]): Creds
         // Solo actualizar si realmente cambió
         const currentCreds = prev[key];
         if (JSON.stringify(currentCreds) === JSON.stringify(newCreds)) {
-          console.log(`✅ [useIsolatedStreams] No change needed for ${email}, skipping update`);
           return prev;
         }
-        
-        console.log(`🔄 [useIsolatedStreams] Updating ONLY ${email} with new credentials`);
         return {
           ...prev,
           [key]: newCreds
         };
       });
     } catch (error) {
-      console.error(`❌ [useIsolatedStreams] Failed to refresh token for ${email}:`, error);
+      // Error handling
     }
   }, []);
 
@@ -84,7 +80,6 @@ export function useIsolatedStreams(viewerEmail: string, emails: string[]): Creds
   useEffect(() => {
     if (isInitializedRef.current || emails.length === 0) return;
     
-    console.log('🔄 [useIsolatedStreams] Initial setup for emails:', emails.length);
     isInitializedRef.current = true;
     
     // Solo hacer refresh inicial para emails que no tienen credenciales
@@ -109,7 +104,6 @@ export function useIsolatedStreams(viewerEmail: string, emails: string[]): Creds
     
     // Solo refrescar emails NUEVOS
     if (toJoin.length > 0) {
-      console.log('🔄 [useIsolatedStreams] New emails detected, refreshing only new ones:', toJoin);
       toJoin.forEach(email => {
         setTimeout(() => refreshTokenForEmail(email), 100);
       });
@@ -117,7 +111,6 @@ export function useIsolatedStreams(viewerEmail: string, emails: string[]): Creds
     
     // Limpiar emails que se fueron
     if (toLeave.length > 0) {
-      console.log('🗑️ [useIsolatedStreams] Emails removed, clearing credentials:', toLeave);
       toLeave.forEach(email => clearOne(email));
     }
   }, [emails, refreshTokenForEmail, clearOne]);
@@ -130,27 +123,17 @@ export function useIsolatedStreams(viewerEmail: string, emails: string[]): Creds
       try {
         // Conectar al WebSocket si no está conectado
         await client.connect(viewerEmail);
-        console.log('✅ [useIsolatedStreams] WebSocket connected');
         
         // Unirse a grupos de streaming para cada email
         for (const email of emails) {
           await client.joinGroup(email).catch(() => {});
         }
-        console.log('✅ [useIsolatedStreams] Joined streaming groups for emails:', emails.length);
       } catch (error) {
-        console.error('❌ [useIsolatedStreams] Failed to setup WebSocket:', error);
+        // Error handling
       }
     };
 
     const handleMessage = (msg: any) => {
-      console.log('🔌 [useIsolatedStreams] WebSocket message received:', {
-        type: msg?.type,
-        command: msg?.command,
-        status: msg?.status,
-        email: msg?.email,
-        employeeEmail: msg?.employeeEmail
-      });
-
       let targetEmail: string | null = null;
       let started: boolean | null = null;
 
@@ -158,30 +141,30 @@ export function useIsolatedStreams(viewerEmail: string, emails: string[]): Creds
       if (msg?.command && msg?.employeeEmail) {
         targetEmail = String(msg.employeeEmail).toLowerCase();
         started = msg.command === 'START' ? true : msg.command === 'STOP' ? false : null;
-        console.log('🔌 [useIsolatedStreams] Command message:', { targetEmail, started });
       } 
       // Procesar mensajes de estado (started/stopped)
       else if (msg?.email && msg?.status) {
         targetEmail = String(msg.email).toLowerCase();
         started = msg.status === 'started' ? true : msg.status === 'stopped' ? false : null;
-        console.log('🔌 [useIsolatedStreams] Status message:', { targetEmail, started });
       }
 
       if (!targetEmail || !emails.includes(targetEmail)) {
-        console.log('🔌 [useIsolatedStreams] Ignoring message for unknown email:', targetEmail);
         return;
       }
 
       if (started === true) {
-        console.log(`🔄 [useIsolatedStreams] WebSocket START/started received for: ${targetEmail}`);
         if (canceledUsersRef.current.has(targetEmail)) {
           const ns = new Set(canceledUsersRef.current);
           ns.delete(targetEmail);
           canceledUsersRef.current = ns;
         }
-        void refreshTokenForEmail(targetEmail);
+        // ✅ DELAY de 5 segundos para dar tiempo al PSO de iniciar streaming
+        setTimeout(() => {
+          if (targetEmail) {
+            void refreshTokenForEmail(targetEmail);
+          }
+        }, 5000);
       } else if (started === false) {
-        console.log(`🚫 [useIsolatedStreams] WebSocket STOP/stopped received for: ${targetEmail}`);
         const ns = new Set(canceledUsersRef.current);
         ns.add(targetEmail);
         canceledUsersRef.current = ns;

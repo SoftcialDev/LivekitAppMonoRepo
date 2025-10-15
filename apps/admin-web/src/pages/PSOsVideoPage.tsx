@@ -74,14 +74,6 @@ const PSOsPage: React.FC = () => {
     }
   }, [account, userInfo, loadUserInfo]);
   
-  // Debug role detection
-  console.log('🔍 [PSOsVideoPage] Role detection:', {
-    viewerEmail,
-    viewerRole,
-    viewerId,
-    userInfo,
-    userInfoKeys: userInfo ? Object.keys(userInfo) : 'null'
-  });
 
   /* ------------------------------------------------------------------ */
   /* 2️⃣ Presence data (already initialized by layout)                   */

@@ -29,12 +29,9 @@ export function useStablePSOs(viewerEmail: string, viewerRole?: string) {
       });
       
       if (!hasChanges) {
-        console.log('✅ [useStablePSOs] No changes in user list, returning cached result');
         return lastResultRef.current;
       }
     }
-
-    console.log('🔄 [useStablePSOs] User list changed, recalculating PSOs');
 
     const decorate = (u: UserStatus): PSOWithStatus => {
       // If we have supervisorId but no supervisorEmail, try to find it in the presence store
@@ -86,7 +83,6 @@ export function useStablePSOs(viewerEmail: string, viewerRole?: string) {
     lastUsersRef.current = [...currentUsers];
     lastResultRef.current = result;
 
-    console.log('✅ [useStablePSOs] PSOs calculated:', result.length);
     return result;
   }, [onlineUsers, viewerEmail, viewerRole]);
 }
