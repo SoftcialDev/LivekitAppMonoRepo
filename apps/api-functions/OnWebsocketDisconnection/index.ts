@@ -35,9 +35,10 @@ const onDisconnected: AzureFunction = async (context: Context) => {
     // 1) Generic presence + streaming logic for all users
     console.log('🔌 [DISCONNECT] Resolving WebSocketConnectionApplicationService...');
     const connectionService = serviceContainer.resolve<WebSocketConnectionApplicationService>('WebSocketConnectionApplicationService');
+    console.log('🔌 [DISCONNECT] WebSocketConnectionApplicationService resolved successfully');
     console.log('🔌 [DISCONNECT] Calling handleDisconnection...');
-    await connectionService.handleDisconnection(request);
-    console.log('🔌 [DISCONNECT] handleDisconnection completed');
+    const disconnectResult = await connectionService.handleDisconnection(request);
+    console.log('🔌 [DISCONNECT] handleDisconnection completed with result:', disconnectResult);
 
     // 2) Additional Contact Manager logic (no-op for non-CMs)
     console.log('🔌 [DISCONNECT] Resolving ContactManagerDisconnectApplicationService...');
@@ -45,6 +46,18 @@ const onDisconnected: AzureFunction = async (context: Context) => {
     console.log('🔌 [DISCONNECT] Calling handleContactManagerDisconnect...');
     await cmService.handleContactManagerDisconnect(request);
     console.log('🔌 [DISCONNECT] handleContactManagerDisconnect completed');
+
+    // 3) Test sync directly to verify it works
+    console.log('🔌 [DISCONNECT] Testing sync directly...');
+    try {
+      const webPubSubService = serviceContainer.resolve<any>('WebPubSubService');
+      console.log('🔌 [DISCONNECT] WebPubSubService resolved for direct test');
+      const syncResult = await webPubSubService.syncAllUsersWithDatabase();
+      console.log('🔌 [DISCONNECT] Direct sync test completed:', syncResult);
+    } catch (syncError: any) {
+      console.error('🔌 [DISCONNECT] Direct sync test failed:', syncError);
+      console.error('🔌 [DISCONNECT] Sync error stack:', syncError.stack);
+    }
 
     console.log('🔌 [DISCONNECT] Handler completed successfully');
     context.res = { status: 200 };
