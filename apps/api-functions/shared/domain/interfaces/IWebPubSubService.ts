@@ -85,4 +85,17 @@ export interface IWebPubSubService {
    * @throws Error when logging fails
    */
   logActiveUsersInPresenceGroup(): Promise<void>;
+
+  /**
+   * Debug function to test sync functionality with detailed logging
+   * @returns Promise that resolves to sync results with debug information
+   * @throws Error when debug sync fails
+   */
+  debugSync(): Promise<{
+    corrected: number;
+    warnings: string[];
+    errors: string[];
+    webPubSubUsers: string[];
+    dbUsers: Array<{ email: string; status: string }>;
+  }>;
 }

@@ -185,7 +185,7 @@ export class ServiceContainer {
           this.register<IPresenceService>('PresenceService', () => {
             const userRepository = this.resolve<IUserRepository>('UserRepository');
             const presenceDomainService = this.resolve<PresenceDomainService>('PresenceDomainService');
-            const webPubSubService = this.resolve<IWebPubSubService>('IWebPubSubService');
+            const webPubSubService = this.resolve<IWebPubSubService>('WebPubSubService');
             return new PresenceService(userRepository, presenceDomainService, webPubSubService);
           });
 
@@ -329,7 +329,7 @@ export class ServiceContainer {
           this.register<ILivekitRecordingDomainService>('LivekitRecordingDomainService', () => {
             const recordingRepository = this.resolve<IRecordingSessionRepository>('RecordingSessionRepository');
             const userRepository = this.resolve<IUserRepository>('UserRepository');
-            const blobStorageService = this.resolve<IBlobStorageService>('IBlobStorageService');
+            const blobStorageService = this.resolve<IBlobStorageService>('BlobStorageService');
             return new LivekitRecordingDomainService(recordingRepository, userRepository, blobStorageService);
           });
 
@@ -343,7 +343,7 @@ export class ServiceContainer {
           // Register Delete Recording services
           this.register<DeleteRecordingDomainService>('DeleteRecordingDomainService', () => {
             const recordingRepository = this.resolve<IRecordingSessionRepository>('RecordingSessionRepository');
-            const blobStorageService = this.resolve<IBlobStorageService>('IBlobStorageService');
+            const blobStorageService = this.resolve<IBlobStorageService>('BlobStorageService');
             return new DeleteRecordingDomainService(recordingRepository, blobStorageService);
           });
 
@@ -376,12 +376,12 @@ export class ServiceContainer {
             return new PresenceRepository(prisma);
           });
 
-          this.register<IWebPubSubService>('IWebPubSubService', () => new WebPubSubService());
+          this.register<IWebPubSubService>('WebPubSubService', () => new WebPubSubService());
 
           this.register<PresenceDomainService>('PresenceDomainService', () => {
             const presenceRepository = this.resolve<IPresenceRepository>('IPresenceRepository');
             const userRepository = this.resolve<IUserRepository>('UserRepository');
-            const webPubSubService = this.resolve<IWebPubSubService>('IWebPubSubService');
+            const webPubSubService = this.resolve<IWebPubSubService>('WebPubSubService');
             return new PresenceDomainService(presenceRepository, userRepository, webPubSubService);
           });
 
@@ -400,7 +400,7 @@ export class ServiceContainer {
             const presenceDomainService = this.resolve<PresenceDomainService>('PresenceDomainService');
             const userRepository = this.resolve<IUserRepository>('UserRepository');
             const commandMessagingService = this.resolve<ICommandMessagingService>('ICommandMessagingService');
-            const webPubSubService = this.resolve<IWebPubSubService>('IWebPubSubService');
+            const webPubSubService = this.resolve<IWebPubSubService>('WebPubSubService');
             return new ProcessCommandDomainService(pendingCommandDomainService, streamingSessionDomainService, presenceDomainService, userRepository, commandMessagingService, webPubSubService);
           });
 
@@ -423,11 +423,11 @@ export class ServiceContainer {
           });
 
           // Register WebPubSub services
-          this.register<IWebPubSubService>('IWebPubSubService', () => new WebPubSubService());
+          this.register<IWebPubSubService>('WebPubSubService', () => new WebPubSubService());
 
           this.register<WebPubSubTokenDomainService>('WebPubSubTokenDomainService', () => {
             const userRepository = this.resolve<IUserRepository>('UserRepository');
-            const webPubSubService = this.resolve<IWebPubSubService>('IWebPubSubService');
+            const webPubSubService = this.resolve<IWebPubSubService>('WebPubSubService');
             return new WebPubSubTokenDomainService(userRepository, webPubSubService);
           });
 
@@ -453,8 +453,8 @@ export class ServiceContainer {
           // Register Send Snapshot services
           this.register<SendSnapshotDomainService>('SendSnapshotDomainService', () => {
             const userRepository = this.resolve<IUserRepository>('UserRepository');
-            const blobStorageService = this.resolve<IBlobStorageService>('IBlobStorageService');
-            const chatService = this.resolve<IChatService>('IChatService');
+            const blobStorageService = this.resolve<IBlobStorageService>('BlobStorageService');
+            const chatService = this.resolve<IChatService>('ChatService');
             const snapshotRepository = this.resolve<ISnapshotRepository>('ISnapshotRepository');
             return new SendSnapshotDomainService(userRepository, blobStorageService, chatService, snapshotRepository);
           });
@@ -468,7 +468,7 @@ export class ServiceContainer {
           // Register Delete Snapshot services
           this.register<DeleteSnapshotDomainService>('DeleteSnapshotDomainService', () => {
             const userRepository = this.resolve<IUserRepository>('UserRepository');
-            const blobStorageService = this.resolve<IBlobStorageService>('IBlobStorageService');
+            const blobStorageService = this.resolve<IBlobStorageService>('BlobStorageService');
             const snapshotRepository = this.resolve<ISnapshotRepository>('ISnapshotRepository');
             return new DeleteSnapshotDomainService(userRepository, blobStorageService, snapshotRepository);
           });
@@ -495,7 +495,7 @@ export class ServiceContainer {
           // Register Get Or Create Chat services
           this.register<GetOrCreateChatDomainService>('GetOrCreateChatDomainService', () => {
             const userRepository = this.resolve<IUserRepository>('UserRepository');
-            const chatService = this.resolve<IChatService>('IChatService');
+            const chatService = this.resolve<IChatService>('ChatService');
             return new GetOrCreateChatDomainService(userRepository, chatService);
           });
 
@@ -509,7 +509,7 @@ export class ServiceContainer {
           this.register<WebSocketConnectionDomainService>('WebSocketConnectionDomainService', () => {
             const presenceDomainService = this.resolve<PresenceDomainService>('PresenceDomainService');
             const streamingSessionDomainService = this.resolve<StreamingSessionDomainService>('StreamingSessionDomainService');
-            const webPubSubService = this.resolve<IWebPubSubService>('IWebPubSubService');
+            const webPubSubService = this.resolve<IWebPubSubService>('WebPubSubService');
             return new WebSocketConnectionDomainService(presenceDomainService, streamingSessionDomainService, webPubSubService);
           });
 
@@ -527,7 +527,7 @@ export class ServiceContainer {
           this.register<ContactManagerDisconnectApplicationService>('ContactManagerDisconnectApplicationService', () => {
             const contactManagerDisconnectDomainService = this.resolve<ContactManagerDisconnectDomainService>('ContactManagerDisconnectDomainService');
             const presenceDomainService = this.resolve<PresenceDomainService>('PresenceDomainService');
-            const webPubSubService = this.resolve<IWebPubSubService>('IWebPubSubService');
+            const webPubSubService = this.resolve<IWebPubSubService>('WebPubSubService');
             return new ContactManagerDisconnectApplicationService(contactManagerDisconnectDomainService, presenceDomainService, webPubSubService);
           });
 

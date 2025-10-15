@@ -9,6 +9,7 @@ import { AzureKeyCredential } from "@azure/core-auth";
 import { IWebPubSubService } from "../../domain/interfaces/IWebPubSubService";
 import { config } from "../../config";
 import { getCentralAmericaTime } from "../../utils/dateUtils";
+import prisma from "../database/PrismaClientService";
 
 /**
  * Infrastructure implementation of WebPubSub service
@@ -221,31 +222,38 @@ export class WebPubSubService implements IWebPubSubService {
     errors: string[];
   }> {
     try {
-      console.log('🔄 Starting WebPubSub ↔ Database sync...');
+      console.log('🔄 [SYNC] Starting WebPubSub ↔ Database sync...');
       
       // 1. Get users from WebPubSub presence group
       const webPubSubUsers = new Set<string>();
       try {
+        console.log('🔄 [SYNC] Getting connections from presence group...');
         const presenceConnections = await this.listConnectionsInGroup('presence');
-        presenceConnections.forEach(conn => {
+        console.log(`🔄 [SYNC] Found ${presenceConnections.length} connections in presence group`);
+        
+        presenceConnections.forEach((conn, index) => {
+          console.log(`🔄 [SYNC] Connection ${index + 1}: userId=${conn.userId}, connectionId=${conn.connectionId}`);
           if (conn.userId && conn.userId !== 'unknown') {
             webPubSubUsers.add(conn.userId);
           }
         });
-        console.log(`📊 WebPubSub presence group: ${webPubSubUsers.size} users`);
+        console.log(`🔄 [SYNC] WebPubSub presence group: ${webPubSubUsers.size} unique users`);
+        console.log(`🔄 [SYNC] WebPubSub users:`, Array.from(webPubSubUsers));
       } catch (error: any) {
-        console.warn('Failed to get WebPubSub users:', error.message);
+        console.error('🔄 [SYNC] Failed to get WebPubSub users:', error.message);
+        console.error('🔄 [SYNC] WebPubSub error stack:', error.stack);
       }
       
       // 2. Get users from database
-      const prisma = (await import('../database/PrismaClientService')).default;
+      console.log('🔄 [SYNC] Getting users from database...');
       const dbUsers = await prisma.user.findMany({
         where: { deletedAt: null },
         include: { presence: { select: { status: true } } }
       });
-      console.log(`📊 Database users: ${dbUsers.length} total`);
+      console.log(`🔄 [SYNC] Database users: ${dbUsers.length} total`);
       
       // 3. Detect discrepancies and apply corrections
+      console.log('🔄 [SYNC] Starting comparison and correction process...');
       const corrections = [];
       const warnings: string[] = [];
       const errors: string[] = [];
@@ -254,8 +262,13 @@ export class WebPubSubService implements IWebPubSubService {
         const isInWebPubSub = webPubSubUsers.has(user.email);
         const isOnlineInDb = user.presence?.status === 'online';
         
+        console.log(`🔄 [SYNC] Checking user: ${user.email}`);
+        console.log(`🔄 [SYNC] - In WebPubSub: ${isInWebPubSub}`);
+        console.log(`🔄 [SYNC] - Online in DB: ${isOnlineInDb}`);
+        
         if (isInWebPubSub && !isOnlineInDb) {
           // User in WebPubSub but offline in DB → Mark online
+          console.log(`🔄 [SYNC] CORRECTION: Marking ${user.email} online (in WebPubSub but offline in DB)`);
           try {
             await prisma.presence.upsert({
               where: { userId: user.id },
@@ -267,12 +280,14 @@ export class WebPubSubService implements IWebPubSubService {
               action: 'mark_online',
               reason: 'Connected in WebPubSub but offline in DB'
             });
-            console.log(`✅ Marked ${user.email} online`);
+            console.log(`✅ [SYNC] Marked ${user.email} online`);
           } catch (error: any) {
+            console.error(`❌ [SYNC] Failed to mark ${user.email} online:`, error.message);
             errors.push(`Failed to mark ${user.email} online: ${error.message}`);
           }
         } else if (!isInWebPubSub && isOnlineInDb) {
           // User online in DB but not in WebPubSub → Mark offline
+          console.log(`🔄 [SYNC] CORRECTION: Marking ${user.email} offline (not in WebPubSub but online in DB)`);
           try {
             await prisma.presence.upsert({
               where: { userId: user.id },
@@ -284,10 +299,13 @@ export class WebPubSubService implements IWebPubSubService {
               action: 'mark_offline',
               reason: 'Not in WebPubSub but online in DB'
             });
-            console.log(`✅ Marked ${user.email} offline`);
+            console.log(`✅ [SYNC] Marked ${user.email} offline`);
           } catch (error: any) {
+            console.error(`❌ [SYNC] Failed to mark ${user.email} offline:`, error.message);
             errors.push(`Failed to mark ${user.email} offline: ${error.message}`);
           }
+        } else {
+          console.log(`✅ [SYNC] User ${user.email} is consistent (WebPubSub: ${isInWebPubSub}, DB: ${isOnlineInDb})`);
         }
       }
       
@@ -301,6 +319,60 @@ export class WebPubSubService implements IWebPubSubService {
     } catch (error: any) {
       console.error('Error syncing users with database:', error);
       throw new Error(`Failed to sync users with database: ${error.message}`);
+    }
+  }
+
+  /**
+   * Debug function to test sync functionality
+   * @returns Promise that resolves to sync results with detailed logging
+   */
+  async debugSync(): Promise<{
+    corrected: number;
+    warnings: string[];
+    errors: string[];
+    webPubSubUsers: string[];
+    dbUsers: Array<{ email: string; status: string }>;
+  }> {
+    console.log('🔧 [DEBUG] Starting debug sync...');
+    
+    try {
+      const result = await this.syncAllUsersWithDatabase();
+      
+      // Get additional debug info
+      const webPubSubUsers: string[] = [];
+      try {
+        const presenceConnections = await this.listConnectionsInGroup('presence');
+        presenceConnections.forEach(conn => {
+          if (conn.userId && conn.userId !== 'unknown') {
+            webPubSubUsers.push(conn.userId);
+          }
+        });
+      } catch (error) {
+        console.error('🔧 [DEBUG] Failed to get WebPubSub users for debug:', error);
+      }
+
+      const dbUsers = await prisma.user.findMany({
+        where: { deletedAt: null },
+        include: { presence: { select: { status: true } } }
+      });
+
+      const dbUsersDebug = dbUsers.map(user => ({
+        email: user.email,
+        status: user.presence?.status || 'no_presence'
+      }));
+
+      console.log('🔧 [DEBUG] Debug sync completed');
+      console.log('🔧 [DEBUG] WebPubSub users:', webPubSubUsers);
+      console.log('🔧 [DEBUG] DB users:', dbUsersDebug);
+      
+      return {
+        ...result,
+        webPubSubUsers,
+        dbUsers: dbUsersDebug
+      };
+    } catch (error: any) {
+      console.error('🔧 [DEBUG] Debug sync failed:', error);
+      throw error;
     }
   }
 

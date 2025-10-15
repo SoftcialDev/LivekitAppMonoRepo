@@ -193,8 +193,10 @@ useEffect(() => {
   /* 7️⃣ Compute display list                                             */
   /* ------------------------------------------------------------------ */
 const displayList = useMemo(() => {
-  // 1️⃣ Para todos los roles: mostrar todos los PSOs disponibles
-  const base = allPsos;
+  // 1️⃣ Filtrar por PSOs seleccionados en el dropdown (si hay selección)
+  const base = fixedEmails.length > 0 
+    ? allPsos.filter(p => fixedEmails.includes(p.email))
+    : allPsos;
 
   // 2️⃣ Ordena por quienes tienen token de stream primero, con sort estable
   const sortedByStreaming = [...base].sort((a, b) => {
@@ -207,7 +209,7 @@ const displayList = useMemo(() => {
   // 3️⃣ Toma solo los primeros `layout`
   const result = sortedByStreaming.slice(0, layout);
   return result;
-  }, [allPsos, layout, credsMap]);
+  }, [allPsos, fixedEmails, layout, credsMap]);
 
 
   if (psosError || presenceError) {
