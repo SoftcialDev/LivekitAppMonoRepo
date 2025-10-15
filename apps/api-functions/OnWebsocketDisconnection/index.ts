@@ -16,16 +16,16 @@ import { ContactManagerDisconnectApplicationService } from "../shared/applicatio
  * @param context - Azure Functions execution context with connection data
  */
 const onDisconnected: AzureFunction = async (context: Context) => {
-  console.log('🔌 [DISCONNECT] Handler triggered');
-  console.log('🔌 [DISCONNECT] Context:', JSON.stringify(context.bindingData, null, 2));
+  context.log('🔌 [DISCONNECT] Handler triggered');
+  context.log('🔌 [DISCONNECT] Context:', JSON.stringify(context.bindingData, null, 2));
   
   try {
     const serviceContainer = ServiceContainer.getInstance();
     serviceContainer.initialize();
-    console.log('🔌 [DISCONNECT] ServiceContainer initialized');
+    context.log('🔌 [DISCONNECT] ServiceContainer initialized');
 
     const request = WebSocketEventRequest.fromContext(context);
-    console.log('🔌 [DISCONNECT] Request parsed:', {
+    context.log('🔌 [DISCONNECT] Request parsed:', {
       userId: request.userId,
       phase: request.phase,
       connectionId: request.connectionId,
@@ -33,37 +33,37 @@ const onDisconnected: AzureFunction = async (context: Context) => {
     });
 
     // 1) Generic presence + streaming logic for all users
-    console.log('🔌 [DISCONNECT] Resolving WebSocketConnectionApplicationService...');
+    context.log('🔌 [DISCONNECT] Resolving WebSocketConnectionApplicationService...');
     const connectionService = serviceContainer.resolve<WebSocketConnectionApplicationService>('WebSocketConnectionApplicationService');
-    console.log('🔌 [DISCONNECT] WebSocketConnectionApplicationService resolved successfully');
-    console.log('🔌 [DISCONNECT] Calling handleDisconnection...');
+    context.log('🔌 [DISCONNECT] WebSocketConnectionApplicationService resolved successfully');
+    context.log('🔌 [DISCONNECT] Calling handleDisconnection...');
     const disconnectResult = await connectionService.handleDisconnection(request);
-    console.log('🔌 [DISCONNECT] handleDisconnection completed with result:', disconnectResult);
+    context.log('🔌 [DISCONNECT] handleDisconnection completed with result:', disconnectResult);
 
     // 2) Additional Contact Manager logic (no-op for non-CMs)
-    console.log('🔌 [DISCONNECT] Resolving ContactManagerDisconnectApplicationService...');
+    context.log('🔌 [DISCONNECT] Resolving ContactManagerDisconnectApplicationService...');
     const cmService = serviceContainer.resolve<ContactManagerDisconnectApplicationService>('ContactManagerDisconnectApplicationService');
-    console.log('🔌 [DISCONNECT] Calling handleContactManagerDisconnect...');
+    context.log('🔌 [DISCONNECT] Calling handleContactManagerDisconnect...');
     await cmService.handleContactManagerDisconnect(request);
-    console.log('🔌 [DISCONNECT] handleContactManagerDisconnect completed');
+    context.log('🔌 [DISCONNECT] handleContactManagerDisconnect completed');
 
     // 3) Test sync directly to verify it works
-    console.log('🔌 [DISCONNECT] Testing sync directly...');
+    context.log('🔌 [DISCONNECT] Testing sync directly...');
     try {
       const webPubSubService = serviceContainer.resolve<any>('WebPubSubService');
-      console.log('🔌 [DISCONNECT] WebPubSubService resolved for direct test');
+      context.log('🔌 [DISCONNECT] WebPubSubService resolved for direct test');
       const syncResult = await webPubSubService.syncAllUsersWithDatabase();
-      console.log('🔌 [DISCONNECT] Direct sync test completed:', syncResult);
+      context.log('🔌 [DISCONNECT] Direct sync test completed:', syncResult);
     } catch (syncError: any) {
-      console.error('🔌 [DISCONNECT] Direct sync test failed:', syncError);
-      console.error('🔌 [DISCONNECT] Sync error stack:', syncError.stack);
+      context.log.error('🔌 [DISCONNECT] Direct sync test failed:', syncError);
+      context.log.error('🔌 [DISCONNECT] Sync error stack:', syncError.stack);
     }
 
-    console.log('🔌 [DISCONNECT] Handler completed successfully');
+    context.log('🔌 [DISCONNECT] Handler completed successfully');
     context.res = { status: 200 };
   } catch (error: any) {
-    console.error('🔌 [DISCONNECT] ERROR:', error);
-    console.error('🔌 [DISCONNECT] Error stack:', error.stack);
+    context.log.error('🔌 [DISCONNECT] ERROR:', error);
+    context.log.error('🔌 [DISCONNECT] Error stack:', error.stack);
     context.res = { status: 500, body: `Internal error: ${error.message}` };
   }
 };
