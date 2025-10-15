@@ -141,23 +141,6 @@ export function useMultiUserStreams(
     }
   }, [credsMap, canceledUsers]);
 
-  // ✅ PERIODIC FETCH - Intentar fetch periódicamente para PSOs online sin credenciales
-  useEffect(() => {
-    const interval = setInterval(() => {
-      emails.forEach(email => {
-        const creds = credsMap[email];
-        const isOnline = streamingMap[email];
-        
-        // Si el PSO está online pero no tiene credenciales, intentar fetch
-        if (isOnline && (!creds?.accessToken || !creds?.roomName)) {
-
-          fetchFor(email);
-        }
-      });
-    }, 5000); // Check every 5 seconds
-    
-    return () => clearInterval(interval);
-  }, [emails, credsMap, streamingMap, fetchFor]);
 
   // Separate effect for managing connections - only runs when emails list changes
   useEffect(() => {

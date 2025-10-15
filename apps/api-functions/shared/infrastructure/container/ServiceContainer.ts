@@ -375,6 +375,8 @@ export class ServiceContainer {
             return new PresenceRepository(prisma);
           });
 
+          this.register<IWebPubSubService>('IWebPubSubService', () => new WebPubSubService());
+
           this.register<PresenceDomainService>('PresenceDomainService', () => {
             const presenceRepository = this.resolve<IPresenceRepository>('IPresenceRepository');
             const userRepository = this.resolve<IUserRepository>('UserRepository');
