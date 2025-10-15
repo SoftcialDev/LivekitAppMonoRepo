@@ -53,7 +53,7 @@ export default withErrorHandler(async (ctx: Context) => {
     const userRepository = serviceContainer.resolve<IUserRepository>('UserRepository');
     const authorizationService = serviceContainer.resolve<IAuthorizationService>('AuthorizationService');
     const commandMessagingService = serviceContainer.resolve<ICommandMessagingService>('CommandMessagingService');
-    const webPubSubService = serviceContainer.resolve<IWebPubSubService>('IWebPubSubService');
+    const webPubSubService = serviceContainer.resolve<IWebPubSubService>('WebPubSubService');
     const commandApplicationService = new CommandApplicationService(
       userRepository,
       authorizationService,
