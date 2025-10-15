@@ -36,12 +36,13 @@ export class WebSocketConnectionApplicationService {
   /**
    * Handles WebSocket disconnection event
    * @param request - The WebSocket event request
+   * @param context - Optional Azure Functions context for logging
    * @returns Promise that resolves to the WebSocket event response
    * @throws Error when disconnection handling fails
    * @example
-   * const response = await webSocketConnectionApplicationService.handleDisconnection(request);
+   * const response = await webSocketConnectionApplicationService.handleDisconnection(request, context);
    */
-  async handleDisconnection(request: WebSocketEventRequest): Promise<WebSocketEventResponse> {
-    return await this.webSocketConnectionDomainService.handleDisconnection(request);
+  async handleDisconnection(request: WebSocketEventRequest, context?: any): Promise<WebSocketEventResponse> {
+    return await this.webSocketConnectionDomainService.handleDisconnection(request, context);
   }
 }

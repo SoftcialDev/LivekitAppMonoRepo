@@ -54,38 +54,49 @@ export class PresenceDomainService {
   /**
    * Sets a user's presence to offline
    * @param userId - The ID of the user to set offline
+   * @param context - Optional Azure Functions context for logging
    * @returns Promise that resolves when the operation completes
    * @throws UserNotFoundError when the user is not found
    * @example
-   * await presenceDomainService.setUserOffline(userId);
+   * await presenceDomainService.setUserOffline(userId, context);
    */
-  async setUserOffline(userId: string): Promise<void> {
-    console.log(`📊 [PresenceDomainService] setUserOffline: Starting for user ${userId}`);
+  async setUserOffline(userId: string, context?: any): Promise<void> {
+    const log = context?.log || console.log;
+    const logError = context?.log?.error || console.error;
     
-    // 1. Find user
-    const user = await this.findActiveUser(userId);
-    const now = getCentralAmericaTime();
-    console.log(`📊 [PresenceDomainService] setUserOffline: User found:`, {
-      email: user.email,
-      role: user.role,
-      supervisorId: user.supervisorId,
-      supervisorEmail: user.supervisorEmail
-    });
+    log(`📊 [PresenceDomainService] setUserOffline: Starting for user ${userId}`);
+    
+    try {
+      // 1. Find user
+      log(`📊 [PresenceDomainService] setUserOffline: Finding user...`);
+      const user = await this.findActiveUser(userId);
+      const now = getCentralAmericaTime();
+      log(`📊 [PresenceDomainService] setUserOffline: User found:`, {
+        email: user.email,
+        role: user.role,
+        supervisorId: user.supervisorId,
+        supervisorEmail: user.supervisorEmail
+      });
 
-    // 2. Update presence to offline
-    console.log(`📊 [PresenceDomainService] setUserOffline: Updating presence to offline...`);
-    await this.presenceRepository.upsertPresence(user.id, Status.Offline, now);
-    console.log(`📊 [PresenceDomainService] setUserOffline: Presence updated successfully`);
+      // 2. Update presence to offline
+      log(`📊 [PresenceDomainService] setUserOffline: Updating presence to offline...`);
+      await this.presenceRepository.upsertPresence(user.id, Status.Offline, now);
+      log(`📊 [PresenceDomainService] setUserOffline: Presence updated successfully`);
 
-    // 3. Close open history entry
-    console.log(`📊 [PresenceDomainService] setUserOffline: Closing open history entry...`);
-    await this.presenceRepository.closeOpenPresenceHistory(user.id, now);
-    console.log(`📊 [PresenceDomainService] setUserOffline: History entry closed successfully`);
+      // 3. Close open history entry
+      log(`📊 [PresenceDomainService] setUserOffline: Closing open history entry...`);
+      await this.presenceRepository.closeOpenPresenceHistory(user.id, now);
+      log(`📊 [PresenceDomainService] setUserOffline: History entry closed successfully`);
 
-    // 4. Broadcast change
-    console.log(`📊 [PresenceDomainService] setUserOffline: Broadcasting presence change...`);
-    await this.broadcastPresenceChange(user, Status.Offline, now);
-    console.log(`📊 [PresenceDomainService] setUserOffline: Broadcast completed successfully`);
+      // 4. Broadcast change
+      log(`📊 [PresenceDomainService] setUserOffline: Broadcasting presence change...`);
+      await this.broadcastPresenceChange(user, Status.Offline, now, context);
+      log(`📊 [PresenceDomainService] setUserOffline: Broadcast completed successfully`);
+    } catch (error: any) {
+      logError(`📊 [PresenceDomainService] setUserOffline: ERROR for user ${userId}:`, error);
+      logError(`📊 [PresenceDomainService] setUserOffline: Error stack:`, error.stack);
+      throw error;
+    }
   }
 
   /**
@@ -153,14 +164,19 @@ export class PresenceDomainService {
    * @param user - The user information
    * @param status - The new presence status
    * @param lastSeenAt - When the user was last seen
+   * @param context - Optional Azure Functions context for logging
    * @private
    */
   private async broadcastPresenceChange(
     user: { email: string; fullName: string; role: string; supervisorId: string | null; supervisorEmail: string | null },
     status: Status,
-    lastSeenAt: Date
+    lastSeenAt: Date,
+    context?: any
   ): Promise<void> {
-    console.log(`📢 [PresenceDomainService] broadcastPresenceChange: Starting broadcast for user ${user.email} with status ${status}`);
+    const log = context?.log || console.log;
+    const logError = context?.log?.error || console.error;
+    
+    log(`📢 [PresenceDomainService] broadcastPresenceChange: Starting broadcast for user ${user.email} with status ${status}`);
     
     const broadcast = {
       email: user.email,
@@ -172,13 +188,13 @@ export class PresenceDomainService {
       supervisorEmail: user.supervisorEmail,
     };
 
-    console.log(`📢 [PresenceDomainService] broadcastPresenceChange: Broadcast payload:`, broadcast);
+    log(`📢 [PresenceDomainService] broadcastPresenceChange: Broadcast payload:`, broadcast);
     
     try {
       await this.webPubSubService.broadcastPresence(broadcast);
-      console.log(`📢 [PresenceDomainService] broadcastPresenceChange: Broadcast sent successfully for user ${user.email}`);
+      log(`📢 [PresenceDomainService] broadcastPresenceChange: Broadcast sent successfully for user ${user.email}`);
     } catch (error: any) {
-      console.error(`📢 [PresenceDomainService] broadcastPresenceChange: Failed to broadcast for user ${user.email}:`, error);
+      logError(`📢 [PresenceDomainService] broadcastPresenceChange: Failed to broadcast for user ${user.email}:`, error);
       throw error;
     }
   }

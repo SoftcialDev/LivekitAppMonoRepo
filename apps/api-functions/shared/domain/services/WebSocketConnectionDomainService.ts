@@ -68,20 +68,22 @@ export class WebSocketConnectionDomainService {
   /**
    * Handles WebSocket disconnection event
    * @param request - The WebSocket event request
+   * @param context - Optional Azure Functions context for logging
    * @returns Promise that resolves to the WebSocket event response
    * @example
-   * const response = await webSocketConnectionDomainService.handleDisconnection(request);
+   * const response = await webSocketConnectionDomainService.handleDisconnection(request, context);
    */
-  async handleDisconnection(request: WebSocketEventRequest): Promise<WebSocketEventResponse> {
+  async handleDisconnection(request: WebSocketEventRequest, context?: any): Promise<WebSocketEventResponse> {
     try {
       if (!request.userId) return WebSocketEventResponse.error("Missing userId in disconnection event");
 
-      console.log(`🔌 [DISCONNECT] Starting disconnection process for user: ${request.userId}`);
+      const log = context?.log || console.log;
+      log(`🔌 [DISCONNECT] Starting disconnection process for user: ${request.userId}`);
 
       // 1. Set user offline
-      console.log(`🔌 [DISCONNECT] Setting user offline: ${request.userId}`);
-      await this.presenceDomainService.setUserOffline(request.userId);
-      console.log(`🔌 [DISCONNECT] User set offline successfully`);
+      log(`🔌 [DISCONNECT] Setting user offline: ${request.userId}`);
+      await this.presenceDomainService.setUserOffline(request.userId, context);
+      log(`🔌 [DISCONNECT] User set offline successfully`);
       
       // 2. Stop streaming session with DISCONNECT reason
       console.log(`🔌 [DISCONNECT] Stopping streaming session for: ${request.userId}`);

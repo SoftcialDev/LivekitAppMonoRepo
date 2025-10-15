@@ -36,8 +36,8 @@ const onDisconnected: AzureFunction = async (context: Context) => {
     context.log('🔌 [DISCONNECT] Resolving WebSocketConnectionApplicationService...');
     const connectionService = serviceContainer.resolve<WebSocketConnectionApplicationService>('WebSocketConnectionApplicationService');
     context.log('🔌 [DISCONNECT] WebSocketConnectionApplicationService resolved successfully');
-    context.log('🔌 [DISCONNECT] Calling handleDisconnection...');
-    const disconnectResult = await connectionService.handleDisconnection(request);
+    context.log('🔌 [DISCONNECT] Calling handleDisconnection with context...');
+    const disconnectResult = await connectionService.handleDisconnection(request, context);
     context.log('🔌 [DISCONNECT] handleDisconnection completed with result:', disconnectResult);
 
     // 2) Additional Contact Manager logic (no-op for non-CMs)
