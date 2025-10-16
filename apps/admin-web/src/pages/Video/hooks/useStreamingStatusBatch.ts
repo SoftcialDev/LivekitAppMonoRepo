@@ -36,6 +36,7 @@ export function useStreamingStatusBatch(emails: string[]): {
   const lastFetchRef = useRef<number>(0);
   const cacheTimeoutRef = useRef<NodeJS.Timeout>();
   const isFetchingRef = useRef<boolean>(false);
+  const debounceTimeoutRef = useRef<NodeJS.Timeout>();
 
   /**
    * Fetches streaming status for provided emails
@@ -116,35 +117,21 @@ export function useStreamingStatusBatch(emails: string[]): {
   }, [emails, fetchStatus]);
 
   /**
-   * Effect to fetch status when emails change
+   * Effect to fetch status ONLY ONCE on mount
    */
   useEffect(() => {
     if (emails.length === 0) return;
-
-    // Clear existing cache timeout
-    if (cacheTimeoutRef.current) {
-      clearTimeout(cacheTimeoutRef.current);
-    }
-
-    // Check if we need to fetch (cache for 5 seconds)
-    const now = Date.now();
-    const shouldFetch = now - lastFetchRef.current > 5000;
-
-    if (shouldFetch) {
+    
+    // Only fetch on first load
+    const isFirstLoad = lastFetchRef.current === 0;
+    
+    if (isFirstLoad) {
+      console.log('🚀 [useStreamingStatusBatch] First load - fetching batch status');
       fetchStatus(emails);
     } else {
-      // Set timeout to refetch when cache expires
-      cacheTimeoutRef.current = setTimeout(() => {
-        fetchStatus(emails);
-      }, 5000 - (now - lastFetchRef.current));
+      console.log('⏸️ [useStreamingStatusBatch] Skipping - already loaded');
     }
-
-    return () => {
-      if (cacheTimeoutRef.current) {
-        clearTimeout(cacheTimeoutRef.current);
-      }
-    };
-  }, [emails]); // Remove fetchStatus from dependencies to prevent multiple calls
+  }, [emails, fetchStatus]);
 
   return {
     statusMap,

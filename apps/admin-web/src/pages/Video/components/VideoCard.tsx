@@ -329,10 +329,7 @@ const VideoCard: React.FC<VideoCardProps & { livekitUrl?: string }> = memo(({
             <div className="absolute inset-0 flex items-center justify-center text-white">
               {(() => {
                 console.log('[VideoCard] statusMessage for', email, ':', statusMessage);
-                // Show "Updating..." if connecting (temporary state after STOP)
-                if (connecting) {
-                  return 'Updating...';
-                }
+                // Show statusMessage if available, otherwise show "No Stream"
                 return statusMessage || 'No Stream';
               })()}
             </div>

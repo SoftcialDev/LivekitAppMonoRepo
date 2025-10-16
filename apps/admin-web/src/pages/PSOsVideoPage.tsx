@@ -297,18 +297,13 @@ const displayList = useMemo(() => {
               // ✅ CONNECTING: Si está cargando O si está online pero no tiene token (acaba de empezar a transmitir)
               const connecting: boolean = c.loading || (p.isOnline && !c.accessToken && Boolean(c.roomName));
               
-              // ✅ Get status info for users without active tokens
-              const statusInfo = c.statusInfo;
-              const statusMessage = statusInfo ? getStatusMessage(statusInfo.status, statusInfo.lastSession?.stopReason) : null;
-              console.log('[PSOsVideoPage] Status info for', p.email, ':', statusInfo);
-              console.log('[PSOsVideoPage] Status message for', p.email, ':', statusMessage);
-              console.log('[PSOsVideoPage] credsMap for', p.email, ':', c);
+              // ✅ REMOVED: No more batch status
+              // const statusInfo = c.statusInfo;
+              // const statusMessage = statusInfo ? getStatusMessage(statusInfo.status, statusInfo.lastSession?.stopReason) : null;
               
-              // ✅ Show loading if no token and no status info yet
-              const showLoading = !c.accessToken && !statusInfo && !c.loading;
-              
-              // ✅ Show "Updating..." if user was streaming but now stopped (temporary state)
-              const showUpdating = !c.accessToken && !statusInfo && p.isOnline;
+              // ✅ REMOVED: No more loading/updating states to prevent connecting issues
+              // const showLoading = !c.accessToken && !statusInfo && !c.loading;
+              // const showUpdating = !c.accessToken && !statusInfo && p.isOnline;
               
 
               
@@ -325,10 +320,9 @@ const displayList = useMemo(() => {
                     roomName={c.roomName}
                     livekitUrl={c.livekitUrl}
                     shouldStream={isLive}
-                    connecting={connecting || showLoading || showUpdating}
+                    connecting={connecting}
                     disableControls={!p.isOnline || connecting}
                     className="w-full h-full"
-                    statusMessage={statusMessage || undefined}
                   />
                 </div>
               );
