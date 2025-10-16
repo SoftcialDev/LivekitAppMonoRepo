@@ -87,6 +87,11 @@ export class WebSocketConnectionDomainService {
       
       // 2. Stop streaming session with DISCONNECT reason
       console.log(`🔌 [DISCONNECT] Stopping streaming session for: ${request.userId}`);
+      console.log(`🕐 [WebSocketConnectionDomainService] handleDisconnection timestamp:`, {
+        userId: request.userId,
+        phase: request.phase,
+        timestamp: new Date().toISOString()
+      });
       await this.streamingSessionDomainService.stopStreamingSession(request.userId, 'DISCONNECT');
       console.log(`🔌 [DISCONNECT] Streaming session stopped successfully`);
       

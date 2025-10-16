@@ -185,6 +185,15 @@ export class StreamingSessionRepository implements IStreamingSessionRepository {
   async stopStreamingSession(userId: string, reason: string): Promise<void> {
     try {
       const now = getCentralAmericaTime();
+      const utcNow = new Date();
+      console.log(`🕐 [StreamingSessionRepository] stopStreamingSession timestamp:`, {
+        centralAmericaTime: now.toISOString(),
+        utcTime: utcNow.toISOString(),
+        centralAmericaTimeLocal: now.toString(),
+        utcTimeLocal: utcNow.toString(),
+        reason,
+        userId
+      });
       
       // Find the latest open session for the user
       const openSession = await prisma.streamingSessionHistory.findFirst({
@@ -198,6 +207,15 @@ export class StreamingSessionRepository implements IStreamingSessionRepository {
       });
 
       if (openSession) {
+        console.log(`🕐 [StreamingSessionRepository] Updating session:`, {
+          sessionId: openSession.id,
+          userId,
+          reason,
+          stoppedAt: now.toISOString(),
+          originalStartedAt: openSession.startedAt.toISOString(),
+          originalStoppedAt: openSession.stoppedAt?.toISOString() || 'null'
+        });
+        
         // Update the session with stop information
         await prisma.streamingSessionHistory.update({
           where: { id: openSession.id },
@@ -206,6 +224,8 @@ export class StreamingSessionRepository implements IStreamingSessionRepository {
             stopReason: reason as any
           }
         });
+        
+        console.log(`✅ [StreamingSessionRepository] Session updated successfully`);
       }
     } catch (error: any) {
       throw new Error(`Failed to stop streaming session: ${error.message}`);
@@ -302,7 +322,7 @@ export class StreamingSessionRepository implements IStreamingSessionRepository {
         FROM "StreamingSessionHistory" ssh
         JOIN "User" u ON ssh."userId" = u.id
         WHERE u.email = ANY(${emails})
-        ORDER BY u.email, ssh."createdAt" DESC
+        ORDER BY u.email, ssh."updatedAt" DESC
       ` as Array<{
         id: string;
         userId: string;

@@ -9,6 +9,7 @@ import {
 } from 'livekit-client'
 import { useSnapshot } from '../hooks/useSnapshot'
 import { usePresenceStore } from '@/shared/presence/usePresenceStore'
+import { useAuth } from '@/shared/auth/useAuth'
 import UserIndicator from '@/shared/ui/UserIndicator'
 import { VideoCardProps } from '@/shared/types/VideoCardProps'
 import AddModal from '@/shared/ui/ModalComponent'
@@ -54,10 +55,13 @@ const VideoCard: React.FC<VideoCardProps & { livekitUrl?: string }> = memo(({
   // ✅ DETECTAR PANTALLA NEGRA
   const isBlackScreen = !shouldStream || connecting || !accessToken || !roomName || !livekitUrl;
   
+  // ✅ Obtener información de autenticación para autorización
+  const { account } = useAuth();
   
-  if (isBlackScreen) {
-
-  }
+  // ✅ Verificar si el usuario es Admin o SuperAdmin
+  const isAdminOrSuperAdmin = account?.idTokenClaims?.roles?.some((role: string) => 
+    role === 'Admin' || role === 'SuperAdmin'
+  ) || false;
   const roomRef  = useRef<Room | null>(null)
   const audioRef = useRef<HTMLAudioElement>(null)
 
@@ -379,21 +383,23 @@ const VideoCard: React.FC<VideoCardProps & { livekitUrl?: string }> = memo(({
             {isAudioMuted ? 'Unmute' : 'Mute'}
           </button> */}
 
-          {/* Talkback 
-          <button
-            onClick={async () => {
-              if (isTalking) {
-                await stopTalk()
-              } else {
-                await startTalk()
-              }
-            }}
-            disabled={talkDisabled}
-            className="flex-1 py-2 rounded-xl bg-indigo-600 text-white disabled:opacity-50"
-            title="Publish your microphone to this user"
-          >
-            {talkLoading ? '...' : talkLabel}
-          </button>*/}
+          {/* Talkback - Solo visible para SuperAdmin y Admin */}
+          {isAdminOrSuperAdmin && (
+            <button
+              onClick={async () => {
+                if (isTalking) {
+                  await stopTalk()
+                } else {
+                  await startTalk()
+                }
+              }}
+              disabled={talkDisabled}
+              className="flex-1 py-2 rounded-xl bg-indigo-600 text-white disabled:opacity-50"
+              title="Publish your microphone to this user"
+            >
+              {talkLoading ? '...' : talkLabel}
+            </button>
+          )}
 
           <button
             onClick={openModal}

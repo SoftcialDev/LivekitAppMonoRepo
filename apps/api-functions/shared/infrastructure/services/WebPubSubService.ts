@@ -281,8 +281,8 @@ export class WebPubSubService implements IWebPubSubService {
           try {
             await prisma.presence.upsert({
               where: { userId: user.id },
-              update: { status: 'online', lastSeenAt: new Date(), updatedAt: getCentralAmericaTime() },
-              create: { userId: user.id, status: 'online', lastSeenAt: new Date(), updatedAt: getCentralAmericaTime() }
+              update: { status: 'online', lastSeenAt: getCentralAmericaTime(), updatedAt: getCentralAmericaTime() },
+              create: { userId: user.id, status: 'online', lastSeenAt: getCentralAmericaTime(), updatedAt: getCentralAmericaTime() }
             });
             corrections.push({
               email: user.email,
@@ -300,8 +300,8 @@ export class WebPubSubService implements IWebPubSubService {
           try {
             await prisma.presence.upsert({
               where: { userId: user.id },
-              update: { status: 'offline', lastSeenAt: new Date(), updatedAt: getCentralAmericaTime() },
-              create: { userId: user.id, status: 'offline', lastSeenAt: new Date(), updatedAt: getCentralAmericaTime() }
+              update: { status: 'offline', lastSeenAt: getCentralAmericaTime(), updatedAt: getCentralAmericaTime() },
+              create: { userId: user.id, status: 'offline', lastSeenAt: getCentralAmericaTime(), updatedAt: getCentralAmericaTime() }
             });
             corrections.push({
               email: user.email,
