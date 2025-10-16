@@ -298,7 +298,7 @@ const VideoCard: React.FC<VideoCardProps & { livekitUrl?: string }> = memo(({
           <div className="flex items-center px-2 py-1">
             <UserIndicator
               user={{
-                email,
+                email: email, // Supervisor email
                 name,
                 fullName: name,
                 status: isPlayDisabled ? 'online' : 'offline',

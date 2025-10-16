@@ -9,7 +9,7 @@ import { WebSocketEventResponse } from "../value-objects/WebSocketEventResponse"
 import { PresenceDomainService } from "./PresenceDomainService";
 import { StreamingSessionDomainService } from "./StreamingSessionDomainService";
 import { IWebPubSubService } from "../interfaces/IWebPubSubService";
-import { CENTRAL_AMERICA_TIMEZONE, getCentralAmericaTimeISO } from "shared/utils/dateUtils";
+import { getCentralAmericaTimeISO } from "../../utils/dateUtils";
 
 /**
  * Domain service for WebSocket connection business logic
