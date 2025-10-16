@@ -179,14 +179,16 @@ export class StreamingSessionRepository implements IStreamingSessionRepository {
    * Stops a streaming session for a user
    * @param userId - The ID of the user
    * @param reason - The reason for stopping the session
+   * @param context - Optional Azure Functions context for logging
    * @returns Promise that resolves when the session is stopped
    * @throws Error if database operation fails
    */
-  async stopStreamingSession(userId: string, reason: string): Promise<void> {
+  async stopStreamingSession(userId: string, reason: string, context?: any): Promise<void> {
     try {
       const now = getCentralAmericaTime();
       const utcNow = new Date();
-      console.log(`🕐 [StreamingSessionRepository] stopStreamingSession timestamp:`, {
+      const log = context?.log || console.log;
+      log(`🕐 [StreamingSessionRepository] stopStreamingSession timestamp:`, {
         centralAmericaTime: now.toISOString(),
         utcTime: utcNow.toISOString(),
         centralAmericaTimeLocal: now.toString(),
@@ -207,7 +209,7 @@ export class StreamingSessionRepository implements IStreamingSessionRepository {
       });
 
       if (openSession) {
-        console.log(`🕐 [StreamingSessionRepository] Updating session:`, {
+        log(`🕐 [StreamingSessionRepository] Updating session:`, {
           sessionId: openSession.id,
           userId,
           reason,
@@ -221,11 +223,12 @@ export class StreamingSessionRepository implements IStreamingSessionRepository {
           where: { id: openSession.id },
           data: {
             stoppedAt: now,
-            stopReason: reason as any
+            stopReason: reason as any,
+            updatedAt: now  // ✅ Agregar updatedAt en Central America Time
           }
         });
         
-        console.log(`✅ [StreamingSessionRepository] Session updated successfully`);
+        log(`✅ [StreamingSessionRepository] Session updated successfully`);
       }
     } catch (error: any) {
       throw new Error(`Failed to stop streaming session: ${error.message}`);
@@ -245,7 +248,10 @@ export class StreamingSessionRepository implements IStreamingSessionRepository {
       // 1. Close any previous open session
       await prisma.streamingSessionHistory.updateMany({
         where: { userId, stoppedAt: null },
-        data: { stoppedAt: now },
+        data: { 
+          stoppedAt: now,
+          updatedAt: now  // ✅ Agregar updatedAt en Central America Time
+        },
       });
 
       // 2. Create a new streaming session record

@@ -68,10 +68,11 @@ export class StreamingSessionDomainService implements IStreamingSessionDomainSer
    * Stops a streaming session for a user
    * @param userId - The ID of the user (can be email or UUID)
    * @param reason - The reason for stopping the session
+   * @param context - Optional Azure Functions context for logging
    * @returns Promise that resolves when the session is stopped
    * @throws Error if the operation fails
    */
-  async stopStreamingSession(userId: string, reason: string): Promise<void> {
+  async stopStreamingSession(userId: string, reason: string, context?: any): Promise<void> {
     try {
       // Convert email to database ID if needed
       let databaseUserId = userId;
@@ -96,8 +97,9 @@ export class StreamingSessionDomainService implements IStreamingSessionDomainSer
         databaseUserId = user.id;
       }
       
-      await this.streamingSessionRepository.stopStreamingSession(databaseUserId, reason);
-      console.log(`Streaming session stopped for user ${userId} (DB ID: ${databaseUserId}) with reason: ${reason}`);
+      await this.streamingSessionRepository.stopStreamingSession(databaseUserId, reason, context);
+      const log = context?.log || console.log;
+      log(`Streaming session stopped for user ${userId} (DB ID: ${databaseUserId}) with reason: ${reason}`);
     } catch (error) {
       console.error(`Failed to stop streaming session for user ${userId}:`, error);
       throw error;

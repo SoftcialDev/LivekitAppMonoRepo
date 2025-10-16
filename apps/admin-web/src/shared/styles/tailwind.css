@@ -12,7 +12,7 @@
   --color-secondary-hover: rgba(171, 222, 128, 0.9);
   --color-tertiary:       #BBA6CF;
   --color-white:          #FFFFFF;
-    --color-cm-break: #F59E0B;
+  --color-cm-break: #F59E0B;
   --color-cm-busy:  #3B82F6;
   --color-cm-unavailable: #ef4444;
 }

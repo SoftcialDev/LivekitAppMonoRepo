@@ -14,7 +14,7 @@ import { VideoCardProps } from '@/shared/types/VideoCardProps'
 import AddModal from '@/shared/ui/ModalComponent'
 import { useRecording } from '../hooks/useRecording'
 import { useTalkback } from '../hooks/useTalkback'
-import StopReasonButton, { StopReason } from '@/shared/ui/StopReasonButton'
+import StopReasonButton, { StopReason } from '@/shared/ui/Buttons/StopReasonButton'
 
 /**
  * VideoCard
@@ -325,11 +325,15 @@ const VideoCard: React.FC<VideoCardProps & { livekitUrl?: string }> = memo(({
               className="absolute inset-0 w-full h-full object-contain"
             />
           ) : (
-            <div className="absolute inset-0 flex items-center justify-center text-white">
+            <div className="absolute inset-0 flex items-center justify-center">
               {(() => {
                 console.log('[VideoCard] statusMessage for', email, ':', statusMessage);
-                // Show statusMessage if available, otherwise show "No Stream"
-                return statusMessage || '';
+                const text = statusMessage || '';
+                return (
+                  <span className="text-xl font-medium text-yellow-400">
+                    {text}
+                  </span>
+                );
               })()}
             </div>
           )}

@@ -9,6 +9,7 @@ import { WebSocketEventResponse } from "../value-objects/WebSocketEventResponse"
 import { PresenceDomainService } from "./PresenceDomainService";
 import { StreamingSessionDomainService } from "./StreamingSessionDomainService";
 import { IWebPubSubService } from "../interfaces/IWebPubSubService";
+import { CENTRAL_AMERICA_TIMEZONE, getCentralAmericaTimeISO } from "shared/utils/dateUtils";
 
 /**
  * Domain service for WebSocket connection business logic
@@ -90,9 +91,9 @@ export class WebSocketConnectionDomainService {
       console.log(`🕐 [WebSocketConnectionDomainService] handleDisconnection timestamp:`, {
         userId: request.userId,
         phase: request.phase,
-        timestamp: new Date().toISOString()
+        timestamp: getCentralAmericaTimeISO()
       });
-      await this.streamingSessionDomainService.stopStreamingSession(request.userId, 'DISCONNECT');
+      await this.streamingSessionDomainService.stopStreamingSession(request.userId, 'DISCONNECT', context);
       console.log(`🔌 [DISCONNECT] Streaming session stopped successfully`);
       
       // 3. Log disconnection 

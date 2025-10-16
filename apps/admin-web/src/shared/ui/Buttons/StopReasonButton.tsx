@@ -144,7 +144,7 @@ const StopReasonButton: React.FC<StopReasonButtonProps> = ({
         ref={buttonRef}
         onClick={handleButtonClick}
         disabled={disabled}
-        className={`w-full py-2 bg-white text-[var(--color-primary-dark)] rounded-xl disabled:opacity-50 flex items-center justify-center gap-2 ${className}`}
+        className={`w-full py-2 bg-[var(--color-tertiary)] text-[var(--color-primary-dark)] rounded-xl disabled:opacity-50 flex items-center justify-between px-4 ${className}`}
       >
         <span>{children}</span>
         <svg
