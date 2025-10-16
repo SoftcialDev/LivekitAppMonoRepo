@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import monitorIcon from '@/shared/assets/monitor-icon.png';
-import type { UserStatus } from '@/shared/types/UserStatus';
 import { useHeader } from '@/app/providers/HeaderContext';
 import { useAuth } from '@/shared/auth/useAuth';
 import { useUserInfo } from '@/shared/hooks/useUserInfo';
@@ -11,7 +10,6 @@ import { SearchableDropdown } from '@/shared/ui/SearchableDropdown';
 import SimpleVideoCard from './Video/components/SimpleVideoCard';
 import { useIsolatedStreams } from './Video/hooks/useIsolatedStreams';
 import { useVideoActions } from './Video/hooks/UseVideoAction';
-import { useVideoCardOptimization } from './Video/hooks/useVideoCardOptimization';
 import { useStablePSOs } from './Video/hooks/useStablePSOs';
 
 

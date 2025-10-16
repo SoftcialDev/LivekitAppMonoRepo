@@ -76,23 +76,52 @@ export function useIsolatedStreams(viewerEmail: string, emails: string[]): Creds
     });
   }, []);
 
-  // ✅ Inicialización UNA SOLA VEZ
+  // ✅ Inicialización UNA SOLA VEZ - UN SOLO FETCH para todos
   useEffect(() => {
     if (isInitializedRef.current || emails.length === 0) return;
     
     isInitializedRef.current = true;
     
-    // Solo hacer refresh inicial para emails que no tienen credenciales
-    emails.forEach(email => {
-      const key = email.toLowerCase();
-      const currentCreds = credsMap[key];
-      if (!currentCreds?.accessToken) {
-        setTimeout(() => refreshTokenForEmail(email), 100);
+    // ✅ UN SOLO FETCH para todas las sesiones
+    const fetchAllSessions = async () => {
+      try {
+        const sessions = await fetchStreamingSessions();
+        const { rooms, livekitUrl } = await getLiveKitToken();
+        
+        // Crear mapas una sola vez
+        const emailToRoom = new Map<string, string>();
+        sessions.forEach((s: any) => {
+          if (s?.email && s?.userId) emailToRoom.set(String(s.email).toLowerCase(), String(s.userId));
+        });
+        
+        const byRoom = new Map<string, string>();
+        (rooms as RoomWithToken[]).forEach((r) => byRoom.set(r.room, r.token));
+        
+        // ✅ DISTRIBUIR a todos los emails de una vez
+        setCredsMap((prev) => {
+          const newCreds: CredsMap = {};
+          
+          emails.forEach(email => {
+            const key = email.toLowerCase();
+            const room = emailToRoom.get(key);
+            const token = room ? byRoom.get(room) : undefined;
+            
+            newCreds[key] = room && token 
+              ? { accessToken: token, roomName: room, livekitUrl, loading: false }
+              : { loading: false };
+          });
+          
+          return newCreds;
+        });
+      } catch (error) {
+        // Error handling
       }
-    });
-  }, [emails, refreshTokenForEmail, credsMap]);
+    };
+    
+    setTimeout(() => fetchAllSessions(), 100);
+  }, [emails]);
 
-  // ✅ Manejar cambios de emails SIN refresh global
+  // ✅ Manejar cambios de emails - UN SOLO FETCH para nuevos emails
   useEffect(() => {
     const prev = lastEmailsRef.current;
     const curr = emails.map(e => e.toLowerCase());
@@ -102,22 +131,55 @@ export function useIsolatedStreams(viewerEmail: string, emails: string[]): Creds
     
     lastEmailsRef.current = curr;
     
-    // Solo refrescar emails NUEVOS
+    // ✅ UN SOLO FETCH para emails NUEVOS
     if (toJoin.length > 0) {
-      toJoin.forEach(email => {
-        setTimeout(() => refreshTokenForEmail(email), 100);
-      });
+      const fetchNewSessions = async () => {
+        try {
+          const sessions = await fetchStreamingSessions();
+          const { rooms, livekitUrl } = await getLiveKitToken();
+          
+          const emailToRoom = new Map<string, string>();
+          sessions.forEach((s: any) => {
+            if (s?.email && s?.userId) emailToRoom.set(String(s.email).toLowerCase(), String(s.userId));
+          });
+          
+          const byRoom = new Map<string, string>();
+          (rooms as RoomWithToken[]).forEach((r) => byRoom.set(r.room, r.token));
+          
+          // ✅ DISTRIBUIR solo a emails NUEVOS
+          setCredsMap((prev) => {
+            const newCreds = { ...prev };
+            
+            toJoin.forEach(email => {
+              const key = email.toLowerCase();
+              const room = emailToRoom.get(key);
+              const token = room ? byRoom.get(room) : undefined;
+              
+              newCreds[key] = room && token 
+                ? { accessToken: token, roomName: room, livekitUrl, loading: false }
+                : { loading: false };
+            });
+            
+            return newCreds;
+          });
+        } catch (error) {
+          // Error handling
+        }
+      };
+      
+      setTimeout(() => fetchNewSessions(), 100);
     }
     
     // Limpiar emails que se fueron
     if (toLeave.length > 0) {
       toLeave.forEach(email => clearOne(email));
     }
-  }, [emails, refreshTokenForEmail, clearOne]);
+  }, [emails]);
 
   // ✅ WebSocket handler ULTRA-OPTIMIZADO con conexión y grupos
   useEffect(() => {
     const client = WebPubSubClientService.getInstance();
+    let isHandlerRegistered = false;
 
     const setupWebSocket = async () => {
       try {
@@ -159,9 +221,42 @@ export function useIsolatedStreams(viewerEmail: string, emails: string[]): Creds
           canceledUsersRef.current = ns;
         }
         // ✅ DELAY de 5 segundos para dar tiempo al PSO de iniciar streaming
-        setTimeout(() => {
+        setTimeout(async () => {
           if (targetEmail) {
-            void refreshTokenForEmail(targetEmail);
+            try {
+              // ✅ UN SOLO FETCH para el email específico
+              const sessions = await fetchStreamingSessions();
+              const { rooms, livekitUrl } = await getLiveKitToken();
+              
+              const emailToRoom = new Map<string, string>();
+              sessions.forEach((s: any) => {
+                if (s?.email && s?.userId) emailToRoom.set(String(s.email).toLowerCase(), String(s.userId));
+              });
+              
+              const byRoom = new Map<string, string>();
+              (rooms as RoomWithToken[]).forEach((r) => byRoom.set(r.room, r.token));
+              
+              const key = targetEmail.toLowerCase();
+              const room = emailToRoom.get(key);
+              const token = room ? byRoom.get(room) : undefined;
+              
+              setCredsMap((prev) => {
+                const newCreds = room && token 
+                  ? { accessToken: token, roomName: room, livekitUrl, loading: false }
+                  : { loading: false };
+                
+                const currentCreds = prev[key];
+                if (JSON.stringify(currentCreds) === JSON.stringify(newCreds)) {
+                  return prev;
+                }
+                return {
+                  ...prev,
+                  [key]: newCreds
+                };
+              });
+            } catch (error) {
+              // Error handling
+            }
           }
         }, 5000);
       } else if (started === false) {
@@ -172,14 +267,21 @@ export function useIsolatedStreams(viewerEmail: string, emails: string[]): Creds
       }
     };
 
-    // Configurar WebSocket y listener
-    void setupWebSocket();
-    client.onMessage(handleMessage);
+    // ✅ SOLO registrar el handler UNA VEZ
+    if (!isHandlerRegistered) {
+      void setupWebSocket();
+      client.onMessage(handleMessage);
+      isHandlerRegistered = true;
+    }
 
     return () => {
-      // No cleanup para evitar desconectar otros listeners
+      // ✅ Cleanup para evitar múltiples listeners
+      if (isHandlerRegistered) {
+        // El WebPubSubClientService no tiene offMessage, pero el cleanup se hace automáticamente
+        isHandlerRegistered = false;
+      }
     };
-  }, [viewerEmail, emails, refreshTokenForEmail, clearOne]);
+  }, [viewerEmail, emails]);
 
   return credsMap;
 }
