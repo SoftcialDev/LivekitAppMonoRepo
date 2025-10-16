@@ -5,8 +5,6 @@ import { useHeader } from '@/app/providers/HeaderContext';
 import { useAuth } from '@/shared/auth/useAuth';
 import { useUserInfo } from '@/shared/hooks/useUserInfo';
 import { usePresenceStore } from '@/shared/presence/usePresenceStore';
-import { useUserWithSupervisor } from '@/shared/presence/usePresenceSelectors';
-import { PSOWithStatus } from '@/shared/types/PsosWithStatus';
 import { Dropdown } from '@/shared/ui/Dropdown';
 import Loading from '@/shared/ui/Loading';
 import { SearchableDropdown } from '@/shared/ui/SearchableDropdown';
@@ -63,6 +61,7 @@ const PSOsPage: React.FC = () => {
   const viewerEmail = account?.username?.toLowerCase() ?? '';
   const viewerId = account?.localAccountId; // Use localAccountId as viewerId
   const viewerRole = userInfo?.role;
+  const viewerAzureAdObjectId = userInfo?.azureAdObjectId;
   
   // Force reload userInfo if role is wrong
   useEffect(() => {
@@ -87,7 +86,7 @@ const PSOsPage: React.FC = () => {
   /* 3️⃣ Build PSO list - ESTABLE                                         */
   /* ------------------------------------------------------------------ */
   // ✅ OPTIMIZADO: Hook estable que NO causa re-renders innecesarios
-  const allPsos = useStablePSOs(viewerEmail, viewerRole || undefined);
+  const allPsos = useStablePSOs(viewerEmail, viewerRole || undefined, viewerAzureAdObjectId);
 
   /* ------------------------------------------------------------------ */
   /* 4️⃣ Pinned PSOs (dropdown) — persisted                              */

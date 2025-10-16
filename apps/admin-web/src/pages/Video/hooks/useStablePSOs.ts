@@ -7,8 +7,12 @@ import { UserStatus } from '@/shared/types/UserStatus';
  * Hook que mantiene una lista ESTABLE de PSOs
  * Solo se actualiza cuando realmente cambia la lista de usuarios online
  * Evita re-renders innecesarios cuando el presence store cambia
+ * 
+ * @param viewerEmail - Email del usuario que está viendo
+ * @param viewerRole - Rol del usuario que está viendo
+ * @param viewerAzureAdObjectId - Azure AD Object ID del usuario que está viendo (para supervisores)
  */
-export function useStablePSOs(viewerEmail: string, viewerRole?: string) {
+export function useStablePSOs(viewerEmail: string, viewerRole?: string, viewerAzureAdObjectId?: string) {
   const onlineUsers = usePresenceStore(state => state.onlineUsers);
   const lastUsersRef = useRef<UserStatus[]>([]);
   const lastResultRef = useRef<PSOWithStatus[]>([]);
@@ -60,7 +64,7 @@ export function useStablePSOs(viewerEmail: string, viewerRole?: string) {
       };
     };
 
-    // Filter based on viewer role
+    // Filter based on viewer role and supervisor assignment
     const filteredUsers = onlineUsers.filter(u => {
       // Don't show self
       if (u.email.toLowerCase() === viewerEmail.toLowerCase()) {
@@ -72,7 +76,24 @@ export function useStablePSOs(viewerEmail: string, viewerRole?: string) {
         return false;
       }
       
-      return true; // Show all employees for now
+      // Role-based filtering
+      if (viewerRole === 'Admin' || viewerRole === 'SuperAdmin') {
+        // Admins and SuperAdmins can see all employees
+        return true;
+      } else if (viewerRole === 'Supervisor') {
+        // Supervisors can only see employees assigned to them
+        if (!viewerAzureAdObjectId) {
+          console.warn('Supervisor role detected but no azureAdObjectId provided');
+          return false;
+        }
+        // Check if this employee is assigned to the current supervisor
+        // Compare by both supervisorId (Azure AD Object ID) and supervisorEmail
+        return u.supervisorId === viewerAzureAdObjectId || 
+               u.supervisorEmail === viewerEmail;
+      }
+      
+      // Default: show all employees (fallback for unknown roles)
+      return true;
     });
 
     const result = filteredUsers
@@ -84,5 +105,5 @@ export function useStablePSOs(viewerEmail: string, viewerRole?: string) {
     lastResultRef.current = result;
 
     return result;
-  }, [onlineUsers, viewerEmail, viewerRole]);
+  }, [onlineUsers, viewerEmail, viewerRole, viewerAzureAdObjectId]);
 }
