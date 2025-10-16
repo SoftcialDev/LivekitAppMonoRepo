@@ -33,6 +33,8 @@ export interface SupervisorSelectorProps {
   disabled?: boolean;
   /** Additional CSS classes */
   className?: string;
+  /** Minimum width for portal dropdown menu (px) when many cameras */
+  portalMinWidthPx?: number;
 }
 
 /**
@@ -56,7 +58,8 @@ export const SupervisorSelector: React.FC<SupervisorSelectorProps> = ({
   psoEmail,
   onSupervisorChange,
   disabled = false,
-  className = ''
+  className = '',
+  portalMinWidthPx
 }) => {
   const [supervisors, setSupervisors] = useState<UserByRole[]>([]);
   const [loading, setLoading] = useState(false);
@@ -130,7 +133,7 @@ export const SupervisorSelector: React.FC<SupervisorSelectorProps> = ({
         // Optimistic UI update
         setSelectedEmail(newSupervisorEmail);
         const sup = supervisors.find(s => s.email === newSupervisorEmail);
-        setSelectedName(sup ? `${sup.firstName} ${sup.lastName} (${sup.email})` : newSupervisorEmail);
+        setSelectedName(sup ? `${sup.firstName} ${sup.lastName}` : undefined);
         onSupervisorChange(psoEmail, newSupervisorEmail);
         showToast('Supervisor updated', 'success');
       } catch (error) {
@@ -150,7 +153,7 @@ export const SupervisorSelector: React.FC<SupervisorSelectorProps> = ({
 
   // Convert supervisors to dropdown options
   const supervisorOptions: DropdownOption<string>[] = supervisors.map(supervisor => ({
-    label: `${supervisor.firstName} ${supervisor.lastName} (${supervisor.email})`,
+    label: `${supervisor.firstName} ${supervisor.lastName}`,
     value: supervisor.email
   }));
 
@@ -185,7 +188,7 @@ export const SupervisorSelector: React.FC<SupervisorSelectorProps> = ({
           options={supervisorOptions}
           selectedValues={selectedValues}
           onSelectionChange={handleSupervisorChange}
-          placeholder={selectedEmail || 'Select supervisor'}
+          placeholder={selectedName || currentSupervisorName || 'Select supervisor'}
           className="w-full"
           inputClassName="
             w-full px-2 py-1
@@ -196,7 +199,7 @@ export const SupervisorSelector: React.FC<SupervisorSelectorProps> = ({
             disabled:opacity-50 disabled:cursor-not-allowed
           "
           menuClassName="
-            absolute left-0 top-full mt-1 w-full max-h-48 overflow-auto
+            absolute left-0 top-full mt-1 w-full max-h-48 overflow-auto custom-scrollbar
             bg-[var(--color-primary-dark)] border border-[var(--color-secondary)] rounded shadow-lg
             text-white font-normal text-base
           "
@@ -207,6 +210,7 @@ export const SupervisorSelector: React.FC<SupervisorSelectorProps> = ({
             border-b border-[var(--color-primary)] last:border-b-0
           "
           usePortal={true}
+          portalMinWidthPx={portalMinWidthPx}
         />
       </div>
     </div>

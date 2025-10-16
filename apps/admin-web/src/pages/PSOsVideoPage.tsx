@@ -294,6 +294,8 @@ const displayList = useMemo(() => {
               const key = p.email.toLowerCase();
               const c = credsMap[key] ?? { loading: false };
               const isLive: boolean = Boolean(c.accessToken);
+              // Wider dropdown when more than 5 cards are visible
+              const portalMinWidthPx = displayList.length > 5 ? 360 : undefined;
               // ✅ CONNECTING: Si está cargando O si está online pero no tiene token (acaba de empezar a transmitir)
               const connecting: boolean = c.loading || (p.isOnline && !c.accessToken && Boolean(c.roomName));
               
@@ -331,6 +333,7 @@ const displayList = useMemo(() => {
                       console.log(`Supervisor changed for ${psoEmail} to ${newSupervisorEmail}`);
                       // TODO: Handle supervisor change - refresh data or update state
                     }}
+                  portalMinWidthPx={portalMinWidthPx}
                   />
                 </div>
               );

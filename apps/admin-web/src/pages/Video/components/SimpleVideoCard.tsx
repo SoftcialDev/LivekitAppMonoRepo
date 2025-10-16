@@ -18,6 +18,7 @@ interface SimpleVideoCardProps {
   supervisorEmail?: string;
   supervisorName?: string;
   onSupervisorChange?: (psoEmail: string, newSupervisorEmail: string) => void;
+  portalMinWidthPx?: number;
 }
 
 /**
@@ -38,7 +39,8 @@ const SimpleVideoCard: React.FC<SimpleVideoCardProps> = memo(({
   psoName,
   supervisorEmail,
   supervisorName,
-  onSupervisorChange
+  onSupervisorChange,
+  portalMinWidthPx
 }) => {
   // ✅ Handlers estables
   const { createStableToggleHandler, createStableChatHandler } = useVideoCardOptimization();
@@ -79,7 +81,8 @@ const SimpleVideoCard: React.FC<SimpleVideoCardProps> = memo(({
       psoName={psoName}
       supervisorEmail={supervisorEmail}
       supervisorName={supervisorName}
-      onSupervisorChange={onSupervisorChange}
+          onSupervisorChange={onSupervisorChange}
+          portalMinWidthPx={portalMinWidthPx}
     />
   );
 }, (prevProps, nextProps) => {

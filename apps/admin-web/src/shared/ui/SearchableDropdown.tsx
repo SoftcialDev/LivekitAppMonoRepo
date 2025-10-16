@@ -42,6 +42,8 @@ export interface SearchableDropdownProps<Value> {
   itemClassName?: string;
   /** Render the dropdown menu in a portal attached to document.body. */
   usePortal?: boolean;
+  /** When rendering in portal, ensure the menu is at least this width (px). */
+  portalMinWidthPx?: number;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -84,7 +86,7 @@ export function SearchableDropdown<Value>({
     focus:outline-none
   `,
   menuClassName = `
-    absolute left-0 top-full mt-1 w-11/12 max-h-60 overflow-auto
+    absolute left-0 top-full mt-1 w-11/12 max-h-60 overflow-auto custom-scrollbar
     bg-[var(--color-primary)] border-0 rounded shadow-lg z-50
     text-gray-200 font-normal text-base
   `,
@@ -94,6 +96,7 @@ export function SearchableDropdown<Value>({
     hover:bg-[var(--color-primary-light)] cursor-pointer
   `,
   usePortal = false,
+  portalMinWidthPx,
 }: SearchableDropdownProps<Value>): JSX.Element {
   const [isOpen, setIsOpen] = useState(false);
   const [term, setTerm] = useState('');
@@ -148,7 +151,7 @@ export function SearchableDropdown<Value>({
     <div
       ref={menuRef}
       className={menuClassName}
-      style={usePortal ? { position: 'fixed', top: menuPos?.top, left: menuPos?.left, width: menuPos?.width, zIndex: 2147483647 } : undefined}
+      style={usePortal ? { position: 'fixed', top: menuPos?.top, left: menuPos?.left, width: Math.max(menuPos?.width || 0, portalMinWidthPx || 0), zIndex: 2147483647 } : undefined}
       onMouseDown={(e) => {
         // Prevent outside-click handler from firing when interacting with the menu
         e.stopPropagation();

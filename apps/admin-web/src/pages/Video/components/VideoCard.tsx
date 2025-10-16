@@ -42,6 +42,7 @@ const VideoCard: React.FC<VideoCardProps & {
   supervisorEmail?: string;
   supervisorName?: string;
   onSupervisorChange?: (psoEmail: string, newSupervisorEmail: string) => void;
+  portalMinWidthPx?: number;
 }> = memo(({
   name,
   email,
@@ -61,6 +62,7 @@ const VideoCard: React.FC<VideoCardProps & {
   supervisorEmail,
   supervisorName,
   onSupervisorChange,
+  portalMinWidthPx,
 }) => {
   // ✅ DETECTAR PANTALLA NEGRA
   const isBlackScreen = !shouldStream || connecting || !accessToken || !roomName || !livekitUrl;
@@ -316,6 +318,7 @@ const VideoCard: React.FC<VideoCardProps & {
                 onSupervisorChange={onSupervisorChange}
                 disabled={disableControls}
                 className="w-full"
+                portalMinWidthPx={portalMinWidthPx}
               />
             ) : (
               <div className="text-white truncate">{name}</div>

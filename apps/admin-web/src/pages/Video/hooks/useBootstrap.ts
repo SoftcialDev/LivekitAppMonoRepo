@@ -10,6 +10,7 @@ import { webPubSubClient as pubSubService } from '@/shared/api/webpubsubClient';
 import { PresenceClient } from '@/shared/api/presenceClient';
 import { StreamingClient } from '@/shared/api/streamingClient';
 import { PendingCommand } from '@/shared/api/pendingCommandsClient';
+import { isWithinCentralAmericaWindow, formatIsoToCR } from '@/shared/utils/time';
 
 export interface UseBootstrapProps {
   userEmail: string;
@@ -48,6 +49,7 @@ export function useBootstrap({
   onFetchMissedCommands,
   KEEP_AWAKE_WHEN_IDLE
 }: UseBootstrapProps) {
+  const RESUME_WINDOW_MS = 5 * 60_000; // 10 minutes
   const bootRef = useRef<boolean>(false);
   const keepAliveIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const sleepDetectorRef = useRef<NodeJS.Timeout | null>(null);
@@ -82,12 +84,25 @@ export function useBootstrap({
       const stoppedAt = last.stoppedAt ? new Date(last.stoppedAt) : null;
       const stopReason = last.stopReason;
       
-      console.info(`[Streaming] Debug - stoppedAt: ${stoppedAt}, stopReason: "${stopReason}"`);
+      // Log raw API value and normalized views to avoid timezone confusion
+      console.info('[Streaming] Debug', {
+        stoppedAtRaw: last.stoppedAt,
+        stoppedAtUTC: stoppedAt?.toISOString(),
+        stoppedAtLocal: stoppedAt?.toString(),
+        stoppedAtCR: last.stoppedAt ? formatIsoToCR(last.stoppedAt) : null,
+        stopReason
+      });
       
       // Only resume if:
       // 1. No stop time (session was active)
       // 2. OR stopped by DISCONNECT and within 5 minutes
-      if (!stoppedAt || (stopReason === 'DISCONNECT' && Date.now() - stoppedAt.getTime() < 5 * 60_000)) {
+      // Compare using Central America wall clock window OR raw UTC diff as fallback
+      const withinWindow = last.stoppedAt
+        ? (isWithinCentralAmericaWindow(last.stoppedAt, RESUME_WINDOW_MS) ||
+           (Date.now() - new Date(last.stoppedAt).getTime() < RESUME_WINDOW_MS))
+        : true;
+
+      if (!stoppedAt || (stopReason === 'DISCONNECT' && withinWindow)) {
         console.info(`[Streaming] resuming (reason: ${stopReason || 'active'})`);
         await onStartStream();
       } else if (stopReason === 'COMMAND') {
@@ -123,14 +138,24 @@ export function useBootstrap({
         const lastSession = await streamingClient.fetchLastSessionWithReason();
         const stoppedAt = lastSession.stoppedAt ? new Date(lastSession.stoppedAt) : null;
         const stopReason = lastSession.stopReason;
+
+        console.log('[Bootstrap] Reconnect check', {
+          stoppedAtRaw: lastSession.stoppedAt,
+          stoppedAtUTC: stoppedAt?.toISOString(),
+          stoppedAtLocal: stoppedAt?.toString(),
+          stoppedAtCR: lastSession.stoppedAt ? formatIsoToCR(lastSession.stoppedAt) : null,
+          stopReason
+        });
         
         // Resume if:
         // 1. Session was stopped due to disconnect
         // 2. Stop was recent (within 5 minutes)
         // 3. Not already streaming
-        const shouldResume = stoppedAt && 
-                            stopReason === 'DISCONNECT' && 
-                            Date.now() - stoppedAt.getTime() < 5 * 60_000;
+        const shouldResume = !!(lastSession.stoppedAt &&
+          stopReason === 'DISCONNECT' && (
+            isWithinCentralAmericaWindow(lastSession.stoppedAt, RESUME_WINDOW_MS) ||
+            (Date.now() - new Date(lastSession.stoppedAt).getTime() < RESUME_WINDOW_MS)
+          ));
         
         if (shouldResume) {
           console.log('[Bootstrap] Auto-resuming streaming after WebSocket reconnection');
