@@ -15,9 +15,33 @@ import { useStablePSOs } from './Video/hooks/useStablePSOs';
 /**
  * Gets user-friendly status message for streaming status
  * @param status - The streaming status from batch API
+ * @param stopReason - The specific stop reason if available
  * @returns User-friendly status message
  */
-function getStatusMessage(status: 'on_break' | 'disconnected' | 'offline'): string {
+function getStatusMessage(status: 'on_break' | 'disconnected' | 'offline', stopReason?: string | null): string {
+  // If we have a specific stop reason, show a more detailed message
+  if (stopReason) {
+    switch (stopReason) {
+      case 'QUICK_BREAK':
+        return 'Quick Break (5 min)';
+      case 'SHORT_BREAK':
+        return 'Short Break (15 min)';
+      case 'LUNCH_BREAK':
+        return 'Lunch Break (30 min)';
+      case 'EMERGENCY':
+        return 'Emergency';
+      case 'END_OF_SHIFT':
+        return 'End of Shift';
+      case 'COMMAND':
+        return 'On Break';
+      case 'DISCONNECT':
+        return 'Disconnected';
+      default:
+        break; // Fall through to generic status
+    }
+  }
+  
+  // Fallback to generic status messages
   switch (status) {
     case 'on_break':
       return 'On Break';
@@ -26,7 +50,7 @@ function getStatusMessage(status: 'on_break' | 'disconnected' | 'offline'): stri
     case 'offline':
       return 'Offline';
     default:
-      return 'Offline';
+      return 'No Stream';
   }
 }
 
@@ -275,7 +299,16 @@ const displayList = useMemo(() => {
               
               // ✅ Get status info for users without active tokens
               const statusInfo = c.statusInfo;
-              const statusMessage = statusInfo ? getStatusMessage(statusInfo.status) : null;
+              const statusMessage = statusInfo ? getStatusMessage(statusInfo.status, statusInfo.lastSession?.stopReason) : null;
+              console.log('[PSOsVideoPage] Status info for', p.email, ':', statusInfo);
+              console.log('[PSOsVideoPage] Status message for', p.email, ':', statusMessage);
+              console.log('[PSOsVideoPage] credsMap for', p.email, ':', c);
+              
+              // ✅ Show loading if no token and no status info yet
+              const showLoading = !c.accessToken && !statusInfo && !c.loading;
+              
+              // ✅ Show "Updating..." if user was streaming but now stopped (temporary state)
+              const showUpdating = !c.accessToken && !statusInfo && p.isOnline;
               
 
               
@@ -292,7 +325,7 @@ const displayList = useMemo(() => {
                     roomName={c.roomName}
                     livekitUrl={c.livekitUrl}
                     shouldStream={isLive}
-                    connecting={connecting}
+                    connecting={connecting || showLoading || showUpdating}
                     disableControls={!p.isOnline || connecting}
                     className="w-full h-full"
                     statusMessage={statusMessage || undefined}

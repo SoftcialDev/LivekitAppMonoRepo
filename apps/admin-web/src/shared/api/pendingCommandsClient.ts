@@ -11,6 +11,8 @@ export interface PendingCommand {
   command: 'START' | 'STOP';
   /** ISO‐8601 timestamp when the command was issued */
   timestamp: string;
+  /** Optional reason for the command (mainly for STOP commands) */
+  reason?: string;
 }
 
 /**

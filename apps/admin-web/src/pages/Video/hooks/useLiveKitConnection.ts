@@ -84,7 +84,29 @@ export function useLiveKitConnection() {
         }
       });
 
-      await room.connect(livekitUrl, token, roomConfig);
+      // Configure room with retry settings
+      const enhancedRoomConfig = {
+        adaptiveStream: true,
+        dynacast: true,
+        publishDefaults: {
+          simulcast: false,
+          videoEncoding: {
+            maxBitrate: 150_000,
+            maxFramerate: 15
+          }
+        },
+        // Configure connection retry settings
+        reconnectPolicy: {
+          nextRetryDelayInMs: (context: any) => {
+            // Exponential backoff: 1s, 2s, 4s, 8s, 16s
+            return Math.min(1000 * Math.pow(2, context.retryCount), 16000);
+          },
+          maxRetries: 3
+        },
+        ...roomConfig
+      };
+
+      await room.connect(livekitUrl, token, enhancedRoomConfig);
       roomRef.current = room;
       isConnectingRef.current = false;
       return room;

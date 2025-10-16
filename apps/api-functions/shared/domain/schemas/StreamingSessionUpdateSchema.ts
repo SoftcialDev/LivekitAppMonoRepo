@@ -8,13 +8,14 @@ import { z } from "zod";
 
 /**
  * Schema for validating streaming session update request body
- * @description Validates the status and isCommand fields for streaming session updates
+ * @description Validates the status, isCommand, and reason fields for streaming session updates
  */
 export const streamingSessionUpdateSchema = z.object({
   status: z.enum(["started", "stopped"], {
     errorMap: () => ({ message: "Status must be either 'started' or 'stopped'" })
   }),
-  isCommand: z.boolean().optional()
+  isCommand: z.boolean().optional(),
+  reason: z.string().optional()
 });
 
 /**

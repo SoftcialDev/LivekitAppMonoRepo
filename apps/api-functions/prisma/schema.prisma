@@ -201,6 +201,7 @@ model PendingCommand {
   employee        User        @relation("EmployeeCommands", fields: [employeeId], references: [id], onDelete: Cascade)
   command         CommandType
   timestamp       DateTime
+  reason          String?
   published       Boolean     @default(false)
   publishedAt     DateTime?
   acknowledged    Boolean     @default(false)

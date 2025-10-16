@@ -16,10 +16,11 @@ export class CameraCommandClient {
 
   /**
    * Instruct the backend to stop streaming for this employee.
-   * @param employeeEmail – Employee’s email.
+   * @param employeeEmail – Employee's email.
+   * @param reason – Optional reason for stopping the stream.
    */
-  public async stop(employeeEmail: string): Promise<void> {
-    await this.send('STOP', employeeEmail);
+  public async stop(employeeEmail: string, reason?: string): Promise<void> {
+    await this.send('STOP', employeeEmail, reason);
   }
 
   /**
@@ -27,12 +28,20 @@ export class CameraCommandClient {
    */
   private async send(
     command: 'START' | 'STOP',
-    employeeEmail: string
+    employeeEmail: string,
+    reason?: string
   ): Promise<void> {
-    await apiClient.post(this.endpoint, {
+    const payload: any = {
       command,
       employeeEmail,
       timestamp: new Date().toISOString(),
-    });
+    };
+    
+    if (reason) {
+      payload.reason = reason;
+    }
+    
+    console.log('[CameraCommandClient] Sending payload:', payload);
+    await apiClient.post(this.endpoint, payload);
   }
 }

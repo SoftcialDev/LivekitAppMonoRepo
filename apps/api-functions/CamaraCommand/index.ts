@@ -63,7 +63,7 @@ export default withErrorHandler(async (ctx: Context) => {
 
     // Validate request body
     await withBodyValidation(commandRequestSchema)(ctx, async () => {
-      const { command: commandType, employeeEmail } = ctx.bindings.validatedBody;
+      const { command: commandType, employeeEmail, reason } = ctx.bindings.validatedBody;
       const claims = ctx.bindings.user;
       const callerId = getCallerAdId(claims);
 
@@ -79,7 +79,7 @@ export default withErrorHandler(async (ctx: Context) => {
         await commandApplicationService.validateTargetEmployee(employeeEmail);
 
         // Create and send command
-        const command = Command.fromRequest({ command: commandType, employeeEmail });
+        const command = Command.fromRequest({ command: commandType, employeeEmail, reason });
         const result = await commandApplicationService.sendCameraCommand(command);
 
         const channelName = result.sentVia === MessagingChannel.WebSocket ? "WebSocket" : "Service Bus";

@@ -55,7 +55,8 @@ export class ProcessCommandDomainService {
     const pendingCommand = await this.pendingCommandDomainService.createPendingCommand(
       user.id,
       request.command,
-      request.timestamp
+      request.timestamp,
+      request.reason
     );
 
     // 3. Handle START/STOP commands and broadcast events
@@ -64,13 +65,15 @@ export class ProcessCommandDomainService {
       // Broadcast START event to supervisors
       await this.broadcastStreamEvent(user.email, 'started');
     } else if (request.command === CommandType.STOP) {
-      await this.streamingSessionDomainService.stopStreamingSession(user.id, 'COMMAND');
-      // Broadcast STOP event to supervisors
-      await this.broadcastStreamEvent(user.email, 'stopped');
+      // Use the provided reason or fallback to 'COMMAND'
+      const stopReason = request.reason || 'COMMAND';
+      await this.streamingSessionDomainService.stopStreamingSession(user.id, stopReason);
+      // Broadcast STOP event to supervisors with reason
+      await this.broadcastStreamEvent(user.email, 'stopped', request.reason);
     }
 
     // 4. Attempt immediate delivery
-    const delivered = await this.attemptDelivery(pendingCommand.id, user.id, user.email, request.command, request.timestamp);
+    const delivered = await this.attemptDelivery(pendingCommand.id, user.id, user.email, request.command, request.timestamp, request.reason);
 
     return new ProcessCommandResponse(
       pendingCommand.id,
@@ -114,7 +117,8 @@ export class ProcessCommandDomainService {
     userId: string,
     userEmail: string,
     command: CommandType,
-    timestamp: Date
+    timestamp: Date,
+    reason?: string
   ): Promise<boolean> {
     try {
       // 1. Check if user is online
@@ -126,11 +130,16 @@ export class ProcessCommandDomainService {
 
       // 2. Send via Web PubSub
       const groupName = `commands:${userEmail.trim().toLowerCase()}`;
-      const message = {
+      const message: any = {
         id: commandId,
         command: command,
         timestamp: timestamp.toISOString(),
       };
+      
+      // Include reason if provided
+      if (reason) {
+        message.reason = reason;
+      }
 
       await this.commandMessagingService.sendToGroup(groupName, message);
 
@@ -150,14 +159,20 @@ export class ProcessCommandDomainService {
    * Broadcasts stream events to supervisors via WebSocket
    * @param email - The email of the PSO
    * @param status - The stream status (started/stopped)
+   * @param reason - Optional reason for the command
    * @private
    */
-  private async broadcastStreamEvent(email: string, status: 'started' | 'stopped'): Promise<void> {
+  private async broadcastStreamEvent(email: string, status: 'started' | 'stopped', reason?: string): Promise<void> {
     try {
-      const message = {
+      const message: any = {
         email: email,
         status: status
       };
+      
+      // Include reason for STOP commands
+      if (status === 'stopped' && reason) {
+        message.reason = reason;
+      }
       
       console.log(`[ProcessCommandDomainService] Broadcasting stream ${status} event for ${email} to group: ${email}`);
       console.log(`[ProcessCommandDomainService] Message:`, message);

@@ -281,9 +281,10 @@ const VideoCard: React.FC<VideoCardProps & { livekitUrl?: string }> = memo(({
    * Handles stop reason selection
    */
   const handleStopReasonSelect = (reason: StopReason) => {
+    console.log('[VideoCard] handleStopReasonSelect called with reason:', reason);
+    console.log('[VideoCard] Calling onToggle with email:', email, 'reason:', reason);
     // Call the original onToggle with the reason
-    onToggle?.(email);
-    // TODO: Send the reason to the backend
+    onToggle?.(email, reason);
     console.log(`Stopping with reason: ${reason}`);
   };
 
@@ -322,7 +323,14 @@ const VideoCard: React.FC<VideoCardProps & { livekitUrl?: string }> = memo(({
             />
           ) : (
             <div className="absolute inset-0 flex items-center justify-center text-white">
-              {statusMessage || 'No Stream'}
+              {(() => {
+                console.log('[VideoCard] statusMessage for', email, ':', statusMessage);
+                // Show "Updating..." if connecting (temporary state after STOP)
+                if (connecting) {
+                  return 'Updating...';
+                }
+                return statusMessage || 'No Stream';
+              })()}
             </div>
           )}
 

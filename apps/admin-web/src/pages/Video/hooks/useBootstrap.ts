@@ -161,11 +161,14 @@ export function useBootstrap({
     });
 
     const offMsg = pubSubService.onMessage((msg: any) => {
+      console.log('[WebSocket] Received message:', msg);
+      
       if (msg?.employeeEmail && msg.employeeEmail.toLowerCase() !== userEmail) {
         return;
       }
 
       if (msg?.command === 'START' || msg?.command === 'STOP') {
+        console.log('[WebSocket] Processing command:', msg);
         void onHandleCommand(msg as PendingCommand);
       }
     });

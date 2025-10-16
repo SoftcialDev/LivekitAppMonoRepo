@@ -27,7 +27,7 @@ export function useIsolatedStreams(viewerEmail: string, emails: string[]): Creds
   const lastEmailsRef = useRef<string[]>([]);
 
   // Get batch status for users without active tokens
-  const { statusMap: batchStatusMap } = useStreamingStatusBatch(emails);
+  const { statusMap: batchStatusMap, refetch: refetchBatchStatus } = useStreamingStatusBatch(emails);
 
   // ✅ Función para actualizar solo una tarjeta específica
   const refreshTokenForEmail = useCallback(async (email: string) => {
@@ -82,6 +82,16 @@ export function useIsolatedStreams(viewerEmail: string, emails: string[]): Creds
     });
   }, []);
 
+  // ✅ Función para refrescar el status cuando se envía un comando STOP
+  const refreshStatusForEmail = useCallback(async (email: string) => {
+    try {
+      // Refrescar el batch status para obtener la información más reciente
+      await refetchBatchStatus();
+    } catch (error) {
+      console.error(`Failed to refresh status for ${email}:`, error);
+    }
+  }, [refetchBatchStatus]);
+
   // ✅ Inicialización UNA SOLA VEZ - UN SOLO FETCH para todos
   useEffect(() => {
     if (isInitializedRef.current || emails.length === 0) return;
@@ -125,7 +135,11 @@ export function useIsolatedStreams(viewerEmail: string, emails: string[]): Creds
     };
     
     setTimeout(() => fetchAllSessions(), 100);
-  }, [emails]);
+    
+    // ✅ Llamar al batch status SOLO para usuarios sin token (que no tienen streaming activo)
+    // Esto cargará el mensaje inicial si tienen stoppedAt
+    void refetchBatchStatus();
+  }, [emails, refetchBatchStatus]);
 
   // ✅ Manejar cambios de emails - UN SOLO FETCH para nuevos emails
   useEffect(() => {
@@ -270,6 +284,12 @@ export function useIsolatedStreams(viewerEmail: string, emails: string[]): Creds
         ns.add(targetEmail);
         canceledUsersRef.current = ns;
         clearOne(targetEmail);
+        // ✅ Esperar 2 segundos y luego refrescar el status para mostrar el mensaje correcto
+        setTimeout(() => {
+          if (targetEmail) {
+            void refreshStatusForEmail(targetEmail);
+          }
+        }, 2000);
       }
     };
 

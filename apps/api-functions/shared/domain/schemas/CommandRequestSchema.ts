@@ -11,7 +11,8 @@ import { CommandType } from '../enums/CommandType';
  */
 export const commandRequestSchema = z.object({
   command: z.nativeEnum(CommandType),
-  employeeEmail: z.string().email()
+  employeeEmail: z.string().email(),
+  reason: z.string().optional()
 });
 
 /**

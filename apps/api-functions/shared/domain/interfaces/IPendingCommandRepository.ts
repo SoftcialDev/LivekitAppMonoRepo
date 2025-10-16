@@ -50,10 +50,11 @@ export interface IPendingCommandRepository {
    * @param employeeId - The ID of the employee
    * @param command - The command type
    * @param timestamp - When the command was issued
+   * @param reason - Optional reason for the command
    * @returns Promise that resolves to the created pending command
    * @throws Error if database operation fails
    */
-  createPendingCommand(employeeId: string, command: any, timestamp: Date): Promise<{ id: string; employeeId: string; command: string; timestamp: Date }>;
+  createPendingCommand(employeeId: string, command: any, timestamp: Date, reason?: string): Promise<{ id: string; employeeId: string; command: string; timestamp: Date; reason?: string }>;
 
   /**
    * Marks a pending command as published

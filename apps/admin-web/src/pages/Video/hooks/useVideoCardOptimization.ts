@@ -16,12 +16,15 @@ export function useVideoCardOptimization() {
   const createStableToggleHandler = useCallback((
     email: string, 
     isLive: boolean, 
-    onToggle: (email: string) => void
+    onToggle: (email: string, reason?: string) => void
   ) => {
-    const key = `${email}-${isLive}`;
+    const key = `${email}-toggle`;
     
     if (!stableHandlersRef.current.has(key)) {
-      stableHandlersRef.current.set(key, () => onToggle(email));
+      const handler = (emailParam: string, reason?: string) => {
+        onToggle(emailParam, reason);
+      };
+      stableHandlersRef.current.set(key, handler);
     }
     
     return stableHandlersRef.current.get(key);

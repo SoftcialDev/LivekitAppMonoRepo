@@ -20,7 +20,7 @@ export function useRetryLogic(liveKit: LiveKitApi) {
       getToken: GetTokenFn,
       onSuccess: (room: Room) => Promise<void>,
       videoTrack?: LocalVideoTrack,
-      maxRetries: number = 3,
+      maxRetries: number = 5,
     ): Promise<boolean> => {
       for (let attempt = 0; attempt < maxRetries; attempt++) {
         try {

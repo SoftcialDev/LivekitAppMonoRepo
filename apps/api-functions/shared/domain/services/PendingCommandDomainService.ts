@@ -30,23 +30,25 @@ export class PendingCommandDomainService implements IPendingCommandDomainService
    * @param employeeId - The ID of the employee
    * @param command - The command type
    * @param timestamp - When the command was issued
+   * @param reason - Optional reason for the command
    * @returns Promise that resolves to the created pending command
    * @throws Error if the operation fails
    */
-  async createPendingCommand(employeeId: string, command: string, timestamp: string | Date): Promise<{ id: string; employeeId: string; command: string; timestamp: Date }> {
+  async createPendingCommand(employeeId: string, command: string, timestamp: string | Date, reason?: string): Promise<{ id: string; employeeId: string; command: string; timestamp: Date; reason?: string }> {
     const ts = typeof timestamp === 'string' ? new Date(timestamp) : timestamp;
     
     // Delete any existing pending commands for this employee
     await this.pendingCommandRepository.deletePendingCommandsForEmployee(employeeId);
     
     // Create new pending command
-    const pendingCommand = await this.pendingCommandRepository.createPendingCommand(employeeId, command as any, ts);
+    const pendingCommand = await this.pendingCommandRepository.createPendingCommand(employeeId, command as any, ts, reason);
     
     return {
       id: pendingCommand.id,
       employeeId: pendingCommand.employeeId,
       command: pendingCommand.command,
-      timestamp: pendingCommand.timestamp
+      timestamp: pendingCommand.timestamp,
+      reason: pendingCommand.reason
     };
   }
 

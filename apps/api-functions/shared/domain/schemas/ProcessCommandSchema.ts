@@ -8,7 +8,7 @@ import { z } from "zod";
 
 /**
  * Schema for validating process command messages
- * @description Validates the command, employeeEmail, and timestamp fields
+ * @description Validates the command, employeeEmail, timestamp, and reason fields
  */
 export const processCommandSchema = z.object({
   command: z.enum(["START", "STOP"], {
@@ -19,7 +19,8 @@ export const processCommandSchema = z.object({
   }),
   timestamp: z.string().datetime({
     message: "Timestamp must be a valid ISO datetime string"
-  })
+  }),
+  reason: z.string().optional()
 });
 
 /**

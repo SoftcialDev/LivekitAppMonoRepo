@@ -7,6 +7,11 @@
 import apiClient from './apiClient';
 
 /**
+ * Valid stop reasons for streaming sessions
+ */
+export type StopReason = 'QUICK_BREAK' | 'SHORT_BREAK' | 'LUNCH_BREAK' | 'EMERGENCY' | 'END_OF_SHIFT' | 'COMMAND' | 'DISCONNECT';
+
+/**
  * Request payload for batch streaming status queries
  */
 export interface StreamingStatusBatchRequest {
@@ -20,7 +25,7 @@ export interface UserStreamingStatus {
   email: string;
   hasActiveSession: boolean;
   lastSession: {
-    stopReason: string | null;
+    stopReason: StopReason | null;
     stoppedAt: string | null;
   } | null;
 }

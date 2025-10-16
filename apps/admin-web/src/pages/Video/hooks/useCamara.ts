@@ -300,9 +300,11 @@ const stopStream = useCallback(async () => {
 
   /**
    * Stops streaming when triggered by external command
+   * @param reason - Optional reason for stopping the stream
    * @remarks Sets manual stop flag to prevent automatic reconnection
  */
-const stopStreamForCommand = useCallback(async () => {
+const stopStreamForCommand = useCallback(async (reason?: string) => {
+  console.log('[StopStream] Received reason:', reason);
   if (!streamingRef.current) return;
 
     setManualStop(true);
@@ -332,16 +334,23 @@ const stopStreamForCommand = useCallback(async () => {
   console.info('[Streaming] INACTIVE by COMMAND');
   
   try {
-    await apiClient.post('/api/StreamingSessionUpdate', { 
+    const payload: any = { 
       status: 'stopped',
       isCommand: true
-    });
+    };
+    
+    // Include reason if provided
+    if (reason) {
+      payload.reason = reason;
+    }
+    
+    await apiClient.post('/api/StreamingSessionUpdate', payload);
   } catch (err) {
     console.warn('Failed to notify backend of command stop:', err);
   }
     videoWatchdog.stop();
     streamHealth.stop();
-  }, [releaseWakeLock, liveKit, videoWatchdog, streamHealth, setManualStop]);
+  }, [releaseWakeLock, liveKit, videoWatchdog, streamHealth, setManualStop, setStreaming]);
 
   // Command handling hook
   const commandHandling = useCommandHandling({

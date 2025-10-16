@@ -5,7 +5,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { fetchStreamingStatusBatch, UserStreamingStatus } from '@/shared/api/streamingStatusBatchClient';
+import { fetchStreamingStatusBatch, UserStreamingStatus, StopReason } from '@/shared/api/streamingStatusBatchClient';
 
 /**
  * Streaming status for a user without active session
@@ -14,7 +14,7 @@ export interface UserStreamingStatusInfo {
   email: string;
   status: 'on_break' | 'disconnected' | 'offline';
   lastSession: {
-    stopReason: string | null;
+    stopReason: StopReason | null;
     stoppedAt: string | null;
   } | null;
 }
@@ -35,6 +35,7 @@ export function useStreamingStatusBatch(emails: string[]): {
   const [error, setError] = useState<string | null>(null);
   const lastFetchRef = useRef<number>(0);
   const cacheTimeoutRef = useRef<NodeJS.Timeout>();
+  const isFetchingRef = useRef<boolean>(false);
 
   /**
    * Fetches streaming status for provided emails
@@ -42,7 +43,13 @@ export function useStreamingStatusBatch(emails: string[]): {
    */
   const fetchStatus = useCallback(async (targetEmails: string[]) => {
     if (targetEmails.length === 0) return;
-
+    
+    // Prevent multiple simultaneous calls
+    if (isFetchingRef.current) {
+      return;
+    }
+    
+    isFetchingRef.current = true;
     setLoading(true);
     setError(null);
 
@@ -60,9 +67,18 @@ export function useStreamingStatusBatch(emails: string[]): {
           userStatus = 'offline';
         } else if (status.lastSession) {
           // Determine status based on stop reason
-          if (status.lastSession.stopReason === 'COMMAND') {
+          const stopReason = status.lastSession.stopReason;
+          
+          if (stopReason === 'QUICK_BREAK' || stopReason === 'SHORT_BREAK' || stopReason === 'LUNCH_BREAK') {
             userStatus = 'on_break';
-          } else if (status.lastSession.stopReason === 'DISCONNECT') {
+          } else if (stopReason === 'EMERGENCY') {
+            userStatus = 'disconnected';
+          } else if (stopReason === 'END_OF_SHIFT') {
+            userStatus = 'offline';
+          } else if (stopReason === 'COMMAND') {
+            // Legacy COMMAND reason - treat as break
+            userStatus = 'on_break';
+          } else if (stopReason === 'DISCONNECT') {
             userStatus = 'disconnected';
           } else {
             userStatus = 'offline';
@@ -86,6 +102,7 @@ export function useStreamingStatusBatch(emails: string[]): {
       console.error('Failed to fetch streaming status batch:', err);
     } finally {
       setLoading(false);
+      isFetchingRef.current = false;
     }
   }, []);
 
@@ -93,6 +110,8 @@ export function useStreamingStatusBatch(emails: string[]): {
    * Refetches streaming status for all emails
    */
   const refetch = useCallback(async () => {
+    // Force fetch by clearing cache
+    lastFetchRef.current = 0;
     await fetchStatus(emails);
   }, [emails, fetchStatus]);
 
@@ -107,9 +126,9 @@ export function useStreamingStatusBatch(emails: string[]): {
       clearTimeout(cacheTimeoutRef.current);
     }
 
-    // Check if we need to fetch (cache for 30 seconds)
+    // Check if we need to fetch (cache for 5 seconds)
     const now = Date.now();
-    const shouldFetch = now - lastFetchRef.current > 30000;
+    const shouldFetch = now - lastFetchRef.current > 5000;
 
     if (shouldFetch) {
       fetchStatus(emails);
@@ -117,7 +136,7 @@ export function useStreamingStatusBatch(emails: string[]): {
       // Set timeout to refetch when cache expires
       cacheTimeoutRef.current = setTimeout(() => {
         fetchStatus(emails);
-      }, 30000 - (now - lastFetchRef.current));
+      }, 5000 - (now - lastFetchRef.current));
     }
 
     return () => {
@@ -125,7 +144,7 @@ export function useStreamingStatusBatch(emails: string[]): {
         clearTimeout(cacheTimeoutRef.current);
       }
     };
-  }, [emails, fetchStatus]);
+  }, [emails]); // Remove fetchStatus from dependencies to prevent multiple calls
 
   return {
     statusMap,

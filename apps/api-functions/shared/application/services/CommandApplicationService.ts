@@ -75,7 +75,7 @@ export class CommandApplicationService {
       await this.commandMessagingService.sendToGroup(groupName, command.toPayload());
       
       // Broadcast stream event to supervisors
-      await this.broadcastStreamEvent(command.employeeEmail, command.type);
+      await this.broadcastStreamEvent(command.employeeEmail, command.type, command.reason);
       
       return { success: true, sentVia: 'WEB_PUBSUB' as any };
     } catch (error) {
@@ -90,15 +90,21 @@ export class CommandApplicationService {
    * Broadcasts stream events to supervisors via WebSocket
    * @param email - The email of the PSO
    * @param command - The command type (START/STOP)
+   * @param reason - Optional reason for the command
    * @private
    */
-  private async broadcastStreamEvent(email: string, command: CommandType): Promise<void> {
+  private async broadcastStreamEvent(email: string, command: CommandType, reason?: string): Promise<void> {
     try {
       const status = command === CommandType.START ? 'started' : 'stopped';
-      const message = {
+      const message: any = {
         email: email,
         status: status
       };
+      
+      // Include reason for STOP commands
+      if (command === CommandType.STOP && reason) {
+        message.reason = reason;
+      }
       
       console.log(`[CommandApplicationService] Broadcasting stream ${status} event for ${email} to group: ${email}`);
       console.log(`[CommandApplicationService] Message:`, message);

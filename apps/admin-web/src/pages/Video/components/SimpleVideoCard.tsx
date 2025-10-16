@@ -1,4 +1,4 @@
-import React, { memo } from 'react';
+import React, { memo, useCallback } from 'react';
 import VideoCard from './VideoCard';
 import { useVideoCardOptimization } from '../hooks/useVideoCardOptimization';
 import { useVideoActions } from '../hooks/UseVideoAction';
@@ -38,6 +38,19 @@ const SimpleVideoCard: React.FC<SimpleVideoCardProps> = memo(({
 
   const isLive = shouldStream;
 
+  // ✅ Handler que maneja tanto START como STOP con razón
+  const handleToggle = useCallback((email: string, reason?: string) => {
+    if (reason) {
+      // Si hay una razón, siempre es un STOP
+      handleStop(email, reason);
+    } else if (isLive) {
+      // Si no hay razón y está transmitiendo, es un STOP
+      handleStop(email);
+    } else {
+      // Si no hay razón y no está transmitiendo, es un START
+      handlePlay(email);
+    }
+  }, [isLive, handleStop, handlePlay]);
 
   return (
     <VideoCard
@@ -49,7 +62,7 @@ const SimpleVideoCard: React.FC<SimpleVideoCardProps> = memo(({
       shouldStream={shouldStream}
       connecting={connecting}
       disableControls={disableControls}
-      onToggle={createStableToggleHandler(email, isLive, isLive ? handleStop : handlePlay)}
+      onToggle={createStableToggleHandler(email, isLive, handleToggle)}
       onPlay={handlePlay}
       onStop={handleStop}
       onChat={createStableChatHandler(email, handleChat)}

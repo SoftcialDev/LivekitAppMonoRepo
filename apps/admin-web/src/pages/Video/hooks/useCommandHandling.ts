@@ -10,7 +10,7 @@ import { PendingCommand, PendingCommandsClient } from '@/shared/api/pendingComma
 
 export interface UseCommandHandlingProps {
   onStartCommand: () => Promise<void>;
-  onStopCommand: () => Promise<void>;
+  onStopCommand: (reason?: string) => Promise<void>;
   userEmail: string;
 }
 
@@ -38,15 +38,18 @@ export function useCommandHandling({
     
     try {
       console.log(`[WS Cmd] "${action}" @ ${new Date().toISOString()}`);
+      console.log(`[WS Cmd] Full command object:`, cmd);
+      console.log(`[WS Cmd] Reason:`, cmd.reason);
       
       if (action === 'START') {
         await onStartCommand();
       } else if (action === 'STOP') {
-        await onStopCommand();
+        console.log(`[WS Cmd] Calling onStopCommand with reason:`, cmd.reason);
+        await onStopCommand(cmd.reason);
       } else {
         // Default to stop for unknown commands
         console.log(`[WS Cmd] Unknown command "${action}", defaulting to STOP`);
-        await onStopCommand();
+        await onStopCommand(cmd.reason);
       }
     } catch (error) {
       console.error(`[WS Cmd] Failed to process command "${action}":`, error);
