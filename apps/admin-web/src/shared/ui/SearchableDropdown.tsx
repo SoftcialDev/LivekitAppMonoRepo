@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, ChangeEvent } from 'react';
+import { createPortal } from 'react-dom';
 
 ////////////////////////////////////////////////////////////////////////////////
 // Types
@@ -39,6 +40,8 @@ export interface SearchableDropdownProps<Value> {
   menuClassName?: string;
   /** Classes applied to each option row. */
   itemClassName?: string;
+  /** Render the dropdown menu in a portal attached to document.body. */
+  usePortal?: boolean;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -90,21 +93,27 @@ export function SearchableDropdown<Value>({
     text-gray-200 font-normal text-base
     hover:bg-[var(--color-primary-light)] cursor-pointer
   `,
+  usePortal = false,
 }: SearchableDropdownProps<Value>): JSX.Element {
   const [isOpen, setIsOpen] = useState(false);
   const [term, setTerm] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number; width: number } | null>(null);
 
   // Close menu when clicking outside
   useEffect(() => {
     function handleOutside(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      const clickedInsideContainer = !!(containerRef.current && containerRef.current.contains(target));
+      const clickedInsideMenu = !!(usePortal && menuRef.current && menuRef.current.contains(target));
+      if (!clickedInsideContainer && !clickedInsideMenu) {
         setIsOpen(false);
       }
     }
     document.addEventListener('mousedown', handleOutside);
     return () => document.removeEventListener('mousedown', handleOutside);
-  }, []);
+  }, [usePortal]);
 
   // Filter options by search term
   const filtered = options.filter(opt =>
@@ -118,13 +127,63 @@ export function SearchableDropdown<Value>({
     } else {
       onSelectionChange([...selectedValues, value]);
     }
+    // Close after selecting to support single-select UX
+    setIsOpen(false);
   };
+
+  // When opening, compute menu position for portal rendering
+  useEffect(() => {
+    if (!usePortal) return;
+    if (isOpen && containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      setMenuPos({
+        top: rect.bottom,
+        left: rect.left,
+        width: rect.width,
+      });
+    }
+  }, [isOpen, usePortal]);
+
+  const menuContent = (
+    <div
+      ref={menuRef}
+      className={menuClassName}
+      style={usePortal ? { position: 'fixed', top: menuPos?.top, left: menuPos?.left, width: menuPos?.width, zIndex: 2147483647 } : undefined}
+      onMouseDown={(e) => {
+        // Prevent outside-click handler from firing when interacting with the menu
+        e.stopPropagation();
+      }}
+    >
+      {filtered.map(opt => (
+        <div
+          key={String(opt.value)}
+          className={itemClassName}
+          onMouseDown={e => { e.preventDefault(); e.stopPropagation(); }} // Prevent blur and outside close
+          onClick={() => toggle(opt.value)}
+        >
+          <input
+            type="checkbox"
+            checked={selectedValues.includes(opt.value)}
+            readOnly
+            className="mr-5 appearance-none w-5 h-5 rounded border-2 border-[var(--color-primary)] bg-[var(--color-primary-light)] checked:bg-[var(--color-secondary)] checked:border-[var(--color-secondary)] focus:ring-0 focus:outline-none cursor-pointer transition-colors"
+          />
+          <span>{opt.label}</span>
+        </div>
+      ))}
+
+      {filtered.length === 0 && (
+        <div className="px-4 py-2 text-xs text-white font-medium">
+          No results found
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <div className={`relative inline-block w-1/3  ${className}`} ref={containerRef}>
       {/* Search input */}
       <input
-        type="text"
+        type="search"
         placeholder={placeholder}
         value={term}
         onChange={(e: ChangeEvent<HTMLInputElement>) => {
@@ -132,39 +191,16 @@ export function SearchableDropdown<Value>({
           setIsOpen(true);
         }}
         onClick={() => setIsOpen(true)}
+        autoComplete="off"
+        autoCorrect="off"
+        autoCapitalize="off"
+        spellCheck={false}
+        name="searchSupervisor"
         className={inputClassName}
       />
 
       {/* Dropdown menu */}
-      {isOpen && (
-        <div
-          className={menuClassName}
-        >
-          {filtered.map(opt => (
-            <div
-              key={String(opt.value)}
-              className={itemClassName}
-              onMouseDown={e => e.preventDefault()} // Prevent blur
-              onClick={() => toggle(opt.value)}
-            >
-              <input
-                type="checkbox"
-                checked={selectedValues.includes(opt.value)}
-                readOnly
-                className="mr-5 appearance-none w-5 h-5 rounded border-2 border-[var(--color-primary)] bg-[var(--color-primary-light)] checked:bg-[var(--color-secondary)] checked:border-[var(--color-secondary)] focus:ring-0 focus:outline-none cursor-pointer transition-colors"
-      
-              />
-              <span>{opt.label}</span>
-            </div>
-          ))}
-
-          {filtered.length === 0 && (
-            <div className="px-4 py-2 text-xs text-white font-medium">
-              No results found
-            </div>
-          )}
-        </div>
-      )}
+      {isOpen && (usePortal ? createPortal(menuContent, document.body) : menuContent)}
     </div>
   );
 }

@@ -14,6 +14,10 @@ interface SimpleVideoCardProps {
   disableControls: boolean;
   className?: string;
   statusMessage?: string;
+  psoName?: string;
+  supervisorEmail?: string;
+  supervisorName?: string;
+  onSupervisorChange?: (psoEmail: string, newSupervisorEmail: string) => void;
 }
 
 /**
@@ -30,7 +34,11 @@ const SimpleVideoCard: React.FC<SimpleVideoCardProps> = memo(({
   connecting,
   disableControls,
   statusMessage,
-  className
+  className,
+  psoName,
+  supervisorEmail,
+  supervisorName,
+  onSupervisorChange
 }) => {
   // ✅ Handlers estables
   const { createStableToggleHandler, createStableChatHandler } = useVideoCardOptimization();
@@ -68,13 +76,18 @@ const SimpleVideoCard: React.FC<SimpleVideoCardProps> = memo(({
       onChat={createStableChatHandler(email, handleChat)}
       className={className}
       statusMessage={statusMessage}
+      psoName={psoName}
+      supervisorEmail={supervisorEmail}
+      supervisorName={supervisorName}
+      onSupervisorChange={onSupervisorChange}
     />
   );
 }, (prevProps, nextProps) => {
   // ✅ Comparador optimizado: solo re-renderizar si cambian props críticas
   const criticalProps = [
     'email', 'name', 'accessToken', 'roomName', 'livekitUrl', 
-    'shouldStream', 'connecting', 'disableControls', 'statusMessage'
+    'shouldStream', 'connecting', 'disableControls', 'statusMessage',
+    'psoName', 'supervisorEmail', 'supervisorName'
   ];
   
   for (const prop of criticalProps) {

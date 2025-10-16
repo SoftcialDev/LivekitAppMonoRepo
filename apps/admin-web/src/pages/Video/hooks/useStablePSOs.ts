@@ -61,6 +61,7 @@ export function useStablePSOs(viewerEmail: string, viewerRole?: string, viewerAz
         status:   (u.status === 'online' ? 'online' : 'offline') as PSOWithStatus['status'],
         isOnline: u.status === 'online',
         supervisorName,
+        supervisorEmail: u.supervisorEmail ?? undefined,
       };
     };
 

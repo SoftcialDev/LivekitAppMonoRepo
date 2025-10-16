@@ -10,4 +10,5 @@ export interface PSOWithStatus {
   /** True if status is "online" */
   isOnline: boolean;
   supervisorName : string;
+  supervisorEmail?: string;
 }

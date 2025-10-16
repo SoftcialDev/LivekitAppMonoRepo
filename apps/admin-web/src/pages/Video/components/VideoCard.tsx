@@ -9,12 +9,13 @@ import {
 } from 'livekit-client'
 import { useSnapshot } from '../hooks/useSnapshot'
 import { useAuth } from '@/shared/auth/useAuth'
-import UserIndicator from '@/shared/ui/UserIndicator'
+// Removed UserIndicator usage per design change
 import { VideoCardProps } from '@/shared/types/VideoCardProps'
 import AddModal from '@/shared/ui/ModalComponent'
 import { useRecording } from '../hooks/useRecording'
 import { useTalkback } from '../hooks/useTalkback'
 import StopReasonButton, { StopReason } from '@/shared/ui/Buttons/StopReasonButton'
+import SupervisorSelector from './SupervisorSelector'
 
 /**
  * VideoCard
@@ -35,7 +36,13 @@ import StopReasonButton, { StopReason } from '@/shared/ui/Buttons/StopReasonButt
  *   - **Talk** is disabled when there is no active video (not in Play) or while connecting.
  *   - **Start Rec** is also disabled (greyed out) when there is no active video or while connecting.
  */
-const VideoCard: React.FC<VideoCardProps & { livekitUrl?: string }> = memo(({
+const VideoCard: React.FC<VideoCardProps & { 
+  livekitUrl?: string;
+  psoName?: string;
+  supervisorEmail?: string;
+  supervisorName?: string;
+  onSupervisorChange?: (psoEmail: string, newSupervisorEmail: string) => void;
+}> = memo(({
   name,
   email,
   onPlay,
@@ -50,6 +57,10 @@ const VideoCard: React.FC<VideoCardProps & { livekitUrl?: string }> = memo(({
   connecting = false,
   onToggle,
   statusMessage,
+  psoName,
+  supervisorEmail,
+  supervisorName,
+  onSupervisorChange,
 }) => {
   // ✅ DETECTAR PANTALLA NEGRA
   const isBlackScreen = !shouldStream || connecting || !accessToken || !roomName || !livekitUrl;
@@ -293,23 +304,22 @@ const VideoCard: React.FC<VideoCardProps & { livekitUrl?: string }> = memo(({
 
   return (
     <>
-      <div className={`flex flex-col bg-[var(--color-primary-dark)] rounded-xl overflow-hidden ${className}`}>
+      <div className={`flex flex-col bg-[var(--color-primary-dark)] rounded-xl overflow-visible ${className}`}>
         {showHeader && (
-          <div className="flex items-center px-2 py-1">
-            <UserIndicator
-              user={{
-                email: email, // Supervisor email
-                name,
-                fullName: name,
-                status: isPlayDisabled ? 'online' : 'offline',
-                azureAdObjectId: roomName ?? null,
-              }}
-              outerClass="w-5 h-5"
-              innerClass="w-4 h-4"
-              bgClass="bg-[var(--color-secondary)]"
-              borderClass="border-2 border-[var(--color-primary-dark)]"
-              nameClass="text-white truncate"
-            />
+          <div className="flex items-center px-2 py-1 relative z-50">
+            {psoName && onSupervisorChange ? (
+              <SupervisorSelector
+                psoName={psoName}
+                currentSupervisorEmail={supervisorEmail || ''}
+                currentSupervisorName={supervisorName || ''}
+                psoEmail={email}
+                onSupervisorChange={onSupervisorChange}
+                disabled={disableControls}
+                className="w-full"
+              />
+            ) : (
+              <div className="text-white truncate">{name}</div>
+            )}
           </div>
         )}
 

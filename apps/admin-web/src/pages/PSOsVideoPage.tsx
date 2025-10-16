@@ -310,7 +310,7 @@ const displayList = useMemo(() => {
               return (
                 <div
                   key={key} // ✅ clave estable ÚNICAMENTE aquí
-                  className={`video-card-wrapper w-full h-full ${alignClass}`}
+                  className={`video-card-wrapper w-full h-full relative z-10 ${alignClass}`}
                   style={itemStyle}
                 >
                   <SimpleVideoCard
@@ -324,6 +324,13 @@ const displayList = useMemo(() => {
                     disableControls={!p.isOnline || connecting}
                     className="w-full h-full"
                     statusMessage={statusMessage || undefined}
+                    psoName={p.fullName} // PSO name for the selector
+                    supervisorEmail={p.supervisorEmail} // Current supervisor email
+                    supervisorName={p.supervisorName} // Current supervisor name
+                    onSupervisorChange={(psoEmail, newSupervisorEmail) => {
+                      console.log(`Supervisor changed for ${psoEmail} to ${newSupervisorEmail}`);
+                      // TODO: Handle supervisor change - refresh data or update state
+                    }}
                   />
                 </div>
               );
