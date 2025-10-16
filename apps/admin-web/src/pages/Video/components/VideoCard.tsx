@@ -14,6 +14,7 @@ import { VideoCardProps } from '@/shared/types/VideoCardProps'
 import AddModal from '@/shared/ui/ModalComponent'
 import { useRecording } from '../hooks/useRecording'
 import { useTalkback } from '../hooks/useTalkback'
+import StopReasonButton, { StopReason } from '@/shared/ui/StopReasonButton'
 
 /**
  * VideoCard
@@ -48,6 +49,7 @@ const VideoCard: React.FC<VideoCardProps & { livekitUrl?: string }> = memo(({
   shouldStream = false,
   connecting = false,
   onToggle,
+  statusMessage,
 }) => {
   // ✅ DETECTAR PANTALLA NEGRA
   const isBlackScreen = !shouldStream || connecting || !accessToken || !roomName || !livekitUrl;
@@ -61,6 +63,7 @@ const VideoCard: React.FC<VideoCardProps & { livekitUrl?: string }> = memo(({
 
   /** Local playback mute toggle for the remote audio. */
   const [isAudioMuted, setIsAudioMuted] = useState(true)
+
 
   /**
    * Per-card recording controller.
@@ -274,6 +277,16 @@ const VideoCard: React.FC<VideoCardProps & { livekitUrl?: string }> = memo(({
   const talkDisabled   = !mediaReady || talkLoading
   const recordDisabled = !mediaReady || recordingLoading  // <- greyed out if no video or connecting
 
+  /**
+   * Handles stop reason selection
+   */
+  const handleStopReasonSelect = (reason: StopReason) => {
+    // Call the original onToggle with the reason
+    onToggle?.(email);
+    // TODO: Send the reason to the backend
+    console.log(`Stopping with reason: ${reason}`);
+  };
+
   return (
     <>
       <div className={`flex flex-col bg-[var(--color-primary-dark)] rounded-xl overflow-hidden ${className}`}>
@@ -309,7 +322,7 @@ const VideoCard: React.FC<VideoCardProps & { livekitUrl?: string }> = memo(({
             />
           ) : (
             <div className="absolute inset-0 flex items-center justify-center text-white">
-              No Stream
+              {statusMessage || 'No Stream'}
             </div>
           )}
 
@@ -320,24 +333,29 @@ const VideoCard: React.FC<VideoCardProps & { livekitUrl?: string }> = memo(({
         {/* Controls */}
         <div className="flex flex-wrap gap-2 mt-2">
           {/* Play / Stop — enforce: stop recording -> stop talk -> toggle */}
-          <button
-            onClick={async () => {
-              if (shouldStream) {
-                if (isRecording && !recordingLoading) {
-                  await toggleRecording()
-                }
-                if (isTalking) {
-                  await stopTalk()
-                }
-              }
-              onToggle?.(email)
-            }}
-            disabled={isPlayDisabled || recordingLoading || talkLoading}
-            className="flex-1 py-2 bg-white text-[var(--color-primary-dark)] rounded-xl disabled:opacity-50"
-            title={shouldStream ? 'Stop stream' : 'Start stream'}
-          >
-            {recordingLoading || talkLoading ? '...' : playLabel}
-          </button>
+          <div className="flex-1 relative">
+            {shouldStream ? (
+              <StopReasonButton
+                onSelect={handleStopReasonSelect}
+                disabled={isPlayDisabled || recordingLoading || talkLoading}
+                className="w-full"
+              >
+                {recordingLoading || talkLoading ? '...' : playLabel}
+              </StopReasonButton>
+            ) : (
+              <button
+                onClick={async () => {
+                  // Start stream normally
+                  onToggle?.(email);
+                }}
+                disabled={isPlayDisabled || recordingLoading || talkLoading}
+                className="w-full py-2 bg-white text-[var(--color-primary-dark)] rounded-xl disabled:opacity-50"
+                title="Start stream"
+              >
+                {recordingLoading || talkLoading ? '...' : playLabel}
+              </button>
+            )}
+          </div>
 
           <button
             onClick={() => onChat(email)}
@@ -416,6 +434,7 @@ const VideoCard: React.FC<VideoCardProps & { livekitUrl?: string }> = memo(({
           />
         </div>
       </AddModal>
+
     </>
   )
 }, (prevProps, nextProps) => {

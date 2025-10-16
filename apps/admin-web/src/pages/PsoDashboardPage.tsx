@@ -7,7 +7,7 @@ import { usePsoSupervisor } from './Video/hooks/usePsoSupervisor';
 import { usePsoSupervisorNotifications } from './Video/hooks/usePsoSupervisorNotifications';
 import { useAutoReloadWhenIdle } from './Video/hooks/useAutoReloadWhenIdle';
 import { useWebSocketHeartbeat } from '@/shared/hooks/useWebSocketHeartbeat';
-import { BitrateDashboard } from './Video/components/BitrateDashboard';
+
 
 
 ////////////////////////////////////////////////////////////////////////////////

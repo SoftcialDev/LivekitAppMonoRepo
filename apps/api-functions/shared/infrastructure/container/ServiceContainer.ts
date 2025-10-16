@@ -48,6 +48,7 @@ import { StreamingSessionRepository } from '../repositories/StreamingSessionRepo
 import { StreamingSessionDomainService } from '../../domain/services/StreamingSessionDomainService';
 import { FetchStreamingSessionHistoryApplicationService } from '../../application/services/FetchStreamingSessionHistoryApplicationService';
 import { FetchStreamingSessionsApplicationService } from '../../application/services/FetchStreamingSessionsApplicationService';
+import { StreamingStatusBatchApplicationService } from '../../application/services/StreamingStatusBatchApplicationService';
 import { IRecordingSessionRepository } from '../../domain/interfaces/IRecordingSessionRepository';
 import { RecordingSessionRepository } from '../repositories/RecordingSessionRepository';
 import { RecordingDomainService } from '../../domain/services/RecordingDomainService';
@@ -308,6 +309,12 @@ export class ServiceContainer {
             const streamingSessionDomainService = this.resolve<StreamingSessionDomainService>('StreamingSessionDomainService');
             const authorizationService = this.resolve<AuthorizationService>('AuthorizationService');
             return new FetchStreamingSessionsApplicationService(streamingSessionDomainService, authorizationService);
+          });
+
+          this.register<StreamingStatusBatchApplicationService>('StreamingStatusBatchApplicationService', () => {
+            const streamingSessionRepository = this.resolve<IStreamingSessionRepository>('StreamingSessionRepository');
+            const authorizationService = this.resolve<AuthorizationService>('AuthorizationService');
+            return new StreamingStatusBatchApplicationService(streamingSessionRepository, authorizationService);
           });
 
           // Register Recording Session services

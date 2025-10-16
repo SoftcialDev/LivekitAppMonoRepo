@@ -13,6 +13,7 @@ interface SimpleVideoCardProps {
   connecting: boolean;
   disableControls: boolean;
   className?: string;
+  statusMessage?: string;
 }
 
 /**
@@ -28,6 +29,7 @@ const SimpleVideoCard: React.FC<SimpleVideoCardProps> = memo(({
   shouldStream,
   connecting,
   disableControls,
+  statusMessage,
   className
 }) => {
   // ✅ Handlers estables
@@ -35,6 +37,7 @@ const SimpleVideoCard: React.FC<SimpleVideoCardProps> = memo(({
   const { handlePlay, handleStop, handleChat } = useVideoActions();
 
   const isLive = shouldStream;
+
 
   return (
     <VideoCard
@@ -51,13 +54,14 @@ const SimpleVideoCard: React.FC<SimpleVideoCardProps> = memo(({
       onStop={handleStop}
       onChat={createStableChatHandler(email, handleChat)}
       className={className}
+      statusMessage={statusMessage}
     />
   );
 }, (prevProps, nextProps) => {
   // ✅ Comparador optimizado: solo re-renderizar si cambian props críticas
   const criticalProps = [
     'email', 'name', 'accessToken', 'roomName', 'livekitUrl', 
-    'shouldStream', 'connecting', 'disableControls'
+    'shouldStream', 'connecting', 'disableControls', 'statusMessage'
   ];
   
   for (const prop of criticalProps) {

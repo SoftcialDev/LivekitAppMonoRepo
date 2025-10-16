@@ -51,4 +51,12 @@ export interface IAuthorizationService {
    * @throws Error if user is not authorized
    */
   authorizeCommandAcknowledgment(callerId: string): Promise<void>;
+
+  /**
+   * Authorizes if a user can access streaming status functions
+   * @param callerId - Azure AD object ID of the caller
+   * @returns Promise that resolves when authorized
+   * @throws Error if not authorized
+   */
+  canAccessStreamingStatus(callerId: string): Promise<void>;
 }

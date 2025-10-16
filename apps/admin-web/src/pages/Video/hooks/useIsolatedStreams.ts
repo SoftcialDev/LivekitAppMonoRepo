@@ -2,12 +2,14 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { getLiveKitToken, RoomWithToken } from '@/shared/api/livekitClient';
 import { fetchStreamingSessions } from '@/shared/api/streamingStatusClient';
 import { WebPubSubClientService } from '@/shared/api/webpubsubClient';
+import { useStreamingStatusBatch, UserStreamingStatusInfo } from './useStreamingStatusBatch';
 
 interface StreamCreds {
   accessToken?: string;
   roomName?: string;
   livekitUrl?: string;
   loading: boolean;
+  statusInfo?: UserStreamingStatusInfo;
 }
 
 export type CredsMap = Record<string, StreamCreds>;
@@ -16,12 +18,16 @@ export type CredsMap = Record<string, StreamCreds>;
  * Hook COMPLETAMENTE AISLADO para streams
  * NO se ve afectado por cambios en el presence store
  * Solo se actualiza cuando realmente es necesario
+ * Integrates batch status for users without active tokens
  */
 export function useIsolatedStreams(viewerEmail: string, emails: string[]): CredsMap {
   const [credsMap, setCredsMap] = useState<CredsMap>({});
   const canceledUsersRef = useRef<Set<string>>(new Set());
   const isInitializedRef = useRef(false);
   const lastEmailsRef = useRef<string[]>([]);
+
+  // Get batch status for users without active tokens
+  const { statusMap: batchStatusMap } = useStreamingStatusBatch(emails);
 
   // ✅ Función para actualizar solo una tarjeta específica
   const refreshTokenForEmail = useCallback(async (email: string) => {
@@ -282,6 +288,34 @@ export function useIsolatedStreams(viewerEmail: string, emails: string[]): Creds
       }
     };
   }, [viewerEmail, emails]);
+
+  // ✅ Integrate batch status for users without active tokens
+  useEffect(() => {
+    setCredsMap(prev => {
+      const newCreds = { ...prev };
+      
+      emails.forEach(email => {
+        const key = email.toLowerCase();
+        const currentCreds = newCreds[key];
+        const batchStatus = batchStatusMap[key];
+        
+        // If user has no active token but has batch status, add status info
+        if (!currentCreds?.accessToken && batchStatus) {
+          newCreds[key] = {
+            ...currentCreds,
+            statusInfo: batchStatus
+          };
+        }
+        // If user has active token, remove status info
+        else if (currentCreds?.accessToken && currentCreds?.statusInfo) {
+          const { statusInfo, ...credsWithoutStatus } = currentCreds;
+          newCreds[key] = credsWithoutStatus;
+        }
+      });
+      
+      return newCreds;
+    });
+  }, [emails, batchStatusMap]);
 
   return credsMap;
 }

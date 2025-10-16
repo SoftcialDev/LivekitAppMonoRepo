@@ -85,6 +85,18 @@ export class AuthorizationService implements IAuthorizationService {
   }
 
   /**
+   * Authorizes if a user can access streaming status functions
+   * Allows SuperAdmin, Supervisor, and ContactManager roles
+   * @param callerId - Azure AD object ID of the caller
+   * @returns Promise that resolves when authorized
+   * @throws AuthError if not authorized
+   */
+  async canAccessStreamingStatus(callerId: string): Promise<void> {
+    const allowedRoles: UserRole[] = [UserRole.SuperAdmin, UserRole.Supervisor, UserRole.ContactManager];
+    await this.validateUserWithRoles(callerId, allowedRoles, 'accessing streaming status functions');
+  }
+
+  /**
    * Validates if a user exists and is active
    * @param callerId - Azure AD object ID of the caller
    * @returns Promise that resolves to true if user exists and is active

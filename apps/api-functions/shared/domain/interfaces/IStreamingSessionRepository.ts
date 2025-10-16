@@ -103,4 +103,15 @@ export interface IStreamingSessionRepository {
    * @throws Error if database operation fails
    */
   isUserStreaming(userId: string): Promise<boolean>;
+
+  /**
+   * Gets latest streaming sessions for multiple emails in batch
+   * @param emails - Array of email addresses
+   * @returns Promise that resolves to array of sessions with user info
+   * @throws Error if database operation fails
+   */
+  getLatestSessionsForEmails(emails: string[]): Promise<Array<{
+    email: string;
+    session: StreamingSessionHistory | null;
+  }>>;
 }

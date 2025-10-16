@@ -278,4 +278,63 @@ export class StreamingSessionRepository implements IStreamingSessionRepository {
       throw new Error(`Failed to check if user is streaming: ${error.message}`);
     }
   }
+
+  /**
+   * Gets latest streaming sessions for multiple emails in batch
+   * Uses DISTINCT ON to ensure only the most recent session per email
+   * @param emails - Array of email addresses to query
+   * @returns Promise that resolves to array of sessions with user info, one per email
+   * @throws Error if database operation fails
+   * @example
+   * const sessions = await repository.getLatestSessionsForEmails(['user1@example.com', 'user2@example.com']);
+   * // Returns: [{ email: 'user1@example.com', session: StreamingSessionHistory | null }, ...]
+   */
+  async getLatestSessionsForEmails(emails: string[]): Promise<Array<{
+    email: string;
+    session: StreamingSessionHistory | null;
+  }>> {
+    try {
+      const sessions = await prisma.$queryRaw`
+        SELECT DISTINCT ON (u.email) 
+          ssh.id, ssh."userId", ssh."startedAt", ssh."stoppedAt", 
+          ssh."createdAt", ssh."updatedAt", ssh."stopReason",
+          u.email
+        FROM "StreamingSessionHistory" ssh
+        JOIN "User" u ON ssh."userId" = u.id
+        WHERE u.email = ANY(${emails})
+        ORDER BY u.email, ssh."createdAt" DESC
+      ` as Array<{
+        id: string;
+        userId: string;
+        startedAt: Date;
+        stoppedAt: Date | null;
+        createdAt: Date;
+        updatedAt: Date;
+        stopReason: string | null;
+        email: string;
+      }>;
+
+      const sessionsByEmail = new Map<string, StreamingSessionHistory>();
+      sessions.forEach(session => {
+        const email = session.email;
+        sessionsByEmail.set(email, StreamingSessionHistory.fromPrisma({
+          id: session.id,
+          userId: session.userId,
+          startedAt: session.startedAt,
+          stoppedAt: session.stoppedAt,
+          createdAt: session.createdAt,
+          updatedAt: session.updatedAt,
+          stopReason: session.stopReason,
+          user: { email: session.email }
+        }));
+      });
+
+      return emails.map(email => ({
+        email,
+        session: sessionsByEmail.get(email) || null
+      }));
+    } catch (error: any) {
+      throw new Error(`Failed to get latest sessions for emails: ${error.message}`);
+    }
+  }
 }

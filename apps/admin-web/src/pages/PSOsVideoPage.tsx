@@ -12,6 +12,23 @@ import { useIsolatedStreams } from './Video/hooks/useIsolatedStreams';
 import { useVideoActions } from './Video/hooks/UseVideoAction';
 import { useStablePSOs } from './Video/hooks/useStablePSOs';
 
+/**
+ * Gets user-friendly status message for streaming status
+ * @param status - The streaming status from batch API
+ * @returns User-friendly status message
+ */
+function getStatusMessage(status: 'on_break' | 'disconnected' | 'offline'): string {
+  switch (status) {
+    case 'on_break':
+      return 'On Break';
+    case 'disconnected':
+      return 'Disconnected';
+    case 'offline':
+      return 'Offline';
+    default:
+      return 'Offline';
+  }
+}
 
 const LAYOUT_OPTIONS = [1,2,3,4,5,6,9,12,20,200] as const;
 
@@ -255,6 +272,11 @@ const displayList = useMemo(() => {
               const isLive: boolean = Boolean(c.accessToken);
               // ✅ CONNECTING: Si está cargando O si está online pero no tiene token (acaba de empezar a transmitir)
               const connecting: boolean = c.loading || (p.isOnline && !c.accessToken && Boolean(c.roomName));
+              
+              // ✅ Get status info for users without active tokens
+              const statusInfo = c.statusInfo;
+              const statusMessage = statusInfo ? getStatusMessage(statusInfo.status) : null;
+              
 
               
               return (
@@ -273,6 +295,7 @@ const displayList = useMemo(() => {
                     connecting={connecting}
                     disableControls={!p.isOnline || connecting}
                     className="w-full h-full"
+                    statusMessage={statusMessage || undefined}
                   />
                 </div>
               );

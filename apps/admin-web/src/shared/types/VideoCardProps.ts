@@ -12,5 +12,6 @@ export interface VideoCardProps {
   shouldStream?: boolean;
   connecting?: boolean;
   onToggle?: (email: string) => void;
-  disableControls?: boolean
+  disableControls?: boolean;
+  statusMessage?: string;
 }
