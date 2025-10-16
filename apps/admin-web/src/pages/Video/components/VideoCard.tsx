@@ -8,7 +8,6 @@ import {
   RemoteAudioTrack,
 } from 'livekit-client'
 import { useSnapshot } from '../hooks/useSnapshot'
-import { usePresenceStore } from '@/shared/presence/usePresenceStore'
 import { useAuth } from '@/shared/auth/useAuth'
 import UserIndicator from '@/shared/ui/UserIndicator'
 import { VideoCardProps } from '@/shared/types/VideoCardProps'
@@ -330,7 +329,7 @@ const VideoCard: React.FC<VideoCardProps & { livekitUrl?: string }> = memo(({
               {(() => {
                 console.log('[VideoCard] statusMessage for', email, ':', statusMessage);
                 // Show statusMessage if available, otherwise show "No Stream"
-                return statusMessage || 'No Stream';
+                return statusMessage || '';
               })()}
             </div>
           )}
@@ -450,7 +449,7 @@ const VideoCard: React.FC<VideoCardProps & { livekitUrl?: string }> = memo(({
   )
 }, (prevProps, nextProps) => {
   // Solo comparar props críticas para el streaming
-  const criticalProps = ['email', 'accessToken', 'roomName', 'livekitUrl', 'shouldStream', 'connecting'];
+  const criticalProps = ['email', 'accessToken', 'roomName', 'livekitUrl', 'shouldStream', 'connecting', 'statusMessage'];
   
   for (const prop of criticalProps) {
     if (prevProps[prop as keyof typeof prevProps] !== nextProps[prop as keyof typeof nextProps]) {

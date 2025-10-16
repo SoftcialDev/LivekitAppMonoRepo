@@ -74,7 +74,7 @@ const SimpleVideoCard: React.FC<SimpleVideoCardProps> = memo(({
   // ✅ Comparador optimizado: solo re-renderizar si cambian props críticas
   const criticalProps = [
     'email', 'name', 'accessToken', 'roomName', 'livekitUrl', 
-    'shouldStream', 'connecting', 'disableControls'
+    'shouldStream', 'connecting', 'disableControls', 'statusMessage'
   ];
   
   for (const prop of criticalProps) {

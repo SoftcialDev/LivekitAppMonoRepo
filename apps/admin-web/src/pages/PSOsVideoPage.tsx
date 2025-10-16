@@ -50,7 +50,7 @@ function getStatusMessage(status: 'on_break' | 'disconnected' | 'offline', stopR
     case 'offline':
       return 'Offline';
     default:
-      return 'No Stream';
+      return '';
   }
 }
 
@@ -297,9 +297,9 @@ const displayList = useMemo(() => {
               // ✅ CONNECTING: Si está cargando O si está online pero no tiene token (acaba de empezar a transmitir)
               const connecting: boolean = c.loading || (p.isOnline && !c.accessToken && Boolean(c.roomName));
               
-              // ✅ REMOVED: No more batch status
-              // const statusInfo = c.statusInfo;
-              // const statusMessage = statusInfo ? getStatusMessage(statusInfo.status, statusInfo.lastSession?.stopReason) : null;
+              // ✅ Batch status (reason when there is no streaming session)
+              const statusInfo = c.statusInfo;
+              const statusMessage = statusInfo ? getStatusMessage(statusInfo.status, statusInfo.lastSession?.stopReason) : null;
               
               // ✅ REMOVED: No more loading/updating states to prevent connecting issues
               // const showLoading = !c.accessToken && !statusInfo && !c.loading;
@@ -323,6 +323,7 @@ const displayList = useMemo(() => {
                     connecting={connecting}
                     disableControls={!p.isOnline || connecting}
                     className="w-full h-full"
+                    statusMessage={statusMessage || undefined}
                   />
                 </div>
               );

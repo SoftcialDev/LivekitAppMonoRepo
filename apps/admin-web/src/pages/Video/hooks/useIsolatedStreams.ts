@@ -2,12 +2,21 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { getLiveKitToken, RoomWithToken } from '@/shared/api/livekitClient';
 import { fetchStreamingSessions } from '@/shared/api/streamingStatusClient';
 import { WebPubSubClientService } from '@/shared/api/webpubsubClient';
+import { fetchStreamingStatusBatch, StreamingStatusBatchResponse, UserStreamingStatus } from '@/shared/api/streamingStatusBatchClient';
 
 interface StreamCreds {
   accessToken?: string;
   roomName?: string;
   livekitUrl?: string;
   loading: boolean;
+  statusInfo?: {
+    email: string;
+    status: 'on_break' | 'disconnected' | 'offline';
+    lastSession: {
+      stopReason: string | null;
+      stoppedAt: string | null;
+    } | null;
+  };
 }
 
 export type CredsMap = Record<string, StreamCreds>;
@@ -26,6 +35,29 @@ export function useIsolatedStreams(viewerEmail: string, emails: string[]): Creds
   const wsHandlerRegisteredRef = useRef<boolean>(false); // ensure single WS handler registration
   const isInitializedRef = useRef(false);
   const lastEmailsRef = useRef<string[]>([]);
+  const cooldownUntilRef = useRef<Record<string, number>>({}); // avoid early fetches
+
+  // Helper: convert batch response to statusInfo map
+  const buildStatusMap = (statuses: UserStreamingStatus[]) => {
+    const map: Record<string, StreamCreds['statusInfo']> = {};
+    statuses.forEach((s) => {
+      const email = s.email.toLowerCase();
+      let userStatus: 'on_break' | 'disconnected' | 'offline';
+      // Si tiene sesión activa, no agregamos statusInfo (será cubierto por token)
+      if (s.hasActiveSession) {
+        return;
+      } else if (s.lastSession) {
+        const r = s.lastSession.stopReason;
+        if (r === 'QUICK_BREAK' || r === 'SHORT_BREAK' || r === 'LUNCH_BREAK') userStatus = 'on_break';
+        else if (r === 'EMERGENCY' || r === 'DISCONNECT') userStatus = 'disconnected';
+        else userStatus = 'offline';
+      } else {
+        userStatus = 'offline';
+      }
+      map[email] = { email: s.email, status: userStatus, lastSession: s.lastSession };
+    });
+    return map;
+  };
 
   // ✅ REMOVED: No more separate batch status hook
   // We'll fetch everything together in the initialization
@@ -92,14 +124,38 @@ export function useIsolatedStreams(viewerEmail: string, emails: string[]): Creds
   //   }
   // }, [refetchBatchStatus]);
 
-  // ✅ Inicialización SIMPLE - SOLO SESIONES Y TOKENS
+  // ✅ Inicialización: sesiones/tokens + status para quienes NO aparecen en sesiones
   useEffect(() => {
     if (isInitializedRef.current || emails.length === 0) return;
     
     isInitializedRef.current = true;
-    console.log('🚀 [useIsolatedStreams] Starting simple initialization...');
+    console.log('🚀 [useIsolatedStreams] Starting initialization...');
     
-    // ✅ FETCH SIMPLE: solo sesiones + tokens
+    // 1) Cargar PRIMERO el batch status para TODOS los emails y reflejarlo en los cards
+    (async () => {
+      try {
+        const batch = await fetchStreamingStatusBatch(emails.map(e => e.toLowerCase()));
+        const map = buildStatusMap(batch.statuses);
+        setCredsMap(prev => {
+          const next = { ...prev } as CredsMap;
+          emails.forEach(email => {
+            const key = email.toLowerCase();
+            const existing = next[key] ?? { loading: false };
+            const statusInfo = map[key];
+            if (statusInfo) {
+              next[key] = { ...existing, statusInfo };
+            } else if (!next[key]) {
+              next[key] = existing;
+            }
+          });
+          return next;
+        });
+      } catch {
+        // ignore batch error on init – tokens fetch will still run
+      }
+    })();
+
+    // ✅ FETCH: sesiones + tokens; luego status solo para faltantes
     const fetchSessionsAndTokens = async () => {
       try {
         console.log('🔍 [useIsolatedStreams] Fetching sessions and tokens...');
@@ -122,6 +178,14 @@ export function useIsolatedStreams(viewerEmail: string, emails: string[]): Creds
         
         const byRoom = new Map<string, string>();
         (rooms as RoomWithToken[]).forEach((r) => byRoom.set(r.room, r.token));
+        const notInSessions = emails.map(e=>e.toLowerCase()).filter(e => !emailToRoom.has(e));
+        let batchMap: Record<string, StreamCreds['statusInfo']> = {};
+        if (notInSessions.length > 0) {
+          try {
+            const batchResp: StreamingStatusBatchResponse = await fetchStreamingStatusBatch(notInSessions);
+            batchMap = buildStatusMap(batchResp.statuses);
+          } catch {}
+        }
         
         // ✅ DISTRIBUIR SOLO TOKENS
         setCredsMap((prev) => {
@@ -131,6 +195,7 @@ export function useIsolatedStreams(viewerEmail: string, emails: string[]): Creds
             const key = email.toLowerCase();
             const room = emailToRoom.get(key);
             const token = room ? byRoom.get(room) : undefined;
+            const statusInfo = batchMap[key];
             
             // If user has active streaming, use token
             if (room && token) {
@@ -143,7 +208,7 @@ export function useIsolatedStreams(viewerEmail: string, emails: string[]): Creds
             } 
             // Default: no streaming
             else if (!newCreds[key]) {
-              newCreds[key] = { loading: false };
+              newCreds[key] = statusInfo ? { loading: false, statusInfo } : { loading: false };
             }
           });
           
@@ -159,7 +224,7 @@ export function useIsolatedStreams(viewerEmail: string, emails: string[]): Creds
     setTimeout(() => fetchSessionsAndTokens(), 100);
   }, [emails]);
 
-  // ✅ Manejar cambios de emails - UN SOLO FETCH para nuevos emails
+  // ✅ Manejar cambios de emails - UN SOLO FETCH para nuevos emails (y status de los nuevos que no estén en sesiones)
   useEffect(() => {
     // keep latest emails for the websocket handler (avoid re-registering)
     emailsRef.current = emails.map(e => e.toLowerCase());
@@ -172,6 +237,29 @@ export function useIsolatedStreams(viewerEmail: string, emails: string[]): Creds
     
     lastEmailsRef.current = curr;
     
+    // 0) Cargar PRIMERO status para emails NUEVOS
+    if (toJoin.length > 0) {
+      (async () => {
+        try {
+          const batch = await fetchStreamingStatusBatch(toJoin);
+          const map = buildStatusMap(batch.statuses);
+          setCredsMap(prev => {
+            const next = { ...prev } as CredsMap;
+            toJoin.forEach(email => {
+              const key = email.toLowerCase();
+              const existing = next[key] ?? { loading: false };
+              const statusInfo = map[key];
+              if (statusInfo) next[key] = { ...existing, statusInfo };
+              else if (!next[key]) next[key] = existing;
+            });
+            return next;
+          });
+        } catch {
+          // ignore
+        }
+      })();
+    }
+
     // ✅ UN SOLO FETCH para emails NUEVOS
     if (toJoin.length > 0) {
       const fetchNewSessions = async () => {
@@ -186,6 +274,14 @@ export function useIsolatedStreams(viewerEmail: string, emails: string[]): Creds
           
           const byRoom = new Map<string, string>();
           (rooms as RoomWithToken[]).forEach((r) => byRoom.set(r.room, r.token));
+          const notInSessions = toJoin.filter(e => !emailToRoom.has(e));
+          let batchMap: Record<string, StreamCreds['statusInfo']> = {};
+          if (notInSessions.length > 0) {
+            try {
+              const batchResp: StreamingStatusBatchResponse = await fetchStreamingStatusBatch(notInSessions);
+              batchMap = buildStatusMap(batchResp.statuses);
+            } catch {}
+          }
           
           // ✅ DISTRIBUIR solo a emails NUEVOS
           setCredsMap((prev) => {
@@ -195,10 +291,12 @@ export function useIsolatedStreams(viewerEmail: string, emails: string[]): Creds
               const key = email.toLowerCase();
               const room = emailToRoom.get(key);
               const token = room ? byRoom.get(room) : undefined;
+              const statusInfo = batchMap[key];
               
+              const prevEntry = newCreds[key] ?? { loading: false };
               newCreds[key] = room && token 
-                ? { accessToken: token, roomName: room, livekitUrl, loading: false }
-                : { loading: false };
+                ? { ...prevEntry, accessToken: token, roomName: room, livekitUrl, loading: false }
+                : (statusInfo ? { ...prevEntry, loading: false, statusInfo } : { ...prevEntry, loading: false });
             });
             
             return newCreds;
@@ -271,9 +369,10 @@ export function useIsolatedStreams(viewerEmail: string, emails: string[]): Creds
           ns.delete(targetEmail);
           canceledUsersRef.current = ns;
         }
-        // ✅ DELAY de 5 segundos para dar tiempo al PSO de iniciar streaming
+        // ✅ DELAY de 2 segundos para dar tiempo al PSO de iniciar streaming
+        const emailKey = targetEmail as string; // narrow for closure
         setTimeout(async () => {
-          if (targetEmail) {
+          if (emailKey) {
             try {
               // ✅ UN SOLO FETCH para el email específico
               const sessions = await fetchStreamingSessions();
@@ -287,7 +386,7 @@ export function useIsolatedStreams(viewerEmail: string, emails: string[]): Creds
               const byRoom = new Map<string, string>();
               (rooms as RoomWithToken[]).forEach((r) => byRoom.set(r.room, r.token));
               
-              const key = targetEmail.toLowerCase();
+              const key = emailKey.toLowerCase();
               const room = emailToRoom.get(key);
               const token = room ? byRoom.get(room) : undefined;
               
@@ -309,18 +408,28 @@ export function useIsolatedStreams(viewerEmail: string, emails: string[]): Creds
               // Error handling
             }
           }
-        }, 5000);
+        }, 6000);
       } else if (started === false) {
         const ns = new Set(canceledUsersRef.current);
         ns.add(targetEmail);
         canceledUsersRef.current = ns;
         clearOne(targetEmail);
-        // ✅ REMOVED: No more batch status refresh to prevent connecting issues
-        // setTimeout(() => {
-        //   if (targetEmail) {
-        //     void refreshStatusForEmail(targetEmail);
-        //   }
-        // }, 2000);
+        // ✅ Tras STOP: esperar y pedir status SOLO para ese email
+        const emailKey = targetEmail as string; // narrow for closure
+        setTimeout(async () => {
+          try {
+            const resp = await fetchStreamingStatusBatch([emailKey]);
+            const map = buildStatusMap(resp.statuses);
+            const statusInfo = map[emailKey];
+            if (!statusInfo) return;
+            setCredsMap(prev => ({
+              ...prev,
+              [emailKey]: { ...(prev[emailKey] ?? { loading: false }), statusInfo }
+            }));
+          } catch {
+            // ignore
+          }
+        }, 6000);
       }
     };
 
