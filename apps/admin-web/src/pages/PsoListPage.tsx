@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import managementIcon from '@/shared/assets/manage_icon_sidebar.png';
 import { useHeader } from '@/app/providers/HeaderContext';
-import { getUsersByRole, changeUserRole, deleteUser } from '@/shared/api/userClient';
+import { getUsersByRole, changeUserRole, deleteUser, changeSupervisor, UserByRole } from '@/shared/api/userClient';
 import { useAuth } from '@/shared/auth/useAuth';
 import AddButton from '@/shared/ui/Buttons/AddButton';
+import { SearchableDropdown, DropdownOption } from '@/shared/ui/SearchableDropdown';
 import TrashButton from '@/shared/ui/Buttons/TrashButton';
 import AddModal from '@/shared/ui/ModalComponent';
 import { Column, TableComponent } from '@/shared/ui/TableComponent';
@@ -53,6 +54,7 @@ const PSOsListPage: React.FC = () => {
 
   // State for PSO list page
   const [psos, setPsos]               = useState<CandidateUser[]>([]);
+  const [allPsos, setAllPsos]         = useState<CandidateUser[]>([]);
   const [psosLoading, setPsosLoading] = useState(false);
 
   // State for candidate modal
@@ -60,6 +62,10 @@ const PSOsListPage: React.FC = () => {
   const [candidatesLoading, setCandidatesLoading] = useState(false);
   const [isModalOpen, setModalOpen]               = useState(false);
   const [selectedEmails, setSelectedEmails]       = useState<string[]>([]);
+  const [filterSupervisorValues, setFilterSupervisorValues] = useState<string[]>([]);
+  const [filterSupervisorOptions, setFilterSupervisorOptions] = useState<DropdownOption<string>[]>([]);
+  const [transferSupervisorOptions, setTransferSupervisorOptions] = useState<DropdownOption<string>[]>([]);
+  const [transferToValue, setTransferToValue]     = useState<string[]>([]); // single-select via last value (email)
 
   useHeader({
     title:   'PSOs',
@@ -75,7 +81,7 @@ const PSOsListPage: React.FC = () => {
     setPsosLoading(true);
     try {
       const res = await getUsersByRole('Employee', 1, API_PAGE_SIZE);
-      const mapped: CandidateUser[] = res.users.map(u => ({
+      const mappedAll: CandidateUser[] = res.users.map(u => ({
         azureAdObjectId: u.azureAdObjectId,
         email:           u.email,
         firstName:       u.firstName,
@@ -84,7 +90,14 @@ const PSOsListPage: React.FC = () => {
         supervisorAdId:  u.supervisorAdId,
         supervisorName:  u.supervisorName,
       }));
-      setPsos(mapped);
+      setAllPsos(mappedAll);
+      // Apply current filter locally
+      if (filterSupervisorValues.length > 0) {
+        const allow = new Set(filterSupervisorValues);
+        setPsos(mappedAll.filter(p => p.supervisorName && allow.has(p.supervisorName)));
+      } else {
+        setPsos(mappedAll);
+      }
     } catch (err: any) {
       console.error('Failed to load PSOs:', err);
       showToast('Failed to load PSOs', 'error');
@@ -120,7 +133,37 @@ const PSOsListPage: React.FC = () => {
   useEffect(() => {
     if (!initialized || !account) return;
     fetchPsos();
+    // Load supervisors for dropdowns
+    (async () => {
+      try {
+        const supRes = await getUsersByRole('Supervisor', 1, 500);
+        const filterOpts: DropdownOption<string>[] = supRes.users.map((s: UserByRole) => ({
+          label: `${s.firstName} ${s.lastName}`,
+          value: s.azureAdObjectId,
+        }));
+        const transferOpts: DropdownOption<string>[] = supRes.users.map((s: UserByRole) => ({
+          label: `${s.firstName} ${s.lastName}`,
+          value: s.email,
+        }));
+        setFilterSupervisorOptions(filterOpts);
+        setTransferSupervisorOptions(transferOpts);
+      } catch {
+        // ignore
+      }
+    })();
   }, [initialized, account]);
+
+  // Apply supervisor filter client-side without fetching
+  useEffect(() => {
+    if (filterSupervisorValues.length === 0) {
+      setPsos(allPsos);
+    } else {
+      const allow = new Set(filterSupervisorValues);
+      setPsos(
+        allPsos.filter(p => (p.supervisorAdId && allow.has(p.supervisorAdId)))
+      );
+    }
+  }, [filterSupervisorValues, allPsos]);
 
   /** Open modal and load candidates. */
   const handleOpenModal = (): void => {
@@ -194,6 +237,54 @@ const PSOsListPage: React.FC = () => {
     },
   ];
 
+  // Toolbar right actions: Filter by Supervisor (if Supervisor) + Select All + Transfer To (placeholder)
+  // Left controls (toolbar left) — compose Add + filters
+  const leftControls = (
+    <div className="flex items-center gap-2">
+      <AddButton label="Add PSO" onClick={handleOpenModal} />
+      {/* Filter by Supervisor (multi-select) */}
+      <SearchableDropdown
+        options={filterSupervisorOptions}
+        selectedValues={filterSupervisorValues}
+        onSelectionChange={(vals) => { setFilterSupervisorValues(vals); }}
+        placeholder="Filter by Supervisor"
+        className="w-64"
+        usePortal={true}
+        closeOnSelect={false}
+      />
+      {/* Transfer To — single select, keep only last */}
+      <SearchableDropdown
+        options={transferSupervisorOptions}
+        selectedValues={transferToValue}
+        onSelectionChange={(vals) => {
+          if (vals.length === 0) { setTransferToValue([]); return; }
+          const chosen = vals[vals.length - 1] as string;
+          setTransferToValue([chosen]);
+          if (selectedEmails.length === 0) {
+            showToast('Select at least one PSO to transfer', 'warning');
+            return;
+          }
+          // Execute transfer immediately
+          (async () => {
+            try {
+              const updated = await changeSupervisor({ userEmails: selectedEmails, newSupervisorEmail: chosen });
+              showToast(`Transferred ${updated} PSO(s)`, 'success');
+              // refresh list in place
+              await fetchPsos();
+              setSelectedEmails([]);
+            } catch (e) {
+              console.error('Transfer failed', e);
+              showToast('Transfer failed', 'error');
+            }
+          })();
+        }}
+        placeholder="Transfer To"
+        className="w-56"
+        usePortal={true}
+      />
+    </div>
+  );
+
   // Columns for Add PSO modal
   const candidateColumns: Column<CandidateUser>[] = [
     {
@@ -233,9 +324,14 @@ const PSOsListPage: React.FC = () => {
         columns={psoColumns}
         data={psos}
         pageSize={UI_PAGE_SIZE}
-        addButton={<AddButton label="Add PSO" onClick={handleOpenModal} />}
+        addButton={leftControls}
         loading={psosLoading}
         loadingAction="Loading PSOs"
+        showRowCheckboxes={true}
+        getRowKey={(row) => row.email}
+        selectedKeys={selectedEmails}
+        onToggleRow={(key, checked) => setSelectedEmails(prev => checked ? Array.from(new Set([...prev, key])) : prev.filter(k => k !== key))}
+        onToggleAll={(checked, keys) => setSelectedEmails(checked ? Array.from(new Set([...selectedEmails, ...keys])) : selectedEmails.filter(k => !keys.includes(k)))}
       />
 
       {/* Modal for selecting new PSOs */}

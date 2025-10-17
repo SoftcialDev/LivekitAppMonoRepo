@@ -8,7 +8,11 @@
     "prepare": "npm run prisma:generate",
     "postinstall": "npm run prepare",
     "postbuild": "npm run prepare",
-    "start": "func start --script-root ."
+    "start": "func start --script-root .",
+    "test:unit": "jest",
+    "test:unit:coverage": "jest --coverage",
+    "test:cov:getUsersByRole": "jest --coverage --testPathPattern=GetUsersByRole --collectCoverageFrom=\"apps/api-functions/GetUsersByRole/index.ts\"",
+    "test:cov:getSupervisorForPso": "jest --coverage --testPathPattern=GetSupervisorForPso --collectCoverageFrom=\"apps/api-functions/GetSupervisorForPso/index.ts\""
   },
   "dependencies": {
     "@azure/functions": "^3.0.0",
@@ -30,13 +34,16 @@
     "zod": "^3.25.67"
   },
   "devDependencies": {
+    "@types/jest": "^29.5.0",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/microsoft-graph": "^2.40.1",
     "@types/qs": "^6.14.0",
     "copyfiles": "^2.4.1",
     "cpx": "^1.5.0",
+    "jest": "^29.5.0",
     "prisma": "^6.11.1",
     "rimraf": "^3.0.2",
+    "ts-jest": "^29.1.0",
     "typescript": "^5.1.0"
   }
 }

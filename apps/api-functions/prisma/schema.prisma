@@ -1,4 +1,4 @@
-/// 1. Datasource & Generator
+// Database configuration
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
@@ -10,130 +10,84 @@ generator client {
   engineType    = "binary"
 }
 
-// 2. Enumerations
-
-/**
- * The application roles for users.
- */
+// User roles in the system
 enum UserRole {
-  Supervisor      // users with highest privileges
-  Admin           // managers or intermediate-level admins
-  Employee        // standard users who stream video
-  ContactManager  // Contact Manager role
-  SuperAdmin      // users with the highest privileges
-  Unassigned      // users without any specific role
+  Supervisor
+  Admin
+  Employee
+  ContactManager
+  SuperAdmin
+  Unassigned
 }
 
-/// Possible statuses for a Contact Manager during their shift.
+// Contact manager availability states
 enum ContactManagerStatus {
-  /// The Contact Manager is not on duty.
   Unavailable
-
-  /// The Contact Manager is on duty and ready to help.
   Available
-
-  /// The Contact Manager is taking a break.
   OnBreak
-
-  /// The Contact Manager is assisting another task or user.
   OnAnotherTask
 }
 
-/// Types of forms that can be submitted to the Contact Managers group chat
+// Form types for contact manager submissions
 enum FormType {
-  /// “Disconnections” form
   Disconnections
-
-  /// “Admissions” form
   Admissions
-
-  /// “Assistance with Acute Patient Assessment” form
   Assistance
 }
 
-/**
- * Presence states for connected users.
- */
+// User connection status
 enum Status {
-  online   // user is connected and ready
-  offline  // user is not connected
+  online
+  offline
 }
 
-/**
- * Types of commands that can be sent to an employee.
- */
+// Commands for employee streaming control
 enum CommandType {
-  START  // begin streaming session
-  STOP   // end streaming session
+  START
+  STOP
 }
 
-// 3. Models
-
-/**
- * Stores profile information for users with the ContactManager role,
- * including their current status and a history of status changes.
- */
+// Contact manager profiles with status tracking
 model ContactManagerProfile {
-  /// Unique UUID for this profile
   id         String                           @id @default(uuid()) @db.Uuid
-  /// Foreign key to the User with role = ContactManager
   userId     String                           @unique @db.Uuid
   user       User                             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  /// Current status of the contact manager
   status     ContactManagerStatus
-  /// Timestamp when this profile was created
   createdAt  DateTime
-  /// Timestamp when this profile was last updated
   updatedAt  DateTime
-  /// History of status changes for this contact manager
   history    ContactManagerStatusHistory[]
 
   @@map("contact_manager_profiles")
 }
 
-/**
- * Logs each change of status for a ContactManagerProfile,
- * recording the previous and new statuses, the actor who made the change,
- * and when it occurred.
- */
+// Status change history for contact managers
 model ContactManagerStatusHistory {
-  /// Unique UUID for this history record
   id             String                   @id @default(uuid()) @db.Uuid
-  /// Foreign key to the related ContactManagerProfile
   profileId      String                   @db.Uuid
   profile        ContactManagerProfile    @relation(fields: [profileId], references: [id], onDelete: Cascade)
-  /// Status before the change
   previousStatus ContactManagerStatus
-  /// Status after the change
   newStatus      ContactManagerStatus
-  /// ID of the User (typically an Admin) who made the change
   changedById    String                   @db.Uuid
   changedBy      User                     @relation(fields: [changedById], references: [id], onDelete: Cascade)
-  /// When the change was made
   timestamp      DateTime
 
   @@map("contact_manager_status_history")
 }
-/**
- * Represents a user of the system, with roles, supervisor relationships,
- * streaming session history, chat memberships, snapshots taken, and auditing.
- */
+// Main user entity with role-based access
 model User {
   id                           String                      @id @default(uuid()) @db.Uuid
   azureAdObjectId              String                      @unique
   email                        String                      @unique
   fullName                     String
   role                         UserRole
-  roleChangedAt                DateTime?                   // timestamp when the role was last updated
+  roleChangedAt                DateTime?
   supervisorId                 String?                     @db.Uuid
   assignedAt                   DateTime?
 
-  /// Optional one-to-one relation only for ContactManager users
   contactProfile               ContactManagerProfile?      @relation
 
   recordingSessionsSubjectOf   RecordingSession[]          @relation("RecordingSubjectUser")
 
-  // set null on delete
   supervisor                   User?                       @relation("SupervisorToEmployees", fields: [supervisorId], references: [id], onDelete: SetNull)
   employees                    User[]                      @relation("SupervisorToEmployees")
 
@@ -148,25 +102,20 @@ model User {
   streamingSessions            StreamingSessionHistory[]
   auditLogs                    AuditLog[]                  @relation("UserAuditLogs")
 
-  // Teams/Graph chat memberships
   chatParticipants             ChatParticipant[]
 
   createdAt                    DateTime
-  /// Forms this user has submitted to the Contact Managers chat
   contactManagerForms          ContactManagerForm[]
 
   updatedAt                    DateTime
   deletedAt                    DateTime?
 
-  /// Inverse relation for status history (optional convenience)
   ContactManagerStatusHistory  ContactManagerStatusHistory[]
 
   @@index([supervisorId])
 }
 
-/**
- * Tracks real-time presence status for a user.
- */
+// Real-time user presence tracking
 model Presence {
   userId     String   @id @db.Uuid
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -177,9 +126,7 @@ model Presence {
   @@index([status])
 }
 
-/**
- * Historical log of a user's presence over time.
- */
+// Historical presence data
 model PresenceHistory {
   id             String   @id @default(uuid()) @db.Uuid
   userId         String   @db.Uuid
@@ -192,9 +139,7 @@ model PresenceHistory {
   @@index([connectedAt])
 }
 
-/**
- * Pending commands sent to employees (e.g., to start/stop streaming).
- */
+// Commands sent to employees for streaming control
 model PendingCommand {
   id              String      @id @default(uuid()) @db.Uuid
   employeeId      String      @db.Uuid
@@ -215,16 +160,14 @@ model PendingCommand {
   @@index([expiresAt])
 }
 
-/**
- * Records the history of streaming sessions per user.
- */
+// Streaming session history per user
 model StreamingSessionHistory {
   id            String    @id @default(uuid()) @db.Uuid
   userId        String    @db.Uuid
   user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   startedAt     DateTime
   stoppedAt     DateTime?
-  stopReason    String?   // 'COMMAND' | 'DISCONNECT'
+  stopReason    String?
   createdAt     DateTime
   updatedAt     DateTime
 
@@ -232,9 +175,7 @@ model StreamingSessionHistory {
   @@index([startedAt])
 }
 
-/**
- * General audit log for any entity changes in the system.
- */
+// System audit trail
 model AuditLog {
   id           String   @id @default(uuid()) @db.Uuid
   entity       String
@@ -251,45 +192,31 @@ model AuditLog {
   @@index([timestamp])
 }
 
-/**
- * Represents a Teams/Graph chat conversation.
- */
+// Teams/Graph chat conversations
 model Chat {
-  /// The Teams/Graph chat identifier (e.g., "19:abcd1234...@thread.v2").
   id        String         @id @db.VarChar(100)
-  /// A human-readable topic, e.g., "InContactApp".
   topic     String?
   createdAt DateTime
   updatedAt DateTime
-  /// Participants in this chat.
   members   ChatParticipant[]
 
   @@map("chats")
 }
 
-/**
- * Links a Chat with a User as a participant.
- */
+// Chat participation records
 model ChatParticipant {
-  /// The chat identifier.
   chatId      String   @db.VarChar(100)
-  /// The user identifier.
   userId      String   @db.Uuid
   joinedAt    DateTime
 
-  /// Relation to the Chat.
   chat        Chat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
-  /// Relation to the User.
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([chatId, userId])
   @@map("chat_participants")
 }
 
-/**
- * Stores snapshot reports taken by supervisors on PSOs,
- * including reason, timestamp, and a link to the stored image.
- */
+// Supervisor snapshots of PSOs
 model Snapshot {
   id           String   @id @default(uuid()) @db.Uuid
   supervisorId String   @db.Uuid
@@ -307,59 +234,31 @@ model Snapshot {
 }
 
 
-/// Records each form submission sent to the Contact Managers chat,
-/// including its type, who sent it, optional image URL, and all form fields as JSON.
+// Contact manager form submissions
 model ContactManagerForm {
-  /// Unique UUID for this form record
   id        String    @id @default(uuid()) @db.Uuid
-
-  /// Which form was submitted
   formType  FormType
-
-  /// The user who submitted this form
   senderId  String    @db.Uuid
   sender    User      @relation(fields: [senderId], references: [id], onDelete: Cascade)
-
-  /// Optional publicly-accessible URL (or SAS URL) for an image attachment
   imageUrl  String?
-
-  /// All submitted fields, serialized as JSON (keys depend on formType)
   data      Json
-
-  /// When this form was received
   createdAt DateTime
-
-  /// When this record was last updated
   updatedAt DateTime
 }
 
-/**
- * Tracks an active or past recording session linked to a LiveKit egress process,
- * including Azure Blob Storage target details and timestamps.
- */
+// LiveKit recording sessions
 model RecordingSession {
   id         String   @id @default(uuid()) @db.Uuid
   roomName   String
   roomId     String?
   egressId   String   @unique
-
-  // Final blob URL (if reported by the worker or constructed)
   blobUrl    String?
-
-  /// Route inside the container (e.g. "alice/2025/08/13/room-123.mp4")
   blobPath   String?  @db.Text
-
-  /// User who initiates/owns the session
   userId     String   @db.Uuid
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  /// User being recorded (derived from roomName).
   subjectUserId String?  @db.Uuid
   subjectUser    User?   @relation("RecordingSubjectUser", fields: [subjectUserId], references: [id], onDelete: SetNull)
-
-  /// Human-readable label used for the folder (username/name/email/id)
   subjectLabel String?
-
   status     RecordingStatus @default(Active)
   startedAt  String?
   stoppedAt  String?
@@ -371,19 +270,14 @@ model RecordingSession {
   @@index([subjectUserId])
 }
 
-
-/**
- * Status of a recording session.
- */
+// Recording session status
 enum RecordingStatus {
   Active
   Completed
   Failed
 }
 
-/**
- * Recording command types for LiveKit recording operations.
- */
+// Recording control commands
 enum RecordingCommandType {
   START
   STOP

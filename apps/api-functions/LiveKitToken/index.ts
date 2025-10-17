@@ -15,7 +15,6 @@ import { liveKitTokenSchema } from "../shared/domain/schemas/LiveKitTokenSchema"
  * Supports two modes:
  *  - **Employee**: returns a single `{ room, token }` for their personal room.
  *  - **Admin/Supervisor**: by default, returns one entry per other user's room.
- *    If the optional `?userId=` query is provided, returns only that room.
  *
  * @remarks
  * - **Endpoint**: `GET /api/LiveKitToken[?userId=<roomId>]`

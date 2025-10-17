@@ -65,59 +65,69 @@ npm run migrate:deploy
 
 ## ⚙️ Configuration
 
-Copy the example configuration:
+### 1. Copy the Configuration Template
 
 ```bash
 cp local.settings.example.json local.settings.json
 ```
 
-Edit `local.settings.json` to include your secrets:
+### 2. Fill Out Your Environment Variables
+
+Edit `local.settings.json` with your actual values. Here's how to get each value:
+
+#### Azure AD Configuration
+- **AZURE_CLIENT_ID**: Your Azure AD app registration client ID
+- **AZURE_CLIENT_SECRET**: Client secret from your Azure AD app
+- **AZURE_TENANT_ID**: Your Azure AD tenant ID
+- **AZURE_AD_API_IDENTIFIER_URI**: API identifier URI (e.g., `api://your-app-id/livekit-app-api`)
+
+#### Azure AD Group IDs
+- **ADMINS_GROUP_ID**: Azure AD group ID for admin users
+- **EMPLOYEES_GROUP_ID**: Azure AD group ID for employee users  
+- **SUPERVISORS_GROUP_ID**: Azure AD group ID for supervisor users
+- **SERVICE_PRINCIPAL_OBJECT_ID**: Service principal object ID
+
+#### Database Configuration
+- **DATABASE_URL**: PostgreSQL connection string
+  ```
+  postgresql://username:password@host:5432/database?schema=public&sslmode=disable
+  ```
+
+#### Azure Storage
+- **AzureWebJobsStorage**: Azure Storage connection string for Functions runtime
+- **AzureWebJobsDashboard**: Azure Storage connection string for dashboard
+
+#### LiveKit Configuration
+- **LIVEKIT_API_KEY**: Your LiveKit API key
+- **LIVEKIT_API_SECRET**: Your LiveKit API secret
+- **LIVEKIT_API_URL**: LiveKit server WebSocket URL (e.g., `wss://your-livekit-server`)
+
+#### Azure Service Bus
+- **SERVICE_BUS_CONNECTION**: Service Bus connection string
+- **SERVICE_BUS_TOPIC_NAME**: Topic name for commands
+- **COMMANDS_SUBSCRIPTION_NAME**: Subscription name for commands
+- **COMMAND_EXPIRY_MINUTES**: Command expiration time (default: "5")
+
+#### Azure Web PubSub
+- **WEBPUBSUB_ENDPOINT**: Your Web PubSub endpoint URL
+- **WEBPUBSUB_KEY**: Web PubSub access key
+- **WEBPUBSUB_NAME**: Web PubSub instance name
+- **WEBPUBSUB_HUB**: Hub name for WebSocket connections
+- **WEBPUBSUB_CONNECTION**: Full Web PubSub connection string
+
+#### CORS Configuration
+Update the CORS settings in the `Host` section to match your frontend URLs:
 
 ```json
-{
-  "IsEncrypted": false,
-  "Values": {
-    "AZURE_CLIENT_ID": "your-azure-client-id",
-    "AZURE_CLIENT_SECRET": "your-azure-client-secret",
-    "AZURE_TENANT_ID": "your-azure-tenant-id",
-
-    "AzureWebJobsStorage": "your-azure-storage-connection-string",
-
-    "DATABASE_URL": "postgresql://user:password@localhost:5432/yourdb",
-
-    "FUNCTIONS_EXTENSION_VERSION": "~4",
-    "FUNCTIONS_WORKER_RUNTIME": "node",
-
-    "LIVEKIT_API_KEY": "your-livekit-api-key",
-    "LIVEKIT_API_SECRET": "your-livekit-api-secret",
-    "LIVEKIT_API_URL": "wss://your-livekit-server",
-
-    "ADMINS_GROUP_ID": "your-admins-group-id",
-    "EMPLOYEES_GROUP_ID": "your-employees-group-id",
-    "SUPERVISORS_GROUP_ID": "your-supervisors-group-id",
-    "SERVICE_PRINCIPAL_OBJECT_ID": "your-service-principal-id",
-
-    "AZURE_AD_API_IDENTIFIER_URI": "api://your-app-id-uri",
-
-    "NODE_ENV": "Development",
-
-    "SERVICE_BUS_CONNECTION": "your-service-bus-connection-string",
-    "SERVICE_BUS_TOPIC_NAME": "your-topic-name",
-    "COMMANDS_SUBSCRIPTION_NAME": "your-subscription-name",
-    "COMMAND_EXPIRY_MINUTES": "5",
-
-    "WEBPUBSUB_ENDPOINT": "https://your-webpubsub-instance.webpubsub.azure.com",
-    "WEBPUBSUB_KEY": "your-webpubsub-key",
-    "WEBPUBSUB_NAME": "your-webpubsub-name",
-    "WEBPUBSUB_HUB": "your-hub-name",
-    "WEBPUBSUB_CONNECTION": "Endpoint=https://your-webpubsub-instance.webpubsub.azure.com;AccessKey=your-access-key;Version=1.0;"
-  },
-  "Host": {
-    "CORS": "http://localhost:3000,http://localhost:4200,http://localhost:8080",
-    "CORS_AllowedOrigins": "http://localhost:3000,http://localhost:4200,http://localhost:8080"
-  }
+"Host": {
+  "CORS": "http://localhost:3000,http://localhost:4200,http://localhost:8080",
+  "CORS_AllowedOrigins": "http://localhost:3000,http://localhost:4200,http://localhost:8080"
 }
 ```
+
+### 3. Example Configuration
+
+The `local.settings.example.json` file contains a template with placeholder values. Replace all `your-*` placeholders with your actual configuration values.
 
 ---
 
@@ -187,19 +197,26 @@ When using the AWPS tunnel, Azure automatically knows where to route events. You
 api-functions/
 ├── [FunctionName]/               ← Each Azure Function in its own folder
 │   ├── index.ts                  ← Entry point
+│   ├── index.js                  ← Compiled JavaScript
 │   └── function.json             ← Azure binding config
-├── shared/
-│   ├── middleware/               ← Auth, validation, error handler
-│   ├── services/                 ← Prisma, Graph API, LiveKit, WebPubSub
-│   ├── utils/                    ← Logger, response builders, UUID helpers
-│   ├── handlers/                 ← Common business logic
-│   └── config/                   ← Environment config
+├── shared/                       ← Shared business logic and utilities
+│   ├── middleware/               ← Authentication, validation, error handling
+│   ├── services/                 ← Database, Graph API, LiveKit, WebPubSub
+│   ├── utils/                    ← Logging, response builders, helpers
+│   ├── handlers/                 ← Common business logic handlers
+│   └── config/                   ← Environment configuration
+├── __tests__/                    ← Test files and mocks
+│   ├── handlers/                 ← Function handler tests
+│   ├── mocks/                    ← Test mocks and fixtures
+│   └── utils/                    ← Test utilities
 ├── prisma/
 │   ├── schema.prisma             ← Database schema
-│   └── migrations/               ← Prisma SQL migrations
-├── local.settings.json           ← Local env config
-├── package.json                  ← Project dependencies and scripts
-└── tsconfig.json                 ← TypeScript config
+│   └── migrations/               ← Database migration files
+├── types/                        ← TypeScript type definitions
+├── local.settings.json           ← Local environment configuration
+├── local.settings.example.json   ← Configuration template
+├── package.json                  ← Dependencies and scripts
+└── tsconfig.json                 ← TypeScript configuration
 ```
 
 ---

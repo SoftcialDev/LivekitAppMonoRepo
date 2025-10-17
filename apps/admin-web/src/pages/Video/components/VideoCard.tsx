@@ -9,7 +9,6 @@ import {
 } from 'livekit-client'
 import { useSnapshot } from '../hooks/useSnapshot'
 import { useAuth } from '@/shared/auth/useAuth'
-// Removed UserIndicator usage per design change
 import { VideoCardProps } from '@/shared/types/VideoCardProps'
 import AddModal from '@/shared/ui/ModalComponent'
 import { useRecording } from '../hooks/useRecording'

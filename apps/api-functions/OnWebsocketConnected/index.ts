@@ -26,7 +26,6 @@ const onConnected: AzureFunction = async (context: Context) => {
     
     context.res = { status: response.status };
   } catch (error: any) {
-    console.error('OnWebsocketConnected error:', error);
     context.res = { status: 500, body: `Internal error: ${error.message}` };
   }
 };

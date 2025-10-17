@@ -46,3 +46,8 @@ kubeconfig.yaml
 dist/
 node_modules/
 apps/api-functions/local.settings.json
+
+# Coverage reports
+coverage/
+*.lcov
+*.lcov.info

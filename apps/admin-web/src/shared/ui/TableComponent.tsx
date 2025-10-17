@@ -1,4 +1,4 @@
-import React, { useState, ChangeEvent, useMemo } from 'react';
+import React, { useState, ChangeEvent, useMemo, useRef, useEffect } from 'react';
 import AddButton from './Buttons/AddButton';
 import Loading from './Loading';
 
@@ -71,6 +71,18 @@ export interface TableComponentProps<T> {
    * @default "Loading…"
    */
   loadingAction?: string;
+  /** If true, render a leading checkbox column for row selection. */
+  showRowCheckboxes?: boolean;
+  /** Return a stable unique key for a row (used by selection). Defaults to azureAdObjectId or index. */
+  getRowKey?: (row: T, index: number) => string;
+  /** Currently selected row keys. */
+  selectedKeys?: string[];
+  /** Toggle a single row selection. */
+  onToggleRow?: (rowKey: string, checked: boolean) => void;
+  /** Toggle all visible rows selection. */
+  onToggleAll?: (checked: boolean, visibleRowKeys: string[]) => void;
+  /** Custom actions to render on the right side of the toolbar (next to search). */
+  rightActions?: React.ReactNode;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -116,6 +128,12 @@ export function TableComponent<T extends { azureAdObjectId?: string }>(
     tablePadding = 'p-30',
     loading = false,
     loadingAction = 'Loading…',
+    showRowCheckboxes = false,
+    getRowKey,
+    selectedKeys = [],
+    onToggleRow,
+    onToggleAll,
+    rightActions,
   }: TableComponentProps<T>
 ): JSX.Element {
   const [searchTerm, setSearchTerm] = useState('');
@@ -170,6 +188,30 @@ export function TableComponent<T extends { azureAdObjectId?: string }>(
     [filteredData, currentPage, pageSize]
   );
 
+  const visibleRowKeys = useMemo(() =>
+    pagedData.map((row, idx) => {
+      const fallback = (row as any).azureAdObjectId ?? `row-${(currentPage - 1) * pageSize + idx}`;
+      return getRowKey ? getRowKey(row, (currentPage - 1) * pageSize + idx) : String(fallback);
+    }),
+    [pagedData, getRowKey, currentPage, pageSize]
+  );
+
+  // Header checkbox reflect only current page selection
+  const allVisibleSelected = useMemo(() =>
+    visibleRowKeys.length > 0 && visibleRowKeys.every(k => selectedKeys.includes(k)),
+    [visibleRowKeys, selectedKeys]
+  );
+  const someVisibleSelected = useMemo(() =>
+    visibleRowKeys.some(k => selectedKeys.includes(k)) && !allVisibleSelected,
+    [visibleRowKeys, selectedKeys, allVisibleSelected]
+  );
+  const headerCbRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (headerCbRef.current) {
+      headerCbRef.current.indeterminate = someVisibleSelected;
+    }
+  }, [someVisibleSelected, visibleRowKeys.join(','), selectedKeys.join(',')]);
+
   const goPrevious = () => setCurrentPage(p => Math.max(1, p - 1));
   const goNext = () =>
     setCurrentPage(p => Math.min(totalPages, p + 1));
@@ -188,21 +230,35 @@ export function TableComponent<T extends { azureAdObjectId?: string }>(
             }}
           />
         )}
-        <input
-          type="text"
-          placeholder="Search..."
-          value={searchTerm}
-          onChange={handleSearch}
-          className="px-3 py-2 bg-[var(--color-primary)] text-white rounded border-transparent focus:outline-none"
-        />
+        <div className="flex items-center gap-2">
+          {rightActions}
+          <input
+            type="text"
+            placeholder="Search..."
+            value={searchTerm}
+            onChange={handleSearch}
+            className="px-3 py-2 bg-[var(--color-primary)] text-white rounded border-transparent focus:outline-none"
+          />
+        </div>
       </div>
 
       {/* Table */}
       <table className="min-w-full rounded-t-lg overflow-hidden border-b border-white">
         <thead>
           <tr>
+            {showRowCheckboxes && (
+              <th className={`px-6 py-3 text-left text-sm font-semibold ${headerBg} text-white rounded-tl-lg rounded-bl-lg`}>
+                <input
+                  type="checkbox"
+                  ref={headerCbRef}
+                  checked={allVisibleSelected}
+                  onChange={(e) => onToggleAll && onToggleAll(e.target.checked, visibleRowKeys)}
+                  className="appearance-none w-5 h-5 rounded border-2 border-[var(--color-primary)] bg-[var(--color-primary-light)] checked:bg-[var(--color-secondary)] checked:border-[var(--color-secondary)] focus:ring-0 focus:outline-none cursor-pointer transition-colors"
+                />
+              </th>
+            )}
             {columns.map((col, i) => {
-              const isFirst = i === 0;
+              const isFirst = !showRowCheckboxes && i === 0;
               const isLast = i === columns.length - 1;
               return (
                 <th
@@ -223,7 +279,7 @@ export function TableComponent<T extends { azureAdObjectId?: string }>(
         <tbody>
           {loading ? (
             <tr>
-              <td colSpan={columns.length} className="relative px-6 py-16 text-center min-h-[200px]">
+              <td colSpan={(showRowCheckboxes ? 1 : 0) + columns.length} className="relative px-6 py-16 text-center min-h-[200px]">
                 <Loading action={loadingAction} bgClassName="bg-gransparent " />
               </td>
             </tr>
@@ -237,6 +293,16 @@ export function TableComponent<T extends { azureAdObjectId?: string }>(
                 }
                 className={idx > 0 ? 'border-t border-white' : ''}
               >
+                {showRowCheckboxes && (
+                  <td className="px-4 py-3">
+                    <input
+                      type="checkbox"
+                      checked={selectedKeys.includes(visibleRowKeys[idx])}
+                      onChange={(e) => onToggleRow && onToggleRow(visibleRowKeys[idx], e.target.checked)}
+                      className="appearance-none w-5 h-5 rounded border-2 border-[var(--color-primary)] bg-[var(--color-primary-light)] checked:bg-[var(--color-secondary)] checked:border-[var(--color-secondary)] focus:ring-0 focus:outline-none cursor-pointer transition-colors"
+                    />
+                  </td>
+                )}
                 {columns.map((col, colIdx) => (
                   <td
                     key={`${String(col.key ?? col.header)}-${idx}-${colIdx}`}
