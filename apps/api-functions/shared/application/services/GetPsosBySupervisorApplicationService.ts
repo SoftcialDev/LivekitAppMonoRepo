@@ -8,7 +8,7 @@ import { GetPsosBySupervisorRequest } from "../../domain/value-objects/GetPsosBy
 import { GetPsosBySupervisorResponse } from "../../domain/value-objects/GetPsosBySupervisorResponse";
 import { GetPsosBySupervisorDomainService } from "../../domain/services/GetPsosBySupervisorDomainService";
 import { IUserRepository } from "../../domain/interfaces/IUserRepository";
-import { UserRole } from "@prisma/client";
+import { UserRole } from "../../domain/enums/UserRole";
 
 /**
  * Application service for handling PSOs lookup operations

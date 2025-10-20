@@ -16,7 +16,6 @@ import { UserDeletionErrorCode } from '../../domain/errors/ErrorCodes';
 import { ValidationUtils } from '../../domain/utils/ValidationUtils';
 import { AuthorizationUtils } from '../../domain/utils/AuthorizationUtils';
 import { AuditUtils } from '../../domain/utils/AuditUtils';
-import { config } from '../../config';
 
 /**
  * Application service for user deletion operations

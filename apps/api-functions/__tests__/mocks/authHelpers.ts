@@ -4,7 +4,7 @@
  */
 
 jest.mock('../../shared/utils/authHelpers', () => ({
-  getCallerAdId: (user: any) => (user?.id ?? 'test-caller-id')
+  getCallerAdId: (_user: any) => 'test-caller-id'
 }));
 
 

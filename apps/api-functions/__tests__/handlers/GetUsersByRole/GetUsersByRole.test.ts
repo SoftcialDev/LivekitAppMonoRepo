@@ -7,7 +7,9 @@
 import { Context, HttpRequest } from '@azure/functions';
 import { TestHelpers } from '../../utils/helpers';
 import '../../mocks/middleware';
-import { mockServiceContainer as createServiceContainerMock } from '../../mocks/container';
+import '../../mocks/response';
+import '../../mocks/authHelpers';
+// Container will be mocked per-test via jest.doMock with the handler's import path
 import { toPayloadify } from '../../mocks/payload';
 
 // Mock UserRole enum
@@ -50,6 +52,9 @@ describe('GetUsersByRole handler - unit', () => {
 
   beforeEach(() => {
     jest.resetModules();
+    require('../../mocks/middleware');
+    require('../../mocks/response');
+    require('../../mocks/authHelpers');
     ctx = TestHelpers.createMockContext();
     req = TestHelpers.createMockHttpRequest({ method: 'GET' as any });
     ctx.req = req;
@@ -59,22 +64,28 @@ describe('GetUsersByRole handler - unit', () => {
       page: 1,
       pageSize: 10
     };
+    (req as any).query = { ...ctx.bindings.validatedQuery };
 
     userRepository = { findMany: jest.fn() };
     authorizationService = { canQueryUsers: jest.fn() };
     userQueryService = { getUsersByRole: jest.fn() };
 
-    container = createServiceContainerMock({
-      UserRepository: userRepository,
-      AuthorizationService: authorizationService,
-      UserQueryService: userQueryService
-    });
-    container.resolve.mockImplementation((token: string) => {
+    const initialize = jest.fn();
+    const resolve = jest.fn((token: string) => {
       if (token === 'UserRepository') return userRepository;
       if (token === 'AuthorizationService') return authorizationService;
       if (token === 'UserQueryService') return userQueryService;
       return null;
     });
+    container = { initialize, resolve } as any;
+
+    jest.doMock('../../../shared/infrastructure/container/ServiceContainer', () => ({
+      serviceContainer: { initialize, resolve }
+    }));
+
+    jest.doMock('../../../shared/domain/value-objects/UserQueryRequest', () => ({
+      UserQueryRequest: { fromQueryString: (x: any) => x }
+    }));
   });
 
       it('should get users by role successfully and return 200', async () => {
@@ -103,7 +114,11 @@ describe('GetUsersByRole handler - unit', () => {
         expect(container.resolve).toHaveBeenCalledWith('AuthorizationService');
         expect(container.resolve).toHaveBeenCalledWith('UserQueryService');
         expect(UserQueryApplicationService).toHaveBeenCalledWith(userRepository, authorizationService, userQueryService);
-        expect(ctx.res).toBeDefined();
+        expect(ctx.res).toEqual({
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+          body: mockResponse
+        });
       });
 
   it('should handle different roles and pagination', async () => {
@@ -112,6 +127,7 @@ describe('GetUsersByRole handler - unit', () => {
       page: 2,
       pageSize: 5
     };
+    (req as any).query = { ...ctx.bindings.validatedQuery };
     
     const mockResponse = {
       users: [
@@ -131,7 +147,11 @@ describe('GetUsersByRole handler - unit', () => {
 
     await runHandler(ctx, req);
 
-    expect(ctx.res).toBeDefined();
+    expect(ctx.res).toEqual({
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+      body: mockResponse
+    });
   });
 
   it('should return 500 when userQueryService throws', async () => {
@@ -144,7 +164,11 @@ describe('GetUsersByRole handler - unit', () => {
 
     await runHandler(ctx, req);
 
-    expect(ctx.res).toBeDefined();
+    expect(ctx.res).toEqual({
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+      body: { error: 'Internal error' }
+    });
   });
 
   it('should return 500 when initialize throws', async () => {
@@ -152,7 +176,11 @@ describe('GetUsersByRole handler - unit', () => {
 
     await runHandler(ctx, req);
 
-    expect(ctx.res).toBeDefined();
+    expect(ctx.res).toEqual({
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+      body: { error: 'Internal error' }
+    });
   });
 
   it('should return 500 when resolve throws', async () => {
@@ -160,15 +188,27 @@ describe('GetUsersByRole handler - unit', () => {
 
     await runHandler(ctx, req);
 
-    expect(ctx.res).toBeDefined();
+    expect(ctx.res).toEqual({
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+      body: { error: 'Internal error' }
+    });
   });
 
   it('should handle missing caller ID', async () => {
     ctx.bindings.user = null;
+    // Override getCallerAdId to ensure it returns undefined and triggers the throw
+    jest.doMock('../../../shared/utils/authHelpers', () => ({
+      getCallerAdId: () => undefined
+    }));
 
     await runHandler(ctx, req);
 
-    expect(ctx.res).toBeDefined();
+    expect(ctx.res).toEqual({
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+      body: { error: 'Internal error' }
+    });
   });
 
   it('should handle empty response gracefully', async () => {
@@ -181,7 +221,11 @@ describe('GetUsersByRole handler - unit', () => {
 
     await runHandler(ctx, req);
 
-    expect(ctx.res).toBeDefined();
+    expect(ctx.res).toEqual({
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+      body: null
+    });
   });
 
   it('should handle undefined response gracefully', async () => {
@@ -194,6 +238,10 @@ describe('GetUsersByRole handler - unit', () => {
 
     await runHandler(ctx, req);
 
-    expect(ctx.res).toBeDefined();
+    expect(ctx.res).toEqual({
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+      body: undefined
+    });
   });
 });

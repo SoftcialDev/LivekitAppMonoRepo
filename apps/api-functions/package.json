@@ -10,9 +10,7 @@
     "postbuild": "npm run prepare",
     "start": "func start --script-root .",
     "test:unit": "jest",
-    "test:unit:coverage": "jest --coverage",
-    "test:cov:getUsersByRole": "jest --coverage --testPathPattern=GetUsersByRole --collectCoverageFrom=\"apps/api-functions/GetUsersByRole/index.ts\"",
-    "test:cov:getSupervisorForPso": "jest --coverage --testPathPattern=GetSupervisorForPso --collectCoverageFrom=\"apps/api-functions/GetSupervisorForPso/index.ts\""
+    "test:unit:coverage": "jest --coverage"
   },
   "dependencies": {
     "@azure/functions": "^3.0.0",

@@ -4,6 +4,7 @@
  */
 
 import { UserRole } from '@prisma/client';
+import { UserRole as DomainUserRole } from '../../domain/enums/UserRole';
 import { UserRoleChangeRequest } from '../../domain/value-objects/UserRoleChangeRequest';
 import { UserRoleChangeResult } from '../../domain/value-objects/UserRoleChangeResult';
 import { IUserRepository } from '../../domain/interfaces/IUserRepository';
@@ -15,7 +16,7 @@ import { UserRoleChangeErrorCode } from '../../domain/errors/ErrorCodes';
 import { ValidationUtils } from '../../domain/utils/ValidationUtils';
 import { AuthorizationUtils } from '../../domain/utils/AuthorizationUtils';
 import { AuditUtils } from '../../domain/utils/AuditUtils';
-import { config } from '../../config';
+
 
 /**
  * Application service for user role change operations

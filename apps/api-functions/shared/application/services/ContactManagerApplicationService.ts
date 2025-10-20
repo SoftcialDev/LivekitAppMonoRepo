@@ -58,8 +58,6 @@ export class ContactManagerApplicationService {
    */
   async listContactManagers(callerId: string): Promise<ContactManagerListResponse> {
     // Any authenticated user can access this endpoint
-    // No additional authorization required - just need to be authenticated
-    
     return await this.contactManagerDomainService.listContactManagers();
   }
 

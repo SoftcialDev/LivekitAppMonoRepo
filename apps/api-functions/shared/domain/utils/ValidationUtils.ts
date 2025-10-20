@@ -3,7 +3,7 @@
  * @description Provides reusable validation functions for domain logic
  */
 
-import { UserRole } from '@prisma/client';
+import { UserRole } from '../enums/UserRole';
 import { IUserRepository } from '../interfaces/IUserRepository';
 import { ISupervisorRepository } from '../interfaces/ISupervisorRepository';
 import { ValidationError } from '../errors/DomainError';

@@ -105,18 +105,12 @@ export class CommandApplicationService {
       if (command === CommandType.STOP && reason) {
         message.reason = reason;
       }
-      
-      console.log(`[CommandApplicationService] Broadcasting stream ${status} event for ${email} to group: ${email}`);
-      console.log(`[CommandApplicationService] Message:`, message);
-      
       // Send to the PSO's group so supervisors can receive the event
       await this.webPubSubService.broadcastMessage(email, message);
       
-      console.log(`[CommandApplicationService] ✅ Successfully broadcasted stream ${status} event for ${email}`);
-    } catch (error: any) {
-      console.error(`[CommandApplicationService] ❌ Failed to broadcast stream event: ${error.message}`);
+   } catch (error: any) {
+      console.error(`[CommandApplicationService] Failed to broadcast stream event: ${error.message}`);
       console.error(`[CommandApplicationService] Error details:`, error);
-      // Don't throw error - WebSocket failure shouldn't break command processing
     }
   }
 }

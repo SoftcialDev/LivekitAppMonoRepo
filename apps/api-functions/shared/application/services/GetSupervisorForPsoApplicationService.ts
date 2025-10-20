@@ -8,7 +8,7 @@ import { GetSupervisorForPsoRequest } from "../../domain/value-objects/GetSuperv
 import { GetSupervisorForPsoResponse } from "../../domain/value-objects/GetSupervisorForPsoResponse";
 import { GetSupervisorForPsoDomainService } from "../../domain/services/GetSupervisorForPsoDomainService";
 import { IUserRepository } from "../../domain/interfaces/IUserRepository";
-import { UserRole } from "@prisma/client";
+import { UserRole } from "../../domain/enums/UserRole";
 
 /**
  * Application service for handling supervisor lookup operations

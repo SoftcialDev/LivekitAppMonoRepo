@@ -33,6 +33,32 @@ jest.mock('../../shared/middleware/validate', () => ({
       ctx.bindings = { ...(ctx.bindings ?? {}), validatedQuery: query };
     }
     await callback();
+  },
+  // Curried variant: withPathValidation(schema)(ctx, cb)
+  withPathValidation: (_schema: any) => async (ctx: any, callback: any) => {
+    const params = (ctx.bindingData ?? {}) as any;
+    ctx.bindings = { ...(ctx.bindings ?? {}), validatedParams: params };
+    await callback();
+  }
+}));
+
+// Query validation (alt path used by some handlers)
+jest.mock('../../shared/middleware/queryValidation', () => ({
+  withQueryValidation: (ctx: any, _schema: any, callback: (validatedQuery: any) => Promise<void>) => {
+    const query = (ctx.req && ctx.req.query) || (ctx as any).query;
+    if (query !== undefined) {
+      ctx.bindings = { ...(ctx.bindings ?? {}), validatedQuery: query };
+    }
+    return callback(query);
+  }
+}));
+
+// Path validation (non-curried signature used by some handlers)
+jest.mock('../../shared/middleware/pathValidation', () => ({
+  withPathValidation: (ctx: any, _schema: any, callback: (validatedParams: any) => Promise<void>) => {
+    const params = (ctx.bindingData ?? {}) as any;
+    ctx.bindings = { ...(ctx.bindings ?? {}), validatedParams: params };
+    return callback(params);
   }
 }));
 
@@ -52,6 +78,11 @@ jest.mock('../../shared/middleware/errorHandler', () => ({
       }
     };
   }
+}));
+
+// Authorization helpers
+jest.mock('../../shared/middleware/authorization', () => ({
+  requireAdminAccess: () => async (_ctx?: any) => {}
 }));
 
 

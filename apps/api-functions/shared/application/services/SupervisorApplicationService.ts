@@ -11,11 +11,10 @@ import { ISupervisorRepository } from '../../domain/interfaces/ISupervisorReposi
 import { ICommandMessagingService } from '../../domain/interfaces/ICommandMessagingService';
 import { ISupervisorManagementService } from '../../domain/interfaces/ISupervisorManagementService';
 import { IAuditService } from '../../domain/interfaces/IAuditService';
-import { AuthError, ValidationError, SupervisorError } from '../../domain/errors/DomainError';
-import { AuthErrorCode, ValidationErrorCode, SupervisorErrorCode } from '../../domain/errors/ErrorCodes';
+import { SupervisorError } from '../../domain/errors/DomainError';
+import { SupervisorErrorCode } from '../../domain/errors/ErrorCodes';
 import { ValidationUtils } from '../../domain/utils/ValidationUtils';
 import { AuthorizationUtils } from '../../domain/utils/AuthorizationUtils';
-import { AuditUtils } from '../../domain/utils/AuditUtils';
 import { SupervisorChangeType } from '../../domain/enums/SupervisorChangeType';
 
 /**

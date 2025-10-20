@@ -11,7 +11,7 @@ import { withCallerId } from "../shared/middleware/callerId";
 import { ok, badRequest } from "../shared/utils/response";
 import { StreamingStatusBatchApplicationService } from "../shared/application/services/StreamingStatusBatchApplicationService";
 import { serviceContainer } from "../shared/infrastructure/container/ServiceContainer";
-import { validateEmailArray } from "../shared/schemas/StreamingStatusBatchSchemas";
+import { validateEmailArray } from "../shared/domain/schemas/StreamingStatusBatchSchemas";
 
 /**
  * Azure Function to fetch streaming status for multiple users in batch
