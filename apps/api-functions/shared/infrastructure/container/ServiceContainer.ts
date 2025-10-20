@@ -448,7 +448,8 @@ export class ServiceContainer {
           this.register<TransferPsosDomainService>('TransferPsosDomainService', () => {
             const userRepository = this.resolve<IUserRepository>('UserRepository');
             const commandMessagingService = this.resolve<ICommandMessagingService>('ICommandMessagingService');
-            return new TransferPsosDomainService(userRepository, commandMessagingService);
+            const webPubSubService = this.resolve<IWebPubSubService>('WebPubSubService');
+            return new TransferPsosDomainService(userRepository, commandMessagingService, webPubSubService);
           });
 
           this.register<TransferPsosApplicationService>('TransferPsosApplicationService', () => {

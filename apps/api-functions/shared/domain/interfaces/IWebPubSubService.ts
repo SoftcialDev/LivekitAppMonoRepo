@@ -101,4 +101,27 @@ export interface IWebPubSubService {
     webPubSubUsers: string[];
     dbUsers: Array<{ email: string; status: string }>;
   }>;
+
+  /**
+   * Broadcasts supervisor change notifications to all users in the presence group
+   * @param payload - The supervisor change notification data
+   * @returns Promise that resolves when the broadcast is complete
+   * @throws Error when broadcast fails
+   * @example
+   * await webPubSubService.broadcastSupervisorChangeNotification({
+   *   psoEmails: ['pso1@example.com', 'pso2@example.com'],
+   *   oldSupervisorEmail: 'old@example.com',
+   *   newSupervisorEmail: 'new@example.com',
+   *   psoNames: ['PSO One', 'PSO Two'],
+   *   newSupervisorName: 'New Supervisor'
+   * });
+   */
+  broadcastSupervisorChangeNotification(payload: {
+    psoEmails: string[];
+    oldSupervisorEmail?: string;
+    newSupervisorEmail: string;
+    newSupervisorId?: string;
+    psoNames: string[];
+    newSupervisorName: string;
+  }): Promise<void>;
 }

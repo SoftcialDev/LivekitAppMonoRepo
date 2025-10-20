@@ -20,6 +20,7 @@ import { ISupervisorRepository } from "../shared/domain/interfaces/ISupervisorRe
 import { ICommandMessagingService } from "../shared/domain/interfaces/ICommandMessagingService";
 import { ISupervisorManagementService } from "../shared/domain/interfaces/ISupervisorManagementService";
 import { IAuditService } from "../shared/domain/interfaces/IAuditService";
+import { IWebPubSubService } from "../shared/domain/interfaces/IWebPubSubService";
 
 /**
  * Azure Function: ChangeSupervisor
@@ -50,6 +51,7 @@ const changeSupervisor: AzureFunction = withErrorHandler(
       const supervisorRepository = serviceContainer.resolve<ISupervisorRepository>('SupervisorRepository');
       const commandMessagingService = serviceContainer.resolve<ICommandMessagingService>('CommandMessagingService');
       const supervisorManagementService = serviceContainer.resolve<ISupervisorManagementService>('SupervisorManagementService');
+      const webPubSubService = serviceContainer.resolve<IWebPubSubService>('WebPubSubService');
 
       const auditService = serviceContainer.resolve<IAuditService>('IAuditService');
 
@@ -59,7 +61,8 @@ const changeSupervisor: AzureFunction = withErrorHandler(
         supervisorRepository,
         commandMessagingService,
         supervisorManagementService,
-        auditService
+        auditService,
+        webPubSubService
       );
 
       // Validate request body

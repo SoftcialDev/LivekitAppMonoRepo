@@ -386,6 +386,41 @@ export class WebPubSubService implements IWebPubSubService {
   }
 
   /**
+   * Broadcasts supervisor change notifications to all users in the presence group
+   * @param payload - The supervisor change notification data
+   * @returns Promise that resolves when the broadcast is complete
+   * @throws Error when broadcast fails
+   * });
+   */
+  async broadcastSupervisorChangeNotification(payload: {
+    psoEmails: string[];
+    oldSupervisorEmail?: string;
+    newSupervisorEmail: string;
+    newSupervisorId?: string;
+    psoNames: string[];
+    newSupervisorName: string;
+  }): Promise<void> {
+    try {
+      console.log(`📡 [WebPubSubService] broadcastSupervisorChangeNotification: Starting broadcast for ${payload.psoEmails.length} PSO(s)`);
+      
+      const event = {
+        type: "supervisor_change_notification",
+        data: payload,
+        timestamp: getCentralAmericaTime().toISOString()
+      };
+      
+      console.log(`📡 [WebPubSubService] broadcastSupervisorChangeNotification: Event to send:`, event);
+      
+      await this.client.group("presence").sendToAll(JSON.stringify(event));
+      console.log(`📡 [WebPubSubService] broadcastSupervisorChangeNotification: Message sent successfully to presence group for ${payload.psoEmails.length} PSO(s)`);
+      console.debug("Supervisor change notification broadcast:", event);
+    } catch (error: any) {
+      console.error(`📡 [WebPubSubService] broadcastSupervisorChangeNotification: Failed to send message:`, error);
+      throw new Error(`Failed to broadcast supervisor change notification: ${error.message}`);
+    }
+  }
+
+  /**
    * Logs active users in the presence group and compares with database
    * @returns Promise that resolves when logging is complete
    */

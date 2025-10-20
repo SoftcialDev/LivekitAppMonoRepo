@@ -8,6 +8,7 @@ import { TransferPsosRequest } from "../value-objects/TransferPsosRequest";
 import { TransferPsosResponse } from "../value-objects/TransferPsosResponse";
 import { IUserRepository } from "../interfaces/IUserRepository";
 import { ICommandMessagingService } from "../interfaces/ICommandMessagingService";
+import { IWebPubSubService } from "../interfaces/IWebPubSubService";
 import { UserNotFoundError } from "../errors/UserErrors";
 import { UserRole } from "../enums/UserRole";
 import { getCentralAmericaTime } from "../../utils/dateUtils";
@@ -21,10 +22,12 @@ export class TransferPsosDomainService {
    * Creates a new TransferPsosDomainService instance
    * @param userRepository - Repository for user data access
    * @param commandMessagingService - Service for sending notifications
+   * @param webPubSubService - WebPubSub service for broadcasting notifications
    */
   constructor(
     private readonly userRepository: IUserRepository,
-    private readonly commandMessagingService: ICommandMessagingService
+    private readonly commandMessagingService: ICommandMessagingService,
+    private readonly webPubSubService: IWebPubSubService
   ) {}
 
   /**
@@ -70,7 +73,7 @@ export class TransferPsosDomainService {
     await this.userRepository.updateMultipleSupervisors(updates);
 
     // 6. Notify transferred PSOs
-    await this.notifyTransferredPsos(employeePsos, targetSupervisor);
+    await this.notifyTransferredPsos(employeePsos, caller, targetSupervisor);
 
     return new TransferPsosResponse(
       employeePsos.length,
@@ -81,15 +84,18 @@ export class TransferPsosDomainService {
   /**
    * Notifies transferred PSOs about the supervisor change
    * @param transferredPsos - Array of PSOs that were transferred
+   * @param oldSupervisor - The old supervisor (caller)
    * @param newSupervisor - The new supervisor
    * @private
    */
   private async notifyTransferredPsos(
     transferredPsos: Array<{ email: string; fullName: string }>,
-    newSupervisor: { fullName: string }
+    oldSupervisor: { email: string; fullName: string },
+    newSupervisor: { email: string; fullName: string }
   ): Promise<void> {
     const timestamp = getCentralAmericaTime().toISOString();
 
+    // Notify individual PSOs via command messaging (existing functionality)
     for (const pso of transferredPsos) {
       try {
         await this.commandMessagingService.sendToGroup(`commands:${pso.email}`, {
@@ -101,6 +107,43 @@ export class TransferPsosDomainService {
         // Log error but don't fail the transfer
         console.warn(`Failed to notify PSO ${pso.email}:`, error);
       }
+    }
+
+    // Broadcast to all users in presence group for UI refresh
+    await this.broadcastSupervisorChangeNotification(transferredPsos, oldSupervisor, newSupervisor);
+  }
+
+  /**
+   * Broadcasts supervisor change notification to all users in presence group
+   * @param transferredPsos - Array of PSOs that were transferred
+   * @param oldSupervisor - The old supervisor (caller)
+   * @param newSupervisor - The new supervisor
+   * @returns Promise that resolves when broadcast is complete
+   * @private
+   */
+  private async broadcastSupervisorChangeNotification(
+    transferredPsos: Array<{ email: string; fullName: string }>,
+    oldSupervisor: { email: string; fullName: string },
+    newSupervisor: { email: string; fullName: string }
+  ): Promise<void> {
+    try {
+      // Get the new supervisor's Azure AD Object ID
+      const newSupervisorUser = await this.userRepository.findByEmail(newSupervisor.email);
+      const newSupervisorId = newSupervisorUser?.azureAdObjectId;
+
+      await this.webPubSubService.broadcastSupervisorChangeNotification({
+        psoEmails: transferredPsos.map(pso => pso.email),
+        oldSupervisorEmail: oldSupervisor.email,
+        newSupervisorEmail: newSupervisor.email,
+        newSupervisorId: newSupervisorId,
+        psoNames: transferredPsos.map(pso => pso.fullName),
+        newSupervisorName: newSupervisor.fullName
+      });
+
+      console.log(`📡 [TransferPsosDomainService] Successfully broadcasted supervisor change notification for ${transferredPsos.length} PSO(s) from ${oldSupervisor.fullName} to ${newSupervisor.fullName}`);
+    } catch (error) {
+      // Log error but don't fail the transfer
+      console.error(`📡 [TransferPsosDomainService] Failed to broadcast supervisor change notification:`, error);
     }
   }
 }

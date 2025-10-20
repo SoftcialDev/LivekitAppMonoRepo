@@ -13,6 +13,7 @@ import { ISupervisorRepository } from '../../../../../shared/domain/interfaces/I
 import { ICommandMessagingService } from '../../../../../shared/domain/interfaces/ICommandMessagingService';
 import { ISupervisorManagementService } from '../../../../../shared/domain/interfaces/ISupervisorManagementService';
 import { IAuditService } from '../../../../../shared/domain/interfaces/IAuditService';
+import { IWebPubSubService } from '../../../../../shared/domain/interfaces/IWebPubSubService';
 import { SupervisorError } from '../../../../../shared/domain/errors/DomainError';
 import { SupervisorErrorCode } from '../../../../../shared/domain/errors/ErrorCodes';
 import { SupervisorChangeType } from '../../../../../shared/domain/enums/SupervisorChangeType';
@@ -86,6 +87,18 @@ const mockAuditService: jest.Mocked<IAuditService> = {
   logAudit: jest.fn()
 };
 
+const mockWebPubSubService: jest.Mocked<IWebPubSubService> = {
+  generateToken: jest.fn(),
+  broadcastPresence: jest.fn(),
+  broadcastMessage: jest.fn(),
+  listAllGroupsAndUsers: jest.fn(),
+  getActiveUsersInPresenceGroup: jest.fn(),
+  syncAllUsersWithDatabase: jest.fn(),
+  debugSync: jest.fn(),
+  logActiveUsersInPresenceGroup: jest.fn(),
+  broadcastSupervisorChangeNotification: jest.fn()
+};
+
 describe('SupervisorApplicationService', () => {
   let service: SupervisorApplicationService;
 
@@ -97,7 +110,8 @@ describe('SupervisorApplicationService', () => {
       mockSupervisorRepository,
       mockCommandMessagingService,
       mockSupervisorManagementService,
-      mockAuditService
+      mockAuditService,
+      mockWebPubSubService
     );
   });
 
