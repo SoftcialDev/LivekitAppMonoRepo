@@ -461,9 +461,8 @@ export class ServiceContainer {
           this.register<SendSnapshotDomainService>('SendSnapshotDomainService', () => {
             const userRepository = this.resolve<IUserRepository>('UserRepository');
             const blobStorageService = this.resolve<IBlobStorageService>('BlobStorageService');
-            const chatService = this.resolve<IChatService>('ChatService');
             const snapshotRepository = this.resolve<ISnapshotRepository>('ISnapshotRepository');
-            return new SendSnapshotDomainService(userRepository, blobStorageService, chatService, snapshotRepository);
+            return new SendSnapshotDomainService(userRepository, blobStorageService, snapshotRepository);
           });
 
           this.register<SendSnapshotApplicationService>('SendSnapshotApplicationService', () => {

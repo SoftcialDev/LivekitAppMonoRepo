@@ -8,7 +8,6 @@ import { SendSnapshotRequest } from "../value-objects/SendSnapshotRequest";
 import { SendSnapshotResponse } from "../value-objects/SendSnapshotResponse";
 import { IUserRepository } from "../interfaces/IUserRepository";
 import { IBlobStorageService } from "../interfaces/IBlobStorageService";
-import { IChatService } from "../interfaces/IChatService";
 import { ISnapshotRepository } from "../interfaces/ISnapshotRepository";
 import { ImageUploadRequest } from "../value-objects/ImageUploadRequest";
 import { UserNotFoundError } from "../errors/UserErrors";
@@ -24,12 +23,11 @@ export class SendSnapshotDomainService {
    * Creates a new SendSnapshotDomainService instance
    * @param userRepository - Repository for user data access
    * @param blobStorageService - Service for blob storage operations
-   * @param chatService - Service for chat notifications
+   * @param snapshotRepository - Repository for snapshot data access
    */
   constructor(
     private readonly userRepository: IUserRepository,
     private readonly blobStorageService: IBlobStorageService,
-    private readonly chatService: IChatService,
     private readonly snapshotRepository: ISnapshotRepository
   ) {}
 
@@ -80,14 +78,6 @@ export class SendSnapshotDomainService {
       imageUrl
     );
 
-    // 5. Notify administrators via chat
-    await this.notifyAdministrators(
-      token,
-      supervisorName,
-      pso.email,
-      request.reason,
-      request.imageBase64
-    );
 
     return new SendSnapshotResponse(
       snapshot.id,
@@ -96,34 +86,4 @@ export class SendSnapshotDomainService {
   }
 
 
-  /**
-   * Notifies administrators about the snapshot report
-   * @param token - Authentication token
-   * @param supervisorName - Name of the supervisor
-   * @param psoEmail - Email of the PSO
-   * @param reason - Reason for the snapshot
-   * @param imageBase64 - Base64 encoded image
-   * @private
-   */
-  private async notifyAdministrators(
-    token: string,
-    supervisorName: string,
-    psoEmail: string,
-    reason: string,
-    imageBase64: string
-  ): Promise<void> {
-    try {
-      const chatId = await this.chatService.getOrSyncChat(token);
-      await this.chatService.sendMessage(token, chatId, {
-        subject: "📸 New Snapshot Report",
-        supervisorName,
-        psoEmail,
-        reason,
-        imageBase64,
-      });
-    } catch (error) {
-      // Log error but don't fail the snapshot creation
-      console.warn("Failed to notify administrators:", error);
-    }
-  }
 }

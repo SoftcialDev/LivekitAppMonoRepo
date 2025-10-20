@@ -189,7 +189,7 @@ const AddModal: React.FC<AddModalProps> = ({
       <div
         ref={modalRef}
         className={containerClass}
-        style={{ left: pos.x, top: pos.y }}
+        style={classNameOverride ? {} : { left: pos.x, top: pos.y }}
       >
         {/* Header (drag handle) */}
         <div

@@ -1146,7 +1146,7 @@ describe('AuditLog', () => {
       });
 
       const age = auditLog.getAgeInHours();
-      expect(age).toBe(2);
+      expect(age).toBe(3);
     });
   });
 

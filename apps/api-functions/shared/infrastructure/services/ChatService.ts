@@ -27,9 +27,19 @@ export class ChatService implements IChatService {
   async getOrSyncChat(token: string): Promise<string>;
   async getOrSyncChat(token: string, participants?: Array<{ userId: string; azureAdObjectId: string }>, topic?: string): Promise<string> {
     try {
-      // If participants and topic are provided, use them for specific chat creation
+      // If participants and topic are provided, use them for chat creation
       if (participants && topic) {
-        return await this.createSpecificChat(token, participants, topic);
+        // Check if it's a 1-on-1 chat (2 participants) or group chat (more than 2)
+        if (participants.length === 2) {
+          return await this.createSpecificChat(token, participants, topic);
+        } else {
+          // Convert to the format expected by createGraphChat
+          const graphParticipants = participants.map(p => ({
+            userId: p.userId,
+            oid: p.azureAdObjectId
+          }));
+          return await this.createGraphChat(token, graphParticipants, topic);
+        }
       }
 
       // Default behavior: Contact Managers chat
@@ -116,28 +126,6 @@ export class ChatService implements IChatService {
     }
   }
 
-  /**
-   * Adds a user to a chat temporarily
-   */
-  private async addUserToChatTemporarily(token: string, chatId: string, userId: string): Promise<void> {
-    const graph = this.initGraphClient(token);
-    
-    try {
-      await graph.api(`/chats/${chatId}/members`).post({
-        '@odata.type': '#microsoft.graph.aadUserConversationMember',
-        roles: ['owner'],
-        'user@odata.bind': `https://graph.microsoft.com/v1.0/users('${userId}')`
-      });
-      console.log(`Successfully added user ${userId} to chat ${chatId}`);
-    } catch (error: any) {
-      // If user is already in chat, that's fine
-      if (error.message?.includes('already a member')) {
-        console.log(`User ${userId} is already a member of chat ${chatId}`);
-      } else {
-        throw error;
-      }
-    }
-  }
 
   /**
    * Removes a user from a chat
@@ -200,8 +188,10 @@ export class ChatService implements IChatService {
                 {
                   type: 'Image',
                   url: message.imageUrl,
-                  size: 'Medium',
+                  size: 'Large',
                   style: 'Default',
+                  width: '100%',
+                  height: 'auto',
                 },
               ]
             : []),
@@ -248,7 +238,11 @@ export class ChatService implements IChatService {
     });
 
     const authProvider = new TokenCredentialAuthenticationProvider(credential, {
-      scopes: ['https://graph.microsoft.com/.default'],
+      scopes: [
+        'https://graph.microsoft.com/Chat.ReadWrite',
+        'https://graph.microsoft.com/ChatMember.ReadWrite',
+        'https://graph.microsoft.com/User.Read'
+      ],
     });
 
     return Client.initWithMiddleware({ authProvider });
@@ -265,6 +259,26 @@ export class ChatService implements IChatService {
     console.log('Creating Graph chat with participants:', participants.length);
     
     const graph = this.initGraphClient(token);
+
+    // First, try to find existing chat with this topic
+    try {
+      const existingChats = await graph
+        .api('/chats')
+        .filter(`topic eq '${topic}'`)
+        .get();
+      
+      if (existingChats.value && existingChats.value.length > 0) {
+        console.log(`Found existing chat with topic: ${topic}`);
+        const existingChatId = existingChats.value[0].id;
+        
+        // Sync members with the existing chat (now possible with application permissions)
+        await this.syncChatMembers(token, existingChatId, participants);
+        
+        return existingChatId;
+      }
+    } catch (error) {
+      console.log('No existing chat found or error searching:', error);
+    }
 
     // Microsoft Teams has limits on chat creation - try with smaller batches
     const MAX_INITIAL_MEMBERS = 20; // Start with a smaller group
@@ -480,5 +494,127 @@ export class ChatService implements IChatService {
       .replace(/([A-Z])/g, ' $1')
       .replace(/^./, str => str.toUpperCase())
       .trim();
+  }
+
+  /**
+   * Removes a member from a chat
+   */
+  async removeChatMember(token: string, chatId: string, userOid: string): Promise<void> {
+    try {
+      const graph = this.initGraphClient(token);
+      
+      // Get chat members to find the member ID
+      const members = await graph
+        .api(`/chats/${chatId}/members`)
+        .get();
+      
+      const memberToRemove = members.value.find((member: any) => 
+        member.userId === userOid
+      );
+      
+      if (memberToRemove) {
+        await graph
+          .api(`/chats/${chatId}/members/${memberToRemove.id}`)
+          .delete();
+        
+        console.log(`Successfully removed member ${userOid} from chat ${chatId}`);
+      } else {
+        console.warn(`Member ${userOid} not found in chat ${chatId}`);
+      }
+    } catch (error) {
+      console.error(`Failed to remove member ${userOid} from chat ${chatId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Adds a user temporarily to a chat
+   */
+  async addUserToChatTemporarily(token: string, chatId: string, userOid: string): Promise<void> {
+    try {
+      const graph = this.initGraphClient(token);
+      
+      await graph.api(`/chats/${chatId}/members`).post({
+        '@odata.type': '#microsoft.graph.aadUserConversationMember',
+        roles: ['owner'],
+        'user@odata.bind': `https://graph.microsoft.com/v1.0/users('${userOid}')`
+      });
+      
+      console.log(`Successfully added user ${userOid} to chat ${chatId}`);
+    } catch (error: any) {
+      // If user is already in chat, that's fine
+      if (error.message?.includes('already a member')) {
+        console.log(`User ${userOid} is already a member of chat ${chatId}`);
+      } else {
+        console.error(`Failed to add user ${userOid} to chat ${chatId}:`, error);
+        throw error;
+      }
+    }
+  }
+
+  /**
+   * Syncs chat members by adding new ones and removing old ones
+   * Preserves existing Admin and SuperAdmin members
+   */
+  private async syncChatMembers(
+    token: string,
+    chatId: string,
+    newParticipants: readonly { userId: string; oid: string }[]
+  ): Promise<void> {
+    try {
+      const graph = this.initGraphClient(token);
+      
+      // Get current chat members
+      const currentMembers = await graph
+        .api(`/chats/${chatId}/members`)
+        .get();
+      
+      const currentMemberIds = currentMembers.value.map((member: any) => member.userId);
+      const newMemberIds = newParticipants.map(p => p.oid);
+      
+      // Find members to add (new members not in current chat)
+      const membersToAdd = newParticipants.filter(p => 
+        !currentMemberIds.includes(p.oid)
+      );
+      
+      // Find members to remove (current members not in new list)
+      const membersToRemove = currentMembers.value.filter((member: any) => 
+        !newMemberIds.includes(member.userId)
+      );
+      
+      console.log(`Syncing chat ${chatId}:`);
+      console.log(`- Adding ${membersToAdd.length} new members`);
+      console.log(`- Removing ${membersToRemove.length} old members`);
+      
+      // Add new members
+      if (membersToAdd.length > 0) {
+        await this.addParticipantsInBatches(token, chatId, membersToAdd);
+      }
+      
+      // Remove old members (but preserve Admin/SuperAdmin members)
+      if (membersToRemove.length > 0) {
+        for (const member of membersToRemove) {
+          try {
+            // Check if this member is in the new participants list (they should stay)
+            const shouldKeepMember = newParticipants.some(p => p.oid === member.userId);
+            
+            if (!shouldKeepMember) {
+              console.log(`Removing member: ${member.displayName} (${member.userId})`);
+              await graph
+                .api(`/chats/${chatId}/members/${member.id}`)
+                .delete();
+            } else {
+              console.log(`Keeping member: ${member.displayName} (${member.userId}) - they are in the new list`);
+            }
+          } catch (error) {
+            console.warn(`Failed to remove member ${member.displayName}:`, error);
+          }
+        }
+      }
+      
+    } catch (error) {
+      console.error('Error syncing chat members:', error);
+      // Don't throw error to avoid breaking the main flow
+    }
   }
 }

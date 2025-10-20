@@ -256,7 +256,8 @@ const displayList = useMemo(() => {
                   displayList.length === 3 ? 2 :
                   displayList.length === 4 ? 2 : 3;
                 return `repeat(${cols}, minmax(0,1fr))`;
-              })()
+              })(),
+              paddingBottom:'260px' 
             }}
           >
             {displayList.map((p, i) => {

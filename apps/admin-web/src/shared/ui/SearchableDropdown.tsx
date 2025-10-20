@@ -81,14 +81,14 @@ export function SearchableDropdown<Value>({
   placeholder = 'Search...',
   className = '',
   inputClassName = `
-    w-11/12 px-4 py-2
+    w-full px-4 py-2
     bg-[var(--color-primary)] border-0 rounded
     text-white font-normal text-base
     placeholder-gray-200 placeholder-opacity-75 placeholder:text-base
     focus:outline-none
   `,
   menuClassName = `
-    absolute left-0 top-full mt-1 w-11/12 max-h-60 overflow-auto custom-scrollbar
+    absolute left-0 top-full mt-1 w-full max-h-60 overflow-auto custom-scrollbar
     bg-[var(--color-primary)] border-0 rounded shadow-lg z-50
     text-gray-200 font-normal text-base
   `,

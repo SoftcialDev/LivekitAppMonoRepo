@@ -66,6 +66,14 @@ const PSOsListPage: React.FC = () => {
   const [filterSupervisorOptions, setFilterSupervisorOptions] = useState<DropdownOption<string>[]>([]);
   const [transferSupervisorOptions, setTransferSupervisorOptions] = useState<DropdownOption<string>[]>([]);
   const [transferToValue, setTransferToValue]     = useState<string[]>([]); // single-select via last value (email)
+  
+  // State for transfer confirmation modal
+  const [isTransferModalOpen, setTransferModalOpen] = useState(false);
+  const [pendingTransfer, setPendingTransfer] = useState<{
+    supervisorEmail: string;
+    supervisorName: string;
+    psoCount: number;
+  } | null>(null);
 
   useHeader({
     title:   'PSOs',
@@ -220,6 +228,42 @@ const PSOsListPage: React.FC = () => {
     }
   };
 
+  /**
+   * Handle transfer confirmation - execute the actual transfer
+   */
+  const handleConfirmTransfer = async (): Promise<void> => {
+    if (!pendingTransfer) return;
+    
+    setPsosLoading(true);
+    try {
+      const updated = await changeSupervisor({ 
+        userEmails: selectedEmails, 
+        newSupervisorEmail: pendingTransfer.supervisorEmail 
+      });
+      showToast(`Transferred ${updated} PSO(s) to ${pendingTransfer.supervisorName}`, 'success');
+      // refresh list in place
+      await fetchPsos();
+      setSelectedEmails([]);
+      setTransferToValue([]);
+      setTransferModalOpen(false);
+      setPendingTransfer(null);
+    } catch (e) {
+      console.error('Transfer failed', e);
+      showToast('Transfer failed', 'error');
+    } finally {
+      setPsosLoading(false);
+    }
+  };
+
+  /**
+   * Handle transfer cancellation
+   */
+  const handleCancelTransfer = (): void => {
+    setTransferModalOpen(false);
+    setPendingTransfer(null);
+    setTransferToValue([]);
+  };
+
   // Columns for main PSO table
   const psoColumns: Column<CandidateUser>[] = [
     { key: 'email',          header: 'Email'      },
@@ -248,7 +292,7 @@ const PSOsListPage: React.FC = () => {
         selectedValues={filterSupervisorValues}
         onSelectionChange={(vals) => { setFilterSupervisorValues(vals); }}
         placeholder="Filter by Supervisor"
-        className="w-64"
+        className="flex-1"
         usePortal={true}
         closeOnSelect={false}
       />
@@ -264,22 +308,24 @@ const PSOsListPage: React.FC = () => {
             showToast('Select at least one PSO to transfer', 'warning');
             return;
           }
-          // Execute transfer immediately
-          (async () => {
-            try {
-              const updated = await changeSupervisor({ userEmails: selectedEmails, newSupervisorEmail: chosen });
-              showToast(`Transferred ${updated} PSO(s)`, 'success');
-              // refresh list in place
-              await fetchPsos();
-              setSelectedEmails([]);
-            } catch (e) {
-              console.error('Transfer failed', e);
-              showToast('Transfer failed', 'error');
-            }
-          })();
+          
+          // Find supervisor name for confirmation
+          const supervisor = transferSupervisorOptions.find(opt => opt.value === chosen);
+          if (!supervisor) {
+            showToast('Supervisor not found', 'error');
+            return;
+          }
+          
+          // Show confirmation modal instead of executing immediately
+          setPendingTransfer({
+            supervisorEmail: chosen,
+            supervisorName: supervisor.label,
+            psoCount: selectedEmails.length
+          });
+          setTransferModalOpen(true);
         }}
         placeholder="Transfer To"
-        className="w-56"
+        className="flex-1"
         usePortal={true}
       />
     </div>
@@ -354,6 +400,29 @@ const PSOsListPage: React.FC = () => {
           loading={candidatesLoading}
           loadingAction="Loading candidates"
         />
+      </AddModal>
+
+      {/* Transfer Confirmation Modal */}
+      <AddModal
+        open={isTransferModalOpen}
+        title="Confirm Transfer"
+        iconSrc={managementIcon}
+        iconAlt="Transfer"
+        onClose={handleCancelTransfer}
+        onConfirm={handleConfirmTransfer}
+        confirmLabel="Confirm Transfer"
+        loading={psosLoading}
+        loadingAction="Transferring PSOs"
+        classNameOverride="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-[var(--color-primary-light)] border-2 border-white rounded-lg shadow-xl w-fit z-50"
+      >
+        <div className="text-center py-4">
+          <p className="text-lg mb-4">
+            Are you sure you want to transfer <strong>{pendingTransfer?.psoCount || 0}</strong> PSO(s) to:
+          </p>
+          <p className="text-xl font-semibold text-[var(--color-secondary)] mb-4">
+            {pendingTransfer?.supervisorName || 'Unknown Supervisor'}
+          </p>
+        </div>
       </AddModal>
     </div>
   );
