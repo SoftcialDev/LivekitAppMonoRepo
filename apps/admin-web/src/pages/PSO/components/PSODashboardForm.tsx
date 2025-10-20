@@ -281,24 +281,6 @@ export const PsoDashboardForm: React.FC<PsoDashboardFormProps> = ({
                 />
               </>
             )}
-
-            {/* Optional image upload */}
-            <div className="sm:col-span-6">
-              <FormField
-                id="image"
-                label="Attach Image (optional)"
-                type="file"
-                accept="image/*"
-                value={formData.imageBase64 ? '...' : ''}
-                onChange={handleImageChange}
-                fileButtonLabel="Browse…"
-                fileButtonClassName="
-                  mt-1 inline-block px-4 py-2 bg-[var(--color-secondary)] text-gray-700 text-sm font-semibold
-                  border border-gray-300 rounded-md cursor-pointer hover:bg-gray-50
-                "
-                fileNameClassName="ml-4 text-sm text-white"
-              />
-            </div>
           </div>
         </form>
       </AddModal>
