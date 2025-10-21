@@ -19,6 +19,7 @@ export function usePsoSupervisor(userEmail: string) {
       return;
     }
     
+    console.log(`🔄 [usePsoSupervisor] Fetching supervisor for PSO: ${userEmail}`);
     setLoading(true);
     setError(null);
     
@@ -26,11 +27,14 @@ export function usePsoSupervisor(userEmail: string) {
       const result = await getSupervisorForPso(userEmail);
       
       if ('supervisor' in result) {
+        console.log(`✅ [usePsoSupervisor] Supervisor found: ${result.supervisor.fullName || result.supervisor.email}`);
         setSupervisor(result.supervisor);
       } else {
+        console.log(`⚠️ [usePsoSupervisor] No supervisor assigned to PSO: ${userEmail}`);
         setSupervisor(null);
       }
     } catch (err: any) {
+      console.error(`❌ [usePsoSupervisor] Failed to fetch supervisor:`, err);
       setError(err.message || 'Failed to fetch supervisor');
     } finally {
       setLoading(false);

@@ -1,5 +1,4 @@
 import { useEffect, useCallback } from 'react';
-import { webPubSubClient as pubSubService } from '@/shared/api/webpubsubClient';
 
 /**
  * Hook to handle supervisor change notifications for PSOs
@@ -11,28 +10,29 @@ export function usePsoSupervisorNotifications(
   userEmail: string, 
   onSupervisorChanged: () => void
 ) {
+  console.log(`📡 [usePsoSupervisorNotifications] Setting up notifications for PSO: ${userEmail}`);
   
-  const handleSupervisorChange = useCallback((msg: any) => {
+  const handleSupervisorChange = useCallback((event: CustomEvent) => {
+    const data = event.detail;
+    console.log(`🔄 [usePsoSupervisorNotifications] Supervisor change event received:`, data);
     
-    // Trigger the callback to refetch supervisor info
-    onSupervisorChanged();
-  }, [onSupervisorChanged]);
+    // Check if this PSO is affected by the change
+    if (data.psoEmails && data.psoEmails.includes(userEmail)) {
+      console.log(`🔄 [usePsoSupervisorNotifications] PSO ${userEmail} is affected by supervisor change`);
+      onSupervisorChanged();
+    }
+  }, [userEmail, onSupervisorChanged]);
 
   useEffect(() => {
-    if (!userEmail) return;
-
+    // Listen for supervisor change events
+    window.addEventListener('supervisorChange', handleSupervisorChange as EventListener);
     
-    // Listen for supervisor change notifications
-    const offMsg = pubSubService.onMessage((msg: any) => {
-      // Only process supervisor change notifications for this user
-      if (msg?.type === 'SUPERVISOR_CHANGED') {
-        handleSupervisorChange(msg);
-      }
-    });
-
+    console.log(`📡 [usePsoSupervisorNotifications] Event listener registered for PSO: ${userEmail}`);
+    
     // Cleanup on unmount
     return () => {
-      offMsg();
+      window.removeEventListener('supervisorChange', handleSupervisorChange as EventListener);
+      console.log(`📡 [usePsoSupervisorNotifications] Event listener removed for PSO: ${userEmail}`);
     };
-  }, [userEmail, handleSupervisorChange]);
+  }, [handleSupervisorChange, userEmail]);
 }

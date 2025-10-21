@@ -1,4 +1,5 @@
 import { useAuth } from "@/shared/auth/useAuth";
+import { useUserInfo } from "@/shared/hooks/useUserInfo";
 import { usePresenceStore } from "@/shared/presence/usePresenceStore";
 import React, { useEffect, useState } from "react";
 import { Outlet } from "react-router-dom";
@@ -24,7 +25,9 @@ interface LayoutProps {}
  */
 const Layout: React.FC<LayoutProps> = (): JSX.Element => {
   const { account } = useAuth();
+  const { userInfo } = useUserInfo();
   const currentEmail = account?.username ?? "";
+  const currentRole = userInfo?.role;
 
   /** Whether the sidebar is collapsed. */
   const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
@@ -51,11 +54,11 @@ const Layout: React.FC<LayoutProps> = (): JSX.Element => {
   useEffect(() => {
     if (!currentEmail) return;
     loadSnapshot();
-    connectWebSocket(currentEmail);
+    connectWebSocket(currentEmail, currentRole);
     return () => {
       disconnectWebSocket();
     };
-  }, [currentEmail, loadSnapshot, connectWebSocket, disconnectWebSocket]);
+  }, [currentEmail, currentRole, loadSnapshot, connectWebSocket, disconnectWebSocket]);
 
   return (
     <HeaderProvider>

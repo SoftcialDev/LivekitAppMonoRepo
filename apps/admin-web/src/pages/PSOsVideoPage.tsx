@@ -11,6 +11,7 @@ import SimpleVideoCard from './Video/components/SimpleVideoCard';
 import { useIsolatedStreams } from './Video/hooks/useIsolatedStreams';
 import { useVideoActions } from './Video/hooks/UseVideoAction';
 import { useStablePSOs } from './Video/hooks/useStablePSOs';
+import { useSupervisorChangeNotifications } from '@/shared/hooks/useSupervisorChangeNotifications';
 
 /**
  * Gets user-friendly status message for streaming status
@@ -112,6 +113,36 @@ const PSOsPage: React.FC = () => {
     }
   }, [account, userInfo, loadUserInfo]);
   
+  // Local state to track supervisor changes from WebSocket messages
+  const [supervisorUpdates, setSupervisorUpdates] = useState<Record<string, { email: string; name: string }>>({});
+
+  // Supervisor change notifications
+  const handleSupervisorChange = useCallback((data: any) => {
+    console.log(`🔄 [PSOsVideoPage] Supervisor change received:`, data);
+    // Log the current state for debugging
+    console.log(`🔄 [PSOsVideoPage] Current viewer: ${viewerEmail}, Role: ${viewerRole}`);
+    console.log(`🔄 [PSOsVideoPage] Affected PSOs: ${data.psoNames.join(', ')}`);
+    console.log(`🔄 [PSOsVideoPage] New supervisor: ${data.newSupervisorName}`);
+    
+    // Update local state with supervisor changes from WebSocket message
+    const updates: Record<string, { email: string; name: string }> = {};
+    data.psoEmails.forEach((psoEmail: string, index: number) => {
+      updates[psoEmail] = {
+        email: data.newSupervisorEmail,
+        name: data.newSupervisorName
+      };
+    });
+    
+    console.log(`🔄 [PSOsVideoPage] Updating supervisor info:`, updates);
+    console.log(`🔄 [PSOsVideoPage] Current supervisorUpdates before:`, supervisorUpdates);
+    setSupervisorUpdates(prev => {
+      const newState = { ...prev, ...updates };
+      console.log(`🔄 [PSOsVideoPage] New supervisorUpdates after:`, newState);
+      return newState;
+    });
+  }, [viewerEmail, viewerRole]);
+
+  useSupervisorChangeNotifications(handleSupervisorChange, viewerEmail, viewerRole || undefined);
 
   /* ------------------------------------------------------------------ */
   /* 2️⃣ Presence data (already initialized by layout)                   */
@@ -310,6 +341,21 @@ const displayList = useMemo(() => {
               
 
               
+              // Get updated supervisor info from WebSocket message if available
+              const supervisorUpdate = supervisorUpdates[p.email];
+              const currentSupervisorEmail = supervisorUpdate?.email || p.supervisorEmail;
+              const currentSupervisorName = supervisorUpdate?.name || p.supervisorName;
+              
+              // Debug logging for supervisor updates
+              if (supervisorUpdate) {
+                console.log(`🔄 [PSOsVideoPage] Using WebSocket update for ${p.email}:`, {
+                  oldSupervisorName: p.supervisorName,
+                  newSupervisorName: currentSupervisorName,
+                  oldSupervisorEmail: p.supervisorEmail,
+                  newSupervisorEmail: currentSupervisorEmail
+                });
+              }
+              
               return (
                 <div
                   key={key} // ✅ clave estable ÚNICAMENTE aquí
@@ -318,7 +364,7 @@ const displayList = useMemo(() => {
                 >
                   <SimpleVideoCard
                     email={p.email}
-                    name={`${p.fullName} — Supervisor: ${p.supervisorName}`}
+                    name={`${p.fullName} — Supervisor: ${currentSupervisorName}`}
                     accessToken={c.accessToken}
                     roomName={c.roomName}
                     livekitUrl={c.livekitUrl}
@@ -328,8 +374,8 @@ const displayList = useMemo(() => {
                     className="w-full h-full"
                     statusMessage={statusMessage || undefined}
                     psoName={p.fullName} // PSO name for the selector
-                    supervisorEmail={p.supervisorEmail} // Current supervisor email
-                    supervisorName={p.supervisorName} // Current supervisor name
+                    supervisorEmail={currentSupervisorEmail} // Updated supervisor email from WebSocket
+                    supervisorName={currentSupervisorName} // Updated supervisor name from WebSocket
                     onSupervisorChange={(psoEmail, newSupervisorEmail) => {
                       console.log(`Supervisor changed for ${psoEmail} to ${newSupervisorEmail}`);
                       // TODO: Handle supervisor change - refresh data or update state

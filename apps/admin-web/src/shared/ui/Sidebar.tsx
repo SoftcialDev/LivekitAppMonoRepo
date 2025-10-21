@@ -445,13 +445,8 @@ const cmFilterAdornment = useMemo(() => {
                       msOverflowStyle: 'scrollbar'
                     }}>
                     {filteredOnline.map((u) => {
-                      const supName =
-                        (u as any).supervisorFullName
-                          ? (u as any).supervisorFullName
-                          : (u as any).supervisorName ?? "";
-                      const displayName = supName
-                        ? `${shortName(u)} (${supName})`
-                        : shortName(u);
+                      // Don't show supervisor name in parentheses - just show the PSO name
+                      const displayName = shortName(u);
                       const cmStatus = cmStatusByEmail.get(u.email.toLowerCase());
 
                       return (
@@ -485,13 +480,8 @@ const cmFilterAdornment = useMemo(() => {
                       msOverflowStyle: 'scrollbar'
                     }}>
                     {filteredOffline.map((u) => {
-                      const supName =
-                        (u as any).supervisorFullName
-                          ? (u as any).supervisorFullName
-                          : (u as any).supervisorName ?? "";
-                      const displayName = supName
-                        ? `${shortName(u)} (${supName})`
-                        : shortName(u);
+                      // Don't show supervisor name in parentheses - just show the PSO name
+                      const displayName = shortName(u);
                       const cmStatus = cmStatusByEmail.get(u.email.toLowerCase());
 
                       return (
