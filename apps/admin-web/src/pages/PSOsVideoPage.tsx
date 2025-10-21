@@ -347,6 +347,17 @@ const displayList = useMemo(() => {
               const currentSupervisorName = supervisorUpdate?.name || p.supervisorName;
               
               // Debug logging for supervisor updates
+              console.log(`🔄 [PSOsVideoPage] VideoCard render for ${p.email}:`, {
+                psoEmail: p.email,
+                psoFullName: p.fullName,
+                originalSupervisorName: p.supervisorName,
+                originalSupervisorEmail: p.supervisorEmail,
+                supervisorUpdate: supervisorUpdate,
+                currentSupervisorName: currentSupervisorName,
+                currentSupervisorEmail: currentSupervisorEmail,
+                finalDisplayName: `${p.fullName} — Supervisor: ${currentSupervisorName}`
+              });
+              
               if (supervisorUpdate) {
                 console.log(`🔄 [PSOsVideoPage] Using WebSocket update for ${p.email}:`, {
                   oldSupervisorName: p.supervisorName,
@@ -358,7 +369,7 @@ const displayList = useMemo(() => {
               
               return (
                 <div
-                  key={key} // ✅ clave estable ÚNICAMENTE aquí
+                  key={`${key}-${currentSupervisorEmail}`} // ✅ Include supervisor in key to force re-render
                   className={`video-card-wrapper w-full h-full relative z-10 ${alignClass}`}
                   style={itemStyle}
                 >
