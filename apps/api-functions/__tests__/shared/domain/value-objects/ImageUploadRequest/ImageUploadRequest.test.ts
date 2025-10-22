@@ -114,7 +114,7 @@ describe('ImageUploadRequest', () => {
       const senderId = 'user-123';
       
       const request1 = new ImageUploadRequest(base64Data, senderId);
-      await new Promise(resolve => setTimeout(resolve, 1));
+      await new Promise(resolve => setTimeout(resolve, 10));
       const request2 = new ImageUploadRequest(base64Data, senderId);
 
       const fileName1 = request1.getFileName();

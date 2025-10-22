@@ -35,7 +35,8 @@ describe('authorization middleware', () => {
     mockAuthorizationService = {
       canSendCommands: jest.fn(),
       canManageUsers: jest.fn(),
-      canAccessAdmin: jest.fn()
+      canAccessAdmin: jest.fn(),
+      isSuperAdmin: jest.fn()
     } as any;
     
     // Mock the constructors
@@ -180,55 +181,61 @@ describe('authorization middleware', () => {
   describe('requireAdminAccess', () => {
     it('should create middleware that checks admin access', async () => {
       const callerId = 'admin-123';
-      mockContext.bindings.callerId = callerId;
-      mockAuthorizationService.canAccessAdmin.mockResolvedValue(true);
+      mockExtractCallerId.mockReturnValue(callerId);
+      mockAuthorizationService.isSuperAdmin.mockResolvedValue(true);
 
       const middleware = requireSuperAdminAccess();
       await middleware(mockContext);
 
-      expect(mockAuthorizationService.canAccessAdmin).toHaveBeenCalledWith(callerId);
+      expect(mockAuthorizationService.isSuperAdmin).toHaveBeenCalledWith(callerId);
     });
 
     it('should throw error when caller ID is not found in context', async () => {
-      mockContext.bindings = {};
+      mockExtractCallerId.mockImplementation(() => {
+        throw new Error('Cannot determine caller identity');
+      });
 
       const middleware = requireSuperAdminAccess();
       
-      await expect(middleware(mockContext)).rejects.toThrow('Caller ID not found in context');
+      await expect(middleware(mockContext)).rejects.toThrow('Cannot determine caller identity');
       
-      expect(mockAuthorizationService.canAccessAdmin).not.toHaveBeenCalled();
+      expect(mockAuthorizationService.isSuperAdmin).not.toHaveBeenCalled();
     });
 
     it('should throw error when caller ID is null', async () => {
-      mockContext.bindings.callerId = null;
+      mockExtractCallerId.mockImplementation(() => {
+        throw new Error('Cannot determine caller identity');
+      });
 
       const middleware = requireSuperAdminAccess();
       
-      await expect(middleware(mockContext)).rejects.toThrow('Caller ID not found in context');
+      await expect(middleware(mockContext)).rejects.toThrow('Cannot determine caller identity');
       
-      expect(mockAuthorizationService.canAccessAdmin).not.toHaveBeenCalled();
+      expect(mockAuthorizationService.isSuperAdmin).not.toHaveBeenCalled();
     });
 
     it('should throw error when caller ID is undefined', async () => {
-      mockContext.bindings.callerId = undefined;
+      mockExtractCallerId.mockImplementation(() => {
+        throw new Error('Cannot determine caller identity');
+      });
 
       const middleware = requireSuperAdminAccess();
       
-      await expect(middleware(mockContext)).rejects.toThrow('Caller ID not found in context');
+      await expect(middleware(mockContext)).rejects.toThrow('Cannot determine caller identity');
       
-      expect(mockAuthorizationService.canAccessAdmin).not.toHaveBeenCalled();
+      expect(mockAuthorizationService.isSuperAdmin).not.toHaveBeenCalled();
     });
 
     it('should throw error when user lacks admin access', async () => {
       const callerId = 'user-123';
-      mockContext.bindings.callerId = callerId;
-      mockAuthorizationService.canAccessAdmin.mockResolvedValue(false);
+      mockExtractCallerId.mockReturnValue(callerId);
+      mockAuthorizationService.isSuperAdmin.mockResolvedValue(false);
 
       const middleware = requireSuperAdminAccess();
       
       await expect(middleware(mockContext)).rejects.toThrow('Insufficient privileges');
       
-      expect(mockAuthorizationService.canAccessAdmin).toHaveBeenCalledWith(callerId);
+      expect(mockAuthorizationService.isSuperAdmin).toHaveBeenCalledWith(callerId);
     });
 
     it('should handle different caller ID formats', async () => {
@@ -240,21 +247,21 @@ describe('authorization middleware', () => {
       ];
 
       for (const callerId of testCases) {
-        mockContext.bindings.callerId = callerId;
-        mockAuthorizationService.canAccessAdmin.mockResolvedValue(true);
+        mockExtractCallerId.mockReturnValue(callerId);
+        mockAuthorizationService.isSuperAdmin.mockResolvedValue(true);
         const middleware = requireSuperAdminAccess();
         
         await middleware(mockContext);
         
-        expect(mockAuthorizationService.canAccessAdmin).toHaveBeenCalledWith(callerId);
+        expect(mockAuthorizationService.isSuperAdmin).toHaveBeenCalledWith(callerId);
       }
     });
 
     it('should handle authorization service errors', async () => {
       const callerId = 'admin-123';
-      mockContext.bindings.callerId = callerId;
+      mockExtractCallerId.mockReturnValue(callerId);
       const authError = new Error('Authorization service unavailable');
-      mockAuthorizationService.canAccessAdmin.mockRejectedValue(authError);
+      mockAuthorizationService.isSuperAdmin.mockRejectedValue(authError);
 
       const middleware = requireSuperAdminAccess();
       

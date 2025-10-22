@@ -82,7 +82,11 @@ jest.mock('../../shared/middleware/errorHandler', () => ({
 
 // Authorization helpers
 jest.mock('../../shared/middleware/authorization', () => ({
-  requireAdminAccess: () => async (_ctx?: any) => {}
+  requireAdminAccess: () => async (_ctx?: any) => {},
+  requireSuperAdminAccess: () => async (_ctx?: any) => {},
+  requireAdminOrSuperAdminAccess: () => async (_ctx?: any) => {},
+  requireCommandPermission: () => async (_ctx?: any) => {},
+  requireUserManagementPermission: () => async (_ctx?: any) => {}
 }));
 
 

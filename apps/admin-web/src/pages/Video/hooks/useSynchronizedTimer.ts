@@ -27,8 +27,6 @@ export function useSynchronizedTimer(
       return null;
     }
 
-    const now = new Date();
-    const stopTime = new Date(stoppedAt);
     
     // Determinar tipo de timer y duración
     let type: 'LUNCH_BREAK' | 'SHORT_BREAK' | 'QUICK_BREAK' | 'EMERGENCY';
@@ -113,7 +111,7 @@ export function useSynchronizedTimer(
       remainingTime,
       isExpired,
       isNegative,
-      displayTime: isNegative ? `-${displayTime}` : displayTime,
+      displayTime: isNegative ? `+${displayTime}` : displayTime,
       color
     };
   }, [stopReason, stoppedAt]);

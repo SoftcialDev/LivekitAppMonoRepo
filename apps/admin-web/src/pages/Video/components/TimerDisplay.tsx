@@ -1,5 +1,5 @@
 import React from 'react';
-import { TimerInfo } from './useSynchronizedTimer';
+import { TimerInfo } from '../hooks/useSynchronizedTimer';
 
 interface TimerDisplayProps {
   timerInfo: TimerInfo | null;

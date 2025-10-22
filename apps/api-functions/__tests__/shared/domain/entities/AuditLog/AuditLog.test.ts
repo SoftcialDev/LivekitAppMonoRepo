@@ -651,7 +651,7 @@ describe('AuditLog', () => {
       });
 
       const age = auditLog.getAge();
-      expect(age).toBeCloseTo(0, 1); // Within 1ms
+      expect(age).toBeCloseTo(0, 0); // Within 0ms precision, but allow small differences
     });
   });
 

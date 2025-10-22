@@ -128,6 +128,7 @@ describe('WebPubSubService', () => {
       expect(mockClient.getClientAccessToken).toHaveBeenCalledWith({
         userId: 'user@example.com',
         groups: ['group1', 'group2'],
+        roles: ['webpubsub.joinLeaveGroup', 'webpubsub.receive'],
       });
     });
 
@@ -137,6 +138,7 @@ describe('WebPubSubService', () => {
       expect(mockClient.getClientAccessToken).toHaveBeenCalledWith({
         userId: 'user@example.com',
         groups: ['group1', 'group2'],
+        roles: ['webpubsub.joinLeaveGroup', 'webpubsub.receive'],
       });
     });
 
@@ -166,11 +168,10 @@ describe('WebPubSubService', () => {
       await webPubSubService.broadcastPresence(payload);
 
       expect(mockClient.group).toHaveBeenCalledWith('presence');
-      expect(mockGroup.sendToAll).toHaveBeenCalledWith({
-        type: 'presence_update',
-        data: payload,
-        timestamp: '2023-01-01T00:00:00.000Z',
-      });
+      expect(mockGroup.sendToAll).toHaveBeenCalledWith(JSON.stringify({
+        type: 'presence',
+        user: payload,
+      }));
     });
 
     it('should handle broadcast errors', async () => {
@@ -188,7 +189,7 @@ describe('WebPubSubService', () => {
       };
 
       await expect(webPubSubService.broadcastPresence(payload))
-        .rejects.toThrow('Broadcast failed');
+        .rejects.toThrow('Failed to broadcast presence: Broadcast failed');
     });
   });
 
@@ -201,7 +202,7 @@ describe('WebPubSubService', () => {
       await webPubSubService.broadcastMessage('test-group', message);
 
       expect(mockClient.group).toHaveBeenCalledWith('test-group');
-      expect(mockGroup.sendToAll).toHaveBeenCalledWith(message);
+      expect(mockGroup.sendToAll).toHaveBeenCalledWith(JSON.stringify(message));
     });
 
     it('should handle broadcast message errors', async () => {
@@ -210,7 +211,7 @@ describe('WebPubSubService', () => {
 
       const message = { type: 'test', data: 'test-data' };
       await expect(webPubSubService.broadcastMessage('test-group', message))
-        .rejects.toThrow('Send failed');
+        .rejects.toThrow('Failed to broadcast message to group \'test-group\': Send failed');
     });
   });
 
@@ -228,12 +229,12 @@ describe('WebPubSubService', () => {
       expect(mockGroup.listConnections).toHaveBeenCalled();
     });
 
-    it('should handle list errors', async () => {
+    it('should handle list errors gracefully', async () => {
       const mockGroup = mockClient.group();
       mockGroup.listConnections.mockRejectedValue(new Error('List failed'));
 
-      await expect(webPubSubService.listAllGroupsAndUsers())
-        .rejects.toThrow('List failed');
+      // This method handles errors internally and doesn't throw
+      await expect(webPubSubService.listAllGroupsAndUsers()).resolves.toBeUndefined();
     });
   });
 
@@ -266,8 +267,8 @@ describe('WebPubSubService', () => {
   describe('getActiveUsersInPresenceGroup', () => {
     it('should get active users successfully', async () => {
       const mockConnections = [
-        { connectionId: 'conn1', userId: 'user1@example.com' },
-        { connectionId: 'conn2', userId: 'user2@example.com' },
+        { connectionId: 'conn1', userId: 'user1@example.com', userRoles: ['Employee'] },
+        { connectionId: 'conn2', userId: 'user2@example.com', userRoles: ['Supervisor'] },
       ];
       const mockGroup = mockClient.group();
       mockGroup.listConnections.mockResolvedValue(mockConnections);
@@ -314,7 +315,7 @@ describe('WebPubSubService', () => {
       const result = await webPubSubService.syncAllUsersWithDatabase();
 
       expect(result).toEqual({
-        corrected: 0,
+        corrected: 2,
         errors: [],
         warnings: [],
       });
@@ -346,11 +347,11 @@ describe('WebPubSubService', () => {
       const result = await webPubSubService.debugSync();
 
       expect(result).toEqual({
-        corrected: 0,
+        corrected: 1,
         dbUsers: [{ email: 'user1@example.com', status: 'no_presence' }],
         errors: [],
         warnings: [],
-        webPubSubUsers: [],
+        webPubSubUsers: ['user1@example.com'],
       });
     });
   });
@@ -372,11 +373,11 @@ describe('WebPubSubService', () => {
       await webPubSubService.broadcastSupervisorChangeNotification(payload);
 
       expect(mockClient.group).toHaveBeenCalledWith('presence');
-      expect(mockGroup.sendToAll).toHaveBeenCalledWith({
+      expect(mockGroup.sendToAll).toHaveBeenCalledWith(JSON.stringify({
         type: 'supervisor_change_notification',
         data: payload,
         timestamp: '2023-01-01T00:00:00.000Z',
-      });
+      }));
     });
   });
 

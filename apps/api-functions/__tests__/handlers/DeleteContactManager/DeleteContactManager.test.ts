@@ -72,11 +72,14 @@ describe('DeleteContactManager handler - unit', () => {
   });
 
   it('should return 400 on validation failure', async () => {
+    // Set up the mock before importing the handler
     jest.doMock('../../../shared/domain/schemas/DeleteContactManagerSchema', () => ({
       deleteContactManagerSchema: { safeParse: () => ({ success: false, error: { message: 'bad' } }) }
     }));
 
-    await runHandler(ctx, req);
+    // Re-import the handler with the mock
+    const handler = (await import('../../../DeleteContactManager/index')).default;
+    await handler(ctx, req);
 
     expect(ctx.res).toEqual({ status: 400, body: { error: 'Invalid profile ID format' } });
   });

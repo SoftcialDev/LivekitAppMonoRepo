@@ -20,8 +20,11 @@ describe('CommandMessagingService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     
-    // Get the mocked instance
-    mockExistingService = new ExistingCommandMessagingService() as jest.Mocked<ExistingCommandMessagingService>;
+    // Get the mocked instance without creating a new one
+    mockExistingService = {
+      sendToGroup: jest.fn(),
+      sendCommand: jest.fn(),
+    } as unknown as jest.Mocked<ExistingCommandMessagingService>;
     (ExistingCommandMessagingService as unknown as jest.Mock).mockReturnValue(mockExistingService);
     
     commandMessagingService = new CommandMessagingService();
@@ -30,10 +33,14 @@ describe('CommandMessagingService', () => {
   describe('constructor', () => {
     it('should create CommandMessagingService with existing service', () => {
       expect(commandMessagingService).toBeInstanceOf(CommandMessagingService);
+      // The mock is called once in beforeEach, so we expect 1 call total
       expect(ExistingCommandMessagingService).toHaveBeenCalledTimes(1);
     });
 
     it('should create new instance of existing service', () => {
+      // Clear previous calls
+      jest.clearAllMocks();
+      
       const service1 = new CommandMessagingService();
       const service2 = new CommandMessagingService();
       
