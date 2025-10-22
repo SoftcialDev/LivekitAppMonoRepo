@@ -90,16 +90,35 @@ export function usePsoStreamingStatus(psoEmail: string, isStreaming?: boolean) {
     fetchStatus();
   }, [fetchStatus]);
 
-  // Auto-refresh every 30 seconds to keep timer updated
+  // Escuchar eventos de actualización inmediata del streaming session
   useEffect(() => {
-    if (!psoEmail) return;
+    const handleStreamingSessionUpdate = (event: CustomEvent) => {
+      const { session } = event.detail;
+      console.log(`📡 [usePsoStreamingStatus] Received immediate session update:`, session);
+      
+      if (session) {
+        const psoStatus: PsoStreamingStatus = {
+          email: psoEmail,
+          hasActiveSession: !session.stoppedAt,
+          lastSession: {
+            stopReason: session.stopReason,
+            stoppedAt: session.stoppedAt
+          }
+        };
+        
+        console.log(`📡 [usePsoStreamingStatus] Updated status immediately:`, psoStatus);
+        setStatus(psoStatus);
+      }
+    };
 
-    const interval = setInterval(() => {
-      fetchStatus();
-    }, 30000); // 30 seconds
+    window.addEventListener('streamingSessionUpdated', handleStreamingSessionUpdate as EventListener);
+    
+    return () => {
+      window.removeEventListener('streamingSessionUpdated', handleStreamingSessionUpdate as EventListener);
+    };
+  }, [psoEmail]);
 
-    return () => clearInterval(interval);
-  }, [psoEmail, fetchStatus]);
+  // ✅ Removed 30-second interval - now using immediate updates via events
 
   // Si el streaming está activo, limpiar el timer inmediatamente
   useEffect(() => {

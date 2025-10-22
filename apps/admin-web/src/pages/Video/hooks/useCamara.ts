@@ -345,6 +345,23 @@ const stopStreamForCommand = useCallback(async (reason?: string) => {
     }
     
     await apiClient.post('/api/StreamingSessionUpdate', payload);
+    
+    // ✅ INMEDIATAMENTE después del STOP, obtener la información del timer
+    console.log('[StopStream] Fetching session history immediately after STOP command');
+    try {
+      const sessionData = await streamingClient.fetchLastSessionWithReason();
+      console.log('[StopStream] Session data after STOP:', sessionData);
+      
+      // Disparar evento personalizado para que usePsoStreamingStatus se actualice
+      const event = new CustomEvent('streamingSessionUpdated', {
+        detail: { session: sessionData }
+      });
+      window.dispatchEvent(event);
+      
+    } catch (err) {
+      console.warn('[StopStream] Failed to fetch session history after STOP:', err);
+    }
+    
   } catch (err) {
     console.warn('Failed to notify backend of command stop:', err);
   }
