@@ -27,7 +27,9 @@ export class WebSocketEventRequest {
     public readonly hub: string,
     public readonly phase: WebSocketPhase,
     public readonly raw: Record<string, any>
-  ) {}
+  ) {
+    Object.freeze(this);
+  }
 
   /**
    * Creates a WebSocketEventRequest from Azure Functions context

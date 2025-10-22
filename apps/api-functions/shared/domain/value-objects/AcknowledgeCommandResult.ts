@@ -23,6 +23,9 @@ export class AcknowledgeCommandResult {
 
     this.updatedCount = updatedCount;
     this.timestamp = getCentralAmericaTime();
+
+    // Freeze the object to prevent runtime modifications
+    Object.freeze(this);
   }
 
   /**

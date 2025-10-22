@@ -24,7 +24,9 @@ export class ProcessCommandRequest {
     public readonly employeeEmail: string,
     public readonly timestamp: Date,
     public readonly reason?: string
-  ) {}
+  ) {
+    Object.freeze(this);
+  }
 
   /**
    * Creates a ProcessCommandRequest from validated message parameters

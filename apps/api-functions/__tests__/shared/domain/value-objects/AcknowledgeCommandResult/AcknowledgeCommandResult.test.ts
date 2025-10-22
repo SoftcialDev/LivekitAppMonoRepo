@@ -121,9 +121,10 @@ describe('AcknowledgeCommandResult', () => {
       expect(result.timestamp.getTime()).toBeLessThanOrEqual(after.getTime());
     });
 
-    it('should have different timestamps for different instances', () => {
+    it('should have different timestamps for different instances', async () => {
       const result1 = new AcknowledgeCommandResult(1);
-      // Small delay to ensure different timestamps
+      // Add delay to ensure different timestamps
+      await new Promise(resolve => setTimeout(resolve, 1));
       const result2 = new AcknowledgeCommandResult(2);
 
       expect(result1.timestamp.getTime()).not.toBe(result2.timestamp.getTime());

@@ -22,7 +22,10 @@ export class Command {
     public readonly employeeEmail: string,
     public readonly timestamp: Date,
     public readonly reason?: string
-  ) {}
+  ) {
+    // Freeze the object to prevent runtime modifications
+    Object.freeze(this);
+  }
 
   /**
    * Creates a Command from request data

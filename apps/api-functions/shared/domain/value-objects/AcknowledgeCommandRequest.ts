@@ -27,6 +27,9 @@ export class AcknowledgeCommandRequest {
 
     this.commandIds = [...commandIds]; // Create a copy to ensure immutability
     this.timestamp = getCentralAmericaTime();
+
+    // Freeze the object to prevent runtime modifications
+    Object.freeze(this);
   }
 
   /**

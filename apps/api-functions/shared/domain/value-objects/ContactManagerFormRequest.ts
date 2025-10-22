@@ -43,6 +43,9 @@ export class ContactManagerFormRequest {
     this.formData = { ...formData }; // Create a copy to ensure immutability
     this.imageBase64 = imageBase64;
     this.timestamp = getCentralAmericaTime();
+
+    // Freeze the object to prevent runtime modifications
+    Object.freeze(this);
   }
 
   /**

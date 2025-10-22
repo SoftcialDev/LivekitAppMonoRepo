@@ -28,6 +28,7 @@ export class UserQueryRequest {
     this.page = Math.max(1, page);
     this.pageSize = Math.max(1, Math.min(1000, pageSize));
     this.timestamp = getCentralAmericaTime();
+    Object.freeze(this);
   }
 
   /**

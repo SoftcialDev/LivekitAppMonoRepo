@@ -46,6 +46,7 @@ export class UserRoleChangeRequest {
     this.userEmail = userEmail.toLowerCase();
     this.newRole = newRole;
     this.timestamp = timestamp;
+    Object.freeze(this);
   }
 
   /**

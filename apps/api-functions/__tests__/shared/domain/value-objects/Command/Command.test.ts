@@ -261,13 +261,14 @@ describe('Command', () => {
       expect(command.timestamp.getTime()).toBeLessThanOrEqual(after.getTime());
     });
 
-    it('should have different timestamps for different requests', () => {
+    it('should have different timestamps for different requests', async () => {
       const command1 = Command.fromRequest({
         command: CommandType.START,
         employeeEmail: 'employee1@example.com'
       });
       
-      // Small delay to ensure different timestamps
+      // Add delay to ensure different timestamps
+      await new Promise(resolve => setTimeout(resolve, 10));
       const command2 = Command.fromRequest({
         command: CommandType.START,
         employeeEmail: 'employee2@example.com'

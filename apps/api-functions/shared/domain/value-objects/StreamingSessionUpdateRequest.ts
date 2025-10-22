@@ -24,7 +24,9 @@ export class StreamingSessionUpdateRequest {
     public readonly status: StreamingStatus,
     public readonly isCommand?: boolean,
     public readonly reason?: string
-  ) {}
+  ) {
+    Object.freeze(this);
+  }
 
   /**
    * Creates a StreamingSessionUpdateRequest from validated body parameters
