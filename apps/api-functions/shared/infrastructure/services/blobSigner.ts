@@ -107,7 +107,7 @@ export function generateReadSasUrl(path: string, minutes: number = 60): string {
       blobName: clean,
       permissions: BlobSASPermissions.parse("r"),
       expiresOn,
-      // protocol: SASProtocol.Https, // optional: uncomment to enforce HTTPS in the SAS token
+      //protocol: SASProtocol.Https, // default is HTTP
     },
     cred
   ).toString();

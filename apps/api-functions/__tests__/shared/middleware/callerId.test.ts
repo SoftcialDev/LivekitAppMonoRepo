@@ -44,30 +44,75 @@ describe('callerId middleware', () => {
     it('should handle missing caller ID', async () => {
       mockContext.bindings.user = { oid: 'test-oid' };
       mockGetCallerAdId.mockReturnValue(null as any);
-
-      await expect(withCallerId(mockContext, mockNext)).rejects.toThrow('badRequest called');
       
+      // Mock badRequest to not throw but set response
+      mockBadRequest.mockImplementation((ctx, message) => {
+        ctx.res = {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+          body: { error: message }
+        };
+      });
+
+      await withCallerId(mockContext, mockNext);
+      
+      expect(mockGetCallerAdId).toHaveBeenCalledWith(mockContext.bindings.user);
       expect(mockBadRequest).toHaveBeenCalledWith(mockContext, "Cannot determine caller identity");
+      expect(mockContext.res).toEqual({
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+        body: { error: "Cannot determine caller identity" }
+      });
       expect(mockNext).not.toHaveBeenCalled();
     });
 
     it('should handle undefined caller ID', async () => {
       mockContext.bindings.user = { oid: 'test-oid' };
       mockGetCallerAdId.mockReturnValue(undefined);
-
-      await expect(withCallerId(mockContext, mockNext)).rejects.toThrow('badRequest called');
       
+      // Mock badRequest to not throw but set response
+      mockBadRequest.mockImplementation((ctx, message) => {
+        ctx.res = {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+          body: { error: message }
+        };
+      });
+
+      await withCallerId(mockContext, mockNext);
+      
+      expect(mockGetCallerAdId).toHaveBeenCalledWith(mockContext.bindings.user);
       expect(mockBadRequest).toHaveBeenCalledWith(mockContext, "Cannot determine caller identity");
+      expect(mockContext.res).toEqual({
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+        body: { error: "Cannot determine caller identity" }
+      });
       expect(mockNext).not.toHaveBeenCalled();
     });
 
     it('should handle empty string caller ID', async () => {
       mockContext.bindings.user = { oid: 'test-oid' };
       mockGetCallerAdId.mockReturnValue('');
-
-      await expect(withCallerId(mockContext, mockNext)).rejects.toThrow('badRequest called');
       
+      // Mock badRequest to not throw but set response
+      mockBadRequest.mockImplementation((ctx, message) => {
+        ctx.res = {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+          body: { error: message }
+        };
+      });
+
+      await withCallerId(mockContext, mockNext);
+      
+      expect(mockGetCallerAdId).toHaveBeenCalledWith(mockContext.bindings.user);
       expect(mockBadRequest).toHaveBeenCalledWith(mockContext, "Cannot determine caller identity");
+      expect(mockContext.res).toEqual({
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+        body: { error: "Cannot determine caller identity" }
+      });
       expect(mockNext).not.toHaveBeenCalled();
     });
 

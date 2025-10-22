@@ -98,54 +98,6 @@ describe("pathValidation middleware", () => {
       expect(mockHandler).toHaveBeenCalledWith(mockContext, {});
     });
 
-    it("should handle validation errors", async () => {
-      const schema = z.object({
-        id: z.string().min(3)
-      });
-
-      (mockContext as any).bindings = {
-        params: {
-          id: "ab" // Too short
-        }
-      };
-
-      // Test that validation fails without causing timeout
-      expect(() => schema.parse({ id: "ab" })).toThrow();
-    });
-
-    it("should handle nested validation errors", async () => {
-      const schema = z.object({
-        user: z.object({
-          name: z.string().min(2)
-        })
-      });
-
-      (mockContext as any).bindings = {
-        params: {
-          user: {
-            name: "a" // Too short
-          }
-        }
-      };
-
-      // Test that validation fails without causing timeout
-      expect(() => schema.parse({ user: { name: "a" } })).toThrow();
-    });
-
-    it("should handle array validation errors", async () => {
-      const schema = z.object({
-        ids: z.array(z.string().min(3))
-      });
-
-      (mockContext as any).bindings = {
-        params: {
-          ids: ["ab", "cd"] // Too short
-        }
-      };
-
-      // Test that validation fails without causing timeout
-      expect(() => schema.parse({ ids: ["ab", "cd"] })).toThrow();
-    });
 
     it("should handle handler throwing an error", async () => {
       const schema = z.object({

@@ -372,5 +372,73 @@ describe("auth middleware", () => {
 
       await expect(withAuth(mockContext, mockNext)).rejects.toThrow(nextError);
     });
+
+    it("should handle JWT header missing kid", async () => {
+      const mockToken = "valid.jwt.token";
+
+      mockContext.req!.headers = {
+        authorization: `Bearer ${mockToken}`
+      };
+
+      // Mock jwt.verify to call getKey function with header missing kid
+      mockJwt.verify.mockImplementation((token, getKey: any, options, callback: any) => {
+        // Call getKey with header missing kid
+        getKey({}, callback);
+      });
+
+      await withAuth(mockContext, mockNext);
+
+      expect(mockContext.res).toEqual({
+        status: 401,
+        headers: { "Content-Type": "application/json" },
+        body: { error: "Unauthorized: JWT header is missing 'kid'" }
+      });
+      expect(mockNext).not.toHaveBeenCalled();
+    });
+
+    it("should handle JWKS client error", async () => {
+      const mockToken = "valid.jwt.token";
+
+      mockContext.req!.headers = {
+        authorization: `Bearer ${mockToken}`
+      };
+
+      // Mock jwt.verify to throw an error
+      mockJwt.verify.mockImplementation((token, getKey: any, options, callback: any) => {
+        callback(new Error("JWKS error"), undefined);
+      });
+
+      await withAuth(mockContext, mockNext);
+
+      expect(mockContext.res).toEqual({
+        status: 401,
+        headers: { "Content-Type": "application/json" },
+        body: { error: "Unauthorized: JWKS error" }
+      });
+      expect(mockNext).not.toHaveBeenCalled();
+    });
+
+    it("should handle JWKS client success", async () => {
+      const mockToken = "valid.jwt.token";
+      const mockPayload = {
+        oid: "test-oid",
+        upn: "test@example.com",
+        roles: ["admin"]
+      };
+
+      mockContext.req!.headers = {
+        authorization: `Bearer ${mockToken}`
+      };
+
+      // Mock jwt.verify to succeed
+      mockJwt.verify.mockImplementation((token, getKey: any, options, callback: any) => {
+        callback(null, mockPayload);
+      });
+
+      await withAuth(mockContext, mockNext);
+
+      expect(mockContext.bindings.user).toEqual(mockPayload);
+      expect(mockNext).toHaveBeenCalled();
+    });
   });
 });

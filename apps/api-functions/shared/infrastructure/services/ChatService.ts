@@ -4,7 +4,7 @@
  */
 
 import { IChatService } from '../../domain/interfaces/IChatService';
-import { OnBehalfOfCredential, ClientSecretCredential } from '@azure/identity';
+import { OnBehalfOfCredential } from '@azure/identity';
 import { Client } from '@microsoft/microsoft-graph-client';
 import { TokenCredentialAuthenticationProvider } from '@microsoft/microsoft-graph-client/authProviders/azureTokenCredentials';
 import { getCentralAmericaTime } from '../../utils/dateUtils';
@@ -49,10 +49,7 @@ export class ChatService implements IChatService {
       const users = await prisma.user.findMany({
         where: { role: { in: ['Admin', 'ContactManager', 'SuperAdmin'] } }
       });
-      console.log(`Found ${users.length} users for contact managers chat`);
-      
       const desired = users.map((u: any) => ({ userId: u.id, oid: u.azureAdObjectId.toLowerCase() }));
-      console.log('Desired participants:', desired);
 
       // Check for existing record
       const record = await prisma.chat.findFirst({
@@ -62,10 +59,8 @@ export class ChatService implements IChatService {
 
       let chatId: string;
       if (!record) {
-        console.log('No existing chat found, creating new one...');
         // Create new chat in Graph using user token
         chatId = await this.createGraphChat(token, desired, chatTopic);
-        console.log('Created chat with ID:', chatId);
 
         // Persist in DB with correct ID
         await prisma.chat.create({
@@ -77,12 +72,9 @@ export class ChatService implements IChatService {
             members: { create: desired.map(d => ({ userId: d.userId, joinedAt: getCentralAmericaTime() })) }
           }
         });
-        console.log('Chat persisted to database');
       } else {
         chatId = record.id;
-        console.log('Found existing chat:', chatId);
         // Skip sync - Employee is not a member and cannot sync
-        console.log('Skipping chat membership sync - Employee is not a member');
       }
 
       return chatId;
@@ -108,8 +100,6 @@ export class ChatService implements IChatService {
       const currentUser = await graph.api('/me').get();
       const userId = currentUser.id;
       
-      console.log(`Temporarily adding user ${userId} to chat ${chatId}`);
-      
       // 2. Add user to chat temporarily
       await this.addUserToChatTemporarily(token, chatId, userId);
       
@@ -118,8 +108,6 @@ export class ChatService implements IChatService {
       
       // 4. Remove user from chat
       await this.removeUserFromChat(token, chatId, userId);
-      
-      console.log(`User ${userId} removed from chat ${chatId}`);
     } catch (error: any) {
       console.error('Failed to send message:', error);
       throw new Error(`Failed to send message: ${error.message}`);
@@ -140,7 +128,6 @@ export class ChatService implements IChatService {
       
       if (member) {
         await graph.api(`/chats/${chatId}/members/${member.id}`).delete();
-        console.log(`Successfully removed user ${userId} from chat ${chatId}`);
       }
     } catch (error: any) {
       console.warn(`Failed to remove user ${userId} from chat ${chatId}:`, error.message);
@@ -256,8 +243,6 @@ export class ChatService implements IChatService {
     participants: readonly { userId: string; oid: string }[],
     topic: string
   ): Promise<string> {
-    console.log('Creating Graph chat with participants:', participants.length);
-    
     const graph = this.initGraphClient(token);
 
     // First, try to find existing chat with this topic
@@ -268,7 +253,6 @@ export class ChatService implements IChatService {
         .get();
       
       if (existingChats.value && existingChats.value.length > 0) {
-        console.log(`Found existing chat with topic: ${topic}`);
         const existingChatId = existingChats.value[0].id;
         
         // Sync members with the existing chat (now possible with application permissions)
@@ -277,7 +261,7 @@ export class ChatService implements IChatService {
         return existingChatId;
       }
     } catch (error) {
-      console.log('No existing chat found or error searching:', error);
+      // No existing chat found or error searching
     }
 
     // Microsoft Teams has limits on chat creation - try with smaller batches
@@ -290,17 +274,12 @@ export class ChatService implements IChatService {
       'user@odata.bind': `https://graph.microsoft.com/v1.0/users('${p.oid}')`
     }));
 
-    console.log(`Creating chat with ${initialParticipants.length} initial members`);
-
     try {
       const graphChat: any = await graph
         .api('/chats')
         .post({ chatType: 'group', topic, members });
-
-      console.log('Graph chat created successfully:', graphChat.id);
       
       if (participants.length > MAX_INITIAL_MEMBERS) {
-        console.log(`Adding remaining ${participants.length - MAX_INITIAL_MEMBERS} participants in batches`);
         await this.addParticipantsInBatches(token, graphChat.id, participants.slice(MAX_INITIAL_MEMBERS));
       }
       
@@ -324,7 +303,6 @@ export class ChatService implements IChatService {
     
     for (let i = 0; i < remainingParticipants.length; i += BATCH_SIZE) {
       const batch = remainingParticipants.slice(i, i + BATCH_SIZE);
-      console.log(`Adding batch ${Math.floor(i / BATCH_SIZE) + 1}: ${batch.length} participants`);
       
       for (const participant of batch) {
         try {
@@ -333,7 +311,6 @@ export class ChatService implements IChatService {
             roles: ['owner'],
             'user@odata.bind': `https://graph.microsoft.com/v1.0/users('${participant.oid}')`
           });
-          console.log(`Successfully added participant: ${participant.oid}`);
         } catch (error: any) {
           console.warn(`Failed to add participant ${participant.oid}:`, error.message);
         }
@@ -375,7 +352,6 @@ export class ChatService implements IChatService {
           roles: ['owner'],
           'user@odata.bind': `https://graph.microsoft.com/v1.0/users('${d.oid}')`
         });
-        console.log(`Added member: ${d.oid}`);
       } catch (error: any) {
         console.warn(`Failed to add member ${d.oid}:`, error.message);
       }
@@ -385,7 +361,6 @@ export class ChatService implements IChatService {
     for (const g of toRemove) {
       try {
         await graph.api(`/chats/${chatId}/members/${g.memberId}`).delete();
-        console.log(`Removed member: ${g.oid}`);
       } catch (error: any) {
         console.warn(`Failed to remove member ${g.oid}:`, error.message);
       }
@@ -516,8 +491,6 @@ export class ChatService implements IChatService {
         await graph
           .api(`/chats/${chatId}/members/${memberToRemove.id}`)
           .delete();
-        
-        console.log(`Successfully removed member ${userOid} from chat ${chatId}`);
       } else {
         console.warn(`Member ${userOid} not found in chat ${chatId}`);
       }
@@ -539,12 +512,10 @@ export class ChatService implements IChatService {
         roles: ['owner'],
         'user@odata.bind': `https://graph.microsoft.com/v1.0/users('${userOid}')`
       });
-      
-      console.log(`Successfully added user ${userOid} to chat ${chatId}`);
     } catch (error: any) {
       // If user is already in chat, that's fine
       if (error.message?.includes('already a member')) {
-        console.log(`User ${userOid} is already a member of chat ${chatId}`);
+        // User is already a member
       } else {
         console.error(`Failed to add user ${userOid} to chat ${chatId}:`, error);
         throw error;
@@ -582,10 +553,6 @@ export class ChatService implements IChatService {
         !newMemberIds.includes(member.userId)
       );
       
-      console.log(`Syncing chat ${chatId}:`);
-      console.log(`- Adding ${membersToAdd.length} new members`);
-      console.log(`- Removing ${membersToRemove.length} old members`);
-      
       // Add new members
       if (membersToAdd.length > 0) {
         await this.addParticipantsInBatches(token, chatId, membersToAdd);
@@ -599,12 +566,9 @@ export class ChatService implements IChatService {
             const shouldKeepMember = newParticipants.some(p => p.oid === member.userId);
             
             if (!shouldKeepMember) {
-              console.log(`Removing member: ${member.displayName} (${member.userId})`);
               await graph
                 .api(`/chats/${chatId}/members/${member.id}`)
                 .delete();
-            } else {
-              console.log(`Keeping member: ${member.displayName} (${member.userId}) - they are in the new list`);
             }
           } catch (error) {
             console.warn(`Failed to remove member ${member.displayName}:`, error);
