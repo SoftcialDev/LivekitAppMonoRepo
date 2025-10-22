@@ -391,7 +391,10 @@ const displayList = useMemo(() => {
                       console.log(`Supervisor changed for ${psoEmail} to ${newSupervisorEmail}`);
                       // TODO: Handle supervisor change - refresh data or update state
                     }}
-                  portalMinWidthPx={portalMinWidthPx}
+                    portalMinWidthPx={portalMinWidthPx}
+                    // Timer props
+                    stopReason={statusInfo?.lastSession?.stopReason || null}
+                    stoppedAt={statusInfo?.lastSession?.stoppedAt || null}
                   />
                 </div>
               );

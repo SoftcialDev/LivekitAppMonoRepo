@@ -15,6 +15,8 @@ import { useRecording } from '../hooks/useRecording'
 import { useTalkback } from '../hooks/useTalkback'
 import StopReasonButton, { StopReason } from '@/shared/ui/Buttons/StopReasonButton'
 import SupervisorSelector from './SupervisorSelector'
+import { useSynchronizedTimer } from '../hooks/useSynchronizedTimer'
+import { TimerDisplay, CompactTimer } from './TimerDisplay'
 
 /**
  * VideoCard
@@ -42,12 +44,17 @@ const VideoCard: React.FC<VideoCardProps & {
   supervisorName?: string;
   onSupervisorChange?: (psoEmail: string, newSupervisorEmail: string) => void;
   portalMinWidthPx?: number;
+  // Timer props
+  stopReason?: string | null;
+  stoppedAt?: string | null;
 }> = memo(({
   name,
   email,
   onPlay,
   onChat,
   showHeader = true,
+  stopReason,
+  stoppedAt,
   className = '',
   accessToken,
   roomName,
@@ -101,6 +108,11 @@ const VideoCard: React.FC<VideoCardProps & {
     start: startTalk,
     stop: stopTalk,
   } = useTalkback({ roomRef, targetIdentity: roomName })
+
+  /**
+   * Synchronized timer for break/lunch/emergency
+   */
+  const timerInfo = useSynchronizedTimer(stopReason, stoppedAt);
 
   /** Reflect mute state in the hidden <audio> element. */
   useEffect(() => {
@@ -322,6 +334,8 @@ const VideoCard: React.FC<VideoCardProps & {
             ) : (
               <div className="text-white truncate">{name}</div>
             )}
+            
+            {/* Timer Display - REMOVED from header */}
           </div>
         )}
 
@@ -337,14 +351,22 @@ const VideoCard: React.FC<VideoCardProps & {
               className="absolute inset-0 w-full h-full object-contain"
             />
           ) : (
-            <div className="absolute inset-0 flex items-center justify-center">
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
               {(() => {
                 console.log('[VideoCard] statusMessage for', email, ':', statusMessage);
                 const text = statusMessage || '';
                 return (
-                  <span className="text-xl font-medium text-yellow-400">
-                    {text}
-                  </span>
+                  <>
+                    <span className="text-xl font-medium text-yellow-400 mb-2">
+                      {text}
+                    </span>
+                    {/* Timer Display in content area - Solo números grandes */}
+                    {timerInfo && (
+                      <div className="mt-2">
+                        <CompactTimer timerInfo={timerInfo} />
+                      </div>
+                    )}
+                  </>
                 );
               })()}
             </div>

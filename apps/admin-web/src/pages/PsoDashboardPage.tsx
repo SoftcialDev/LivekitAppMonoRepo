@@ -7,6 +7,9 @@ import { usePsoSupervisor } from './Video/hooks/usePsoSupervisor';
 import { usePsoSupervisorNotifications } from './Video/hooks/usePsoSupervisorNotifications';
 import { useAutoReloadWhenIdle } from './Video/hooks/useAutoReloadWhenIdle';
 import { useWebSocketHeartbeat } from '@/shared/hooks/useWebSocketHeartbeat';
+import { usePsoStreamingStatus } from './Video/hooks/usePsoStreamingStatus';
+import { useSynchronizedTimer } from './Video/hooks/useSynchronizedTimer';
+import { CompactTimer } from './Video/components/TimerDisplay';
 
 
 
@@ -69,6 +72,29 @@ const PsoDashboard: React.FC = () => {
   useWebSocketHeartbeat(psoEmail);
 
   /**
+   * PSO Streaming Status - para obtener información del timer
+   */
+  const { status: streamingStatus, loading: statusLoading, error: statusError } = usePsoStreamingStatus(psoEmail);
+
+  /**
+   * Timer sincronizado basado en el streaming status
+   */
+  const timerInfo = useSynchronizedTimer(
+    streamingStatus?.lastSession?.stopReason || null,
+    streamingStatus?.lastSession?.stoppedAt || null
+  );
+
+  // Debug logging
+  useEffect(() => {
+    console.log(`📡 [PsoDashboard] Streaming status for ${psoEmail}:`, {
+      streamingStatus,
+      statusLoading,
+      statusError,
+      timerInfo
+    });
+  }, [psoEmail, streamingStatus, statusLoading, statusError, timerInfo]);
+
+  /**
    * Media streaming hooks:
    * - `videoRef` attaches to the <video> element.
    * - `audioRef` attaches to the <audio> element.
@@ -117,12 +143,33 @@ const PsoDashboard: React.FC = () => {
             poster="https://via.placeholder.com/640x360?text=No+Stream"
           />
           <audio ref={audioRef} autoPlay hidden />
-          {/* Status overlay */}
+          
+          {/* Status overlay with timer */}
           <div className="p-4 text-center text-white bg-[rgba(0,0,0,0.5)]">
-            Streaming:{' '}
-            <span className={isStreaming ? 'text-green-400' : 'text-red-400'}>
-              {isStreaming ? 'ON' : 'OFF'}
-            </span>
+            <div className="mb-2">
+              Streaming:{' '}
+              <span className={isStreaming ? 'text-green-400' : 'text-red-400'}>
+                {isStreaming ? 'ON' : 'OFF'}
+              </span>
+            </div>
+            
+            {/* Status and Timer Display - Solo cuando hay timer activo */}
+            {timerInfo && (
+              <div className="mt-2">
+                <div className="text-lg font-medium text-yellow-400 mb-1">
+                  {timerInfo.type === 'LUNCH_BREAK' && 'Lunch Break'}
+                  {timerInfo.type === 'SHORT_BREAK' && 'Short Break'}
+                  {timerInfo.type === 'QUICK_BREAK' && 'Quick Break'}
+                  {timerInfo.type === 'EMERGENCY' && 'Emergency'}
+                </div>
+                <CompactTimer timerInfo={timerInfo} />
+                {timerInfo.isNegative && (
+                  <div className="text-sm text-red-400 mt-1">
+                    Overdue
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
