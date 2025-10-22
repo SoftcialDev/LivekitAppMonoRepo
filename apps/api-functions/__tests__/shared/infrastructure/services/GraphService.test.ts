@@ -75,19 +75,23 @@ describe('GraphService', () => {
     });
 
     it('should handle missing Azure AD config', async () => {
-      // Mock missing config
-      jest.doMock('../../../../shared/config', () => ({
-        config: {
-          azureTenantId: null,
-          azureClientId: 'test-client-id',
-          azureClientSecret: 'test-client-secret',
-        },
-      }));
+      // Create a new service instance with missing config
+      const originalConfig = require('../../../../shared/config').config;
+      
+      // Temporarily modify the config
+      require('../../../../shared/config').config = {
+        azureTenantId: null,
+        azureClientId: 'test-client-id',
+        azureClientSecret: 'test-client-secret',
+      };
 
       const service = new GraphService();
       
       await expect(service.getGraphToken())
         .rejects.toThrow('Missing Azure AD config: azureTenantId, azureClientId, or azureClientSecret');
+        
+      // Restore original config
+      require('../../../../shared/config').config = originalConfig;
     });
 
     it('should handle axios errors', async () => {
@@ -109,7 +113,7 @@ describe('GraphService', () => {
       mockAxios.post.mockResolvedValue(invalidResponse);
 
       await expect(graphService.getGraphToken())
-        .rejects.toThrow('Failed to acquire Graph token: Invalid client credentials');
+        .rejects.toThrow('Failed to acquire Graph token: Token response did not contain access_token. Response: {"error":"invalid_client","error_description":"Invalid client credentials"}');
     });
   });
 
@@ -156,6 +160,7 @@ describe('GraphService', () => {
 
     it('should remove all app roles successfully', async () => {
       const mockRoleAssignments = {
+        status: 200,
         data: {
           value: [
             { id: 'assignment-1', principalId: mockUserId },
@@ -201,6 +206,7 @@ describe('GraphService', () => {
 
     it('should fetch all users successfully', async () => {
       const mockUsersResponse = {
+        status: 200,
         data: {
           value: [
             {
@@ -243,7 +249,7 @@ describe('GraphService', () => {
           ]);
 
       expect(mockAxios.get).toHaveBeenCalledWith(
-        'https://graph.microsoft.com/v1.0/users?$top=999',
+        'https://graph.microsoft.com/v1.0/users?$select=id,displayName,mail,userPrincipalName,accountEnabled&$top=100',
         {
           headers: {
             Authorization: `Bearer ${mockToken}`,
@@ -268,11 +274,12 @@ describe('GraphService', () => {
 
     it('should fetch app role member IDs successfully', async () => {
       const mockMembersResponse = {
+        status: 200,
         data: {
           value: [
-            { principalId: 'user-1' },
-            { principalId: 'user-2' },
-            { principalId: 'user-3' },
+            { principalId: 'user-1', appRoleId: mockAppRoleId },
+            { principalId: 'user-2', appRoleId: mockAppRoleId },
+            { principalId: 'user-3', appRoleId: mockAppRoleId },
           ],
         },
       };
@@ -284,7 +291,7 @@ describe('GraphService', () => {
       expect(result).toEqual(new Set(['user-1', 'user-2', 'user-3']));
 
       expect(mockAxios.get).toHaveBeenCalledWith(
-        `https://graph.microsoft.com/v1.0/servicePrincipals/${mockServicePrincipalId}/appRoleAssignedTo?$filter=appRoleId eq '${mockAppRoleId}'`,
+        `https://graph.microsoft.com/v1.0/servicePrincipals/${mockServicePrincipalId}/appRoleAssignedTo?$top=100`,
         {
           headers: {
             Authorization: `Bearer ${mockToken}`,
@@ -484,6 +491,7 @@ describe('GraphService', () => {
       const mockUserId = 'user-123';
 
       const mockRoleAssignments = {
+        status: 200,
         data: {
           value: [
             { id: 'assignment-1', principalId: mockUserId },
@@ -517,6 +525,7 @@ describe('GraphService', () => {
     it('should handle user fetching scenario', async () => {
       const mockToken = 'test-token';
       const mockUsersResponse = {
+        status: 200,
         data: {
           value: [
             {
@@ -551,10 +560,11 @@ describe('GraphService', () => {
       const mockAppRoleId = 'role-123';
 
       const mockMembersResponse = {
+        status: 200,
         data: {
           value: [
-            { principalId: 'user-1' },
-            { principalId: 'user-2' },
+            { principalId: 'user-1', appRoleId: mockAppRoleId },
+            { principalId: 'user-2', appRoleId: mockAppRoleId },
           ],
         },
       };
@@ -574,12 +584,12 @@ describe('GraphService', () => {
       ];
 
       mockAxios.post.mockResolvedValue({ status: 201 });
-      mockAxios.get.mockResolvedValue({ data: { value: [] } });
+      mockAxios.get.mockResolvedValue({ status: 200, data: { value: [] } });
       mockAxios.delete.mockResolvedValue({ status: 204 });
 
       for (const operation of operations) {
         if (operation.type === 'assign') {
-          await graphService.assignAppRoleToPrincipal('token', operation.spId, operation.userId, operation.roleId);
+          await graphService.assignAppRoleToPrincipal('token', operation.spId, operation.userId, operation.roleId || 'default-role');
         } else if (operation.type === 'remove') {
           await graphService.removeAllAppRolesFromPrincipalOnSp('token', operation.spId, operation.userId);
         }
@@ -600,6 +610,7 @@ describe('GraphService', () => {
       };
 
       const mockUsersResponse = {
+        status: 200,
         data: {
           value: [
             {

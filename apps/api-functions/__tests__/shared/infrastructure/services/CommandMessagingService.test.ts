@@ -22,7 +22,7 @@ describe('CommandMessagingService', () => {
     
     // Get the mocked instance
     mockExistingService = new ExistingCommandMessagingService() as jest.Mocked<ExistingCommandMessagingService>;
-    (ExistingCommandMessagingService as jest.Mock).mockReturnValue(mockExistingService);
+    (ExistingCommandMessagingService as unknown as jest.Mock).mockReturnValue(mockExistingService);
     
     commandMessagingService = new CommandMessagingService();
   });
@@ -146,6 +146,7 @@ describe('CommandMessagingService', () => {
       const longGroupName = 'A'.repeat(1000);
       mockExistingService.sendToGroup.mockResolvedValue(undefined);
 
+      const mockMessage = { type: 'test', data: 'test-data' };
       await commandMessagingService.sendToGroup(longGroupName, mockMessage);
 
       expect(mockExistingService.sendToGroup).toHaveBeenCalledWith(longGroupName, mockMessage);
@@ -159,6 +160,7 @@ describe('CommandMessagingService', () => {
 
       mockExistingService.sendToGroup.mockResolvedValue(undefined);
 
+      const mockGroupName = 'test-group';
       await commandMessagingService.sendToGroup(mockGroupName, largeMessage);
 
       expect(mockExistingService.sendToGroup).toHaveBeenCalledWith(mockGroupName, largeMessage);
@@ -168,15 +170,17 @@ describe('CommandMessagingService', () => {
       const specialGroupName = 'group-with-special-chars-@#$%^&*()';
       mockExistingService.sendToGroup.mockResolvedValue(undefined);
 
+      const mockMessage = { type: 'test', data: 'test-data' };
       await commandMessagingService.sendToGroup(specialGroupName, mockMessage);
 
       expect(mockExistingService.sendToGroup).toHaveBeenCalledWith(specialGroupName, mockMessage);
     });
 
     it('should handle unicode characters in group name', async () => {
-      const unicodeGroupName = '用户组-管理员';
+      const unicodeGroupName = '组-测试';
       mockExistingService.sendToGroup.mockResolvedValue(undefined);
 
+      const mockMessage = { type: 'test', data: 'test-data' };
       await commandMessagingService.sendToGroup(unicodeGroupName, mockMessage);
 
       expect(mockExistingService.sendToGroup).toHaveBeenCalledWith(unicodeGroupName, mockMessage);
@@ -212,6 +216,7 @@ describe('CommandMessagingService', () => {
 
       mockExistingService.sendToGroup.mockResolvedValue(undefined);
 
+      const mockGroupName = 'test-group';
       await commandMessagingService.sendToGroup(mockGroupName, complexMessage);
 
       expect(mockExistingService.sendToGroup).toHaveBeenCalledWith(mockGroupName, complexMessage);
@@ -289,9 +294,10 @@ describe('CommandMessagingService', () => {
 
       mockExistingService.sendToGroup.mockResolvedValue(undefined);
 
-      const promises = messages.map(message => 
-        commandMessagingService.sendToGroup(mockGroupName, message)
-      );
+      const promises = messages.map(message => {
+        const mockGroupName = 'test-group';
+        return commandMessagingService.sendToGroup(mockGroupName, message);
+      });
 
       await Promise.all(promises);
 

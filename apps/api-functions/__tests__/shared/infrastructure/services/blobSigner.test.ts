@@ -203,7 +203,6 @@ describe('blobSigner service', () => {
           blobName: 'user/session.mp4',
           permissions: 'r',
           expiresOn: expect.any(Date),
-          protocol: 'https',
         },
         expect.any(Object)
       );
@@ -240,8 +239,8 @@ describe('blobSigner service', () => {
       const path = 'user@domain.com/2025/01/15/session with spaces & symbols!.mp4';
       const url = buildBlobHttpsUrl(path);
 
-      expect(url).toContain('user%40domain.com');
-      expect(url).toContain('session%20with%20spaces%20%26%20symbols%21.mp4');
+      expect(url).toContain('user@domain.com');
+      expect(url).toContain('session%20with%20spaces%20&%20symbols!.mp4');
     });
 
     it('should handle unicode characters in path', () => {

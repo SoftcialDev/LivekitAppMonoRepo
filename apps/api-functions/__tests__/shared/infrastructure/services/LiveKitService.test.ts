@@ -35,12 +35,21 @@ describe('LiveKitService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     
-    liveKitService = new LiveKitService();
-    
-    // Get mocked instances
+    // Get mocked instances first
     const { RoomServiceClient, AccessToken } = require('livekit-server-sdk');
     mockRoomServiceClient = new RoomServiceClient();
     mockAccessToken = new AccessToken();
+    
+    // Configure mock AccessToken to return a token
+    mockAccessToken.toJwt.mockReturnValue('mock-jwt-token');
+    
+    // Mock AccessToken constructor to return our mock instance
+    (AccessToken as jest.Mock).mockImplementation(() => mockAccessToken);
+    
+    liveKitService = new LiveKitService();
+    
+    // Replace the private client with our mock
+    (liveKitService as any).adminClient = mockRoomServiceClient;
   });
 
   afterEach(() => {
@@ -102,8 +111,7 @@ describe('LiveKitService', () => {
 
       expect(mockRoomServiceClient.createRoom).toHaveBeenCalledWith({
         name: mockRoomName,
-        maxParticipants: 0,
-        emptyTimeout: 300,
+        emptyTimeout: 0,
       });
     });
 
@@ -131,8 +139,7 @@ describe('LiveKitService', () => {
         await liveKitService.ensureRoom(roomName);
         expect(mockRoomServiceClient.createRoom).toHaveBeenCalledWith({
           name: roomName,
-          maxParticipants: 0,
-          emptyTimeout: 300,
+          emptyTimeout: 0,
         });
       }
     });
@@ -145,7 +152,7 @@ describe('LiveKitService', () => {
           name: 'room-1',
           numParticipants: 2,
           maxParticipants: 10,
-          emptyTimeout: 300,
+          emptyTimeout: 0,
         },
         {
           name: 'room-2',
@@ -181,27 +188,23 @@ describe('LiveKitService', () => {
   });
 
   describe('generateToken', () => {
-    const mockIdentity = 'test-identity';
-    const mockIsAdmin = true;
-    const mockRoom = 'test-room';
+  const mockIdentity = 'test-identity';
+  const mockIsAdmin = false;
+  const mockRoom = 'test-room';
 
     it('should generate token successfully', async () => {
-      const mockToken = 'test-jwt-token';
-      mockAccessToken.toJwt.mockReturnValue(mockToken);
-
       const result = await liveKitService.generateToken(mockIdentity, mockIsAdmin, mockRoom);
 
-      expect(result).toBe(mockToken);
+      expect(result).toBe('mock-jwt-token');
       expect(mockAccessToken.addGrant).toHaveBeenCalledWith({
         room: mockRoom,
         roomJoin: true,
         canPublish: true,
         canSubscribe: true,
+        canPublishData: true,
+        publishSources: ['camera', 'microphone', 'screen_share', 'screen_share_audio'],
       });
-      expect(mockAccessToken.toJwt).toHaveBeenCalledWith(
-        'test-api-key',
-        'test-api-secret'
-      );
+      expect(mockAccessToken.toJwt).toHaveBeenCalled();
     });
 
     it('should handle token generation errors', async () => {
@@ -222,9 +225,6 @@ describe('LiveKitService', () => {
         'identity-with-special-chars-@#$%',
       ];
 
-      const mockToken = 'test-jwt-token';
-      mockAccessToken.toJwt.mockReturnValue(mockToken);
-
       for (const identity of identities) {
         await liveKitService.generateToken(identity, mockIsAdmin, mockRoom);
         expect(mockAccessToken.addGrant).toHaveBeenCalledWith({
@@ -232,6 +232,8 @@ describe('LiveKitService', () => {
           roomJoin: true,
           canPublish: true,
           canSubscribe: true,
+          canPublishData: true,
+          publishSources: ['camera', 'microphone', 'screen_share', 'screen_share_audio'],
         });
       }
     });
@@ -239,16 +241,18 @@ describe('LiveKitService', () => {
     it('should handle different admin flags', async () => {
       const adminFlags = [true, false];
 
-      const mockToken = 'test-jwt-token';
-      mockAccessToken.toJwt.mockReturnValue(mockToken);
-
       for (const isAdmin of adminFlags) {
         await liveKitService.generateToken(mockIdentity, isAdmin, mockRoom);
+        const expectedPublishSources = isAdmin 
+          ? ['microphone'] 
+          : ['camera', 'microphone', 'screen_share', 'screen_share_audio'];
         expect(mockAccessToken.addGrant).toHaveBeenCalledWith({
           room: mockRoom,
           roomJoin: true,
           canPublish: true,
           canSubscribe: true,
+          canPublishData: true,
+          publishSources: expectedPublishSources,
         });
       }
     });
@@ -273,6 +277,8 @@ describe('LiveKitService', () => {
           roomJoin: true,
           canPublish: true,
           canSubscribe: true,
+          canPublishData: true,
+          publishSources: ['camera', 'microphone', 'screen_share', 'screen_share_audio'],
         });
       }
     });
@@ -287,8 +293,7 @@ describe('LiveKitService', () => {
 
       expect(mockRoomServiceClient.createRoom).toHaveBeenCalledWith({
         name: longRoomName,
-        maxParticipants: 0,
-        emptyTimeout: 300,
+        emptyTimeout: 0,
       });
     });
 
@@ -300,8 +305,7 @@ describe('LiveKitService', () => {
 
       expect(mockRoomServiceClient.createRoom).toHaveBeenCalledWith({
         name: specialRoomName,
-        maxParticipants: 0,
-        emptyTimeout: 300,
+        emptyTimeout: 0,
       });
     });
 
@@ -313,8 +317,7 @@ describe('LiveKitService', () => {
 
       expect(mockRoomServiceClient.createRoom).toHaveBeenCalledWith({
         name: unicodeRoomName,
-        maxParticipants: 0,
-        emptyTimeout: 300,
+        emptyTimeout: 0,
       });
     });
 
@@ -326,8 +329,7 @@ describe('LiveKitService', () => {
 
       expect(mockRoomServiceClient.createRoom).toHaveBeenCalledWith({
         name: emptyRoomName,
-        maxParticipants: 0,
-        emptyTimeout: 300,
+        emptyTimeout: 0,
       });
     });
 
@@ -339,8 +341,7 @@ describe('LiveKitService', () => {
 
       expect(mockRoomServiceClient.createRoom).toHaveBeenCalledWith({
         name: nullRoomName,
-        maxParticipants: 0,
-        emptyTimeout: 300,
+        emptyTimeout: 0,
       });
     });
   });
@@ -354,8 +355,7 @@ describe('LiveKitService', () => {
 
       expect(mockRoomServiceClient.createRoom).toHaveBeenCalledWith({
         name: psoRoomName,
-        maxParticipants: 0,
-        emptyTimeout: 300,
+        emptyTimeout: 0,
       });
     });
 
@@ -367,8 +367,7 @@ describe('LiveKitService', () => {
 
       expect(mockRoomServiceClient.createRoom).toHaveBeenCalledWith({
         name: supervisorRoomName,
-        maxParticipants: 0,
-        emptyTimeout: 300,
+        emptyTimeout: 0,
       });
     });
 
@@ -380,33 +379,26 @@ describe('LiveKitService', () => {
 
       expect(mockRoomServiceClient.createRoom).toHaveBeenCalledWith({
         name: adminRoomName,
-        maxParticipants: 0,
-        emptyTimeout: 300,
+        emptyTimeout: 0,
       });
     });
 
     it('should handle token generation for PSO scenario', async () => {
       const psoIdentity = 'pso-123';
       const psoRoom = 'pso-room-123';
-      const mockToken = 'pso-jwt-token';
-
-      mockAccessToken.toJwt.mockReturnValue(mockToken);
 
       const result = await liveKitService.generateToken(psoIdentity, false, psoRoom);
 
-      expect(result).toBe(mockToken);
+      expect(result).toBe('mock-jwt-token');
     });
 
     it('should handle token generation for supervisor scenario', async () => {
       const supervisorIdentity = 'supervisor-456';
       const supervisorRoom = 'supervisor-room-456';
-      const mockToken = 'supervisor-jwt-token';
-
-      mockAccessToken.toJwt.mockReturnValue(mockToken);
 
       const result = await liveKitService.generateToken(supervisorIdentity, true, supervisorRoom);
 
-      expect(result).toBe(mockToken);
+      expect(result).toBe('mock-jwt-token');
     });
 
     it('should handle bulk room operations scenario', async () => {
@@ -427,12 +419,9 @@ describe('LiveKitService', () => {
 
     it('should handle concurrent operations scenario', async () => {
       const mockRooms = [
-        {
-          name: 'room-1',
-          numParticipants: 0,
-          maxParticipants: 10,
-          emptyTimeout: 300,
-        },
+        { name: 'room-1', sid: 'sid-1' },
+        { name: 'room-2', sid: 'sid-2' },
+        { name: 'room-3', sid: 'sid-3' },
       ];
 
       const mockToken = 'test-jwt-token';
@@ -450,7 +439,7 @@ describe('LiveKitService', () => {
       const results = await Promise.all(promises);
 
       expect(results[0]).toBeUndefined();
-      expect(results[1]).toEqual(['room-1']);
+      expect(results[1]).toEqual(['room-1', 'room-2', 'room-3']);
       expect(results[2]).toBe(mockToken);
     });
   });

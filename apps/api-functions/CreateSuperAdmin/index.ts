@@ -10,7 +10,7 @@ import { withAuth } from "../shared/middleware/auth";
 import { withErrorHandler } from "../shared/middleware/errorHandler";
 import { withBodyValidation } from "../shared/middleware/validate";
 import { withCallerId } from "../shared/middleware/callerId";
-import { requireAdminAccess } from "../shared/middleware/authorization";
+import { requireSuperAdminAccess } from "../shared/middleware/authorization";
 import { ok } from "../shared/utils/response";
 import { createSuperAdminSchema } from "../shared/domain/schemas/CreateSuperAdminSchema";
 import { CreateSuperAdminRequest } from "../shared/domain/value-objects/CreateSuperAdminRequest";
@@ -43,7 +43,7 @@ const create: AzureFunction = withErrorHandler(
   async (ctx: Context, req: HttpRequest) => {
     await withAuth(ctx, async () => {
       await withCallerId(ctx, async () => {
-        await requireAdminAccess()(ctx);
+        await requireSuperAdminAccess()(ctx);
         await withBodyValidation(createSuperAdminSchema)(ctx, async () => {
           serviceContainer.initialize();
 

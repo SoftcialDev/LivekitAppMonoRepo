@@ -1,7 +1,7 @@
 import { 
   requireCommandPermission, 
   requireUserManagementPermission, 
-  requireAdminAccess 
+  requireSuperAdminAccess 
 } from '../../../shared/middleware/authorization';
 import { Context } from '@azure/functions';
 import { AuthorizationService } from '../../../shared/domain/services/AuthorizationService';
@@ -183,7 +183,7 @@ describe('authorization middleware', () => {
       mockContext.bindings.callerId = callerId;
       mockAuthorizationService.canAccessAdmin.mockResolvedValue(true);
 
-      const middleware = requireAdminAccess();
+      const middleware = requireSuperAdminAccess();
       await middleware(mockContext);
 
       expect(mockAuthorizationService.canAccessAdmin).toHaveBeenCalledWith(callerId);
@@ -192,7 +192,7 @@ describe('authorization middleware', () => {
     it('should throw error when caller ID is not found in context', async () => {
       mockContext.bindings = {};
 
-      const middleware = requireAdminAccess();
+      const middleware = requireSuperAdminAccess();
       
       await expect(middleware(mockContext)).rejects.toThrow('Caller ID not found in context');
       
@@ -202,7 +202,7 @@ describe('authorization middleware', () => {
     it('should throw error when caller ID is null', async () => {
       mockContext.bindings.callerId = null;
 
-      const middleware = requireAdminAccess();
+      const middleware = requireSuperAdminAccess();
       
       await expect(middleware(mockContext)).rejects.toThrow('Caller ID not found in context');
       
@@ -212,7 +212,7 @@ describe('authorization middleware', () => {
     it('should throw error when caller ID is undefined', async () => {
       mockContext.bindings.callerId = undefined;
 
-      const middleware = requireAdminAccess();
+      const middleware = requireSuperAdminAccess();
       
       await expect(middleware(mockContext)).rejects.toThrow('Caller ID not found in context');
       
@@ -224,7 +224,7 @@ describe('authorization middleware', () => {
       mockContext.bindings.callerId = callerId;
       mockAuthorizationService.canAccessAdmin.mockResolvedValue(false);
 
-      const middleware = requireAdminAccess();
+      const middleware = requireSuperAdminAccess();
       
       await expect(middleware(mockContext)).rejects.toThrow('Insufficient privileges');
       
@@ -242,7 +242,7 @@ describe('authorization middleware', () => {
       for (const callerId of testCases) {
         mockContext.bindings.callerId = callerId;
         mockAuthorizationService.canAccessAdmin.mockResolvedValue(true);
-        const middleware = requireAdminAccess();
+        const middleware = requireSuperAdminAccess();
         
         await middleware(mockContext);
         
@@ -256,14 +256,14 @@ describe('authorization middleware', () => {
       const authError = new Error('Authorization service unavailable');
       mockAuthorizationService.canAccessAdmin.mockRejectedValue(authError);
 
-      const middleware = requireAdminAccess();
+      const middleware = requireSuperAdminAccess();
       
       await expect(middleware(mockContext)).rejects.toThrow('Authorization service unavailable');
     });
 
     it('should create new service instances for each middleware', () => {
-      const middleware1 = requireAdminAccess();
-      const middleware2 = requireAdminAccess();
+      const middleware1 = requireSuperAdminAccess();
+      const middleware2 = requireSuperAdminAccess();
       
       expect(MockedAuthorizationService).toHaveBeenCalledTimes(2);
       expect(MockedUserRepository).toHaveBeenCalledTimes(2);

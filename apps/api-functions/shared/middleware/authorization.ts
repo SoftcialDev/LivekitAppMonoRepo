@@ -59,3 +59,17 @@ export function requireAdminOrSuperAdminAccess() {
     }
   };
 }
+
+export function requireSuperAdminAccess() {
+  const authorizationService = new AuthorizationService(new UserRepository());
+  
+  return async (ctx: Context): Promise<void> => {
+    const callerId = extractCallerId(ctx);
+    const isAuthorized = await authorizationService.isSuperAdmin(callerId);
+    
+    if (!isAuthorized) {
+      throw new Error('Insufficient privileges - SuperAdmin role required');
+    }
+  };
+}
+

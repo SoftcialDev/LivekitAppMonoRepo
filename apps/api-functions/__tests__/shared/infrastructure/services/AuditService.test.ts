@@ -23,15 +23,9 @@ describe('AuditService', () => {
   beforeEach(() => {
     mockAuditRepository = {
       create: jest.fn(),
-      findById: jest.fn(),
       findByEntity: jest.fn(),
-      findByEntityId: jest.fn(),
-      findByChangedById: jest.fn(),
+      findByUser: jest.fn(),
       findByDateRange: jest.fn(),
-      findByAction: jest.fn(),
-      findAll: jest.fn(),
-      update: jest.fn(),
-      delete: jest.fn(),
     };
 
     auditService = new AuditService(mockAuditRepository);
@@ -58,18 +52,25 @@ describe('AuditService', () => {
     };
 
     it('should log audit entry successfully', async () => {
-      mockAuditRepository.create.mockResolvedValue(undefined);
+      mockAuditRepository.create.mockResolvedValue(new AuditLog({
+        id: 'test-uuid-123',
+        entity: 'User',
+        entityId: 'user-123',
+        action: 'UPDATE',
+        changedById: 'admin-456',
+        timestamp: new Date('2025-01-15T10:30:00Z'),
+        dataBefore: { role: 'PSO' },
+        dataAfter: { role: 'SUPERVISOR' },
+      }));
 
       await auditService.logAudit(mockAuditEntry);
 
       expect(mockAuditRepository.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          id: 'test-uuid-123',
           entity: 'User',
           entityId: 'user-123',
           action: 'UPDATE',
           changedById: 'admin-456',
-          timestamp: new Date('2025-01-15T10:30:00Z'),
           dataBefore: { role: 'PSO' },
           dataAfter: { role: 'SUPERVISOR' },
         })
@@ -84,20 +85,27 @@ describe('AuditService', () => {
         changedById: 'admin-456',
       };
 
-      mockAuditRepository.create.mockResolvedValue(undefined);
+      mockAuditRepository.create.mockResolvedValue(new AuditLog({
+        id: 'test-uuid-123',
+        entity: 'User',
+        entityId: 'user-123',
+        action: 'UPDATE',
+        changedById: 'admin-456',
+        timestamp: new Date('2025-01-15T10:30:00Z'),
+        dataBefore: { role: 'PSO' },
+        dataAfter: { role: 'SUPERVISOR' },
+      }));
 
       await auditService.logAudit(entryWithoutData);
 
       expect(mockAuditRepository.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          id: 'test-uuid-123',
           entity: 'User',
           entityId: 'user-123',
           action: 'CREATE',
           changedById: 'admin-456',
-          timestamp: new Date('2025-01-15T10:30:00Z'),
-          dataBefore: undefined,
-          dataAfter: undefined,
+          dataBefore: null,
+          dataAfter: null,
         })
       );
     });
@@ -123,7 +131,16 @@ describe('AuditService', () => {
           changedById: 'admin-456',
         };
 
-        mockAuditRepository.create.mockResolvedValue(undefined);
+        mockAuditRepository.create.mockResolvedValue(new AuditLog({
+        id: 'test-uuid-123',
+        entity: 'User',
+        entityId: 'user-123',
+        action: 'UPDATE',
+        changedById: 'admin-456',
+        timestamp: new Date('2025-01-15T10:30:00Z'),
+        dataBefore: { role: 'PSO' },
+        dataAfter: { role: 'SUPERVISOR' },
+      }));
         await auditService.logAudit(entry);
 
         expect(mockAuditRepository.create).toHaveBeenCalledWith(
@@ -148,7 +165,16 @@ describe('AuditService', () => {
           changedById: 'admin-456',
         };
 
-        mockAuditRepository.create.mockResolvedValue(undefined);
+        mockAuditRepository.create.mockResolvedValue(new AuditLog({
+        id: 'test-uuid-123',
+        entity: 'User',
+        entityId: 'user-123',
+        action: 'UPDATE',
+        changedById: 'admin-456',
+        timestamp: new Date('2025-01-15T10:30:00Z'),
+        dataBefore: { role: 'PSO' },
+        dataAfter: { role: 'SUPERVISOR' },
+      }));
         await auditService.logAudit(entry);
 
         expect(mockAuditRepository.create).toHaveBeenCalledWith(
@@ -196,7 +222,16 @@ describe('AuditService', () => {
         dataAfter: complexDataAfter,
       };
 
-      mockAuditRepository.create.mockResolvedValue(undefined);
+      mockAuditRepository.create.mockResolvedValue(new AuditLog({
+        id: 'test-uuid-123',
+        entity: 'User',
+        entityId: 'user-123',
+        action: 'UPDATE',
+        changedById: 'admin-456',
+        timestamp: new Date('2025-01-15T10:30:00Z'),
+        dataBefore: { role: 'PSO' },
+        dataAfter: { role: 'SUPERVISOR' },
+      }));
       await auditService.logAudit(entry);
 
       expect(mockAuditRepository.create).toHaveBeenCalledWith(
@@ -217,13 +252,26 @@ describe('AuditService', () => {
         dataAfter: undefined,
       };
 
-      mockAuditRepository.create.mockResolvedValue(undefined);
+      mockAuditRepository.create.mockResolvedValue(new AuditLog({
+        id: 'test-uuid-123',
+        entity: 'User',
+        entityId: 'user-123',
+        action: 'UPDATE',
+        changedById: 'admin-456',
+        timestamp: new Date('2025-01-15T10:30:00Z'),
+        dataBefore: { role: 'PSO' },
+        dataAfter: { role: 'SUPERVISOR' },
+      }));
       await auditService.logAudit(entryWithNulls);
 
       expect(mockAuditRepository.create).toHaveBeenCalledWith(
         expect.objectContaining({
+          entity: 'User',
+          entityId: 'user-123',
+          action: 'DELETE',
+          changedById: 'admin-456',
           dataBefore: null,
-          dataAfter: undefined,
+          dataAfter: null,
         })
       );
     });
@@ -238,7 +286,16 @@ describe('AuditService', () => {
         dataAfter: { name: 'José María' },
       };
 
-      mockAuditRepository.create.mockResolvedValue(undefined);
+      mockAuditRepository.create.mockResolvedValue(new AuditLog({
+        id: 'test-uuid-123',
+        entity: 'User',
+        entityId: 'user-123',
+        action: 'UPDATE',
+        changedById: 'admin-456',
+        timestamp: new Date('2025-01-15T10:30:00Z'),
+        dataBefore: { role: 'PSO' },
+        dataAfter: { role: 'SUPERVISOR' },
+      }));
       await auditService.logAudit(entry);
 
       expect(mockAuditRepository.create).toHaveBeenCalledWith(
@@ -260,7 +317,16 @@ describe('AuditService', () => {
         changedById: 'admin-456',
       };
 
-      mockAuditRepository.create.mockResolvedValue(undefined);
+      mockAuditRepository.create.mockResolvedValue(new AuditLog({
+        id: 'test-uuid-123',
+        entity: 'User',
+        entityId: 'user-123',
+        action: 'UPDATE',
+        changedById: 'admin-456',
+        timestamp: new Date('2025-01-15T10:30:00Z'),
+        dataBefore: { role: 'PSO' },
+        dataAfter: { role: 'SUPERVISOR' },
+      }));
       await auditService.logAudit(entry);
 
       expect(mockAuditRepository.create).toHaveBeenCalledWith(
@@ -279,7 +345,16 @@ describe('AuditService', () => {
         changedById: 'admin-456',
       };
 
-      mockAuditRepository.create.mockResolvedValue(undefined);
+      mockAuditRepository.create.mockResolvedValue(new AuditLog({
+        id: 'test-uuid-123',
+        entity: 'User',
+        entityId: 'user-123',
+        action: 'UPDATE',
+        changedById: 'admin-456',
+        timestamp: new Date('2025-01-15T10:30:00Z'),
+        dataBefore: { role: 'PSO' },
+        dataAfter: { role: 'SUPERVISOR' },
+      }));
       await auditService.logAudit(entry);
 
       expect(mockAuditRepository.create).toHaveBeenCalledWith(
@@ -297,7 +372,16 @@ describe('AuditService', () => {
         changedById: 'admin-456',
       };
 
-      mockAuditRepository.create.mockResolvedValue(undefined);
+      mockAuditRepository.create.mockResolvedValue(new AuditLog({
+        id: 'test-uuid-123',
+        entity: 'User',
+        entityId: 'user-123',
+        action: 'UPDATE',
+        changedById: 'admin-456',
+        timestamp: new Date('2025-01-15T10:30:00Z'),
+        dataBefore: { role: 'PSO' },
+        dataAfter: { role: 'SUPERVISOR' },
+      }));
       await auditService.logAudit(entry);
 
       expect(mockAuditRepository.create).toHaveBeenCalledWith(
@@ -315,7 +399,16 @@ describe('AuditService', () => {
         changedById: '管理员-456',
       };
 
-      mockAuditRepository.create.mockResolvedValue(undefined);
+      mockAuditRepository.create.mockResolvedValue(new AuditLog({
+        id: 'test-uuid-123',
+        entity: 'User',
+        entityId: 'user-123',
+        action: 'UPDATE',
+        changedById: 'admin-456',
+        timestamp: new Date('2025-01-15T10:30:00Z'),
+        dataBefore: { role: 'PSO' },
+        dataAfter: { role: 'SUPERVISOR' },
+      }));
       await auditService.logAudit(entry);
 
       expect(mockAuditRepository.create).toHaveBeenCalledWith(
@@ -340,7 +433,16 @@ describe('AuditService', () => {
         dataAfter: { role: 'SUPERVISOR', permissions: ['read', 'write', 'admin'] },
       };
 
-      mockAuditRepository.create.mockResolvedValue(undefined);
+      mockAuditRepository.create.mockResolvedValue(new AuditLog({
+        id: 'test-uuid-123',
+        entity: 'User',
+        entityId: 'user-123',
+        action: 'UPDATE',
+        changedById: 'admin-456',
+        timestamp: new Date('2025-01-15T10:30:00Z'),
+        dataBefore: { role: 'PSO' },
+        dataAfter: { role: 'SUPERVISOR' },
+      }));
       await auditService.logAudit(entry);
 
       expect(mockAuditRepository.create).toHaveBeenCalledWith(
@@ -369,7 +471,16 @@ describe('AuditService', () => {
         dataAfter: null,
       };
 
-      mockAuditRepository.create.mockResolvedValue(undefined);
+      mockAuditRepository.create.mockResolvedValue(new AuditLog({
+        id: 'test-uuid-123',
+        entity: 'User',
+        entityId: 'user-123',
+        action: 'UPDATE',
+        changedById: 'admin-456',
+        timestamp: new Date('2025-01-15T10:30:00Z'),
+        dataBefore: { role: 'PSO' },
+        dataAfter: { role: 'SUPERVISOR' },
+      }));
       await auditService.logAudit(entry);
 
       expect(mockAuditRepository.create).toHaveBeenCalledWith(
@@ -410,7 +521,16 @@ describe('AuditService', () => {
         },
       ];
 
-      mockAuditRepository.create.mockResolvedValue(undefined);
+      mockAuditRepository.create.mockResolvedValue(new AuditLog({
+        id: 'test-uuid-123',
+        entity: 'User',
+        entityId: 'user-123',
+        action: 'UPDATE',
+        changedById: 'admin-456',
+        timestamp: new Date('2025-01-15T10:30:00Z'),
+        dataBefore: { role: 'PSO' },
+        dataAfter: { role: 'SUPERVISOR' },
+      }));
 
       for (const entry of entries) {
         await auditService.logAudit(entry);
@@ -427,7 +547,16 @@ describe('AuditService', () => {
         changedById: 'admin-456',
       };
 
-      mockAuditRepository.create.mockResolvedValue(undefined);
+      mockAuditRepository.create.mockResolvedValue(new AuditLog({
+        id: 'test-uuid-123',
+        entity: 'User',
+        entityId: 'user-123',
+        action: 'UPDATE',
+        changedById: 'admin-456',
+        timestamp: new Date('2025-01-15T10:30:00Z'),
+        dataBefore: { role: 'PSO' },
+        dataAfter: { role: 'SUPERVISOR' },
+      }));
 
       // Simulate concurrent calls
       const promises = Array(5).fill(null).map(() => auditService.logAudit(entry));

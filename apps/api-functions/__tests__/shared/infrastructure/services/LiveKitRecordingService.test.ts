@@ -1,74 +1,134 @@
-/**
- * @fileoverview Tests for LiveKitRecordingService
- * @description Tests for LiveKit recording operations with Azure Blob Storage integration
- */
-
 import { LiveKitRecordingService } from '../../../../shared/infrastructure/services/LiveKitRecordingService';
+import { config } from '../../../../shared/config';
+import { getCentralAmericaTime } from '../../../../shared/utils/dateUtils';
+import { buildBlobHttpsUrl, generateReadSasUrl } from '../../../../shared/infrastructure/services/blobSigner';
+import { IRecordingSessionRepository } from '../../../../shared/domain/interfaces/IRecordingSessionRepository';
+import { IBlobStorageService } from '../../../../shared/domain/interfaces/IBlobStorageService';
+import { RecordingSession } from '../../../../shared/domain/entities/RecordingSession';
+import { RecordingStatus } from '@prisma/client';
 
 // Mock dependencies
+jest.mock('../../../../shared/config');
+jest.mock('../../../../shared/utils/dateUtils');
+jest.mock('../../../../shared/infrastructure/services/blobSigner');
 jest.mock('livekit-server-sdk', () => ({
   EgressClient: jest.fn().mockImplementation(() => ({
     startRoomCompositeEgress: jest.fn(),
     stopEgress: jest.fn(),
-    listEgress: jest.fn(),
   })),
   EncodedFileOutput: jest.fn(),
-  EncodedFileType: {
-    MP4: 'mp4',
-    WEBM: 'webm',
-  },
+  EncodedFileType: { MP4: 'mp4' },
   AzureBlobUpload: jest.fn(),
   EncodingOptions: jest.fn(),
 }));
 
-jest.mock('../../../../shared/config', () => ({
-  config: {
-    livekitApiUrl: 'https://test-livekit.example.com',
-    livekitApiKey: 'test-api-key',
-    livekitApiSecret: 'test-api-secret',
-    azureStorageAccount: 'test-storage-account',
-    azureStorageKey: 'test-storage-key',
-    recordingsContainerName: 'test-recordings',
-  },
-}));
-
-jest.mock('../../../../shared/utils/dateUtils', () => ({
-  getCentralAmericaTime: jest.fn().mockReturnValue(new Date('2025-01-15T10:30:00Z')),
-}));
-
-jest.mock('../../../../shared/infrastructure/services/blobSigner', () => ({
-  buildBlobHttpsUrl: jest.fn(),
-  generateReadSasUrl: jest.fn(),
-}));
-
-jest.mock('../../../../shared/infrastructure/database/PrismaClientService', () => ({
-  __esModule: true,
-  default: {
-    recordingSession: {
-      create: jest.fn(),
-      update: jest.fn(),
-      findFirst: jest.fn(),
-      findMany: jest.fn(),
-    },
-  },
-}));
+const mockConfig = config as jest.Mocked<typeof config>;
+const mockGetCentralAmericaTime = getCentralAmericaTime as jest.MockedFunction<typeof getCentralAmericaTime>;
+const mockBuildBlobHttpsUrl = buildBlobHttpsUrl as jest.MockedFunction<typeof buildBlobHttpsUrl>;
+const mockGenerateReadSasUrl = generateReadSasUrl as jest.MockedFunction<typeof generateReadSasUrl>;
 
 describe('LiveKitRecordingService', () => {
   let liveKitRecordingService: LiveKitRecordingService;
+  let mockRecordingRepository: jest.Mocked<IRecordingSessionRepository>;
+  let mockBlobStorageService: jest.Mocked<IBlobStorageService>;
   let mockEgressClient: any;
-  let mockPrisma: any;
-  let mockBlobSigner: any;
+
+  // Helper function to create RecordingSession instances
+  const createMockRecordingSession = (overrides: Partial<any> = {}): RecordingSession => {
+    const defaults = {
+      id: 'session-123',
+      roomName: 'room-123',
+      roomId: 'room-id-123',
+      egressId: 'egress-123',
+      userId: 'user-1',
+      subjectUserId: 'user-2',
+      subjectLabel: 'test-user',
+      status: 'Active' as any,
+      startedAt: new Date('2023-01-01T00:00:00.000Z'),
+      stoppedAt: null,
+      blobUrl: null,
+      blobPath: 'test-path.mp4',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    
+    return new RecordingSession(
+      overrides.id || defaults.id,
+      overrides.roomName || defaults.roomName,
+      overrides.roomId || defaults.roomId,
+      overrides.egressId || defaults.egressId,
+      overrides.userId || defaults.userId,
+      overrides.subjectUserId || defaults.subjectUserId,
+      overrides.subjectLabel || defaults.subjectLabel,
+      overrides.status || defaults.status,
+      overrides.startedAt || defaults.startedAt,
+      overrides.stoppedAt || defaults.stoppedAt,
+      overrides.blobUrl || defaults.blobUrl,
+      overrides.blobPath || defaults.blobPath,
+      overrides.createdAt || defaults.createdAt,
+      overrides.updatedAt || defaults.updatedAt,
+      overrides.user || undefined
+    );
+  };
 
   beforeEach(() => {
-    jest.clearAllMocks();
-    
-    liveKitRecordingService = new LiveKitRecordingService();
-    
-    // Get mocked instances
+    // Mock config values
+    mockConfig.livekitApiUrl = 'https://test-livekit.example.com';
+    mockConfig.livekitApiKey = 'test-api-key';
+    mockConfig.livekitApiSecret = 'test-api-secret';
+    (mockConfig as any).accountName = 'testaccount';
+    (mockConfig as any).accountKey = 'test-key';
+    (mockConfig as any).azureBlobStorageAccountName = 'testaccount';
+    (mockConfig as any).azureBlobStorageAccountKey = 'test-key';
+    (mockConfig as any).azureBlobStorageContainerName = 'recordings';
+
+    // Mock date utils
+    mockGetCentralAmericaTime.mockReturnValue(new Date('2023-01-01T00:00:00.000Z'));
+
+    // Mock blob signer functions
+    mockBuildBlobHttpsUrl.mockReturnValue('https://testaccount.blob.core.windows.net/recordings/test-path.mp4');
+    mockGenerateReadSasUrl.mockReturnValue('https://testaccount.blob.core.windows.net/recordings/test-path.mp4?sas-token');
+
+    // Mock EgressClient
     const { EgressClient } = require('livekit-server-sdk');
     mockEgressClient = new EgressClient();
-    mockPrisma = require('../../../../shared/infrastructure/database/PrismaClientService').default;
-    mockBlobSigner = require('../../../../shared/infrastructure/services/blobSigner');
+    mockEgressClient.startRoomCompositeEgress.mockResolvedValue({
+      egressId: 'egress-123',
+      status: 'EGRESS_STARTING',
+    });
+    mockEgressClient.stopEgress.mockResolvedValue({
+      status: 'EGRESS_ENDED',
+    });
+
+    // Mock repositories
+    mockRecordingRepository = {
+      findById: jest.fn(),
+      list: jest.fn(),
+      getUsersByIds: jest.fn(),
+      createActive: jest.fn(),
+      complete: jest.fn(),
+      fail: jest.fn(),
+      deleteById: jest.fn(),
+      findActiveByRoom: jest.fn(),
+      findActiveBySubject: jest.fn(),
+      findActiveByInitiator: jest.fn(),
+    };
+
+    mockBlobStorageService = {
+      uploadImage: jest.fn(),
+      downloadImage: jest.fn(),
+      deleteImage: jest.fn(),
+      deleteRecordingByPath: jest.fn(),
+    };
+
+    // Create service instance
+    liveKitRecordingService = new LiveKitRecordingService(
+      mockRecordingRepository,
+      mockBlobStorageService
+    );
+
+    // Replace the private egressClient with our mock
+    (liveKitRecordingService as any).egressClient = mockEgressClient;
   });
 
   afterEach(() => {
@@ -79,856 +139,148 @@ describe('LiveKitRecordingService', () => {
     it('should create LiveKitRecordingService instance', () => {
       expect(liveKitRecordingService).toBeInstanceOf(LiveKitRecordingService);
     });
-
-    it('should initialize EgressClient with correct parameters', () => {
-      const { EgressClient } = require('livekit-server-sdk');
-      expect(EgressClient).toHaveBeenCalledWith(
-        'https://test-livekit.example.com',
-        'test-api-key',
-        'test-api-secret'
-      );
-    });
   });
 
-  describe('startRecording', () => {
-    const mockRoomName = 'test-room';
-    const mockParticipantName = 'test-participant';
-    const mockParticipantIdentity = 'test-identity';
-
+  describe('startAndPersist', () => {
     it('should start recording successfully', async () => {
-      const mockEgressInfo = {
-        egressId: 'egress-123',
-        roomName: mockRoomName,
-        status: 'EGRESS_STARTING',
-        startedAt: new Date('2025-01-15T10:30:00Z'),
+      const mockSession = createMockRecordingSession();
+
+      mockRecordingRepository.createActive.mockResolvedValue(mockSession);
+
+      const args = {
+        roomName: 'room-123',
+        subjectLabel: 'test-user',
+        initiatorUserId: 'user-1',
+        subjectUserId: 'user-2',
       };
 
-      const mockRecordingSession = {
-        id: 'session-123',
-        roomName: mockRoomName,
-        participantName: mockParticipantName,
-        participantIdentity: mockParticipantIdentity,
-        egressId: 'egress-123',
-        status: 'STARTING',
-        startedAt: new Date('2025-01-15T10:30:00Z'),
-        blobPath: null,
-        blobUrl: null,
-        endedAt: null,
-      };
+      const result = await liveKitRecordingService.startAndPersist(args);
 
-      mockEgressClient.startRoomCompositeEgress.mockResolvedValue(mockEgressInfo);
-      mockPrisma.recordingSession.create.mockResolvedValue(mockRecordingSession);
-
-      const result = await liveKitRecordingService.startRecording(
-        mockRoomName,
-        mockParticipantName,
-        mockParticipantIdentity
-      );
-
-      expect(result).toEqual(mockRecordingSession);
-      expect(mockEgressClient.startRoomCompositeEgress).toHaveBeenCalledWith(
-        expect.objectContaining({
-          roomName: mockRoomName,
-          layout: 'speaker',
-          output: expect.any(Object),
-        })
-      );
-      expect(mockPrisma.recordingSession.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: {
-            roomName: mockRoomName,
-            participantName: mockParticipantName,
-            participantIdentity: mockParticipantIdentity,
-            egressId: 'egress-123',
-            status: 'STARTING',
-            startedAt: new Date('2025-01-15T10:30:00Z'),
-            blobPath: null,
-            blobUrl: null,
-            endedAt: null,
-          },
-        })
-      );
+      expect(result.roomName).toBe('room-123');
+      expect(result.egressId).toBeDefined();
+      expect(result.blobPath).toBeDefined();
+      expect(mockRecordingRepository.createActive).toHaveBeenCalled();
     });
 
     it('should handle recording start errors', async () => {
-      const startError = new Error('Recording start failed');
-      mockEgressClient.startRoomCompositeEgress.mockRejectedValue(startError);
+      mockRecordingRepository.createActive.mockRejectedValue(new Error('Recording start failed'));
 
-      await expect(liveKitRecordingService.startRecording(
-        mockRoomName,
-        mockParticipantName,
-        mockParticipantIdentity
-      )).rejects.toThrow('Recording start failed');
-    });
-
-    it('should handle different room names', async () => {
-      const roomNames = [
-        'simple-room',
-        'room-with-dashes',
-        'room_with_underscores',
-        'room.with.dots',
-        'room with spaces',
-        'room-with-special-chars-@#$%',
-      ];
-
-      const mockEgressInfo = {
-        egressId: 'egress-123',
-        roomName: 'test-room',
-        status: 'EGRESS_STARTING',
-        startedAt: new Date('2025-01-15T10:30:00Z'),
+      const args = {
+        roomName: 'room-123',
+        subjectLabel: 'test-user',
+        initiatorUserId: 'user-1',
+        subjectUserId: 'user-2',
       };
 
-      const mockRecordingSession = {
-        id: 'session-123',
-        roomName: 'test-room',
-        participantName: mockParticipantName,
-        participantIdentity: mockParticipantIdentity,
-        egressId: 'egress-123',
-        status: 'STARTING',
-        startedAt: new Date('2025-01-15T10:30:00Z'),
-        blobPath: null,
-        blobUrl: null,
-        endedAt: null,
-      };
-
-      mockEgressClient.startRoomCompositeEgress.mockResolvedValue(mockEgressInfo);
-      mockPrisma.recordingSession.create.mockResolvedValue(mockRecordingSession);
-
-      for (const roomName of roomNames) {
-        await liveKitRecordingService.startRecording(
-          roomName,
-          mockParticipantName,
-          mockParticipantIdentity
-        );
-        expect(mockEgressClient.startRoomCompositeEgress).toHaveBeenCalledWith(
-          expect.objectContaining({
-            roomName: roomName,
-            layout: 'speaker',
-            output: expect.any(Object),
-          })
-        );
-      }
-    });
-
-    it('should handle different participant names', async () => {
-      const participantNames = [
-        'simple-participant',
-        'participant-with-dashes',
-        'participant_with_underscores',
-        'participant.with.dots',
-        'participant with spaces',
-        'participant-with-special-chars-@#$%',
-      ];
-
-      const mockEgressInfo = {
-        egressId: 'egress-123',
-        roomName: mockRoomName,
-        status: 'EGRESS_STARTING',
-        startedAt: new Date('2025-01-15T10:30:00Z'),
-      };
-
-      const mockRecordingSession = {
-        id: 'session-123',
-        roomName: mockRoomName,
-        participantName: 'test-participant',
-        participantIdentity: mockParticipantIdentity,
-        egressId: 'egress-123',
-        status: 'STARTING',
-        startedAt: new Date('2025-01-15T10:30:00Z'),
-        blobPath: null,
-        blobUrl: null,
-        endedAt: null,
-      };
-
-      mockEgressClient.startRoomCompositeEgress.mockResolvedValue(mockEgressInfo);
-      mockPrisma.recordingSession.create.mockResolvedValue(mockRecordingSession);
-
-      for (const participantName of participantNames) {
-        await liveKitRecordingService.startRecording(
-          mockRoomName,
-          participantName,
-          mockParticipantIdentity
-        );
-        expect(mockEgressClient.startRoomCompositeEgress).toHaveBeenCalledWith(
-          expect.objectContaining({
-            roomName: mockRoomName,
-            layout: 'speaker',
-            output: expect.any(Object),
-          })
-        );
-      }
-    });
-
-    it('should handle different participant identities', async () => {
-      const participantIdentities = [
-        'simple-identity',
-        'identity-with-dashes',
-        'identity_with_underscores',
-        'identity.with.dots',
-        'identity with spaces',
-        'identity-with-special-chars-@#$%',
-      ];
-
-      const mockEgressInfo = {
-        egressId: 'egress-123',
-        roomName: mockRoomName,
-        status: 'EGRESS_STARTING',
-        startedAt: new Date('2025-01-15T10:30:00Z'),
-      };
-
-      const mockRecordingSession = {
-        id: 'session-123',
-        roomName: mockRoomName,
-        participantName: mockParticipantName,
-        participantIdentity: 'test-identity',
-        egressId: 'egress-123',
-        status: 'STARTING',
-        startedAt: new Date('2025-01-15T10:30:00Z'),
-        blobPath: null,
-        blobUrl: null,
-        endedAt: null,
-      };
-
-      mockEgressClient.startRoomCompositeEgress.mockResolvedValue(mockEgressInfo);
-      mockPrisma.recordingSession.create.mockResolvedValue(mockRecordingSession);
-
-      for (const participantIdentity of participantIdentities) {
-        await liveKitRecordingService.startRecording(
-          mockRoomName,
-          mockParticipantName,
-          participantIdentity
-        );
-        expect(mockEgressClient.startRoomCompositeEgress).toHaveBeenCalledWith(
-          expect.objectContaining({
-            roomName: mockRoomName,
-            layout: 'speaker',
-            output: expect.any(Object),
-          })
-        );
-      }
+      await expect(liveKitRecordingService.startAndPersist(args))
+        .rejects.toThrow('Recording start failed');
     });
   });
 
-  describe('stopRecording', () => {
-    const mockEgressId = 'egress-123';
-
+  describe('stopAndPersist', () => {
     it('should stop recording successfully', async () => {
-      const mockEgressInfo = {
-        egressId: mockEgressId,
-        status: 'EGRESS_ENDING',
-        endedAt: new Date('2025-01-15T10:35:00Z'),
+      const mockSession = createMockRecordingSession();
+
+      mockRecordingRepository.findActiveByRoom.mockResolvedValue([mockSession]);
+      mockRecordingRepository.findActiveBySubject.mockResolvedValue([]);
+      mockRecordingRepository.complete.mockResolvedValue(undefined);
+
+      const args = {
+        roomName: 'room-123',
+        initiatorUserId: 'user-1',
+        subjectUserId: 'user-2',
+        sasMinutes: 60,
       };
 
-      const mockRecordingSession = {
-        id: 'session-123',
-        roomName: 'test-room',
-        participantName: 'test-participant',
-        participantIdentity: 'test-identity',
-        egressId: mockEgressId,
-        status: 'ENDING',
-        startedAt: new Date('2025-01-15T10:30:00Z'),
-        blobPath: null,
-        blobUrl: null,
-        endedAt: new Date('2025-01-15T10:35:00Z'),
-      };
+      const result = await liveKitRecordingService.stopAndPersist(args);
 
-      mockEgressClient.stopEgress.mockResolvedValue(mockEgressInfo);
-      mockPrisma.recordingSession.update.mockResolvedValue(mockRecordingSession);
-
-      const result = await liveKitRecordingService.stopRecording(mockEgressId);
-
-      expect(result).toEqual(mockRecordingSession);
-      expect(mockEgressClient.stopEgress).toHaveBeenCalledWith(mockEgressId);
-      expect(mockPrisma.recordingSession.update).toHaveBeenCalledWith({
-        where: { egressId: mockEgressId },
-        data: {
-          status: 'ENDING',
-          endedAt: new Date('2025-01-15T10:35:00Z'),
-        },
-      });
+      expect(result.message).toContain('Recording stop (subject=user-2)');
+      expect(result.roomName).toBe('room-123');
+      expect(result.results).toHaveLength(1);
+      expect(result.results[0].status).toBe('Completed');
     });
 
-    it('should handle recording stop errors', async () => {
-      const stopError = new Error('Recording stop failed');
-      mockEgressClient.stopEgress.mockRejectedValue(stopError);
+    it('should handle no active recordings found', async () => {
+      mockRecordingRepository.findActiveByRoom.mockResolvedValue([]);
+      mockRecordingRepository.findActiveBySubject.mockResolvedValue([]);
 
-      await expect(liveKitRecordingService.stopRecording(mockEgressId))
-        .rejects.toThrow('Recording stop failed');
-    });
-
-    it('should handle different egress IDs', async () => {
-      const egressIds = [
-        'egress-123',
-        'egress-456',
-        'egress-789',
-        'egress-with-special-chars-@#$%',
-      ];
-
-      const mockEgressInfo = {
-        egressId: 'egress-123',
-        status: 'EGRESS_ENDING',
-        endedAt: new Date('2025-01-15T10:35:00Z'),
+      const args = {
+        roomName: 'room-123',
+        initiatorUserId: 'user-1',
+        subjectUserId: 'user-2',
       };
 
-      const mockRecordingSession = {
-        id: 'session-123',
-        roomName: 'test-room',
-        participantName: 'test-participant',
-        participantIdentity: 'test-identity',
-        egressId: 'egress-123',
-        status: 'ENDING',
-        startedAt: new Date('2025-01-15T10:30:00Z'),
-        blobPath: null,
-        blobUrl: null,
-        endedAt: new Date('2025-01-15T10:35:00Z'),
-      };
-
-      mockEgressClient.stopEgress.mockResolvedValue(mockEgressInfo);
-      mockPrisma.recordingSession.update.mockResolvedValue(mockRecordingSession);
-
-      for (const egressId of egressIds) {
-        await liveKitRecordingService.stopRecording(egressId);
-        expect(mockEgressClient.stopEgress).toHaveBeenCalledWith(egressId);
-      }
+      await expect(liveKitRecordingService.stopAndPersist(args)).rejects.toThrow(
+        'No active recordings found for this subject'
+      );
     });
   });
 
-  describe('getRecordingStatus', () => {
-    const mockEgressId = 'egress-123';
+  describe('deleteRecordingById', () => {
+    it('should delete recording successfully', async () => {
+      const mockSession = createMockRecordingSession();
 
-    it('should get recording status successfully', async () => {
-      const mockEgressInfo = {
-        egressId: mockEgressId,
-        status: 'EGRESS_ACTIVE',
-        startedAt: new Date('2025-01-15T10:30:00Z'),
-        endedAt: null,
-      };
+      mockRecordingRepository.findById.mockResolvedValue(mockSession);
+      mockBlobStorageService.deleteRecordingByPath.mockResolvedValue(true);
+      mockRecordingRepository.deleteById.mockResolvedValue(undefined);
 
-      mockEgressClient.listEgress.mockResolvedValue([mockEgressInfo]);
+      const result = await liveKitRecordingService.deleteRecordingById('session-123');
 
-      const result = await liveKitRecordingService.getRecordingStatus(mockEgressId);
-
-      expect(result).toEqual(mockEgressInfo);
-      expect(mockEgressClient.listEgress).toHaveBeenCalledWith({
-        egressId: mockEgressId,
-      });
+      expect(result.sessionId).toBe('session-123');
+      expect(result.blobDeleted).toBe(true);
+      expect(result.dbDeleted).toBe(true);
+      expect(mockRecordingRepository.findById).toHaveBeenCalledWith('session-123');
+      expect(mockBlobStorageService.deleteRecordingByPath).toHaveBeenCalledWith('test-path.mp4');
+      expect(mockRecordingRepository.deleteById).toHaveBeenCalledWith('session-123');
     });
 
     it('should handle recording not found', async () => {
-      mockEgressClient.listEgress.mockResolvedValue([]);
+      mockRecordingRepository.findById.mockResolvedValue(null);
 
-      const result = await liveKitRecordingService.getRecordingStatus(mockEgressId);
-
-      expect(result).toBeNull();
+      await expect(liveKitRecordingService.deleteRecordingById('session-123'))
+        .rejects.toThrow('Recording session not found');
     });
 
-    it('should handle status check errors', async () => {
-      const statusError = new Error('Status check failed');
-      mockEgressClient.listEgress.mockRejectedValue(statusError);
+    it('should handle delete errors gracefully', async () => {
+      const mockSession = createMockRecordingSession();
 
-      await expect(liveKitRecordingService.getRecordingStatus(mockEgressId))
-        .rejects.toThrow('Status check failed');
-    });
+      mockRecordingRepository.findById.mockResolvedValue(mockSession);
+      mockBlobStorageService.deleteRecordingByPath.mockRejectedValue(new Error('Blob delete failed'));
 
-    it('should handle different egress IDs', async () => {
-      const egressIds = [
-        'egress-123',
-        'egress-456',
-        'egress-789',
-        'egress-with-special-chars-@#$%',
-      ];
-
-      const mockEgressInfo = {
-        egressId: 'egress-123',
-        status: 'EGRESS_ACTIVE',
-        startedAt: new Date('2025-01-15T10:30:00Z'),
-        endedAt: null,
-      };
-
-      mockEgressClient.listEgress.mockResolvedValue([mockEgressInfo]);
-
-      for (const egressId of egressIds) {
-        await liveKitRecordingService.getRecordingStatus(egressId);
-        expect(mockEgressClient.listEgress).toHaveBeenCalledWith({
-          egressId: egressId,
-        });
-      }
+      // Should throw the error
+      await expect(liveKitRecordingService.deleteRecordingById('session-123'))
+        .rejects.toThrow('Blob delete failed');
     });
   });
 
-  describe('getRecordingSessions', () => {
-    const mockRoomName = 'test-room';
-
-    it('should get recording sessions successfully', async () => {
+  describe('stopAllForUser', () => {
+    it('should stop all recordings for user successfully', async () => {
       const mockSessions = [
-        {
-          id: 'session-1',
-          roomName: mockRoomName,
-          participantName: 'participant-1',
-          participantIdentity: 'identity-1',
-          egressId: 'egress-1',
-          status: 'ACTIVE',
-          startedAt: new Date('2025-01-15T10:30:00Z'),
-          blobPath: null,
-          blobUrl: null,
-          endedAt: null,
-        },
-        {
-          id: 'session-2',
-          roomName: mockRoomName,
-          participantName: 'participant-2',
-          participantIdentity: 'identity-2',
-          egressId: 'egress-2',
-          status: 'COMPLETED',
-          startedAt: new Date('2025-01-15T10:30:00Z'),
-          blobPath: 'recordings/session-2.mp4',
-          blobUrl: 'https://storage.example.com/recordings/session-2.mp4',
-          endedAt: new Date('2025-01-15T10:35:00Z'),
-        },
+        createMockRecordingSession({ id: 'session-1', egressId: 'egress-1', subjectLabel: 'test-user-1' }),
+        createMockRecordingSession({ id: 'session-2', egressId: 'egress-2', subjectLabel: 'test-user-2' }),
       ];
 
-      mockPrisma.recordingSession.findMany.mockResolvedValue(mockSessions);
+      mockRecordingRepository.findActiveByRoom.mockResolvedValue([mockSessions[0]]);
+      mockRecordingRepository.findActiveBySubject.mockResolvedValue([mockSessions[1]]);
+      mockRecordingRepository.complete.mockResolvedValue(undefined);
 
-      const result = await liveKitRecordingService.getRecordingSessions(mockRoomName);
+      const result = await liveKitRecordingService.stopAllForUser('user-1');
 
-      expect(result).toEqual(mockSessions);
-      expect(mockPrisma.recordingSession.findMany).toHaveBeenCalledWith({
-        where: { roomName: mockRoomName },
-        orderBy: { startedAt: 'desc' },
-      });
+      expect(result.message).toContain('Recording stop (subject=user-1)');
+      expect(result.total).toBe(2);
+      expect(result.completed).toBe(2);
+      expect(mockRecordingRepository.complete).toHaveBeenCalledTimes(2);
     });
 
-    it('should handle empty session list', async () => {
-      mockPrisma.recordingSession.findMany.mockResolvedValue([]);
+    it('should handle no recordings found', async () => {
+      mockRecordingRepository.findActiveByRoom.mockResolvedValue([]);
+      mockRecordingRepository.findActiveBySubject.mockResolvedValue([]);
 
-      const result = await liveKitRecordingService.getRecordingSessions(mockRoomName);
+      const result = await liveKitRecordingService.stopAllForUser('user-1');
 
-      expect(result).toEqual([]);
-    });
-
-    it('should handle session retrieval errors', async () => {
-      const sessionError = new Error('Session retrieval failed');
-      mockPrisma.recordingSession.findMany.mockRejectedValue(sessionError);
-
-      await expect(liveKitRecordingService.getRecordingSessions(mockRoomName))
-        .rejects.toThrow('Session retrieval failed');
-    });
-
-    it('should handle different room names', async () => {
-      const roomNames = [
-        'simple-room',
-        'room-with-dashes',
-        'room_with_underscores',
-        'room.with.dots',
-        'room with spaces',
-        'room-with-special-chars-@#$%',
-      ];
-
-      const mockSessions = [
-        {
-          id: 'session-1',
-          roomName: 'test-room',
-          participantName: 'participant-1',
-          participantIdentity: 'identity-1',
-          egressId: 'egress-1',
-          status: 'ACTIVE',
-          startedAt: new Date('2025-01-15T10:30:00Z'),
-          blobPath: null,
-          blobUrl: null,
-          endedAt: null,
-        },
-      ];
-
-      mockPrisma.recordingSession.findMany.mockResolvedValue(mockSessions);
-
-      for (const roomName of roomNames) {
-        await liveKitRecordingService.getRecordingSessions(roomName);
-        expect(mockPrisma.recordingSession.findMany).toHaveBeenCalledWith({
-          where: { roomName: roomName },
-          orderBy: { startedAt: 'desc' },
-        });
-      }
-    });
-  });
-
-  describe('edge cases', () => {
-    it('should handle very long room names', async () => {
-      const longRoomName = 'A'.repeat(1000);
-      const mockEgressInfo = {
-        egressId: 'egress-123',
-        roomName: longRoomName,
-        status: 'EGRESS_STARTING',
-        startedAt: new Date('2025-01-15T10:30:00Z'),
-      };
-
-      const mockRecordingSession = {
-        id: 'session-123',
-        roomName: longRoomName,
-        participantName: 'test-participant',
-        participantIdentity: 'test-identity',
-        egressId: 'egress-123',
-        status: 'STARTING',
-        startedAt: new Date('2025-01-15T10:30:00Z'),
-        blobPath: null,
-        blobUrl: null,
-        endedAt: null,
-      };
-
-      mockEgressClient.startRoomCompositeEgress.mockResolvedValue(mockEgressInfo);
-      mockPrisma.recordingSession.create.mockResolvedValue(mockRecordingSession);
-
-      const result = await liveKitRecordingService.startRecording(
-        longRoomName,
-        'test-participant',
-        'test-identity'
-      );
-
-      expect(result).toEqual(mockRecordingSession);
-    });
-
-    it('should handle special characters in room names', async () => {
-      const specialRoomName = 'room-with-special-chars-@#$%^&*()';
-      const mockEgressInfo = {
-        egressId: 'egress-123',
-        roomName: specialRoomName,
-        status: 'EGRESS_STARTING',
-        startedAt: new Date('2025-01-15T10:30:00Z'),
-      };
-
-      const mockRecordingSession = {
-        id: 'session-123',
-        roomName: specialRoomName,
-        participantName: 'test-participant',
-        participantIdentity: 'test-identity',
-        egressId: 'egress-123',
-        status: 'STARTING',
-        startedAt: new Date('2025-01-15T10:30:00Z'),
-        blobPath: null,
-        blobUrl: null,
-        endedAt: null,
-      };
-
-      mockEgressClient.startRoomCompositeEgress.mockResolvedValue(mockEgressInfo);
-      mockPrisma.recordingSession.create.mockResolvedValue(mockRecordingSession);
-
-      const result = await liveKitRecordingService.startRecording(
-        specialRoomName,
-        'test-participant',
-        'test-identity'
-      );
-
-      expect(result).toEqual(mockRecordingSession);
-    });
-
-    it('should handle unicode characters in room names', async () => {
-      const unicodeRoomName = '房间-测试';
-      const mockEgressInfo = {
-        egressId: 'egress-123',
-        roomName: unicodeRoomName,
-        status: 'EGRESS_STARTING',
-        startedAt: new Date('2025-01-15T10:30:00Z'),
-      };
-
-      const mockRecordingSession = {
-        id: 'session-123',
-        roomName: unicodeRoomName,
-        participantName: 'test-participant',
-        participantIdentity: 'test-identity',
-        egressId: 'egress-123',
-        status: 'STARTING',
-        startedAt: new Date('2025-01-15T10:30:00Z'),
-        blobPath: null,
-        blobUrl: null,
-        endedAt: null,
-      };
-
-      mockEgressClient.startRoomCompositeEgress.mockResolvedValue(mockEgressInfo);
-      mockPrisma.recordingSession.create.mockResolvedValue(mockRecordingSession);
-
-      const result = await liveKitRecordingService.startRecording(
-        unicodeRoomName,
-        'test-participant',
-        'test-identity'
-      );
-
-      expect(result).toEqual(mockRecordingSession);
-    });
-
-    it('should handle empty room names', async () => {
-      const emptyRoomName = '';
-      const mockEgressInfo = {
-        egressId: 'egress-123',
-        roomName: emptyRoomName,
-        status: 'EGRESS_STARTING',
-        startedAt: new Date('2025-01-15T10:30:00Z'),
-      };
-
-      const mockRecordingSession = {
-        id: 'session-123',
-        roomName: emptyRoomName,
-        participantName: 'test-participant',
-        participantIdentity: 'test-identity',
-        egressId: 'egress-123',
-        status: 'STARTING',
-        startedAt: new Date('2025-01-15T10:30:00Z'),
-        blobPath: null,
-        blobUrl: null,
-        endedAt: null,
-      };
-
-      mockEgressClient.startRoomCompositeEgress.mockResolvedValue(mockEgressInfo);
-      mockPrisma.recordingSession.create.mockResolvedValue(mockRecordingSession);
-
-      const result = await liveKitRecordingService.startRecording(
-        emptyRoomName,
-        'test-participant',
-        'test-identity'
-      );
-
-      expect(result).toEqual(mockRecordingSession);
-    });
-
-    it('should handle null room names', async () => {
-      const nullRoomName = null as any;
-      const mockEgressInfo = {
-        egressId: 'egress-123',
-        roomName: nullRoomName,
-        status: 'EGRESS_STARTING',
-        startedAt: new Date('2025-01-15T10:30:00Z'),
-      };
-
-      const mockRecordingSession = {
-        id: 'session-123',
-        roomName: nullRoomName,
-        participantName: 'test-participant',
-        participantIdentity: 'test-identity',
-        egressId: 'egress-123',
-        status: 'STARTING',
-        startedAt: new Date('2025-01-15T10:30:00Z'),
-        blobPath: null,
-        blobUrl: null,
-        endedAt: null,
-      };
-
-      mockEgressClient.startRoomCompositeEgress.mockResolvedValue(mockEgressInfo);
-      mockPrisma.recordingSession.create.mockResolvedValue(mockRecordingSession);
-
-      const result = await liveKitRecordingService.startRecording(
-        nullRoomName,
-        'test-participant',
-        'test-identity'
-      );
-
-      expect(result).toEqual(mockRecordingSession);
-    });
-  });
-
-  describe('validation scenarios', () => {
-    it('should handle PSO streaming recording scenario', async () => {
-      const psoRoomName = 'pso-streaming-room-123';
-      const psoParticipantName = 'PSO User';
-      const psoParticipantIdentity = 'pso-123';
-
-      const mockEgressInfo = {
-        egressId: 'pso-egress-123',
-        roomName: psoRoomName,
-        status: 'EGRESS_STARTING',
-        startedAt: new Date('2025-01-15T10:30:00Z'),
-      };
-
-      const mockRecordingSession = {
-        id: 'pso-session-123',
-        roomName: psoRoomName,
-        participantName: psoParticipantName,
-        participantIdentity: psoParticipantIdentity,
-        egressId: 'pso-egress-123',
-        status: 'STARTING',
-        startedAt: new Date('2025-01-15T10:30:00Z'),
-        blobPath: null,
-        blobUrl: null,
-        endedAt: null,
-      };
-
-      mockEgressClient.startRoomCompositeEgress.mockResolvedValue(mockEgressInfo);
-      mockPrisma.recordingSession.create.mockResolvedValue(mockRecordingSession);
-
-      const result = await liveKitRecordingService.startRecording(
-        psoRoomName,
-        psoParticipantName,
-        psoParticipantIdentity
-      );
-
-      expect(result).toEqual(mockRecordingSession);
-    });
-
-    it('should handle supervisor monitoring recording scenario', async () => {
-      const supervisorRoomName = 'supervisor-monitoring-room-456';
-      const supervisorParticipantName = 'Supervisor User';
-      const supervisorParticipantIdentity = 'supervisor-456';
-
-      const mockEgressInfo = {
-        egressId: 'supervisor-egress-456',
-        roomName: supervisorRoomName,
-        status: 'EGRESS_STARTING',
-        startedAt: new Date('2025-01-15T10:30:00Z'),
-      };
-
-      const mockRecordingSession = {
-        id: 'supervisor-session-456',
-        roomName: supervisorRoomName,
-        participantName: supervisorParticipantName,
-        participantIdentity: supervisorParticipantIdentity,
-        egressId: 'supervisor-egress-456',
-        status: 'STARTING',
-        startedAt: new Date('2025-01-15T10:30:00Z'),
-        blobPath: null,
-        blobUrl: null,
-        endedAt: null,
-      };
-
-      mockEgressClient.startRoomCompositeEgress.mockResolvedValue(mockEgressInfo);
-      mockPrisma.recordingSession.create.mockResolvedValue(mockRecordingSession);
-
-      const result = await liveKitRecordingService.startRecording(
-        supervisorRoomName,
-        supervisorParticipantName,
-        supervisorParticipantIdentity
-      );
-
-      expect(result).toEqual(mockRecordingSession);
-    });
-
-    it('should handle admin conference recording scenario', async () => {
-      const adminRoomName = 'admin-conference-room-789';
-      const adminParticipantName = 'Admin User';
-      const adminParticipantIdentity = 'admin-789';
-
-      const mockEgressInfo = {
-        egressId: 'admin-egress-789',
-        roomName: adminRoomName,
-        status: 'EGRESS_STARTING',
-        startedAt: new Date('2025-01-15T10:30:00Z'),
-      };
-
-      const mockRecordingSession = {
-        id: 'admin-session-789',
-        roomName: adminRoomName,
-        participantName: adminParticipantName,
-        participantIdentity: adminParticipantIdentity,
-        egressId: 'admin-egress-789',
-        status: 'STARTING',
-        startedAt: new Date('2025-01-15T10:30:00Z'),
-        blobPath: null,
-        blobUrl: null,
-        endedAt: null,
-      };
-
-      mockEgressClient.startRoomCompositeEgress.mockResolvedValue(mockEgressInfo);
-      mockPrisma.recordingSession.create.mockResolvedValue(mockRecordingSession);
-
-      const result = await liveKitRecordingService.startRecording(
-        adminRoomName,
-        adminParticipantName,
-        adminParticipantIdentity
-      );
-
-      expect(result).toEqual(mockRecordingSession);
-    });
-
-    it('should handle bulk recording operations scenario', async () => {
-      const recordings = [
-        { roomName: 'room-1', participantName: 'participant-1', participantIdentity: 'identity-1' },
-        { roomName: 'room-2', participantName: 'participant-2', participantIdentity: 'identity-2' },
-        { roomName: 'room-3', participantName: 'participant-3', participantIdentity: 'identity-3' },
-      ];
-
-      const mockEgressInfo = {
-        egressId: 'egress-123',
-        roomName: 'test-room',
-        status: 'EGRESS_STARTING',
-        startedAt: new Date('2025-01-15T10:30:00Z'),
-      };
-
-      const mockRecordingSession = {
-        id: 'session-123',
-        roomName: 'test-room',
-        participantName: 'test-participant',
-        participantIdentity: 'test-identity',
-        egressId: 'egress-123',
-        status: 'STARTING',
-        startedAt: new Date('2025-01-15T10:30:00Z'),
-        blobPath: null,
-        blobUrl: null,
-        endedAt: null,
-      };
-
-      mockEgressClient.startRoomCompositeEgress.mockResolvedValue(mockEgressInfo);
-      mockPrisma.recordingSession.create.mockResolvedValue(mockRecordingSession);
-
-      for (const recording of recordings) {
-        await liveKitRecordingService.startRecording(
-          recording.roomName,
-          recording.participantName,
-          recording.participantIdentity
-        );
-      }
-
-      expect(mockEgressClient.startRoomCompositeEgress).toHaveBeenCalledTimes(3);
-      expect(mockPrisma.recordingSession.create).toHaveBeenCalledTimes(3);
-    });
-
-    it('should handle concurrent operations scenario', async () => {
-      const mockEgressInfo = {
-        egressId: 'egress-123',
-        roomName: 'test-room',
-        status: 'EGRESS_STARTING',
-        startedAt: new Date('2025-01-15T10:30:00Z'),
-      };
-
-      const mockRecordingSession = {
-        id: 'session-123',
-        roomName: 'test-room',
-        participantName: 'test-participant',
-        participantIdentity: 'test-identity',
-        egressId: 'egress-123',
-        status: 'STARTING',
-        startedAt: new Date('2025-01-15T10:30:00Z'),
-        blobPath: null,
-        blobUrl: null,
-        endedAt: null,
-      };
-
-      mockEgressClient.startRoomCompositeEgress.mockResolvedValue(mockEgressInfo);
-      mockEgressClient.stopEgress.mockResolvedValue({
-        egressId: 'egress-123',
-        status: 'EGRESS_ENDING',
-        endedAt: new Date('2025-01-15T10:35:00Z'),
-      });
-      mockEgressClient.listEgress.mockResolvedValue([{
-        egressId: 'egress-123',
-        status: 'EGRESS_ACTIVE',
-        startedAt: new Date('2025-01-15T10:30:00Z'),
-        endedAt: null,
-      }]);
-      mockPrisma.recordingSession.create.mockResolvedValue(mockRecordingSession);
-      mockPrisma.recordingSession.update.mockResolvedValue(mockRecordingSession);
-
-      const promises = [
-        liveKitRecordingService.startRecording('room-1', 'participant-1', 'identity-1'),
-        liveKitRecordingService.stopRecording('egress-123'),
-        liveKitRecordingService.getRecordingStatus('egress-123'),
-      ];
-
-      const results = await Promise.all(promises);
-
-      expect(results[0]).toEqual(mockRecordingSession);
-      expect(results[1]).toEqual(mockRecordingSession);
-      expect(results[2]).toEqual({
-        egressId: 'egress-123',
-        status: 'EGRESS_ACTIVE',
-        startedAt: new Date('2025-01-15T10:30:00Z'),
-        endedAt: null,
-      });
+      expect(result.message).toContain('No active recordings to stop');
+      expect(result.total).toBe(0);
+      expect(result.completed).toBe(0);
     });
   });
 });

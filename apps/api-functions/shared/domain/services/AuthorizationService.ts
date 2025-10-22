@@ -190,4 +190,14 @@ export class AuthorizationService implements IAuthorizationService {
     const user = await this.userRepository.findByAzureAdObjectId(callerId);
     return user ? (user.role === 'Admin' || user.role === 'SuperAdmin') : false;
   }
+
+    /**
+   * Checks if user has SuperAdmin role only
+   * @param callerId - Azure AD object ID of the caller
+   * @returns Promise that resolves to true if user is Admin or SuperAdmin
+   */
+    async isSuperAdmin(callerId: string): Promise<boolean> {
+      const user = await this.userRepository.findByAzureAdObjectId(callerId);
+      return user ? (user.role === 'SuperAdmin') : false;
+    }
 }

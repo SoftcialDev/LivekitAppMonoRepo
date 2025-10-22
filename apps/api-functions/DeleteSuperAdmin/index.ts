@@ -9,7 +9,7 @@ import { AzureFunction, Context, HttpRequest } from "@azure/functions";
 import { withAuth } from "../shared/middleware/auth";
 import { withErrorHandler } from "../shared/middleware/errorHandler";
 import { withCallerId } from "../shared/middleware/callerId";
-import { requireAdminAccess } from "../shared/middleware/authorization";
+import { requireSuperAdminAccess } from "../shared/middleware/authorization";
 import { ok } from "../shared/utils/response";
 import { deleteSuperAdminSchema } from "../shared/domain/schemas/DeleteSuperAdminSchema";
 import { DeleteSuperAdminRequest } from "../shared/domain/value-objects/DeleteSuperAdminRequest";
@@ -41,7 +41,7 @@ const removeHandler: AzureFunction = withErrorHandler(
   async (ctx: Context, req: HttpRequest) => {
     await withAuth(ctx, async () => {
       await withCallerId(ctx, async () => {
-        await requireAdminAccess()(ctx);
+        await requireSuperAdminAccess()(ctx);
         
         // Validate path parameter
         const userId = ctx.bindingData.id as string;

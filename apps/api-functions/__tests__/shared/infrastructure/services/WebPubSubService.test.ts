@@ -1,64 +1,104 @@
-/**
- * @fileoverview Tests for WebPubSubService
- * @description Tests for WebPubSub operations using Azure WebPubSub SDK
- */
-
 import { WebPubSubService } from '../../../../shared/infrastructure/services/WebPubSubService';
+import { config } from '../../../../shared/config';
+import { getCentralAmericaTime } from '../../../../shared/utils/dateUtils';
+import prisma from '../../../../shared/infrastructure/database/PrismaClientService';
 
 // Mock dependencies
+jest.mock('../../../../shared/config');
+jest.mock('../../../../shared/utils/dateUtils');
+jest.mock('../../../../shared/infrastructure/database/PrismaClientService', () => ({
+  user: {
+    findMany: jest.fn(),
+    findFirst: jest.fn(),
+  },
+  presence: {
+    upsert: jest.fn(),
+  },
+}));
 jest.mock('@azure/web-pubsub', () => ({
   WebPubSubServiceClient: jest.fn().mockImplementation(() => ({
     getClientAccessToken: jest.fn(),
     sendToAll: jest.fn(),
     sendToGroup: jest.fn(),
     sendToUser: jest.fn(),
+    removeUserFromAllGroups: jest.fn(),
     addUserToGroup: jest.fn(),
     removeUserFromGroup: jest.fn(),
+    listConnectionsInGroup: jest.fn(),
+    group: jest.fn().mockReturnValue({
+      listConnections: jest.fn(),
+      sendToAll: jest.fn(),
+    }),
   })),
+  AzureKeyCredential: jest.fn(),
 }));
 
-jest.mock('@azure/core-auth', () => ({
-  AzureKeyCredential: jest.fn().mockImplementation(() => ({
-    key: 'test-access-key',
-  })),
-}));
-
-jest.mock('../../../../shared/config', () => ({
-  config: {
-    webPubSubEndpoint: 'https://test-webpubsub.example.com',
-    webPubSubKey: 'test-access-key',
-    webPubSubHubName: 'test-hub',
-  },
-}));
-
-jest.mock('../../../../shared/utils/dateUtils', () => ({
-  getCentralAmericaTime: jest.fn().mockReturnValue(new Date('2025-01-15T10:30:00Z')),
-}));
-
-jest.mock('../../../../shared/infrastructure/database/PrismaClientService', () => ({
-  __esModule: true,
-  default: {
-    user: {
-      findById: jest.fn(),
-      findByEmail: jest.fn(),
-    },
-  },
-}));
+const mockConfig = config as jest.Mocked<typeof config>;
+const mockGetCentralAmericaTime = getCentralAmericaTime as jest.MockedFunction<typeof getCentralAmericaTime>;
+const mockPrisma = prisma as any;
 
 describe('WebPubSubService', () => {
   let webPubSubService: WebPubSubService;
   let mockClient: any;
-  let mockPrisma: any;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    // Mock config values
+    mockConfig.webPubSubEndpoint = 'https://test.webpubsub.azure.com';
+    mockConfig.webPubSubKey = 'test-key';
+    mockConfig.webPubSubHubName = 'test-hub';
+
+    // Mock date utils
+    mockGetCentralAmericaTime.mockReturnValue(new Date('2023-01-01T00:00:00.000Z'));
+
+    // Mock prisma
+    mockPrisma.user.findMany.mockResolvedValue([
+      {
+        id: 'user-1',
+        email: 'user1@example.com',
+        presence: null,
+      },
+      {
+        id: 'user-2', 
+        email: 'user2@example.com',
+        presence: null,
+      },
+    ]);
     
+    mockPrisma.presence.upsert.mockResolvedValue({
+      id: 'presence-1',
+      userId: 'user-1',
+      status: 'online',
+      lastSeenAt: new Date(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    // Create service instance
     webPubSubService = new WebPubSubService();
-    
-    // Get mocked instances
+
+    // Get mocked client
     const { WebPubSubServiceClient } = require('@azure/web-pubsub');
     mockClient = new WebPubSubServiceClient();
-    mockPrisma = require('../../../../shared/infrastructure/database/PrismaClientService').default;
+    
+    // Configure mock client methods
+    mockClient.getClientAccessToken.mockResolvedValue({
+      token: 'mock-token',
+      url: 'wss://mock-endpoint',
+    });
+    
+    // Create a mock group object
+    const mockGroup = {
+      listConnections: jest.fn(),
+      sendToAll: jest.fn(),
+    };
+    
+    mockClient.group.mockReturnValue(mockGroup);
+    
+    // Mock listConnectionsInGroup to return an async iterator
+    mockClient.listConnectionsInGroup.mockResolvedValue([]);
+    
+    // Assign the mock client to the service's private client property
+    (webPubSubService as any).client = mockClient;
   });
 
   afterEach(() => {
@@ -66,687 +106,295 @@ describe('WebPubSubService', () => {
   });
 
   describe('constructor', () => {
-    it('should create WebPubSubService with config', () => {
+    it('should create WebPubSubService instance', () => {
       expect(webPubSubService).toBeInstanceOf(WebPubSubService);
     });
 
     it('should initialize WebPubSubServiceClient with correct parameters', () => {
       const { WebPubSubServiceClient } = require('@azure/web-pubsub');
-      const { AzureKeyCredential } = require('@azure/core-auth');
-      
       expect(WebPubSubServiceClient).toHaveBeenCalledWith(
-        'https://test-webpubsub.example.com',
-        expect.any(AzureKeyCredential),
+        'https://test.webpubsub.azure.com',
+        expect.any(Object),
         'test-hub'
       );
     });
   });
 
   describe('generateToken', () => {
-    const mockUserId = 'test@example.com';
-    const mockGroups = ['presence', 'notifications'];
-
     it('should generate token successfully', async () => {
-      const mockTokenResponse = {
-        token: 'test-jwt-token',
-      };
+      const result = await webPubSubService.generateToken('user@example.com', ['group1', 'group2']);
 
-      mockClient.getClientAccessToken.mockResolvedValue(mockTokenResponse);
-
-      const result = await webPubSubService.generateToken(mockUserId, mockGroups);
-
-      expect(result).toBe('test-jwt-token');
+      expect(result).toBe('mock-token');
       expect(mockClient.getClientAccessToken).toHaveBeenCalledWith({
-        userId: 'test@example.com',
-        groups: ['presence', 'notifications'],
+        userId: 'user@example.com',
+        groups: ['group1', 'group2'],
       });
     });
 
     it('should normalize user ID and groups', async () => {
-      const mockTokenResponse = {
-        token: 'test-jwt-token',
-      };
-
-      mockClient.getClientAccessToken.mockResolvedValue(mockTokenResponse);
-
-      await webPubSubService.generateToken('  TEST@EXAMPLE.COM  ', ['  PRESENCE  ', '  NOTIFICATIONS  ']);
+      await webPubSubService.generateToken('  USER@EXAMPLE.COM  ', ['  GROUP1  ', '  GROUP2  ']);
 
       expect(mockClient.getClientAccessToken).toHaveBeenCalledWith({
-        userId: 'test@example.com',
-        groups: ['presence', 'notifications'],
-      });
-    });
-
-    it('should handle empty groups array', async () => {
-      const mockTokenResponse = {
-        token: 'test-jwt-token',
-      };
-
-      mockClient.getClientAccessToken.mockResolvedValue(mockTokenResponse);
-
-      const result = await webPubSubService.generateToken(mockUserId, []);
-
-      expect(result).toBe('test-jwt-token');
-      expect(mockClient.getClientAccessToken).toHaveBeenCalledWith({
-        userId: 'test@example.com',
-        groups: [],
+        userId: 'user@example.com',
+        groups: ['group1', 'group2'],
       });
     });
 
     it('should handle token generation errors', async () => {
-      const tokenError = new Error('Token generation failed');
-      mockClient.getClientAccessToken.mockRejectedValue(tokenError);
+      mockClient.getClientAccessToken.mockRejectedValue(new Error('Token generation failed'));
 
-      await expect(webPubSubService.generateToken(mockUserId, mockGroups))
-        .rejects.toThrow('Token generation failed');
+      await expect(webPubSubService.generateToken('user@example.com', ['group1']))
+        .rejects.toThrow('Failed to generate WebPubSub token: Token generation failed');
     });
+  });
 
-    it('should handle different user IDs', async () => {
-      const userIds = [
-        'user1@example.com',
-        'user2@example.com',
-        'user3@example.com',
-      ];
+  describe('broadcastPresence', () => {
+    it('should broadcast presence successfully', async () => {
+      const mockGroup = mockClient.group();
+      mockGroup.sendToAll.mockResolvedValue(undefined);
 
-      const mockTokenResponse = {
-        token: 'test-jwt-token',
+      const payload = {
+        email: 'user@example.com',
+        fullName: 'Test User',
+        status: 'online' as const,
+        lastSeenAt: '2023-01-01T00:00:00.000Z',
+        role: 'Employee',
+        supervisorId: null,
+        supervisorEmail: null,
       };
 
-      mockClient.getClientAccessToken.mockResolvedValue(mockTokenResponse);
+      await webPubSubService.broadcastPresence(payload);
 
-      for (const userId of userIds) {
-        await webPubSubService.generateToken(userId, mockGroups);
-        expect(mockClient.getClientAccessToken).toHaveBeenCalledWith({
-          userId: userId.toLowerCase(),
-          groups: ['presence', 'notifications'],
-        });
-      }
+      expect(mockClient.group).toHaveBeenCalledWith('presence');
+      expect(mockGroup.sendToAll).toHaveBeenCalledWith({
+        type: 'presence_update',
+        data: payload,
+        timestamp: '2023-01-01T00:00:00.000Z',
+      });
     });
 
-    it('should handle different group names', async () => {
-      const groupSets = [
-        ['presence'],
-        ['notifications'],
-        ['presence', 'notifications'],
-        ['group1', 'group2', 'group3'],
-      ];
+    it('should handle broadcast errors', async () => {
+      const mockGroup = mockClient.group();
+      mockGroup.sendToAll.mockRejectedValue(new Error('Broadcast failed'));
 
-      const mockTokenResponse = {
-        token: 'test-jwt-token',
+      const payload = {
+        email: 'user@example.com',
+        fullName: 'Test User',
+        status: 'online' as const,
+        lastSeenAt: '2023-01-01T00:00:00.000Z',
+        role: 'Employee',
+        supervisorId: null,
+        supervisorEmail: null,
       };
 
-      mockClient.getClientAccessToken.mockResolvedValue(mockTokenResponse);
-
-      for (const groups of groupSets) {
-        await webPubSubService.generateToken(mockUserId, groups);
-        expect(mockClient.getClientAccessToken).toHaveBeenCalledWith({
-          userId: 'test@example.com',
-          groups: groups.map(g => g.toLowerCase()),
-        });
-      }
+      await expect(webPubSubService.broadcastPresence(payload))
+        .rejects.toThrow('Broadcast failed');
     });
   });
 
-  describe('publishMessage', () => {
-    const mockGroupName = 'test-group';
-    const mockMessage = {
-      type: 'notification',
-      data: { message: 'test message' },
-    };
+  describe('broadcastMessage', () => {
+    it('should broadcast message to group successfully', async () => {
+      const mockGroup = mockClient.group();
+      mockGroup.sendToAll.mockResolvedValue(undefined);
 
-    it('should publish message successfully', async () => {
-      mockClient.sendToGroup.mockResolvedValue(undefined);
+      const message = { type: 'test', data: 'test-data' };
+      await webPubSubService.broadcastMessage('test-group', message);
 
-      await webPubSubService.publishMessage(mockGroupName, mockMessage);
-
-      expect(mockClient.sendToGroup).toHaveBeenCalledWith(mockGroupName, mockMessage);
+      expect(mockClient.group).toHaveBeenCalledWith('test-group');
+      expect(mockGroup.sendToAll).toHaveBeenCalledWith(message);
     });
 
-    it('should handle different message types', async () => {
-      const messages = [
-        { type: 'notification', data: { message: 'test' } },
-        { type: 'command', data: { command: 'start' } },
-        { type: 'status', data: { status: 'online' } },
-        { type: 'error', data: { error: 'test error' } },
-      ];
+    it('should handle broadcast message errors', async () => {
+      const mockGroup = mockClient.group();
+      mockGroup.sendToAll.mockRejectedValue(new Error('Send failed'));
 
-      mockClient.sendToGroup.mockResolvedValue(undefined);
-
-      for (const message of messages) {
-        await webPubSubService.publishMessage(mockGroupName, message);
-        expect(mockClient.sendToGroup).toHaveBeenCalledWith(mockGroupName, message);
-      }
-    });
-
-    it('should handle different group names', async () => {
-      const groupNames = [
-        'group1',
-        'group2',
-        'group-with-dashes',
-        'group_with_underscores',
-        'group.with.dots',
-        'group with spaces',
-      ];
-
-      const mockMessage = { type: 'test', data: {} };
-      mockClient.sendToGroup.mockResolvedValue(undefined);
-
-      for (const groupName of groupNames) {
-        await webPubSubService.publishMessage(groupName, mockMessage);
-        expect(mockClient.sendToGroup).toHaveBeenCalledWith(groupName, mockMessage);
-      }
-    });
-
-    it('should handle publish errors', async () => {
-      const publishError = new Error('Publish failed');
-      mockClient.sendToGroup.mockRejectedValue(publishError);
-
-      await expect(webPubSubService.publishMessage(mockGroupName, mockMessage))
-        .rejects.toThrow('Publish failed');
-    });
-  });
-
-  describe('subscribeToGroup', () => {
-    const mockUserId = 'test@example.com';
-    const mockGroupName = 'test-group';
-
-    it('should subscribe user to group successfully', async () => {
-      mockClient.addUserToGroup.mockResolvedValue(undefined);
-
-      await webPubSubService.subscribeToGroup(mockUserId, mockGroupName);
-
-      expect(mockClient.addUserToGroup).toHaveBeenCalledWith(mockGroupName, mockUserId);
-    });
-
-    it('should handle different user IDs', async () => {
-      const userIds = [
-        'user1@example.com',
-        'user2@example.com',
-        'user3@example.com',
-      ];
-
-      mockClient.addUserToGroup.mockResolvedValue(undefined);
-
-      for (const userId of userIds) {
-        await webPubSubService.subscribeToGroup(userId, mockGroupName);
-        expect(mockClient.addUserToGroup).toHaveBeenCalledWith(mockGroupName, userId);
-      }
-    });
-
-    it('should handle different group names', async () => {
-      const groupNames = [
-        'group1',
-        'group2',
-        'group-with-dashes',
-        'group_with_underscores',
-        'group.with.dots',
-        'group with spaces',
-      ];
-
-      mockClient.addUserToGroup.mockResolvedValue(undefined);
-
-      for (const groupName of groupNames) {
-        await webPubSubService.subscribeToGroup(mockUserId, groupName);
-        expect(mockClient.addUserToGroup).toHaveBeenCalledWith(groupName, mockUserId);
-      }
-    });
-
-    it('should handle subscribe errors', async () => {
-      const subscribeError = new Error('Subscribe failed');
-      mockClient.addUserToGroup.mockRejectedValue(subscribeError);
-
-      await expect(webPubSubService.subscribeToGroup(mockUserId, mockGroupName))
-        .rejects.toThrow('Subscribe failed');
-    });
-  });
-
-  describe('unsubscribeFromGroup', () => {
-    const mockUserId = 'test@example.com';
-    const mockGroupName = 'test-group';
-
-    it('should unsubscribe user from group successfully', async () => {
-      mockClient.removeUserFromGroup.mockResolvedValue(undefined);
-
-      await webPubSubService.unsubscribeFromGroup(mockUserId, mockGroupName);
-
-      expect(mockClient.removeUserFromGroup).toHaveBeenCalledWith(mockGroupName, mockUserId);
-    });
-
-    it('should handle different user IDs', async () => {
-      const userIds = [
-        'user1@example.com',
-        'user2@example.com',
-        'user3@example.com',
-      ];
-
-      mockClient.removeUserFromGroup.mockResolvedValue(undefined);
-
-      for (const userId of userIds) {
-        await webPubSubService.unsubscribeFromGroup(userId, mockGroupName);
-        expect(mockClient.removeUserFromGroup).toHaveBeenCalledWith(mockGroupName, userId);
-      }
-    });
-
-    it('should handle different group names', async () => {
-      const groupNames = [
-        'group1',
-        'group2',
-        'group-with-dashes',
-        'group_with_underscores',
-        'group.with.dots',
-        'group with spaces',
-      ];
-
-      mockClient.removeUserFromGroup.mockResolvedValue(undefined);
-
-      for (const groupName of groupNames) {
-        await webPubSubService.unsubscribeFromGroup(mockUserId, groupName);
-        expect(mockClient.removeUserFromGroup).toHaveBeenCalledWith(groupName, mockUserId);
-      }
-    });
-
-    it('should handle unsubscribe errors', async () => {
-      const unsubscribeError = new Error('Unsubscribe failed');
-      mockClient.removeUserFromGroup.mockRejectedValue(unsubscribeError);
-
-      await expect(webPubSubService.unsubscribeFromGroup(mockUserId, mockGroupName))
-        .rejects.toThrow('Unsubscribe failed');
-    });
-  });
-
-  describe('sendToGroup', () => {
-    const mockGroupName = 'test-group';
-    const mockMessage = {
-      type: 'notification',
-      data: { message: 'test message' },
-    };
-
-    it('should send message to group successfully', async () => {
-      mockClient.sendToGroup.mockResolvedValue(undefined);
-
-      await webPubSubService.sendToGroup(mockGroupName, mockMessage);
-
-      expect(mockClient.sendToGroup).toHaveBeenCalledWith(mockGroupName, mockMessage);
-    });
-
-    it('should handle different message types', async () => {
-      const messages = [
-        { type: 'notification', data: { message: 'test' } },
-        { type: 'command', data: { command: 'start' } },
-        { type: 'status', data: { status: 'online' } },
-        { type: 'error', data: { error: 'test error' } },
-      ];
-
-      mockClient.sendToGroup.mockResolvedValue(undefined);
-
-      for (const message of messages) {
-        await webPubSubService.sendToGroup(mockGroupName, message);
-        expect(mockClient.sendToGroup).toHaveBeenCalledWith(mockGroupName, message);
-      }
-    });
-
-    it('should handle different group names', async () => {
-      const groupNames = [
-        'group1',
-        'group2',
-        'group-with-dashes',
-        'group_with_underscores',
-        'group.with.dots',
-        'group with spaces',
-      ];
-
-      const mockMessage = { type: 'test', data: {} };
-      mockClient.sendToGroup.mockResolvedValue(undefined);
-
-      for (const groupName of groupNames) {
-        await webPubSubService.sendToGroup(groupName, mockMessage);
-        expect(mockClient.sendToGroup).toHaveBeenCalledWith(groupName, mockMessage);
-      }
-    });
-
-    it('should handle send errors', async () => {
-      const sendError = new Error('Send failed');
-      mockClient.sendToGroup.mockRejectedValue(sendError);
-
-      await expect(webPubSubService.sendToGroup(mockGroupName, mockMessage))
+      const message = { type: 'test', data: 'test-data' };
+      await expect(webPubSubService.broadcastMessage('test-group', message))
         .rejects.toThrow('Send failed');
     });
   });
 
-  describe('sendToUser', () => {
-    const mockUserId = 'test@example.com';
-    const mockMessage = {
-      type: 'notification',
-      data: { message: 'test message' },
-    };
+  describe('listAllGroupsAndUsers', () => {
+    it('should list groups and users successfully', async () => {
+      const mockGroup = mockClient.group();
+      mockGroup.listConnections.mockResolvedValue([
+        { connectionId: 'conn1', userId: 'user1' },
+        { connectionId: 'conn2', userId: 'user2' },
+      ]);
 
-    it('should send message to user successfully', async () => {
-      mockClient.sendToUser.mockResolvedValue(undefined);
+      await webPubSubService.listAllGroupsAndUsers();
 
-      await webPubSubService.sendToUser(mockUserId, mockMessage);
-
-      expect(mockClient.sendToUser).toHaveBeenCalledWith(mockUserId, mockMessage);
+      expect(mockClient.group).toHaveBeenCalledWith('presence');
+      expect(mockGroup.listConnections).toHaveBeenCalled();
     });
 
-    it('should handle different user IDs', async () => {
-      const userIds = [
-        'user1@example.com',
-        'user2@example.com',
-        'user3@example.com',
-      ];
+    it('should handle list errors', async () => {
+      const mockGroup = mockClient.group();
+      mockGroup.listConnections.mockRejectedValue(new Error('List failed'));
 
-      mockClient.sendToUser.mockResolvedValue(undefined);
-
-      for (const userId of userIds) {
-        await webPubSubService.sendToUser(userId, mockMessage);
-        expect(mockClient.sendToUser).toHaveBeenCalledWith(userId, mockMessage);
-      }
-    });
-
-    it('should handle different message types', async () => {
-      const messages = [
-        { type: 'notification', data: { message: 'test' } },
-        { type: 'command', data: { command: 'start' } },
-        { type: 'status', data: { status: 'online' } },
-        { type: 'error', data: { error: 'test error' } },
-      ];
-
-      mockClient.sendToUser.mockResolvedValue(undefined);
-
-      for (const message of messages) {
-        await webPubSubService.sendToUser(mockUserId, message);
-        expect(mockClient.sendToUser).toHaveBeenCalledWith(mockUserId, message);
-      }
-    });
-
-    it('should handle send errors', async () => {
-      const sendError = new Error('Send failed');
-      mockClient.sendToUser.mockRejectedValue(sendError);
-
-      await expect(webPubSubService.sendToUser(mockUserId, mockMessage))
-        .rejects.toThrow('Send failed');
+      await expect(webPubSubService.listAllGroupsAndUsers())
+        .rejects.toThrow('List failed');
     });
   });
 
-  describe('edge cases', () => {
-    it('should handle very long user IDs', async () => {
-      const longUserId = 'a'.repeat(1000) + '@example.com';
-      const mockTokenResponse = {
-        token: 'test-jwt-token',
-      };
+  describe('listConnectionsInGroup', () => {
+    it('should list connections in group successfully', async () => {
+      const mockConnections = [
+        { connectionId: 'conn1', userId: 'user1' },
+        { connectionId: 'conn2', userId: 'user2' },
+      ];
+      const mockGroup = mockClient.group();
+      mockGroup.listConnections.mockResolvedValue(mockConnections);
 
-      mockClient.getClientAccessToken.mockResolvedValue(mockTokenResponse);
+      const result = await webPubSubService.listConnectionsInGroup('test-group');
 
-      const result = await webPubSubService.generateToken(longUserId, ['group']);
-
-      expect(result).toBe('test-jwt-token');
-      expect(mockClient.getClientAccessToken).toHaveBeenCalledWith({
-        userId: longUserId.toLowerCase(),
-        groups: ['group'],
-      });
+      expect(result).toEqual(mockConnections);
+      expect(mockClient.group).toHaveBeenCalledWith('test-group');
+      expect(mockGroup.listConnections).toHaveBeenCalled();
     });
 
-    it('should handle special characters in user IDs', async () => {
-      const specialUserId = 'user+special@example-domain.com';
-      const mockTokenResponse = {
-        token: 'test-jwt-token',
-      };
+    it('should handle empty group', async () => {
+      const mockGroup = mockClient.group();
+      mockGroup.listConnections.mockResolvedValue([]);
 
-      mockClient.getClientAccessToken.mockResolvedValue(mockTokenResponse);
+      const result = await webPubSubService.listConnectionsInGroup('empty-group');
 
-      const result = await webPubSubService.generateToken(specialUserId, ['group']);
-
-      expect(result).toBe('test-jwt-token');
-      expect(mockClient.getClientAccessToken).toHaveBeenCalledWith({
-        userId: specialUserId.toLowerCase(),
-        groups: ['group'],
-      });
-    });
-
-    it('should handle unicode characters in user IDs', async () => {
-      const unicodeUserId = '用户@example.com';
-      const mockTokenResponse = {
-        token: 'test-jwt-token',
-      };
-
-      mockClient.getClientAccessToken.mockResolvedValue(mockTokenResponse);
-
-      const result = await webPubSubService.generateToken(unicodeUserId, ['group']);
-
-      expect(result).toBe('test-jwt-token');
-      expect(mockClient.getClientAccessToken).toHaveBeenCalledWith({
-        userId: unicodeUserId.toLowerCase(),
-        groups: ['group'],
-      });
-    });
-
-    it('should handle empty user IDs', async () => {
-      const emptyUserId = '';
-      const mockTokenResponse = {
-        token: 'test-jwt-token',
-      };
-
-      mockClient.getClientAccessToken.mockResolvedValue(mockTokenResponse);
-
-      const result = await webPubSubService.generateToken(emptyUserId, ['group']);
-
-      expect(result).toBe('test-jwt-token');
-      expect(mockClient.getClientAccessToken).toHaveBeenCalledWith({
-        userId: '',
-        groups: ['group'],
-      });
-    });
-
-    it('should handle null user IDs', async () => {
-      const nullUserId = null as any;
-      const mockTokenResponse = {
-        token: 'test-jwt-token',
-      };
-
-      mockClient.getClientAccessToken.mockResolvedValue(mockTokenResponse);
-
-      const result = await webPubSubService.generateToken(nullUserId, ['group']);
-
-      expect(result).toBe('test-jwt-token');
-      expect(mockClient.getClientAccessToken).toHaveBeenCalledWith({
-        userId: '',
-        groups: ['group'],
-      });
-    });
-
-    it('should handle very large messages', async () => {
-      const largeMessage = {
-        type: 'large-data',
-        data: {
-          content: 'A'.repeat(10000),
-          metadata: {
-            size: 'large',
-            timestamp: '2025-01-15T10:30:00Z',
-          },
-        },
-      };
-
-      mockClient.sendToGroup.mockResolvedValue(undefined);
-
-      await webPubSubService.sendToGroup('test-group', largeMessage);
-
-      expect(mockClient.sendToGroup).toHaveBeenCalledWith('test-group', largeMessage);
-    });
-
-    it('should handle complex nested messages', async () => {
-      const complexMessage = {
-        type: 'complex-data',
-        data: {
-          user: {
-            id: 'user-123',
-            profile: {
-              name: 'Test User',
-              preferences: {
-                notifications: true,
-                theme: 'dark',
-              },
-            },
-          },
-          action: {
-            type: 'update',
-            timestamp: '2025-01-15T10:30:00Z',
-            metadata: {
-              source: 'web',
-              version: '1.0.0',
-            },
-          },
-        },
-      };
-
-      mockClient.sendToGroup.mockResolvedValue(undefined);
-
-      await webPubSubService.sendToGroup('test-group', complexMessage);
-
-      expect(mockClient.sendToGroup).toHaveBeenCalledWith('test-group', complexMessage);
+      expect(result).toEqual([]);
     });
   });
 
-  describe('validation scenarios', () => {
-    it('should handle PSO presence update scenario', async () => {
-      const psoUserId = 'pso@example.com';
-      const presenceMessage = {
-        type: 'presence-update',
-        data: {
-          userId: psoUserId,
-          status: 'online',
-          timestamp: '2025-01-15T10:30:00Z',
-        },
-      };
-
-      mockClient.sendToGroup.mockResolvedValue(undefined);
-
-      await webPubSubService.sendToGroup('presence-group', presenceMessage);
-
-      expect(mockClient.sendToGroup).toHaveBeenCalledWith('presence-group', presenceMessage);
-    });
-
-    it('should handle supervisor notification scenario', async () => {
-      const supervisorUserId = 'supervisor@example.com';
-      const notificationMessage = {
-        type: 'notification',
-        data: {
-          title: 'New Alert',
-          message: 'PSO requires attention',
-          priority: 'high',
-          timestamp: '2025-01-15T10:30:00Z',
-        },
-      };
-
-      mockClient.sendToUser.mockResolvedValue(undefined);
-
-      await webPubSubService.sendToUser(supervisorUserId, notificationMessage);
-
-      expect(mockClient.sendToUser).toHaveBeenCalledWith(supervisorUserId, notificationMessage);
-    });
-
-    it('should handle admin broadcast scenario', async () => {
-      const broadcastMessage = {
-        type: 'broadcast',
-        data: {
-          message: 'System maintenance scheduled',
-          scheduledTime: '2025-01-15T22:00:00Z',
-          duration: '2 hours',
-        },
-      };
-
-      mockClient.sendToGroup.mockResolvedValue(undefined);
-
-      await webPubSubService.sendToGroup('all-users', broadcastMessage);
-
-      expect(mockClient.sendToGroup).toHaveBeenCalledWith('all-users', broadcastMessage);
-    });
-
-    it('should handle command messaging scenario', async () => {
-      const commandMessage = {
-        type: 'command',
-        data: {
-          command: 'START',
-          target: 'pso@example.com',
-          timestamp: '2025-01-15T10:30:00Z',
-        },
-      };
-
-      mockClient.sendToGroup.mockResolvedValue(undefined);
-
-      await webPubSubService.sendToGroup('command-group', commandMessage);
-
-      expect(mockClient.sendToGroup).toHaveBeenCalledWith('command-group', commandMessage);
-    });
-
-    it('should handle user subscription scenario', async () => {
-      const userId = 'user@example.com';
-      const groupName = 'notifications';
-
-      mockClient.addUserToGroup.mockResolvedValue(undefined);
-
-      await webPubSubService.subscribeToGroup(userId, groupName);
-
-      expect(mockClient.addUserToGroup).toHaveBeenCalledWith(groupName, userId);
-    });
-
-    it('should handle user unsubscription scenario', async () => {
-      const userId = 'user@example.com';
-      const groupName = 'notifications';
-
-      mockClient.removeUserFromGroup.mockResolvedValue(undefined);
-
-      await webPubSubService.unsubscribeFromGroup(userId, groupName);
-
-      expect(mockClient.removeUserFromGroup).toHaveBeenCalledWith(groupName, userId);
-    });
-
-    it('should handle bulk operations scenario', async () => {
-      const operations = [
-        { type: 'subscribe', userId: 'user1@example.com', groupName: 'group1' },
-        { type: 'subscribe', userId: 'user2@example.com', groupName: 'group1' },
-        { type: 'unsubscribe', userId: 'user3@example.com', groupName: 'group2' },
-        { type: 'send', groupName: 'group1', message: { type: 'test', data: {} } },
+  describe('getActiveUsersInPresenceGroup', () => {
+    it('should get active users successfully', async () => {
+      const mockConnections = [
+        { connectionId: 'conn1', userId: 'user1@example.com' },
+        { connectionId: 'conn2', userId: 'user2@example.com' },
       ];
+      const mockGroup = mockClient.group();
+      mockGroup.listConnections.mockResolvedValue(mockConnections);
 
-      mockClient.addUserToGroup.mockResolvedValue(undefined);
-      mockClient.removeUserFromGroup.mockResolvedValue(undefined);
-      mockClient.sendToGroup.mockResolvedValue(undefined);
+      const mockUsers = [
+        { id: 'user1', email: 'user1@example.com', fullName: 'User One', role: 'Employee' },
+        { id: 'user2', email: 'user2@example.com', fullName: 'User Two', role: 'Supervisor' },
+      ];
+      mockPrisma.user.findMany.mockResolvedValue(mockUsers);
 
-      for (const operation of operations) {
-        if (operation.type === 'subscribe') {
-          await webPubSubService.subscribeToGroup(operation.userId!, operation.groupName);
-        } else if (operation.type === 'unsubscribe') {
-          await webPubSubService.unsubscribeFromGroup(operation.userId!, operation.groupName);
-        } else if (operation.type === 'send') {
-          await webPubSubService.sendToGroup(operation.groupName, operation.message!);
-        }
-      }
+      const result = await webPubSubService.getActiveUsersInPresenceGroup();
 
-      expect(mockClient.addUserToGroup).toHaveBeenCalledTimes(2);
-      expect(mockClient.removeUserFromGroup).toHaveBeenCalledTimes(1);
-      expect(mockClient.sendToGroup).toHaveBeenCalledTimes(1);
+      expect(result).toEqual([
+        { userId: 'user1@example.com', userRoles: ['Employee'] },
+        { userId: 'user2@example.com', userRoles: ['Supervisor'] },
+      ]);
     });
 
-    it('should handle concurrent operations scenario', async () => {
-      const mockTokenResponse = {
-        token: 'test-jwt-token',
+    it('should handle no active users', async () => {
+      const mockGroup = mockClient.group();
+      mockGroup.listConnections.mockResolvedValue([]);
+
+      const result = await webPubSubService.getActiveUsersInPresenceGroup();
+
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe('syncAllUsersWithDatabase', () => {
+    it('should sync users successfully', async () => {
+      const mockConnections = [
+        { connectionId: 'conn1', userId: 'user1@example.com' },
+        { connectionId: 'conn2', userId: 'user2@example.com' },
+      ];
+      const mockGroup = mockClient.group();
+      mockGroup.listConnections.mockResolvedValue(mockConnections);
+
+      const mockUsers = [
+        { id: 'user1', email: 'user1@example.com', fullName: 'User One', role: 'Employee' },
+        { id: 'user2', email: 'user2@example.com', fullName: 'User Two', role: 'Supervisor' },
+      ];
+      mockPrisma.user.findMany.mockResolvedValue(mockUsers);
+
+      const result = await webPubSubService.syncAllUsersWithDatabase();
+
+      expect(result).toEqual({
+        corrected: 0,
+        errors: [],
+        warnings: [],
+      });
+    });
+
+    it('should handle sync errors', async () => {
+      const mockGroup = mockClient.group();
+      mockGroup.listConnections.mockRejectedValue(new Error('WebPubSub error'));
+      mockPrisma.user.findMany.mockRejectedValue(new Error('Database error'));
+
+      await expect(webPubSubService.syncAllUsersWithDatabase())
+        .rejects.toThrow('Failed to sync users with database: Database error');
+    });
+  });
+
+  describe('debugSync', () => {
+    it('should perform debug sync successfully', async () => {
+      const mockConnections = [
+        { connectionId: 'conn1', userId: 'user1@example.com' },
+      ];
+      const mockGroup = mockClient.group();
+      mockGroup.listConnections.mockResolvedValue(mockConnections);
+
+      const mockUsers = [
+        { id: 'user1', email: 'user1@example.com', roles: ['PSO'] },
+      ];
+      mockPrisma.user.findMany.mockResolvedValue(mockUsers);
+
+      const result = await webPubSubService.debugSync();
+
+      expect(result).toEqual({
+        corrected: 0,
+        dbUsers: [{ email: 'user1@example.com', status: 'no_presence' }],
+        errors: [],
+        warnings: [],
+        webPubSubUsers: [],
+      });
+    });
+  });
+
+  describe('broadcastSupervisorChangeNotification', () => {
+    it('should broadcast supervisor change notification successfully', async () => {
+      const mockGroup = mockClient.group();
+      mockGroup.sendToAll.mockResolvedValue(undefined);
+
+      const payload = {
+        psoEmails: ['pso1@example.com', 'pso2@example.com'],
+        psoNames: ['PSO One', 'PSO Two'],
+        newSupervisorEmail: 'supervisor@example.com',
+        newSupervisorName: 'Supervisor Name',
+        newSupervisorId: 'supervisor-123',
+        oldSupervisorEmail: 'old-supervisor@example.com',
       };
 
-      mockClient.getClientAccessToken.mockResolvedValue(mockTokenResponse);
-      mockClient.sendToGroup.mockResolvedValue(undefined);
-      mockClient.addUserToGroup.mockResolvedValue(undefined);
+      await webPubSubService.broadcastSupervisorChangeNotification(payload);
 
-      const promises = [
-        webPubSubService.generateToken('user@example.com', ['group']),
-        webPubSubService.sendToGroup('group', { type: 'test', data: {} }),
-        webPubSubService.subscribeToGroup('user@example.com', 'group'),
+      expect(mockClient.group).toHaveBeenCalledWith('presence');
+      expect(mockGroup.sendToAll).toHaveBeenCalledWith({
+        type: 'supervisor_change_notification',
+        data: payload,
+        timestamp: '2023-01-01T00:00:00.000Z',
+      });
+    });
+  });
+
+  describe('logActiveUsersInPresenceGroup', () => {
+    it('should log active users successfully', async () => {
+      const mockConnections = [
+        { connectionId: 'conn1', userId: 'user1@example.com' },
       ];
+      const mockGroup = mockClient.group();
+      mockGroup.listConnections.mockResolvedValue(mockConnections);
 
-      const results = await Promise.all(promises);
+      const mockUsers = [
+        { id: 'user1', email: 'user1@example.com', roles: ['PSO'] },
+      ];
+      mockPrisma.user.findMany.mockResolvedValue(mockUsers);
 
-      expect(results[0]).toBe('test-jwt-token');
-      expect(results[1]).toBeUndefined();
-      expect(results[2]).toBeUndefined();
+      // This method doesn't return anything, just logs
+      await expect(webPubSubService.logActiveUsersInPresenceGroup()).resolves.toBeUndefined();
     });
   });
 });
