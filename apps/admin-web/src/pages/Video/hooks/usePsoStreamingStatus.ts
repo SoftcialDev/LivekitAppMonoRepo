@@ -23,8 +23,10 @@ export interface PsoStreamingStatus {
 /**
  * Hook para obtener el streaming status de un PSO específico
  * Usa FetchStreamingSessionHistory endpoint específico para PSOs
+ * @param psoEmail - Email del PSO
+ * @param isStreaming - Estado actual del streaming para detectar cambios inmediatos
  */
-export function usePsoStreamingStatus(psoEmail: string) {
+export function usePsoStreamingStatus(psoEmail: string, isStreaming?: boolean) {
   const [status, setStatus] = useState<PsoStreamingStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -98,6 +100,14 @@ export function usePsoStreamingStatus(psoEmail: string) {
 
     return () => clearInterval(interval);
   }, [psoEmail, fetchStatus]);
+
+  // Si el streaming está activo, limpiar el timer inmediatamente
+  useEffect(() => {
+    if (isStreaming && status?.lastSession) {
+      console.log(`📡 [usePsoStreamingStatus] Streaming started, clearing timer for ${psoEmail}`);
+      setStatus(prev => prev ? { ...prev, hasActiveSession: true, lastSession: null } : null);
+    }
+  }, [isStreaming, psoEmail, status?.lastSession]);
 
   return {
     status,
