@@ -44,24 +44,18 @@ export function requireUserManagementPermission() {
 }
 
 /**
- * Creates authorization middleware for admin access
- * @returns Middleware function that checks if user is admin
+ * Creates authorization middleware for admin and super admin access only
+ * @returns Middleware function that checks if user is admin or super admin
  */
-export function requireAdminAccess() {
+export function requireAdminOrSuperAdminAccess() {
   const authorizationService = new AuthorizationService(new UserRepository());
   
   return async (ctx: Context): Promise<void> => {
-    // Use the callerId that was already extracted by withCallerId middleware
-    const callerId = (ctx as any).bindings?.callerId;
-    
-    if (!callerId) {
-      throw new Error('Caller ID not found in context');
-    }
-    
-    const isAuthorized = await authorizationService.canAccessAdmin(callerId);
+    const callerId = extractCallerId(ctx);
+    const isAuthorized = await authorizationService.isAdminOrSuperAdmin(callerId);
     
     if (!isAuthorized) {
-      throw new Error('Insufficient privileges');
+      throw new Error('Insufficient privileges - Admin or SuperAdmin role required');
     }
   };
 }
