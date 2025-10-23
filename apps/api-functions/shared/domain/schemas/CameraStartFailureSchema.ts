@@ -15,7 +15,8 @@ export const cameraStartFailureSchema = z.object({
     .array(
       z.object({
         label: z.string().max(200).nullable(),
-        deviceIdHash: z.string().max(128).nullable(),
+        deviceId: z.string().max(256).nullable(),
+        groupId: z.string().max(256).nullable().optional(),
         vendorId: z.string().max(8).optional(),
         productId: z.string().max(8).optional(),
       })
@@ -26,7 +27,7 @@ export const cameraStartFailureSchema = z.object({
     .array(
       z.object({
         label: z.string().max(200).nullable().optional(),
-        deviceIdHash: z.string().max(128).nullable().optional(),
+        deviceId: z.string().max(256).nullable().optional(),
         result: z.nativeEnum(AttemptResult),
         errorName: z.string().max(100).optional(),
         errorMessage: z.string().max(500).optional(),

@@ -24,14 +24,15 @@ export class CameraFailureReport {
   ): CameraFailureReport {
     const devices = (req.devicesSnapshot ?? []).slice(0, 15).map((d) => ({
       label: typeof d.label === "string" ? d.label.slice(0, 200) : d.label ?? null,
-      deviceIdHash: typeof d.deviceIdHash === "string" ? d.deviceIdHash.slice(0, 128) : d.deviceIdHash ?? null,
+      deviceId: d.deviceId ? d.deviceId.slice(0, 256) : null,
+      groupId: d.groupId ? d.groupId.slice(0, 256) : undefined,
       vendorId: d.vendorId?.slice(0, 8),
       productId: d.productId?.slice(0, 8),
     }));
 
     const attempts = (req.attempts ?? []).slice(0, 20).map((a) => ({
       label: a.label ? a.label.slice(0, 200) : a.label,
-      deviceIdHash: a.deviceIdHash ? a.deviceIdHash.slice(0, 128) : a.deviceIdHash,
+      deviceId: a.deviceId ? a.deviceId.slice(0, 256) : a.deviceId,
       result: (a.result as AttemptResult) ?? AttemptResult.Other,
       errorName: a.errorName?.slice(0, 100),
       errorMessage: a.errorMessage?.slice(0, 500),
@@ -50,7 +51,7 @@ export class CameraFailureReport {
       attempts,
       metadata: req.metadata as Record<string, unknown> | undefined,
       createdAtCentralAmerica,
-    } as CameraFailureReport);
+    } as unknown as CameraFailureReport);
   }
 
   toPersistence(): Record<string, unknown> {
