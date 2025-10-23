@@ -4,11 +4,14 @@
  */
 
 import { IUserRepository } from '../../domain/interfaces/IUserRepository';
+import { ICameraFailureService } from '../../domain/interfaces/ICameraFailureService';
+import { ICameraStartFailureRepository } from '../../domain/interfaces/ICameraStartFailureRepository';
+import { CameraFailureApplicationService } from '../../application/services/CameraFailureApplicationService';
+import { CameraStartFailureRepository } from '../repositories/CameraStartFailureRepository';
 import { IAuthorizationService } from '../../domain/interfaces/IAuthorizationService';
 import { ICommandMessagingService } from '../../domain/interfaces/ICommandMessagingService';
 import { ISupervisorRepository } from '../../domain/interfaces/ISupervisorRepository';
 import { ISupervisorManagementService } from '../../domain/interfaces/ISupervisorManagementService';
-import { IGraphService } from '../../domain/interfaces/IGraphService';
 import { IAuditService } from '../../domain/interfaces/IAuditService';
 import { IPresenceService } from '../../domain/interfaces/IPresenceService';
 import { UserRepository } from '../repositories/UserRepository';
@@ -16,7 +19,6 @@ import { AuthorizationService } from '../../domain/services/AuthorizationService
 import { CommandMessagingService } from '../messaging/CommandMessagingService';
 import { SupervisorRepository } from '../repositories/SupervisorRepository';
 import { SupervisorManagementService } from '../../domain/services/SupervisorManagementService';
-import { GraphService } from '../services/GraphService';
 import { AuditService } from '../services/AuditService';
 import { PresenceService } from '../services/PresenceService';
 import { UserDeletionApplicationService } from '../../application/services/UserDeletionApplicationService';
@@ -157,6 +159,7 @@ export class ServiceContainer {
     this.register<IUserRepository>('UserRepository', () => new UserRepository() as IUserRepository);
     this.register<ISupervisorRepository>('SupervisorRepository', () => new SupervisorRepository());
     this.register<ISnapshotRepository>('ISnapshotRepository', () => new SnapshotRepository());
+    this.register<ICameraStartFailureRepository>('CameraStartFailureRepository', () => new CameraStartFailureRepository());
 
     // Register Audit services
     this.register<IAuditRepository>('IAuditRepository', () => new AuditRepository());
@@ -169,6 +172,11 @@ export class ServiceContainer {
     this.register<IAuthorizationService>('AuthorizationService', () => {
       const userRepository = this.resolve<IUserRepository>('UserRepository');
       return new AuthorizationService(userRepository);
+    });
+
+    this.register<ICameraFailureService>('CameraFailureService', () => {
+      const repo = this.resolve<ICameraStartFailureRepository>('CameraStartFailureRepository');
+      return new CameraFailureApplicationService(repo);
     });
 
     this.register<ISupervisorManagementService>('SupervisorManagementService', () => {

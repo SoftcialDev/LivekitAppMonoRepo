@@ -86,7 +86,7 @@ describe('LivekitRecordingApplicationService', () => {
         .toThrow(RecordingUserNotFoundError);
     });
 
-    it('uses fallback user when subject not found', async () => {
+    it('uses fallback user when subject resolution fails with error', async () => {
       const callerId = 'caller123';
       const request = {
         command: 'START',
@@ -98,7 +98,7 @@ describe('LivekitRecordingApplicationService', () => {
 
       mockAuthService.canAccessSuperAdmin.mockResolvedValue(undefined);
       mockUserRepository.findByAzureAdObjectId.mockResolvedValue(caller);
-      mockUserRepository.findById.mockResolvedValue(null);
+      mockUserRepository.findById.mockRejectedValue(new Error('Database error'));
       mockDomainService.startRecording.mockResolvedValue(expectedResult);
 
       const result = await service.processRecordingCommand(callerId, request);

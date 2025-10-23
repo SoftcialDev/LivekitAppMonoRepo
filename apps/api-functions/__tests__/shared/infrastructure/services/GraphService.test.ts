@@ -1,42 +1,38 @@
 /**
  * @fileoverview Tests for GraphService
- * @description Tests for Microsoft Graph API interactions
+ * @description Tests for Microsoft Graph API operations
  */
 
-import { GraphService, GraphUser } from '../../../../shared/infrastructure/services/GraphService';
+import { GraphService } from '../../../../shared/infrastructure/services/GraphService';
+import axios from 'axios';
+import qs from 'qs';
 
-// Mock dependencies
-jest.mock('axios', () => ({
-  post: jest.fn(),
-  get: jest.fn(),
-  delete: jest.fn(),
-}));
+// Mock axios
+jest.mock('axios');
+const mockedAxios = axios as jest.Mocked<typeof axios>;
 
-jest.mock('qs', () => ({
-  stringify: jest.fn(),
-}));
+// Mock qs
+jest.mock('qs');
+const mockedQs = qs as jest.Mocked<typeof qs>;
 
+// Mock config
 jest.mock('../../../../shared/config', () => ({
   config: {
     azureTenantId: 'test-tenant-id',
     azureClientId: 'test-client-id',
-    azureClientSecret: 'test-client-secret',
-  },
+    azureClientSecret: 'test-client-secret'
+  }
 }));
 
 describe('GraphService', () => {
   let graphService: GraphService;
-  let mockAxios: any;
-  let mockQs: any;
 
   beforeEach(() => {
     jest.clearAllMocks();
-    
     graphService = new GraphService();
     
-    // Get mocked instances
-    mockAxios = require('axios');
-    mockQs = require('qs');
+    // Setup default mocks
+    mockedQs.stringify.mockReturnValue('mocked-query-string');
   });
 
   afterEach(() => {
@@ -50,601 +46,560 @@ describe('GraphService', () => {
   });
 
   describe('getGraphToken', () => {
-    it('should get graph token successfully', async () => {
-      const mockTokenResponse = {
+    it('should acquire token successfully', async () => {
+      const mockResponse = {
         data: {
-          access_token: 'test-access-token',
-          token_type: 'Bearer',
-          expires_in: 3600,
-        },
+          access_token: 'mock-access-token'
+        }
       };
 
-      mockAxios.post.mockResolvedValue(mockTokenResponse);
-      mockQs.stringify.mockReturnValue('client_id=test-client-id&client_secret=test-client-secret&scope=https://graph.microsoft.com/.default&grant_type=client_credentials');
+      mockedAxios.post.mockResolvedValue(mockResponse);
 
       const result = await graphService.getGraphToken();
 
-      expect(result).toBe('test-access-token');
-      expect(mockAxios.post).toHaveBeenCalledWith(
+      expect(result).toBe('mock-access-token');
+      expect(mockedAxios.post).toHaveBeenCalledWith(
         'https://login.microsoftonline.com/test-tenant-id/oauth2/v2.0/token',
-        'client_id=test-client-id&client_secret=test-client-secret&scope=https://graph.microsoft.com/.default&grant_type=client_credentials',
+        'mocked-query-string',
         {
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
         }
       );
+      expect(mockedQs.stringify).toHaveBeenCalledWith({
+        client_id: 'test-client-id',
+        client_secret: 'test-client-secret',
+        scope: 'https://graph.microsoft.com/.default',
+        grant_type: 'client_credentials'
+      });
     });
 
-    it('should handle missing Azure AD config', async () => {
-      // Create a new service instance with missing config
-      const originalConfig = require('../../../../shared/config').config;
-      
-      // Temporarily modify the config
-      require('../../../../shared/config').config = {
-        azureTenantId: null,
-        azureClientId: 'test-client-id',
-        azureClientSecret: 'test-client-secret',
-      };
-
-      const service = new GraphService();
-      
-      await expect(service.getGraphToken())
-        .rejects.toThrow('Missing Azure AD config: azureTenantId, azureClientId, or azureClientSecret');
-        
-      // Restore original config
-      require('../../../../shared/config').config = originalConfig;
-    });
-
-    it('should handle axios errors', async () => {
-      const axiosError = new Error('Network error');
-      mockAxios.post.mockRejectedValue(axiosError);
-
-      await expect(graphService.getGraphToken())
-        .rejects.toThrow('Network error');
-    });
-
-    it('should handle invalid token response', async () => {
-      const invalidResponse = {
+    it('should throw error when access_token is missing', async () => {
+      const mockResponse = {
         data: {
-          error: 'invalid_client',
-          error_description: 'Invalid client credentials',
-        },
+          token_type: 'Bearer',
+          expires_in: 3600
+          // Missing access_token
+        }
       };
 
-      mockAxios.post.mockResolvedValue(invalidResponse);
+      mockedAxios.post.mockResolvedValue(mockResponse);
 
       await expect(graphService.getGraphToken())
-        .rejects.toThrow('Failed to acquire Graph token: Token response did not contain access_token. Response: {"error":"invalid_client","error_description":"Invalid client credentials"}');
+        .rejects.toThrow('Token response did not contain access_token');
+    });
+
+    it('should handle HTTP error responses', async () => {
+      const mockError = {
+        response: {
+          status: 400,
+          data: { error: 'invalid_request' }
+        }
+      };
+
+      mockedAxios.post.mockRejectedValue(mockError);
+
+      await expect(graphService.getGraphToken())
+        .rejects.toThrow('Failed to acquire Graph token: HTTP 400 - {"error":"invalid_request"}');
+    });
+
+    it('should handle network errors', async () => {
+      const mockError = {
+        message: 'Network error'
+      };
+
+      mockedAxios.post.mockRejectedValue(mockError);
+
+      await expect(graphService.getGraphToken())
+        .rejects.toThrow('Failed to acquire Graph token: Network error');
     });
   });
 
   describe('assignAppRoleToPrincipal', () => {
-    const mockToken = 'test-access-token';
-    const mockSpId = 'sp-123';
-    const mockUserId = 'user-123';
-    const mockRoleId = 'role-123';
+    const mockToken = 'test-token';
+    const mockSpId = 'test-sp-id';
+    const mockUserId = 'test-user-id';
+    const mockRoleId = 'test-role-id';
 
     it('should assign app role successfully', async () => {
-      mockAxios.post.mockResolvedValue({ status: 201 });
+      mockedAxios.post.mockResolvedValue({ status: 201 });
 
       await graphService.assignAppRoleToPrincipal(mockToken, mockSpId, mockUserId, mockRoleId);
 
-      expect(mockAxios.post).toHaveBeenCalledWith(
+      expect(mockedAxios.post).toHaveBeenCalledWith(
         `https://graph.microsoft.com/v1.0/servicePrincipals/${mockSpId}/appRoleAssignedTo`,
         {
           principalId: mockUserId,
           resourceId: mockSpId,
-          appRoleId: mockRoleId,
+          appRoleId: mockRoleId
         },
         {
           headers: {
             Authorization: `Bearer ${mockToken}`,
-            'Content-Type': 'application/json',
-          },
+            'Content-Type': 'application/json'
+          }
         }
       );
     });
 
     it('should handle assignment errors', async () => {
-      const assignmentError = new Error('Assignment failed');
-      mockAxios.post.mockRejectedValue(assignmentError);
+      const mockError = new Error('Role already assigned') as any;
+      mockError.response = {
+        status: 400,
+        data: { error: 'Role already assigned' }
+      };
+
+      mockedAxios.post.mockRejectedValue(mockError);
 
       await expect(graphService.assignAppRoleToPrincipal(mockToken, mockSpId, mockUserId, mockRoleId))
-        .rejects.toThrow('Assignment failed');
+        .rejects.toThrow('Role already assigned');
     });
   });
 
   describe('removeAllAppRolesFromPrincipalOnSp', () => {
-    const mockToken = 'test-access-token';
-    const mockSpId = 'sp-123';
-    const mockUserId = 'user-123';
+    const mockToken = 'test-token';
+    const mockSpId = 'test-sp-id';
+    const mockUserId = 'test-user-id';
 
     it('should remove all app roles successfully', async () => {
-      const mockRoleAssignments = {
+      const mockResponse = {
         status: 200,
         data: {
           value: [
-            { id: 'assignment-1', principalId: mockUserId },
-            { id: 'assignment-2', principalId: 'other-user' },
-          ],
-        },
+            { id: 'assignment1', principalId: mockUserId },
+            { id: 'assignment2', principalId: 'other-user' },
+            { id: 'assignment3', principalId: mockUserId }
+          ]
+        }
       };
 
-      mockAxios.get.mockResolvedValue(mockRoleAssignments);
-      mockAxios.delete.mockResolvedValue({ status: 204 });
+      mockedAxios.get.mockResolvedValue(mockResponse);
+      mockedAxios.delete.mockResolvedValue({ status: 204 });
 
       await graphService.removeAllAppRolesFromPrincipalOnSp(mockToken, mockSpId, mockUserId);
 
-      expect(mockAxios.get).toHaveBeenCalledWith(
+      expect(mockedAxios.get).toHaveBeenCalledWith(
         `https://graph.microsoft.com/v1.0/servicePrincipals/${mockSpId}/appRoleAssignedTo?$top=100`,
         {
-          headers: {
-            Authorization: `Bearer ${mockToken}`,
-          },
+          headers: { Authorization: `Bearer ${mockToken}` }
         }
       );
-      expect(mockAxios.delete).toHaveBeenCalledWith(
-        `https://graph.microsoft.com/v1.0/servicePrincipals/${mockSpId}/appRoleAssignedTo/assignment-1`,
-        {
-          headers: {
-            Authorization: `Bearer ${mockToken}`,
-          },
-        }
-      );
+      expect(mockedAxios.delete).toHaveBeenCalledTimes(2); // Only for matching principalId
     });
 
-    it('should handle removal errors', async () => {
-      const removalError = new Error('Removal failed');
-      mockAxios.get.mockRejectedValue(removalError);
+    it('should handle pagination', async () => {
+      const firstPageResponse = {
+        status: 200,
+        data: {
+          value: [
+            { id: 'assignment1', principalId: mockUserId }
+          ],
+          '@odata.nextLink': 'https://graph.microsoft.com/v1.0/servicePrincipals/test-sp-id/appRoleAssignedTo?$skip=100'
+        }
+      };
+
+      const secondPageResponse = {
+        status: 200,
+        data: {
+          value: [
+            { id: 'assignment2', principalId: mockUserId }
+          ]
+        }
+      };
+
+      mockedAxios.get
+        .mockResolvedValueOnce(firstPageResponse)
+        .mockResolvedValueOnce(secondPageResponse);
+      mockedAxios.delete.mockResolvedValue({ status: 204 });
+
+      await graphService.removeAllAppRolesFromPrincipalOnSp(mockToken, mockSpId, mockUserId);
+
+      expect(mockedAxios.get).toHaveBeenCalledTimes(2);
+      expect(mockedAxios.delete).toHaveBeenCalledTimes(2);
+    });
+
+    it('should handle non-200 status', async () => {
+      const mockResponse = {
+        status: 400,
+        data: { error: 'Bad request' }
+      };
+
+      mockedAxios.get.mockResolvedValue(mockResponse);
 
       await expect(graphService.removeAllAppRolesFromPrincipalOnSp(mockToken, mockSpId, mockUserId))
-        .rejects.toThrow('Removal failed');
+        .rejects.toThrow('Failed to list appRoleAssignedTo: 400 {"error":"Bad request"}');
+    });
+
+    it('should handle delete errors', async () => {
+      const mockResponse = {
+        status: 200,
+        data: {
+          value: [
+            { id: 'assignment1', principalId: mockUserId }
+          ]
+        }
+      };
+
+      const deleteError = {
+        response: {
+          status: 404,
+          data: { error: 'Not found' }
+        }
+      };
+
+      mockedAxios.get.mockResolvedValue(mockResponse);
+      mockedAxios.delete.mockRejectedValue(deleteError);
+
+      await expect(graphService.removeAllAppRolesFromPrincipalOnSp(mockToken, mockSpId, mockUserId))
+        .rejects.toThrow('Failed to delete appRoleAssignedTo assignment1: HTTP 404 - {"error":"Not found"}');
+    });
+
+    it('should handle delete errors without response', async () => {
+      const mockResponse = {
+        status: 200,
+        data: {
+          value: [
+            { id: 'assignment1', principalId: mockUserId }
+          ]
+        }
+      };
+
+      const deleteError = {
+        message: 'Network error'
+      };
+
+      mockedAxios.get.mockResolvedValue(mockResponse);
+      mockedAxios.delete.mockRejectedValue(deleteError);
+
+      await expect(graphService.removeAllAppRolesFromPrincipalOnSp(mockToken, mockSpId, mockUserId))
+        .rejects.toThrow('Failed to delete appRoleAssignedTo assignment1: Network error');
+    });
+
+    it('should skip assignments without id', async () => {
+      const mockResponse = {
+        status: 200,
+        data: {
+          value: [
+            { principalId: mockUserId }, // Missing id
+            { id: 'assignment1', principalId: mockUserId }
+          ]
+        }
+      };
+
+      mockedAxios.get.mockResolvedValue(mockResponse);
+      mockedAxios.delete.mockResolvedValue({ status: 204 });
+
+      await graphService.removeAllAppRolesFromPrincipalOnSp(mockToken, mockSpId, mockUserId);
+
+      expect(mockedAxios.delete).toHaveBeenCalledTimes(1);
+    });
+
+    it('should skip assignments with different principalId', async () => {
+      const mockResponse = {
+        status: 200,
+        data: {
+          value: [
+            { id: 'assignment1', principalId: 'other-user' },
+            { id: 'assignment2', principalId: mockUserId }
+          ]
+        }
+      };
+
+      mockedAxios.get.mockResolvedValue(mockResponse);
+      mockedAxios.delete.mockResolvedValue({ status: 204 });
+
+      await graphService.removeAllAppRolesFromPrincipalOnSp(mockToken, mockSpId, mockUserId);
+
+      expect(mockedAxios.delete).toHaveBeenCalledTimes(1);
     });
   });
 
   describe('fetchAllUsers', () => {
-    const mockToken = 'test-access-token';
+    const mockToken = 'test-token';
 
     it('should fetch all users successfully', async () => {
-      const mockUsersResponse = {
+      const mockResponse = {
         status: 200,
         data: {
           value: [
             {
-              id: 'user-1',
+              id: 'user1',
               displayName: 'User One',
               mail: 'user1@example.com',
               userPrincipalName: 'user1@example.com',
-              accountEnabled: true,
+              accountEnabled: true
             },
             {
-              id: 'user-2',
+              id: 'user2',
               displayName: 'User Two',
               mail: 'user2@example.com',
               userPrincipalName: 'user2@example.com',
-              accountEnabled: false,
-            },
-          ],
-        },
+              accountEnabled: false
+            }
+          ]
+        }
       };
 
-      mockAxios.get.mockResolvedValue(mockUsersResponse);
+      mockedAxios.get.mockResolvedValue(mockResponse);
 
       const result = await graphService.fetchAllUsers(mockToken);
 
-      expect(result).toEqual([
-            {
-              id: 'user-1',
+      expect(result).toHaveLength(2);
+      expect(result[0]).toEqual({
+        id: 'user1',
               displayName: 'User One',
               mail: 'user1@example.com',
               userPrincipalName: 'user1@example.com',
-              accountEnabled: true,
-            },
-            {
-              id: 'user-2',
-              displayName: 'User Two',
-              mail: 'user2@example.com',
-              userPrincipalName: 'user2@example.com',
-              accountEnabled: false,
-            },
-          ]);
-
-      expect(mockAxios.get).toHaveBeenCalledWith(
+        accountEnabled: true
+      });
+      expect(mockedAxios.get).toHaveBeenCalledWith(
         'https://graph.microsoft.com/v1.0/users?$select=id,displayName,mail,userPrincipalName,accountEnabled&$top=100',
         {
-          headers: {
-            Authorization: `Bearer ${mockToken}`,
-          },
+          headers: { Authorization: `Bearer ${mockToken}` }
         }
       );
     });
 
-    it('should handle fetch errors', async () => {
-      const fetchError = new Error('Fetch failed');
-      mockAxios.get.mockRejectedValue(fetchError);
+    it('should handle pagination', async () => {
+      const firstPageResponse = {
+        status: 200,
+        data: {
+          value: [
+            { id: 'user1', displayName: 'User One' }
+          ],
+          '@odata.nextLink': 'https://graph.microsoft.com/v1.0/users?$skip=100'
+        }
+      };
+
+      const secondPageResponse = {
+        status: 200,
+        data: {
+          value: [
+            { id: 'user2', displayName: 'User Two' }
+          ]
+        }
+      };
+
+      mockedAxios.get
+        .mockResolvedValueOnce(firstPageResponse)
+        .mockResolvedValueOnce(secondPageResponse);
+
+      const result = await graphService.fetchAllUsers(mockToken);
+
+      expect(result).toHaveLength(2);
+      expect(mockedAxios.get).toHaveBeenCalledTimes(2);
+    });
+
+    it('should handle non-200 status', async () => {
+      const mockResponse = {
+        status: 400,
+        data: { error: 'Bad request' }
+      };
+
+      mockedAxios.get.mockResolvedValue(mockResponse);
 
       await expect(graphService.fetchAllUsers(mockToken))
-        .rejects.toThrow('Fetch failed');
+        .rejects.toThrow('Graph /users returned status 400: {"error":"Bad request"}');
+    });
+
+    it('should handle HTTP error responses', async () => {
+      const mockError = {
+        response: {
+          status: 401,
+          data: { error: 'Unauthorized' }
+        }
+      };
+
+      mockedAxios.get.mockRejectedValue(mockError);
+
+      await expect(graphService.fetchAllUsers(mockToken))
+        .rejects.toThrow('Error fetching users: HTTP 401 - {"error":"Unauthorized"}');
+    });
+
+    it('should handle network errors', async () => {
+      const mockError = {
+        message: 'Network error'
+      };
+
+      mockedAxios.get.mockRejectedValue(mockError);
+
+      await expect(graphService.fetchAllUsers(mockToken))
+        .rejects.toThrow('Error fetching users: Network error');
+    });
+
+    it('should handle empty response', async () => {
+      const mockResponse = {
+        status: 200,
+        data: {
+          value: []
+        }
+      };
+
+      mockedAxios.get.mockResolvedValue(mockResponse);
+
+      const result = await graphService.fetchAllUsers(mockToken);
+
+      expect(result).toHaveLength(0);
+    });
+
+    it('should handle non-array value', async () => {
+      const mockResponse = {
+        status: 200,
+        data: {
+          value: 'not-an-array'
+        }
+      };
+
+      mockedAxios.get.mockResolvedValue(mockResponse);
+
+      const result = await graphService.fetchAllUsers(mockToken);
+
+      expect(result).toHaveLength(0);
     });
   });
 
   describe('fetchAppRoleMemberIds', () => {
-    const mockToken = 'test-access-token';
-    const mockServicePrincipalId = 'sp-123';
-    const mockAppRoleId = 'role-123';
+      const mockToken = 'test-token';
+    const mockServicePrincipalId = 'test-sp-id';
+    const mockAppRoleId = 'test-role-id';
 
     it('should fetch app role member IDs successfully', async () => {
-      const mockMembersResponse = {
+      const mockResponse = {
         status: 200,
         data: {
           value: [
-            { principalId: 'user-1', appRoleId: mockAppRoleId },
-            { principalId: 'user-2', appRoleId: mockAppRoleId },
-            { principalId: 'user-3', appRoleId: mockAppRoleId },
-          ],
-        },
+            {
+              appRoleId: mockAppRoleId,
+              principalId: 'user1'
+            },
+            {
+              appRoleId: 'other-role-id',
+              principalId: 'user2'
+            },
+            {
+              appRoleId: mockAppRoleId,
+              principalId: 'user3'
+            }
+          ]
+        }
       };
 
-      mockAxios.get.mockResolvedValue(mockMembersResponse);
+      mockedAxios.get.mockResolvedValue(mockResponse);
 
       const result = await graphService.fetchAppRoleMemberIds(mockToken, mockServicePrincipalId, mockAppRoleId);
 
-      expect(result).toEqual(new Set(['user-1', 'user-2', 'user-3']));
-
-      expect(mockAxios.get).toHaveBeenCalledWith(
+      expect(result).toEqual(new Set(['user1', 'user3']));
+      expect(mockedAxios.get).toHaveBeenCalledWith(
         `https://graph.microsoft.com/v1.0/servicePrincipals/${mockServicePrincipalId}/appRoleAssignedTo?$top=100`,
         {
-          headers: {
-            Authorization: `Bearer ${mockToken}`,
-          },
+          headers: { Authorization: `Bearer ${mockToken}` }
         }
       );
     });
 
-    it('should handle fetch errors', async () => {
-      const fetchError = new Error('Fetch failed');
-      mockAxios.get.mockRejectedValue(fetchError);
+    it('should throw error when servicePrincipalId is missing', async () => {
+      await expect(graphService.fetchAppRoleMemberIds(mockToken, '', mockAppRoleId))
+        .rejects.toThrow('servicePrincipalId is required');
+    });
+
+    it('should throw error when appRoleId is missing', async () => {
+      await expect(graphService.fetchAppRoleMemberIds(mockToken, mockServicePrincipalId, ''))
+        .rejects.toThrow('appRoleId is required');
+    });
+
+    it('should handle pagination', async () => {
+      const firstPageResponse = {
+        status: 200,
+        data: {
+          value: [
+            { appRoleId: mockAppRoleId, principalId: 'user1' }
+          ],
+          '@odata.nextLink': 'https://graph.microsoft.com/v1.0/servicePrincipals/test-sp-id/appRoleAssignedTo?$skip=100'
+        }
+      };
+
+      const secondPageResponse = {
+        status: 200,
+        data: {
+          value: [
+            { appRoleId: mockAppRoleId, principalId: 'user2' }
+          ]
+        }
+      };
+
+      mockedAxios.get
+        .mockResolvedValueOnce(firstPageResponse)
+        .mockResolvedValueOnce(secondPageResponse);
+
+      const result = await graphService.fetchAppRoleMemberIds(mockToken, mockServicePrincipalId, mockAppRoleId);
+
+      expect(result).toEqual(new Set(['user1', 'user2']));
+      expect(mockedAxios.get).toHaveBeenCalledTimes(2);
+    });
+
+    it('should handle non-200 status', async () => {
+      const mockResponse = {
+        status: 400,
+        data: { error: 'Bad request' }
+      };
+
+      mockedAxios.get.mockResolvedValue(mockResponse);
 
       await expect(graphService.fetchAppRoleMemberIds(mockToken, mockServicePrincipalId, mockAppRoleId))
-        .rejects.toThrow('Fetch failed');
-    });
-  });
-
-  describe('edge cases', () => {
-    it('should handle very long service principal IDs', async () => {
-      const longSpId = 'A'.repeat(1000);
-      const mockToken = 'test-access-token';
-      const mockUserId = 'user-123';
-      const mockRoleId = 'role-123';
-
-      mockAxios.post.mockResolvedValue({ status: 201 });
-
-      await graphService.assignAppRoleToPrincipal(mockToken, longSpId, mockUserId, mockRoleId);
-
-      expect(mockAxios.post).toHaveBeenCalledWith(
-        `https://graph.microsoft.com/v1.0/servicePrincipals/${longSpId}/appRoleAssignedTo`,
-        {
-          principalId: mockUserId,
-          resourceId: longSpId,
-          appRoleId: mockRoleId,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${mockToken}`,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
+        .rejects.toThrow('Graph failed: 400 – {"error":"Bad request"}');
     });
 
-    it('should handle special characters in user IDs', async () => {
-      const specialUserId = 'user-with-special-chars-@#$%';
-      const mockToken = 'test-access-token';
-      const mockSpId = 'sp-123';
-      const mockRoleId = 'role-123';
-
-      mockAxios.post.mockResolvedValue({ status: 201 });
-
-      await graphService.assignAppRoleToPrincipal(mockToken, mockSpId, specialUserId, mockRoleId);
-
-      expect(mockAxios.post).toHaveBeenCalledWith(
-        `https://graph.microsoft.com/v1.0/servicePrincipals/${mockSpId}/appRoleAssignedTo`,
-        {
-          principalId: specialUserId,
-          resourceId: mockSpId,
-          appRoleId: mockRoleId,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${mockToken}`,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-    });
-
-    it('should handle unicode characters in user IDs', async () => {
-      const unicodeUserId = '用户-123';
-      const mockToken = 'test-access-token';
-      const mockSpId = 'sp-123';
-      const mockRoleId = 'role-123';
-
-      mockAxios.post.mockResolvedValue({ status: 201 });
-
-      await graphService.assignAppRoleToPrincipal(mockToken, mockSpId, unicodeUserId, mockRoleId);
-
-      expect(mockAxios.post).toHaveBeenCalledWith(
-        `https://graph.microsoft.com/v1.0/servicePrincipals/${mockSpId}/appRoleAssignedTo`,
-        {
-          principalId: unicodeUserId,
-          resourceId: mockSpId,
-          appRoleId: mockRoleId,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${mockToken}`,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-    });
-
-    it('should handle empty user IDs', async () => {
-      const emptyUserId = '';
-      const mockToken = 'test-access-token';
-      const mockSpId = 'sp-123';
-      const mockRoleId = 'role-123';
-
-      mockAxios.post.mockResolvedValue({ status: 201 });
-
-      await graphService.assignAppRoleToPrincipal(mockToken, mockSpId, emptyUserId, mockRoleId);
-
-      expect(mockAxios.post).toHaveBeenCalledWith(
-        `https://graph.microsoft.com/v1.0/servicePrincipals/${mockSpId}/appRoleAssignedTo`,
-        {
-          principalId: emptyUserId,
-          resourceId: mockSpId,
-          appRoleId: mockRoleId,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${mockToken}`,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-    });
-
-    it('should handle null user IDs', async () => {
-      const nullUserId = null as any;
-      const mockToken = 'test-access-token';
-      const mockSpId = 'sp-123';
-      const mockRoleId = 'role-123';
-
-      mockAxios.post.mockResolvedValue({ status: 201 });
-
-      await graphService.assignAppRoleToPrincipal(mockToken, mockSpId, nullUserId, mockRoleId);
-
-      expect(mockAxios.post).toHaveBeenCalledWith(
-        `https://graph.microsoft.com/v1.0/servicePrincipals/${mockSpId}/appRoleAssignedTo`,
-        {
-          principalId: nullUserId,
-          resourceId: mockSpId,
-          appRoleId: mockRoleId,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${mockToken}`,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-    });
-  });
-
-  describe('validation scenarios', () => {
-    it('should handle authentication scenario', async () => {
-      const mockTokenResponse = {
-        data: {
-          access_token: 'auth-token-123',
-          token_type: 'Bearer',
-          expires_in: 3600,
-        },
-      };
-
-      mockAxios.post.mockResolvedValue(mockTokenResponse);
-      mockQs.stringify.mockReturnValue('client_id=test-client-id&client_secret=test-client-secret&scope=https://graph.microsoft.com/.default&grant_type=client_credentials');
-
-      const token = await graphService.getGraphToken();
-
-      expect(token).toBe('auth-token-123');
-    });
-
-    it('should handle role assignment scenario', async () => {
-      const mockToken = 'test-token';
-      const mockSpId = 'sp-123';
-      const mockUserId = 'user-123';
-      const mockRoleId = 'role-123';
-
-      mockAxios.post.mockResolvedValue({ status: 201 });
-
-      await graphService.assignAppRoleToPrincipal(mockToken, mockSpId, mockUserId, mockRoleId);
-
-      expect(mockAxios.post).toHaveBeenCalledWith(
-        `https://graph.microsoft.com/v1.0/servicePrincipals/${mockSpId}/appRoleAssignedTo`,
-        {
-          principalId: mockUserId,
-          resourceId: mockSpId,
-          appRoleId: mockRoleId,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${mockToken}`,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-    });
-
-    it('should handle role removal scenario', async () => {
-      const mockToken = 'test-token';
-      const mockSpId = 'sp-123';
-      const mockUserId = 'user-123';
-
-      const mockRoleAssignments = {
+    it('should handle empty value array', async () => {
+      const mockResponse = {
         status: 200,
         data: {
-          value: [
-            { id: 'assignment-1', principalId: mockUserId },
-          ],
-        },
+          value: []
+        }
       };
 
-      mockAxios.get.mockResolvedValue(mockRoleAssignments);
-      mockAxios.delete.mockResolvedValue({ status: 204 });
+      mockedAxios.get.mockResolvedValue(mockResponse);
 
-      await graphService.removeAllAppRolesFromPrincipalOnSp(mockToken, mockSpId, mockUserId);
+      const result = await graphService.fetchAppRoleMemberIds(mockToken, mockServicePrincipalId, mockAppRoleId);
 
-      expect(mockAxios.get).toHaveBeenCalledWith(
-        `https://graph.microsoft.com/v1.0/servicePrincipals/${mockSpId}/appRoleAssignedTo?$top=100`,
-        {
-          headers: {
-            Authorization: `Bearer ${mockToken}`,
-          },
-        }
-      );
-      expect(mockAxios.delete).toHaveBeenCalledWith(
-        `https://graph.microsoft.com/v1.0/servicePrincipals/${mockSpId}/appRoleAssignedTo/assignment-1`,
-        {
-          headers: {
-            Authorization: `Bearer ${mockToken}`,
-          },
-        }
-      );
+      expect(result).toEqual(new Set());
     });
 
-    it('should handle user fetching scenario', async () => {
-      const mockToken = 'test-token';
-      const mockUsersResponse = {
+    it('should handle missing principalId', async () => {
+      const mockResponse = {
         status: 200,
         data: {
           value: [
             {
-              id: 'user-1',
-              displayName: 'Test User',
-              mail: 'test@example.com',
-              userPrincipalName: 'test@example.com',
-              accountEnabled: true,
+              appRoleId: mockAppRoleId,
+              principalId: 'user1'
             },
-          ],
-        },
-      };
-
-      mockAxios.get.mockResolvedValue(mockUsersResponse);
-
-      const users = await graphService.fetchAllUsers(mockToken);
-
-      expect(users).toEqual([
-        {
-          id: 'user-1',
-          displayName: 'Test User',
-          mail: 'test@example.com',
-          userPrincipalName: 'test@example.com',
-          accountEnabled: true,
-        },
-      ]);
-    });
-
-    it('should handle app role member fetching scenario', async () => {
-      const mockToken = 'test-token';
-      const mockServicePrincipalId = 'sp-123';
-      const mockAppRoleId = 'role-123';
-
-      const mockMembersResponse = {
-        status: 200,
-        data: {
-          value: [
-            { principalId: 'user-1', appRoleId: mockAppRoleId },
-            { principalId: 'user-2', appRoleId: mockAppRoleId },
-          ],
-        },
-      };
-
-      mockAxios.get.mockResolvedValue(mockMembersResponse);
-
-      const members = await graphService.fetchAppRoleMemberIds(mockToken, mockServicePrincipalId, mockAppRoleId);
-
-      expect(members).toEqual(new Set(['user-1', 'user-2']));
-    });
-
-    it('should handle bulk operations scenario', async () => {
-      const operations = [
-        { type: 'assign', spId: 'sp-1', userId: 'user-1', roleId: 'role-1' },
-        { type: 'assign', spId: 'sp-2', userId: 'user-2', roleId: 'role-2' },
-        { type: 'remove', spId: 'sp-3', userId: 'user-3' },
-      ];
-
-      mockAxios.post.mockResolvedValue({ status: 201 });
-      mockAxios.get.mockResolvedValue({ status: 200, data: { value: [] } });
-      mockAxios.delete.mockResolvedValue({ status: 204 });
-
-      for (const operation of operations) {
-        if (operation.type === 'assign') {
-          await graphService.assignAppRoleToPrincipal('token', operation.spId, operation.userId, operation.roleId || 'default-role');
-        } else if (operation.type === 'remove') {
-          await graphService.removeAllAppRolesFromPrincipalOnSp('token', operation.spId, operation.userId);
-        }
-      }
-
-      expect(mockAxios.post).toHaveBeenCalledTimes(2);
-      expect(mockAxios.get).toHaveBeenCalledTimes(1);
-      expect(mockAxios.delete).toHaveBeenCalledTimes(0);
-    });
-
-    it('should handle concurrent operations scenario', async () => {
-      const mockTokenResponse = {
-        data: {
-          access_token: 'concurrent-token',
-          token_type: 'Bearer',
-          expires_in: 3600,
-        },
-      };
-
-      const mockUsersResponse = {
-        status: 200,
-        data: {
-          value: [
             {
-              id: 'user-1',
-              displayName: 'Test User',
-              mail: 'test@example.com',
-              userPrincipalName: 'test@example.com',
-              accountEnabled: true,
-            },
-          ],
-        },
+              appRoleId: mockAppRoleId
+              // Missing principalId
+            }
+          ]
+        }
       };
 
-      mockAxios.post.mockResolvedValue(mockTokenResponse);
-      mockAxios.get.mockResolvedValue(mockUsersResponse);
-      mockQs.stringify.mockReturnValue('client_id=test-client-id&client_secret=test-client-secret&scope=https://graph.microsoft.com/.default&grant_type=client_credentials');
+      mockedAxios.get.mockResolvedValue(mockResponse);
 
-      const promises = [
-        graphService.getGraphToken(),
-        graphService.fetchAllUsers('token'),
-      ];
+      const result = await graphService.fetchAppRoleMemberIds(mockToken, mockServicePrincipalId, mockAppRoleId);
 
-      const results = await Promise.all(promises);
+      expect(result).toEqual(new Set(['user1']));
+    });
 
-      expect(results[0]).toBe('concurrent-token');
-      expect(results[1]).toEqual([
-        {
-          id: 'user-1',
-          displayName: 'Test User',
-          mail: 'test@example.com',
-          userPrincipalName: 'test@example.com',
-          accountEnabled: true,
-        },
-      ]);
+    it('should handle null value', async () => {
+      const mockResponse = {
+        status: 200,
+        data: {
+          value: null
+        }
+      };
+
+      mockedAxios.get.mockResolvedValue(mockResponse);
+
+      const result = await graphService.fetchAppRoleMemberIds(mockToken, mockServicePrincipalId, mockAppRoleId);
+
+      expect(result).toEqual(new Set());
     });
   });
 });

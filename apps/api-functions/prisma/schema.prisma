@@ -112,6 +112,9 @@ model User {
 
   ContactManagerStatusHistory  ContactManagerStatusHistory[]
 
+  // Camera start failures (optional relation)
+  cameraStartFailures         CameraStartFailure[]        @relation("UserCameraStartFailures")
+
   @@index([supervisorId])
 }
 
@@ -281,4 +284,37 @@ enum RecordingStatus {
 enum RecordingCommandType {
   START
   STOP
+}
+
+// Camera start failure aggregation (logged only when start flow fails)
+enum CameraFailureStage {
+  Permission      // getUserMedia denied (NotAllowedError)
+  Enumerate       // enumerateDevices failed / returned 0
+  TrackCreate     // createLocalVideoTrack failed (e.g., NotReadableError)
+  LiveKitConnect  // LiveKit room connection failed
+  Publish         // Publishing track failed
+  Unknown
+}
+
+model CameraStartFailure {
+  id                        String             @id @default(cuid())
+  userId                    String?            @db.Uuid
+  user                      User?              @relation("UserCameraStartFailures", fields: [userId], references: [id], onDelete: SetNull)
+  userAdId                  String
+  userEmail                 String?
+
+  stage                     CameraFailureStage
+  errorName                 String?            @db.VarChar(100)
+  errorMessage              String?            @db.VarChar(1000)
+
+  deviceCount               Int?
+  devicesSnapshot           Json?
+  attempts                  Json?
+
+  metadata                  Json?
+  createdAt                 DateTime           @default(now())
+  createdAtCentralAmerica   String?
+
+  @@index([userAdId, createdAt])
+  @@index([stage, createdAt])
 }

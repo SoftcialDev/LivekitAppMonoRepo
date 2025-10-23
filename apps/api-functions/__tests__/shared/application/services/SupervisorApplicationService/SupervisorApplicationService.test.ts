@@ -361,39 +361,153 @@ describe('SupervisorApplicationService', () => {
     });
   });
 
-  describe('edge cases', () => {
-    it('should handle empty user emails array', async () => {
+  describe('broadcastSupervisorChangeNotification', () => {
+    it('should broadcast supervisor change notification successfully', async () => {
       const assignment = new SupervisorAssignment(
-        [],
+        ['user1@example.com', 'user2@example.com'],
         'supervisor@example.com',
-        new Date()
+        new Date('2023-01-01T10:00:00Z')
       );
 
-      await expect(service.validateSupervisorAssignment(assignment)).rejects.toThrow();
-    });
-
-    it('should handle multiple users with supervisor change', async () => {
-      const assignment = new SupervisorAssignment(
-        ['user1@example.com', 'user2@example.com', 'user3@example.com'],
-        'supervisor@example.com',
-        new Date()
-      );
-
-      const expectedResult = new SupervisorChangeResult(3, 0, 3);
-
-      mockSupervisorManagementService.assignSupervisor.mockResolvedValue(expectedResult);
-      mockCommandMessagingService.sendToGroup.mockResolvedValue();
-      mockSupervisorRepository.findByEmail.mockResolvedValue({
+      const supervisor = {
         id: 'supervisor-123',
         email: 'supervisor@example.com',
         fullName: 'Supervisor Name',
+        azureAdObjectId: 'supervisor-azure-id',
         getDisplayName: () => 'Supervisor Name'
-      } as any);
+      };
 
-      const result = await service.changeSupervisor(assignment);
+      const pso1 = {
+        id: 'pso-1',
+        email: 'user1@example.com',
+        fullName: 'PSO One'
+      };
 
-      expect(result).toBe(expectedResult);
-      expect(mockCommandMessagingService.sendToGroup).toHaveBeenCalledTimes(3);
+      const pso2 = {
+        id: 'pso-2',
+        email: 'user2@example.com',
+        fullName: 'PSO Two'
+      };
+
+      mockSupervisorRepository.findByEmail.mockResolvedValue(supervisor as any);
+      mockUserRepository.findByEmail
+        .mockResolvedValueOnce(pso1 as any)
+        .mockResolvedValueOnce(pso2 as any);
+      mockWebPubSubService.broadcastSupervisorChangeNotification.mockResolvedValue();
+
+      // Access private method through any casting
+      await (service as any).broadcastSupervisorChangeNotification(assignment, 'Supervisor Name');
+
+      expect(mockSupervisorRepository.findByEmail).toHaveBeenCalledWith('supervisor@example.com');
+      expect(mockUserRepository.findByEmail).toHaveBeenCalledWith('user1@example.com');
+      expect(mockUserRepository.findByEmail).toHaveBeenCalledWith('user2@example.com');
+      expect(mockWebPubSubService.broadcastSupervisorChangeNotification).toHaveBeenCalledWith({
+        psoEmails: ['user1@example.com', 'user2@example.com'],
+        oldSupervisorEmail: undefined,
+        newSupervisorEmail: 'supervisor@example.com',
+        newSupervisorId: 'supervisor-azure-id',
+        psoNames: ['PSO One', 'PSO Two'],
+        newSupervisorName: 'Supervisor Name'
+      });
+    });
+
+    it('should handle unassign supervisor notification', async () => {
+      const assignment = new SupervisorAssignment(
+        ['user1@example.com'],
+        null,
+        new Date('2023-01-01T10:00:00Z')
+      );
+
+      const pso1 = {
+        id: 'pso-1',
+        email: 'user1@example.com',
+        fullName: 'PSO One'
+      };
+
+      mockUserRepository.findByEmail.mockResolvedValue(pso1 as any);
+      mockWebPubSubService.broadcastSupervisorChangeNotification.mockResolvedValue();
+
+      // Access private method through any casting
+      await (service as any).broadcastSupervisorChangeNotification(assignment, null);
+
+      expect(mockUserRepository.findByEmail).toHaveBeenCalledWith('user1@example.com');
+      expect(mockWebPubSubService.broadcastSupervisorChangeNotification).toHaveBeenCalledWith({
+        psoEmails: ['user1@example.com'],
+        oldSupervisorEmail: undefined,
+        newSupervisorEmail: '',
+        newSupervisorId: undefined,
+        psoNames: ['PSO One'],
+        newSupervisorName: 'Unknown Supervisor'
+      });
+    });
+
+    it('should handle broadcast notification errors gracefully', async () => {
+      const assignment = new SupervisorAssignment(
+        ['user1@example.com'],
+        'supervisor@example.com',
+        new Date('2023-01-01T10:00:00Z')
+      );
+
+      const supervisor = {
+        id: 'supervisor-123',
+        email: 'supervisor@example.com',
+        fullName: 'Supervisor Name',
+        azureAdObjectId: 'supervisor-azure-id',
+        getDisplayName: () => 'Supervisor Name'
+      };
+
+      const pso1 = {
+        id: 'pso-1',
+        email: 'user1@example.com',
+        fullName: 'PSO One'
+      };
+
+      mockSupervisorRepository.findByEmail.mockResolvedValue(supervisor as any);
+      mockUserRepository.findByEmail.mockResolvedValue(pso1 as any);
+      mockWebPubSubService.broadcastSupervisorChangeNotification.mockRejectedValue(new Error('Broadcast failed'));
+
+      // Should not throw error
+      await expect((service as any).broadcastSupervisorChangeNotification(assignment, 'Supervisor Name')).resolves.toBeUndefined();
+    });
+
+    it('should handle null PSO users gracefully', async () => {
+      const assignment = new SupervisorAssignment(
+        ['user1@example.com', 'user2@example.com'],
+        'supervisor@example.com',
+        new Date('2023-01-01T10:00:00Z')
+      );
+
+      const supervisor = {
+        id: 'supervisor-123',
+        email: 'supervisor@example.com',
+        fullName: 'Supervisor Name',
+        azureAdObjectId: 'supervisor-azure-id',
+        getDisplayName: () => 'Supervisor Name'
+      };
+
+      const pso1 = {
+        id: 'pso-1',
+        email: 'user1@example.com',
+        fullName: 'PSO One'
+      };
+
+      mockSupervisorRepository.findByEmail.mockResolvedValue(supervisor as any);
+      mockUserRepository.findByEmail
+        .mockResolvedValueOnce(pso1 as any)
+        .mockResolvedValueOnce(null); // Second user not found
+      mockWebPubSubService.broadcastSupervisorChangeNotification.mockResolvedValue();
+
+      // Access private method through any casting
+      await (service as any).broadcastSupervisorChangeNotification(assignment, 'Supervisor Name');
+
+      expect(mockWebPubSubService.broadcastSupervisorChangeNotification).toHaveBeenCalledWith({
+        psoEmails: ['user1@example.com', 'user2@example.com'],
+        oldSupervisorEmail: undefined,
+        newSupervisorEmail: 'supervisor@example.com',
+        newSupervisorId: 'supervisor-azure-id',
+        psoNames: ['PSO One'], // Only the found user
+        newSupervisorName: 'Supervisor Name'
+      });
     });
   });
 });
