@@ -48,8 +48,12 @@ export function withBodyValidation(schema: ZodSchema<any>) {
         return;
       }
 
+      console.log('[Validation] Raw body:', JSON.stringify(body, null, 2));
+
       // Validate and parse the body against the schema
       const validated = schema.parse(body);
+
+      console.log('[Validation] Validated body:', JSON.stringify(validated, null, 2));
 
       // Attach the validated result for downstream handlers
       (ctx as any).bindings = (ctx as any).bindings || {};
@@ -59,6 +63,7 @@ export function withBodyValidation(schema: ZodSchema<any>) {
       await next();
     } catch (err) {
       if (err instanceof ZodError) {
+        console.log('[Validation] Zod validation failed:', JSON.stringify(err.errors, null, 2));
         // Transform Zod errors into a client-friendly format
         const validationErrors = err.errors.map(e => ({
           path: e.path,
@@ -66,6 +71,7 @@ export function withBodyValidation(schema: ZodSchema<any>) {
         }));
         badRequest(ctx, { validationErrors });
       } else {
+        console.log('[Validation] Unexpected error:', err);
         // Rethrow unexpected errors
         throw err;
       }
@@ -114,6 +120,7 @@ export function withQueryValidation(schema: ZodSchema<any>) {
       await next();
     } catch (err) {
       if (err instanceof ZodError) {
+        console.log('[Validation] Zod validation failed:', JSON.stringify(err.errors, null, 2));
         // Transform Zod errors into a client-friendly format
         const validationErrors = err.errors.map(e => ({
           path: e.path,
@@ -121,6 +128,7 @@ export function withQueryValidation(schema: ZodSchema<any>) {
         }));
         badRequest(ctx, { validationErrors });
       } else {
+        console.log('[Validation] Unexpected error:', err);
         // Rethrow unexpected errors
         throw err;
       }
@@ -169,6 +177,7 @@ export function withPathValidation(schema: ZodSchema<any>) {
       await next();
     } catch (err) {
       if (err instanceof ZodError) {
+        console.log('[Validation] Zod validation failed:', JSON.stringify(err.errors, null, 2));
         // Transform Zod errors into a client-friendly format
         const validationErrors = err.errors.map(e => ({
           path: e.path,
@@ -176,6 +185,7 @@ export function withPathValidation(schema: ZodSchema<any>) {
         }));
         badRequest(ctx, { validationErrors });
       } else {
+        console.log('[Validation] Unexpected error:', err);
         // Rethrow unexpected errors
         throw err;
       }
