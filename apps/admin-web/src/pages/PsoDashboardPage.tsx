@@ -94,15 +94,9 @@ const PsoDashboard: React.FC = () => {
     streamingStatus?.lastSession?.stoppedAt || null
   );
 
-  // Debug logging
+  // Debug logging (only log when streaming status changes significantly)
   useEffect(() => {
-    console.log(`📡 [PsoDashboard] Streaming status for ${psoEmail}:`, {
-      streamingStatus,
-      statusLoading,
-      statusError,
-      timerInfo
-    });
-  }, [psoEmail, streamingStatus, statusLoading, statusError, timerInfo]);
+  }, [psoEmail, streamingStatus?.lastSession?.stopReason, statusLoading, statusError, timerInfo]);
 
   /**
    * Contact Manager data feed for the given PSO.

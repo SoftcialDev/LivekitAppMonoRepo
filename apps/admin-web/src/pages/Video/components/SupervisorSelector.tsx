@@ -160,13 +160,7 @@ export const SupervisorSelector: React.FC<SupervisorSelectorProps> = ({
   // Current supervisor as selected value
   const selectedValues = selectedEmail ? [selectedEmail] : [];
 
-  // Debug logs
-  console.log('SupervisorSelector Debug:', {
-    supervisors: supervisors.length,
-    supervisorOptions: supervisorOptions.length,
-    currentSupervisorEmail,
-    loading
-  });
+  // Debug logs removed to reduce console spam
 
   if (error) {
     return (

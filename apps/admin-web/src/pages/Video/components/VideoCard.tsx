@@ -353,7 +353,6 @@ const VideoCard: React.FC<VideoCardProps & {
           ) : (
             <div className="absolute inset-0 flex flex-col items-center justify-center">
               {(() => {
-                console.log('[VideoCard] statusMessage for', email, ':', statusMessage);
                 const text = statusMessage || '';
                 return (
                   <>

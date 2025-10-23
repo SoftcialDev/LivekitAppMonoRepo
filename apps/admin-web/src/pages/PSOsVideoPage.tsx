@@ -346,26 +346,7 @@ const displayList = useMemo(() => {
               const currentSupervisorEmail = supervisorUpdate?.email || p.supervisorEmail;
               const currentSupervisorName = supervisorUpdate?.name || p.supervisorName;
               
-              // Debug logging for supervisor updates
-              console.log(`🔄 [PSOsVideoPage] VideoCard render for ${p.email}:`, {
-                psoEmail: p.email,
-                psoFullName: p.fullName,
-                originalSupervisorName: p.supervisorName,
-                originalSupervisorEmail: p.supervisorEmail,
-                supervisorUpdate: supervisorUpdate,
-                currentSupervisorName: currentSupervisorName,
-                currentSupervisorEmail: currentSupervisorEmail,
-                finalDisplayName: `${p.fullName} — Supervisor: ${currentSupervisorName}`
-              });
-              
-              if (supervisorUpdate) {
-                console.log(`🔄 [PSOsVideoPage] Using WebSocket update for ${p.email}:`, {
-                  oldSupervisorName: p.supervisorName,
-                  newSupervisorName: currentSupervisorName,
-                  oldSupervisorEmail: p.supervisorEmail,
-                  newSupervisorEmail: currentSupervisorEmail
-                });
-              }
+              // Debug logging removed to reduce console spam
               
               return (
                 <div

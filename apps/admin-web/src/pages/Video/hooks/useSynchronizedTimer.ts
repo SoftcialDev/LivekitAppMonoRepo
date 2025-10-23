@@ -58,15 +58,6 @@ export function useSynchronizedTimer(
     const stopTimeMs = parseIsoAsCRWallClock(stoppedAt).valueOf(); // Parse stoppedAt as CR time
     const elapsedSeconds = Math.floor((nowMs - stopTimeMs) / 1000);
     
-    // Debug logging
-    console.log(`🕐 [useSynchronizedTimer] Timer calculation for ${stopReason}:`, {
-      stoppedAt,
-      nowMs,
-      stopTimeMs,
-      elapsedSeconds,
-      duration: duration * 60, // in seconds
-      type
-    });
     
     let remainingTime: number;
     let isExpired: boolean;

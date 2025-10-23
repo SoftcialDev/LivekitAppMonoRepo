@@ -36,9 +36,6 @@ export const usePresenceStore = create<PresenceState>((set, get) => {
     const currentEmail = localStorage.getItem('currentEmail') || '';
     const currentRole = localStorage.getItem('userRole') || '';
     
-    console.log(`🔄 [usePresenceStore] Processing notification for user: ${currentEmail} (${currentRole})`);
-    console.log(`🔄 [usePresenceStore] Notification data:`, { psoEmails, oldSupervisorEmail, newSupervisorEmail, psoNames, newSupervisorName });
-    
     // Determine if this user should refresh their data
     // Always refresh for Admin/SuperAdmin, and for any Supervisor (they need to see updated PSO assignments)
     const shouldRefresh = 
@@ -47,8 +44,6 @@ export const usePresenceStore = create<PresenceState>((set, get) => {
       currentRole === 'Supervisor' ||
       currentEmail === oldSupervisorEmail ||
       currentEmail === newSupervisorEmail;
-      
-    console.log(`🔄 [usePresenceStore] Should refresh: ${shouldRefresh} (role: ${currentRole}, email: ${currentEmail})`);
       
     if (shouldRefresh) {
       // Update supervisor information in the presence store
@@ -97,11 +92,9 @@ export const usePresenceStore = create<PresenceState>((set, get) => {
         }
       });
       
-      console.log(`🔄 [usePresenceStore] Dispatching supervisorChange event:`, event.detail);
-      window.dispatchEvent(event);
+    window.dispatchEvent(event);
       
-      console.log(`🔄 [usePresenceStore] Supervisor change detected and updated: ${psoNames.join(', ')} transferred to ${newSupervisorName}`);
-    }
+ }
   };
 
   return {
@@ -134,12 +127,11 @@ export const usePresenceStore = create<PresenceState>((set, get) => {
     connectWebSocket: async (currentEmail: string, currentRole?: string): Promise<void> => {
       // Prevent duplicate connections
       if (isConnecting) {
-        console.log('🔌 [usePresenceStore] Connection already in progress, skipping...');
-        return;
+    return;
       }
 
       if (svc && svc.isConnected && svc.isConnected()) {
-        console.log('🔌 [usePresenceStore] Already connected, skipping...');
+
         return;
       }
 
@@ -154,16 +146,14 @@ export const usePresenceStore = create<PresenceState>((set, get) => {
           localStorage.setItem('userRole', currentRole);
         }
         
-        console.log(`🔌 [usePresenceStore] Saved user info: ${currentEmail} (${currentRole})`);
-        
+
         svc = WebPubSubClientService.getInstance();
         
         if (!svc) {
-          console.error('❌ [usePresenceStore] WebPubSubClientService instance is null');
           return;
         }
 
-        console.log('🔌 [usePresenceStore] Connecting to WebSocket...');
+  
 
         // Ensure a clean socket before connecting
         await svc.forceCleanup().catch(() => {});
@@ -171,11 +161,8 @@ export const usePresenceStore = create<PresenceState>((set, get) => {
         // Set up message handler BEFORE connecting (only once)
         if (!messageHandlerRegistered) {
           svc.onMessage<any>((msg) => {
-            console.log(`📡 [usePresenceStore] WebSocket message received:`, msg);
-            
             // Handle supervisor change notifications
             if (msg?.type === 'supervisor_change_notification') {
-              console.log(`🔄 [usePresenceStore] Processing supervisor change notification:`, msg);
               handleSupervisorChangeNotification(msg);
               return;
             }
@@ -221,7 +208,7 @@ export const usePresenceStore = create<PresenceState>((set, get) => {
         await svc.connect(currentEmail);
         await svc.joinGroup('presence');
 
-        console.log('✅ [usePresenceStore] WebSocket connected and joined presence group');
+        // Removed connection success log to reduce console spam
 
         // Mark current user as online (best-effort)
         await presenceClient.setOnline().catch(() => {});

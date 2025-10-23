@@ -10,7 +10,7 @@ export function usePsoSupervisorNotifications(
   userEmail: string, 
   onSupervisorChanged: () => void
 ) {
-  console.log(`📡 [usePsoSupervisorNotifications] Setting up notifications for PSO: ${userEmail}`);
+  // Removed repetitive setup log
   
   const handleSupervisorChange = useCallback((event: CustomEvent) => {
     const data = event.detail;
@@ -27,12 +27,9 @@ export function usePsoSupervisorNotifications(
     // Listen for supervisor change events
     window.addEventListener('supervisorChange', handleSupervisorChange as EventListener);
     
-    console.log(`📡 [usePsoSupervisorNotifications] Event listener registered for PSO: ${userEmail}`);
-    
     // Cleanup on unmount
     return () => {
       window.removeEventListener('supervisorChange', handleSupervisorChange as EventListener);
-      console.log(`📡 [usePsoSupervisorNotifications] Event listener removed for PSO: ${userEmail}`);
     };
   }, [handleSupervisorChange, userEmail]);
 }

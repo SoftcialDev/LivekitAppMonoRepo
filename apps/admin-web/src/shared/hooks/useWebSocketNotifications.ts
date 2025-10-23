@@ -84,7 +84,7 @@ export function useWebSocketNotifications(
         const unsubscribe = manager.subscribe(messageType, wrappedHandler, filters);
         unsubscribeFunctionsRef.current.push(unsubscribe);
         
-        console.log(`📡 [useWebSocketNotifications] Subscribed to ${messageType}`);
+        // Removed subscription log to reduce console spam
       } else {
         console.warn(`📡 [useWebSocketNotifications] No handler provided for message type: ${messageType}`);
       }
@@ -97,7 +97,7 @@ export function useWebSocketNotifications(
   const cleanup = useCallback(() => {
     unsubscribeFunctionsRef.current.forEach(unsubscribe => unsubscribe());
     unsubscribeFunctionsRef.current = [];
-    console.log('📡 [useWebSocketNotifications] Cleaned up subscriptions');
+    // Removed cleanup log to reduce console spam
   }, []);
 
   // Setup subscriptions on mount and when dependencies change

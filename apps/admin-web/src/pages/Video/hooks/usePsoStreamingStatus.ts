@@ -42,12 +42,12 @@ export function usePsoStreamingStatus(psoEmail: string, isStreaming?: boolean) {
       setLoading(true);
       setError(null);
       
-      console.log(`📡 [usePsoStreamingStatus] Fetching session history for PSO: ${psoEmail}`);
+      // Removed fetch log to reduce console spam
       
       // Usar FetchStreamingSessionHistory endpoint específico para PSOs
       const response = await apiClient.get(`/api/FetchStreamingSessionHistory?email=${encodeURIComponent(psoEmail)}`);
       
-      console.log(`📡 [usePsoStreamingStatus] Raw response:`, response.data);
+      // Removed raw response log to reduce console spam
       
       if (response.data && response.data.session) {
         const session: PsoStreamingSession = response.data.session;
@@ -62,7 +62,7 @@ export function usePsoStreamingStatus(psoEmail: string, isStreaming?: boolean) {
           }
         };
         
-        console.log(`📡 [usePsoStreamingStatus] Processed status:`, psoStatus);
+        // Removed processed status log to reduce console spam
         setStatus(psoStatus);
       } else {
         console.warn(`📡 [usePsoStreamingStatus] No session found for PSO: ${psoEmail}`);
@@ -94,7 +94,7 @@ export function usePsoStreamingStatus(psoEmail: string, isStreaming?: boolean) {
   useEffect(() => {
     const handleStreamingSessionUpdate = (event: CustomEvent) => {
       const { session } = event.detail;
-      console.log(`📡 [usePsoStreamingStatus] Received immediate session update:`, session);
+      // Removed immediate update log to reduce console spam
       
       if (session) {
         const psoStatus: PsoStreamingStatus = {
@@ -106,7 +106,7 @@ export function usePsoStreamingStatus(psoEmail: string, isStreaming?: boolean) {
           }
         };
         
-        console.log(`📡 [usePsoStreamingStatus] Updated status immediately:`, psoStatus);
+        // Removed updated status log to reduce console spam
         setStatus(psoStatus);
       }
     };

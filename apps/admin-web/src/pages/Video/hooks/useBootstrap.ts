@@ -62,7 +62,7 @@ export function useBootstrap({
     bootRef.current = true;
     let mounted = true;
 
-    console.log('[Bootstrap] Initializing...');
+    // Removed initialization log to reduce console spam
 
     // WebSocket connection
     if (!pubSubService.isConnected()) {
@@ -70,7 +70,7 @@ export function useBootstrap({
       await new Promise((r) => setTimeout(r, 200));
       try { await pubSubService.joinGroup('presence'); } catch {}
       try { await pubSubService.joinGroup(`commands:${userEmail}`); } catch {}
-      console.info(`[WS] connected to "${userEmail}"`);
+      // Removed connection log to reduce console spam
     }
 
     // Wake lock
@@ -84,14 +84,7 @@ export function useBootstrap({
       const stoppedAt = last.stoppedAt ? new Date(last.stoppedAt) : null;
       const stopReason = last.stopReason;
       
-      // Log raw API value and normalized views to avoid timezone confusion
-      console.info('[Streaming] Debug', {
-        stoppedAtRaw: last.stoppedAt,
-        stoppedAtUTC: stoppedAt?.toISOString(),
-        stoppedAtLocal: stoppedAt?.toString(),
-        stoppedAtCR: last.stoppedAt ? formatIsoToCR(last.stoppedAt) : null,
-        stopReason
-      });
+      // Removed debug log to reduce console spam
       
       // Only resume if:
       // 1. No stop time (session was active)
@@ -127,11 +120,10 @@ export function useBootstrap({
      */
     const checkAndResumeStreaming = async (): Promise<void> => {
       try {
-        console.log('[Bootstrap] Checking if should resume streaming after WebSocket reconnection...');
-        
+
         // Only check if not already streaming
         if (streamingRef.current) {
-          console.log('[Bootstrap] Already streaming, skipping resume check');
+
           return;
         }
         
@@ -139,13 +131,6 @@ export function useBootstrap({
         const stoppedAt = lastSession.stoppedAt ? new Date(lastSession.stoppedAt) : null;
         const stopReason = lastSession.stopReason;
 
-        console.log('[Bootstrap] Reconnect check', {
-          stoppedAtRaw: lastSession.stoppedAt,
-          stoppedAtUTC: stoppedAt?.toISOString(),
-          stoppedAtLocal: stoppedAt?.toString(),
-          stoppedAtCR: lastSession.stoppedAt ? formatIsoToCR(lastSession.stoppedAt) : null,
-          stopReason
-        });
         
         // Resume if:
         // 1. Session was stopped due to disconnect
@@ -158,14 +143,8 @@ export function useBootstrap({
           ));
         
         if (shouldResume) {
-          console.log('[Bootstrap] Auto-resuming streaming after WebSocket reconnection');
-          await onStartStream();
+  await onStartStream();
         } else {
-          console.log('[Bootstrap] No need to resume streaming:', {
-            hasStoppedAt: !!stoppedAt,
-            stopReason,
-            timeSinceStop: stoppedAt ? Date.now() - stoppedAt.getTime() : 'N/A'
-          });
         }
       } catch (error) {
         console.warn('[Bootstrap] Failed to check streaming status after reconnection:', error);
@@ -186,7 +165,6 @@ export function useBootstrap({
     });
 
     const offMsg = pubSubService.onMessage((msg: any) => {
-      console.log('[WebSocket] Received message:', msg);
       
       if (msg?.employeeEmail && msg.employeeEmail.toLowerCase() !== userEmail) {
         return;
@@ -211,7 +189,7 @@ export function useBootstrap({
         return;
       }
       
-      console.log('[Bootstrap] Tab became active - restoring connections');
+
       
       try {
         await pubSubService.joinGroup('presence');
@@ -251,8 +229,7 @@ export function useBootstrap({
         return;
       }
       
-      console.log('[Bootstrap] Tab became inactive - reducing health check frequency');
-      
+
       // Optional: You could reduce health check frequency here
       // or implement other optimizations for inactive tabs
     };

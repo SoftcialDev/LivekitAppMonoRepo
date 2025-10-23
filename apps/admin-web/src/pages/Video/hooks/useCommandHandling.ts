@@ -74,9 +74,9 @@ export function useCommandHandling({
    */
   const fetchMissedCommands = useCallback(async (): Promise<void> => {
     try {
-      console.log('[WS] Fetching missed commands...');
+      // Removed fetch log to reduce console spam
       const missedCommands = await pendingClient.fetch();
-      console.log(`[WS] Fetched ${missedCommands.length} missed commands`);
+      // Removed fetched count log to reduce console spam
       
       for (const cmd of missedCommands) {
         await handleCommand(cmd);

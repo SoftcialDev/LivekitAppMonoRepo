@@ -7,6 +7,8 @@
 
 import { useCallback, useRef } from 'react';
 import { LocalVideoTrack, createLocalVideoTrack } from 'livekit-client';
+import { CameraStartLogger } from '../../../shared/telemetry/CameraStartLogger';
+import { AttemptResult } from '../../../shared/api/cameraStartFailuresClient';
 
 /**
  * Requests camera and microphone permission once so that later track creation
@@ -18,20 +20,26 @@ import { LocalVideoTrack, createLocalVideoTrack } from 'livekit-client';
  *
  * @throws {DOMException} Re-throws `NotAllowedError` and any unexpected errors.
  */
-async function ensureCameraPermission(): Promise<void> {
+const logger = new CameraStartLogger();
+
+async function ensureCameraPermission(logger?: CameraStartLogger): Promise<void> {
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
     stream.getTracks().forEach((t) => t.stop());
   } catch (err: any) {
     if (err?.name === 'NotAllowedError') {
       const devices = await navigator.mediaDevices.enumerateDevices();
-      const cams = devices
-        .filter((d) => d.kind === 'videoinput')
-        .map((c) => c.label || `ID: ${c.deviceId}`);
+      logger?.snapshotDevices(devices);
+      const cams = devices.filter(d => d.kind === 'videoinput').map(c => c.label || c.deviceId);
       alert(
         `Camera access blocked.\nDetected cameras: ${cams.join(', ')}\n\n` +
           `Enable camera  permissions for this site and refresh.`,
       );
+      await logger?.fail('Permission', 'NotAllowedError', err.message, {
+        browser: navigator.userAgent,
+        rtcSupported: !!(window as any).RTCPeerConnection,
+        online: navigator.onLine,
+      });
       throw err;
     }
     if (err?.name === 'NotReadableError') {
@@ -58,16 +66,24 @@ async function ensureCameraPermission(): Promise<void> {
  * @returns Promise that resolves to a LocalVideoTrack
  * @throws {Error} When no camera can be accessed
  */
-async function createVideoTrackWithFallback(cameras: MediaDeviceInfo[]): Promise<LocalVideoTrack> {
+async function createVideoTrackWithFallback(cameras: MediaDeviceInfo[], logger?: CameraStartLogger): Promise<LocalVideoTrack> {
+  console.log('[Camera] All detected cameras:', cameras.map(c => ({ label: c.label, deviceId: c.deviceId, groupId: (c as any).groupId })));
+  
   const filtered = cameras.filter((c) => !/Logi(?:tech)? C930e/i.test(c.label));
+  console.log('[Camera] Filtered cameras (excluding C930e):', filtered.map(c => ({ label: c.label, deviceId: c.deviceId })));
+  
   const prioritized: MediaDeviceInfo[] = [];
   const c270 = filtered.find((c) => c.label.includes('Logi C270 HD'));
   if (c270) prioritized.push(c270);
   for (const cam of filtered) if (cam !== c270) prioritized.push(cam);
 
+  console.log('[Camera] Prioritized cameras:', prioritized.map(c => ({ label: c.label, deviceId: c.deviceId })));
+
+  logger?.snapshotDevices(cameras);
+
   for (const cam of prioritized) {
     try {
-      return await createLocalVideoTrack({ 
+      const track = await createLocalVideoTrack({ 
         deviceId: { exact: cam.deviceId },
         resolution: {
           width: 320,
@@ -75,23 +91,34 @@ async function createVideoTrackWithFallback(cameras: MediaDeviceInfo[]): Promise
           frameRate: 15
         }
       });
+      logger?.recordAttempt({ label: cam.label, deviceId: cam.deviceId, result: AttemptResult.OK });
+      return track;
     } catch (err: any) {
       if (err?.name === 'NotReadableError') {
         console.warn(`[Camera] "${cam.label}" busy, trying next…`, err);
+        logger?.recordAttempt({ label: cam.label, deviceId: cam.deviceId, result: AttemptResult.NotReadableError, errorName: 'NotReadableError', errorMessage: err.message });
         continue;
       }
+      logger?.recordAttempt({ label: cam.label, deviceId: cam.deviceId, result: AttemptResult.Other, errorName: err?.name, errorMessage: err?.message });
       throw err;
     }
   }
 
   // Force 240p resolution for all video tracks
-  return createLocalVideoTrack({
+  try {
+    const track = await createLocalVideoTrack({
     resolution: {
       width: 320,
       height: 240,
       frameRate: 15
     }
   });
+    logger?.recordAttempt({ result: AttemptResult.OK });
+    return track;
+  } catch (err: any) {
+    await logger?.fail('TrackCreate', err?.name, err?.message, { defaultDeviceAttempted: true });
+    throw err;
+  }
 }
 
 /**
@@ -103,7 +130,7 @@ async function createVideoTrackWithFallback(cameras: MediaDeviceInfo[]): Promise
  *
  * @returns Object containing media device management functions
  */
-export function useMediaDevices() {
+export function useMediaDevices(logger?: CameraStartLogger) {
   const videoTrackRef = useRef<LocalVideoTrack | null>(null);
 
   /**
@@ -113,8 +140,8 @@ export function useMediaDevices() {
    * @throws {DOMException} When permission is denied or device is busy
    */
   const requestCameraPermission = useCallback(async (): Promise<void> => {
-    await ensureCameraPermission();
-  }, []);
+    await ensureCameraPermission(logger);
+  }, [logger]);
 
   /**
    * Enumerates available video input devices
@@ -134,10 +161,10 @@ export function useMediaDevices() {
    * @throws {Error} When no camera can be accessed
    */
   const createVideoTrack = useCallback(async (cameras: MediaDeviceInfo[]): Promise<LocalVideoTrack> => {
-    const videoTrack = await createVideoTrackWithFallback(cameras);
+    const videoTrack = await createVideoTrackWithFallback(cameras, logger);
     videoTrackRef.current = videoTrack;
     return videoTrack;
-  }, []);
+  }, [logger]);
 
   /**
    * Creates a video track by first enumerating devices

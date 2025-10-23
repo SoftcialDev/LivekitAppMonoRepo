@@ -32,6 +32,7 @@ import { useWakeLock } from './useWakeLock';
 import { useVideoTrackWatchdog } from './useVideoTrackWatchdog';
 import { useRetryLogic } from './useRetryLogic';
 import { useStreamHealth } from './useStreamHealth';
+import { CameraStartLogger } from '@/shared/telemetry/CameraStartLogger';
 
 /**
  * Feature switches for streaming behavior
@@ -74,11 +75,18 @@ export function useStreamingDashboard() {
   // Auth & clients
   const { initialized, account } = useAuth();
   const userEmail = account?.username.toLowerCase() ?? '';
+  const userAdId = account?.localAccountId ?? '';
   const presenceClient = useRef(new PresenceClient()).current;
   const streamingClient = useRef(new StreamingClient()).current;
 
+  // Camera start logger
+  const startLoggerRef = useRef<CameraStartLogger | null>(null);
+  if (!startLoggerRef.current) {
+    startLoggerRef.current = new CameraStartLogger();
+  }
+
   // Media devices hook
-  const mediaDevices = useMediaDevices();
+  const mediaDevices = useMediaDevices(startLoggerRef.current);
 
   // Wake lock via hook
   const wakeLock = useWakeLock({ auto: true });
@@ -222,8 +230,10 @@ const startStream = useCallback(async () => {
     }
 
     try {
+      startLoggerRef.current?.begin(userAdId, userEmail);
       await mediaDevices.requestCameraPermission();
   } catch (e) {
+      await startLoggerRef.current?.fail('Permission', (e as any)?.name, (e as any)?.message);
     return;
   }
 
@@ -233,6 +243,7 @@ const startStream = useCallback(async () => {
   } catch (err) {
     console.error('[Stream] video setup failed', err);
     alert('Unable to access any camera.');
+    await startLoggerRef.current?.fail('TrackCreate', (err as any)?.name, (err as any)?.message);
     return;
   }
 
@@ -253,8 +264,10 @@ const startStream = useCallback(async () => {
     await setupLiveKitRoom(room, videoTrack);
       videoWatchdog.start(async () => await mediaDevices.createVideoTrackFromDevices());
       console.log('[Stream] DEBUG - Stream started successfully');
+      startLoggerRef.current?.clear();
   } catch (err) {
       console.error('[Stream] LiveKit connection failed:', err);
+      await startLoggerRef.current?.fail('LiveKitConnect', (err as any)?.name, (err as any)?.message);
       const retrySuccess = await reconnectWithRetry();
     if (!retrySuccess) {
         try { videoTrack?.stop(); videoTrack?.detach(); } catch {}

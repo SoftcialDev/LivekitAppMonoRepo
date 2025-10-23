@@ -129,7 +129,7 @@ export function useIsolatedStreams(viewerEmail: string, emails: string[]): Creds
     if (isInitializedRef.current || emails.length === 0) return;
     
     isInitializedRef.current = true;
-    console.log('🚀 [useIsolatedStreams] Starting initialization...');
+    // Removed initialization log to reduce console spam
     
     // 1) Cargar PRIMERO el batch status para TODOS los emails y reflejarlo en los cards
     (async () => {
@@ -158,17 +158,14 @@ export function useIsolatedStreams(viewerEmail: string, emails: string[]): Creds
     // ✅ FETCH: sesiones + tokens; luego status solo para faltantes
     const fetchSessionsAndTokens = async () => {
       try {
-        console.log('🔍 [useIsolatedStreams] Fetching sessions and tokens...');
+        // Removed fetch log to reduce console spam
         
         const [sessions, { rooms, livekitUrl }] = await Promise.all([
           fetchStreamingSessions(),
           getLiveKitToken()
         ]);
         
-        console.log('📊 [useIsolatedStreams] Data fetched:', {
-          sessions: sessions.length,
-          rooms: rooms.length
-        });
+        // Removed data fetched log to reduce console spam
         
         // Crear mapas una sola vez
         const emailToRoom = new Map<string, string>();
@@ -212,7 +209,7 @@ export function useIsolatedStreams(viewerEmail: string, emails: string[]): Creds
             }
           });
           
-          console.log('✅ [useIsolatedStreams] Simple credsMap set:', newCreds);
+          // Removed credsMap log to reduce console spam
           return newCreds;
         });
         
