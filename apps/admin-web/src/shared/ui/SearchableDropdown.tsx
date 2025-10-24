@@ -44,7 +44,7 @@ export interface SearchableDropdownProps<Value> {
   usePortal?: boolean;
   /** When rendering in portal, ensure the menu is at least this width (px). */
   portalMinWidthPx?: number;
-  /** Close the menu upon selecting an item. Defaults to true. */
+  /** Close the menu upon selecting an item. Defaults to false to allow multiple selections. */
   closeOnSelect?: boolean;
 }
 
@@ -99,7 +99,7 @@ export function SearchableDropdown<Value>({
   `,
   usePortal = false,
   portalMinWidthPx,
-  closeOnSelect = true,
+  closeOnSelect = false,
 }: SearchableDropdownProps<Value>): JSX.Element {
   const [isOpen, setIsOpen] = useState(false);
   const [term, setTerm] = useState('');
@@ -133,6 +133,7 @@ export function SearchableDropdown<Value>({
     } else {
       onSelectionChange([...selectedValues, value]);
     }
+
     if (closeOnSelect) {
       setIsOpen(false);
     }

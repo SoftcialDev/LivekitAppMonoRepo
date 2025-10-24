@@ -92,23 +92,48 @@ const StopReasonButton: React.FC<StopReasonButtonProps> = ({
       }
     };
 
+    const handleScroll = () => {
+      // Update position when scrolling to keep dropdown attached to button
+      if (isOpen && buttonRef.current) {
+        const rect = buttonRef.current.getBoundingClientRect();
+        setPosition({
+          top: rect.bottom + 5,
+          left: rect.left
+        });
+      }
+    };
+
+    const handleResize = () => {
+      // Update position when window resizes
+      if (isOpen && buttonRef.current) {
+        const rect = buttonRef.current.getBoundingClientRect();
+        setPosition({
+          top: rect.bottom + 5,
+          left: rect.left
+        });
+      }
+    };
+
     if (isOpen) {
       document.addEventListener('mousedown', handleClickOutside);
+      window.addEventListener('scroll', handleScroll, true); // Use capture to catch all scroll events
+      window.addEventListener('resize', handleResize);
     }
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('scroll', handleScroll, true);
+      window.removeEventListener('resize', handleResize);
     };
   }, [isOpen]);
 
   const renderDropdown = () => {
     if (!isOpen || !buttonRef.current) return null;
 
-    const rect = buttonRef.current.getBoundingClientRect();
     const dropdownStyle = {
       position: 'fixed' as const,
-      top: rect.bottom + 5,
-      left: rect.left,
+      top: position.top,
+      left: position.left,
       zIndex: 9999,
       minWidth: '200px'
     };
