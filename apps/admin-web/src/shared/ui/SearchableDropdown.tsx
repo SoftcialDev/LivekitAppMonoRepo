@@ -187,25 +187,59 @@ export function SearchableDropdown<Value>({
     </div>
   );
 
+  // Clear all selections
+  const handleClearAll = () => {
+    onSelectionChange([]);
+    setTerm('');
+    setIsOpen(false);
+  };
+
   return (
     <div className={`relative inline-block w-1/3  ${className}`} ref={containerRef}>
-      {/* Search input */}
-      <input
-        type="search"
-        placeholder={placeholder}
-        value={term}
-        onChange={(e: ChangeEvent<HTMLInputElement>) => {
-          setTerm(e.target.value);
-          setIsOpen(true);
-        }}
-        onClick={() => setIsOpen(true)}
-        autoComplete="off"
-        autoCorrect="off"
-        autoCapitalize="off"
-        spellCheck={false}
-        name="searchSupervisor"
-        className={inputClassName}
-      />
+      {/* Search input with clear button */}
+      <div className="relative">
+        <input
+          type="search"
+          placeholder={placeholder}
+          value={term}
+          onChange={(e: ChangeEvent<HTMLInputElement>) => {
+            setTerm(e.target.value);
+            setIsOpen(true);
+          }}
+          onClick={() => setIsOpen(true)}
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="off"
+          spellCheck={false}
+          name="searchSupervisor"
+          className={inputClassName}
+        />
+        
+        {/* Clear button - only show if there are selected values */}
+        {selectedValues.length > 0 && (
+          <button
+            type="button"
+            onClick={handleClearAll}
+            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
+            title="Clear all selections"
+          >
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </button>
+        )}
+      </div>
 
       {/* Dropdown menu */}
       {isOpen && (usePortal ? createPortal(menuContent, document.body) : menuContent)}
