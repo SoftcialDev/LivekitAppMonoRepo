@@ -182,16 +182,18 @@ useEffect(() => {
   window.localStorage.setItem(lsKey(viewerEmail, 'layout'), String(layout));
 }, [viewerEmail, fixedEmails, layout]);
 
-  /* Prune pinned PSOs that are no longer online (expected behavior) */
-useEffect(() => {
-  // 1) Espera a que la presencia haya terminado de cargar:
-  if (presenceLoading) return;
-  // 2) Si no hay PSOs online, no toques nada:
-  if (allPsos.length === 0) return;
-
-  const onlineSet = new Set(allPsos.map(p => p.email));
-  setFixedEmails(prev => prev.filter(e => onlineSet.has(e)));
-}, [allPsos, presenceLoading]);
+  /* 
+   * REMOVED: Auto-pruning of offline PSOs from localStorage
+   * 
+   * Previously, this effect would automatically remove PSOs from fixedEmails
+   * when they went offline, which caused issues during temporary disconnections.
+   * 
+   * Now, PSOs remain in localStorage until the user explicitly deselects them,
+   * providing better persistence across temporary network issues.
+   * 
+   * The displayList will still filter out offline PSOs for display purposes,
+   * but the localStorage selection persists.
+   */
 
   /* ------------------------------------------------------------------ */
   /* 6️⃣ LiveKit credentials & handlers                                  */
