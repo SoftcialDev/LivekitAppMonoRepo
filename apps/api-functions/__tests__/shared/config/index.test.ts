@@ -1,12 +1,12 @@
 /**
  * @fileoverview Tests for shared/config/index.ts
- * @description Tests for configuration module
+ * @description Tests for configuration module (mocked version)
  */
 
 import { config } from '../../../shared/config/index';
 
 describe('shared/config/index', () => {
-  describe('config object', () => {
+  describe('config object (mocked)', () => {
     it('should export config object', () => {
       expect(config).toBeDefined();
       expect(typeof config).toBe('object');

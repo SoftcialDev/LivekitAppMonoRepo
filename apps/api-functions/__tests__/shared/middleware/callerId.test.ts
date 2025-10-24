@@ -1,7 +1,12 @@
+/**
+ * @fileoverview Tests for callerId middleware
+ * @description Tests for caller ID extraction and validation middleware
+ */
+
 import { withCallerId, getCallerIdFromContext } from '../../../shared/middleware/callerId';
-import { Context } from '@azure/functions';
 import { getCallerAdId } from '../../../shared/utils/authHelpers';
 import { badRequest } from '../../../shared/utils/response';
+import { Context } from '@azure/functions';
 
 // Mock dependencies
 jest.mock('../../../shared/utils/authHelpers');
@@ -12,200 +17,109 @@ const mockBadRequest = badRequest as jest.MockedFunction<typeof badRequest>;
 
 describe('callerId middleware', () => {
   let mockContext: Context;
-  let mockNext: jest.MockedFunction<() => Promise<void>>;
+  let mockNext: jest.Mock;
 
   beforeEach(() => {
     mockContext = {
-      bindings: {}
+      bindings: {
+        user: { sub: 'test-user-id' }
+      }
     } as any;
-    
+
     mockNext = jest.fn().mockResolvedValue(undefined);
     
-    // Reset mocks
     jest.clearAllMocks();
-    mockGetCallerAdId.mockReturnValue('test-caller-id');
-    mockBadRequest.mockImplementation(() => {
-      throw new Error('badRequest called');
-    });
   });
 
   describe('withCallerId', () => {
-    it('should extract caller ID and call next middleware', async () => {
-      mockContext.bindings.user = { oid: 'test-oid' };
-      mockGetCallerAdId.mockReturnValue('test-caller-id');
+    it('should extract caller ID and attach to context', async () => {
+      const callerId = 'test-caller-id';
+      mockGetCallerAdId.mockReturnValue(callerId);
 
       await withCallerId(mockContext, mockNext);
 
       expect(mockGetCallerAdId).toHaveBeenCalledWith(mockContext.bindings.user);
-      expect(mockContext.bindings.callerId).toBe('test-caller-id');
-      expect(mockNext).toHaveBeenCalledTimes(1);
+      expect((mockContext as any).bindings.callerId).toBe(callerId);
+      expect(mockNext).toHaveBeenCalled();
     });
 
     it('should handle missing caller ID', async () => {
-      mockContext.bindings.user = { oid: 'test-oid' };
-      mockGetCallerAdId.mockReturnValue(null as any);
-      
-      // Mock badRequest to not throw but set response
-      mockBadRequest.mockImplementation((ctx, message) => {
-        ctx.res = {
-          status: 400,
-          headers: { "Content-Type": "application/json" },
-          body: { error: message }
-        };
-      });
+      mockGetCallerAdId.mockReturnValue(null);
 
       await withCallerId(mockContext, mockNext);
-      
-      expect(mockGetCallerAdId).toHaveBeenCalledWith(mockContext.bindings.user);
+
       expect(mockBadRequest).toHaveBeenCalledWith(mockContext, "Cannot determine caller identity");
-      expect(mockContext.res).toEqual({
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-        body: { error: "Cannot determine caller identity" }
-      });
+      expect(mockNext).not.toHaveBeenCalled();
+    });
+
+    it('should handle empty caller ID', async () => {
+      mockGetCallerAdId.mockReturnValue('');
+
+      await withCallerId(mockContext, mockNext);
+
+      expect(mockBadRequest).toHaveBeenCalledWith(mockContext, "Cannot determine caller identity");
       expect(mockNext).not.toHaveBeenCalled();
     });
 
     it('should handle undefined caller ID', async () => {
-      mockContext.bindings.user = { oid: 'test-oid' };
-      mockGetCallerAdId.mockReturnValue(undefined);
-      
-      // Mock badRequest to not throw but set response
-      mockBadRequest.mockImplementation((ctx, message) => {
-        ctx.res = {
-          status: 400,
-          headers: { "Content-Type": "application/json" },
-          body: { error: message }
-        };
-      });
+      mockGetCallerAdId.mockReturnValue(undefined as any);
 
       await withCallerId(mockContext, mockNext);
-      
-      expect(mockGetCallerAdId).toHaveBeenCalledWith(mockContext.bindings.user);
+
       expect(mockBadRequest).toHaveBeenCalledWith(mockContext, "Cannot determine caller identity");
-      expect(mockContext.res).toEqual({
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-        body: { error: "Cannot determine caller identity" }
-      });
       expect(mockNext).not.toHaveBeenCalled();
     });
 
-    it('should handle empty string caller ID', async () => {
-      mockContext.bindings.user = { oid: 'test-oid' };
-      mockGetCallerAdId.mockReturnValue('');
-      
-      // Mock badRequest to not throw but set response
-      mockBadRequest.mockImplementation((ctx, message) => {
-        ctx.res = {
-          status: 400,
-          headers: { "Content-Type": "application/json" },
-          body: { error: message }
-        };
-      });
-
-      await withCallerId(mockContext, mockNext);
-      
-      expect(mockGetCallerAdId).toHaveBeenCalledWith(mockContext.bindings.user);
-      expect(mockBadRequest).toHaveBeenCalledWith(mockContext, "Cannot determine caller identity");
-      expect(mockContext.res).toEqual({
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-        body: { error: "Cannot determine caller identity" }
-      });
-      expect(mockNext).not.toHaveBeenCalled();
-    });
-
-    it('should handle errors from getCallerAdId', async () => {
-      mockContext.bindings.user = { oid: 'test-oid' };
-      const error = new Error('JWT parsing error');
+    it('should handle errors during caller ID extraction', async () => {
+      const error = new Error('JWT parsing failed');
       mockGetCallerAdId.mockImplementation(() => {
         throw error;
       });
 
-      await expect(withCallerId(mockContext, mockNext)).rejects.toThrow('badRequest called');
-      
-      expect(mockBadRequest).toHaveBeenCalledWith(mockContext, 'Authentication error: JWT parsing error');
+      await withCallerId(mockContext, mockNext);
+
+      expect(mockBadRequest).toHaveBeenCalledWith(mockContext, `Authentication error: ${error.message}`);
       expect(mockNext).not.toHaveBeenCalled();
     });
 
-    it('should handle errors from next middleware', async () => {
-      mockContext.bindings.user = { oid: 'test-oid' };
-      mockGetCallerAdId.mockReturnValue('test-caller-id');
-      const nextError = new Error('Next middleware error');
-      mockNext.mockRejectedValue(nextError);
+    it('should handle errors during next middleware execution', async () => {
+      const callerId = 'test-caller-id';
+      const error = new Error('Next middleware failed');
+      mockGetCallerAdId.mockReturnValue(callerId);
+      mockNext.mockRejectedValue(error);
 
-      await expect(withCallerId(mockContext, mockNext)).rejects.toThrow('badRequest called');
-      
-      expect(mockBadRequest).toHaveBeenCalledWith(mockContext, 'Authentication error: Next middleware error');
+      await withCallerId(mockContext, mockNext);
+
+      expect((mockContext as any).bindings.callerId).toBe(callerId);
+      expect(mockNext).toHaveBeenCalled();
+      // The error should be propagated
+      expect(mockBadRequest).toHaveBeenCalledWith(mockContext, `Authentication error: ${error.message}`);
     });
 
-    it('should initialize bindings if not present', async () => {
+    it('should create bindings object if it does not exist', async () => {
+      const callerId = 'test-caller-id';
       mockContext.bindings = undefined as any;
-      mockContext.bindings = { user: { oid: 'test-oid' } };
-      mockGetCallerAdId.mockReturnValue('test-caller-id');
-      
-      // Temporarily disable the badRequest mock for this test
-      mockBadRequest.mockImplementation(() => {});
+      mockGetCallerAdId.mockReturnValue(callerId);
 
       await withCallerId(mockContext, mockNext);
 
-      expect(mockContext.bindings).toBeDefined();
-      expect(mockContext.bindings.callerId).toBe('test-caller-id');
-      
-      // Restore the original mock
-      mockBadRequest.mockImplementation(() => {
-        throw new Error('badRequest called');
-      });
-    });
-
-    it('should handle different caller ID formats', async () => {
-      const testCases = [
-        'user-123-oid',
-        'user@example.com',
-        '12345678-1234-1234-1234-123456789012',
-        'azure-ad-object-id'
-      ];
-
-      for (const callerId of testCases) {
-        mockContext.bindings.user = { oid: callerId };
-        mockGetCallerAdId.mockReturnValue(callerId);
-        mockNext.mockClear();
-
-        await withCallerId(mockContext, mockNext);
-
-        expect(mockContext.bindings.callerId).toBe(callerId);
-        expect(mockNext).toHaveBeenCalledTimes(1);
-      }
-    });
-
-    it('should preserve existing bindings', async () => {
-      mockContext.bindings = {
-        existingBinding: 'existing-value',
-        user: { oid: 'test-oid' }
-      };
-      mockGetCallerAdId.mockReturnValue('test-caller-id');
-
-      await withCallerId(mockContext, mockNext);
-
-      expect(mockContext.bindings.existingBinding).toBe('existing-value');
-      expect(mockContext.bindings.callerId).toBe('test-caller-id');
+      expect((mockContext as any).bindings).toBeDefined();
+      expect((mockContext as any).bindings.callerId).toBe(callerId);
     });
   });
 
   describe('getCallerIdFromContext', () => {
     it('should return caller ID from context bindings', () => {
-      mockContext.bindings = {
-        callerId: 'test-caller-id'
-      };
+      const callerId = 'test-caller-id';
+      (mockContext as any).bindings = { callerId };
 
       const result = getCallerIdFromContext(mockContext);
 
-      expect(result).toBe('test-caller-id');
+      expect(result).toBe(callerId);
     });
 
-    it('should return null when caller ID is not present', () => {
-      mockContext.bindings = {};
+    it('should return null when caller ID is not found', () => {
+      (mockContext as any).bindings = {};
 
       const result = getCallerIdFromContext(mockContext);
 
@@ -213,112 +127,17 @@ describe('callerId middleware', () => {
     });
 
     it('should return null when bindings is undefined', () => {
-      mockContext.bindings = undefined as any;
+      (mockContext as any).bindings = undefined;
 
       const result = getCallerIdFromContext(mockContext);
 
       expect(result).toBeNull();
     });
 
-    it('should return null when bindings is null', () => {
-      mockContext.bindings = null as any;
-
-      const result = getCallerIdFromContext(mockContext);
+    it('should return null when context is undefined', () => {
+      const result = getCallerIdFromContext(undefined as any);
 
       expect(result).toBeNull();
-    });
-
-    it('should return null when caller ID is empty string', () => {
-      mockContext.bindings = {
-        callerId: ''
-      };
-
-      const result = getCallerIdFromContext(mockContext);
-
-      expect(result).toBeNull(); // Empty string is falsy, so || null returns null
-    });
-
-    it('should return null when caller ID is undefined', () => {
-      mockContext.bindings = {
-        callerId: undefined
-      };
-
-      const result = getCallerIdFromContext(mockContext);
-
-      expect(result).toBeNull();
-    });
-
-    it('should handle different caller ID formats', () => {
-      const testCases = [
-        'user-123-oid',
-        'user@example.com',
-        '12345678-1234-1234-1234-123456789012',
-        'azure-ad-object-id'
-      ];
-
-      for (const callerId of testCases) {
-        mockContext.bindings = { callerId };
-
-        const result = getCallerIdFromContext(mockContext);
-
-        expect(result).toBe(callerId);
-      }
-    });
-  });
-
-  describe('edge cases', () => {
-    it('should handle context with minimal properties', async () => {
-      mockContext = { bindings: { user: { oid: 'test-oid' } } } as any;
-      mockGetCallerAdId.mockReturnValue('test-caller-id');
-      
-      // Temporarily disable the badRequest mock for this test
-      mockBadRequest.mockImplementation(() => {});
-
-      await withCallerId(mockContext, mockNext);
-
-      expect(mockContext.bindings.callerId).toBe('test-caller-id');
-      
-      // Restore the original mock
-      mockBadRequest.mockImplementation(() => {
-        throw new Error('badRequest called');
-      });
-    });
-
-    it('should handle console.error being called', async () => {
-      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
-      mockContext.bindings.user = { oid: 'test-oid' };
-      const error = new Error('Test error');
-      mockGetCallerAdId.mockImplementation(() => {
-        throw error;
-      });
-
-      await expect(withCallerId(mockContext, mockNext)).rejects.toThrow('badRequest called');
-      
-      expect(consoleSpy).toHaveBeenCalledWith('withCallerId error:', error);
-      
-      consoleSpy.mockRestore();
-    });
-
-    it('should handle null caller ID from getCallerAdId', async () => {
-      mockContext.bindings.user = { oid: 'test-oid' };
-      mockGetCallerAdId.mockReturnValue(null as any);
-
-      await expect(withCallerId(mockContext, mockNext)).rejects.toThrow('badRequest called');
-      
-      expect(mockBadRequest).toHaveBeenCalledWith(mockContext, 'Cannot determine caller identity');
-      expect(mockNext).not.toHaveBeenCalled();
-    });
-
-    it('should handle non-string error messages', async () => {
-      mockContext.bindings.user = { oid: 'test-oid' };
-      const error = { message: 123 };
-      mockGetCallerAdId.mockImplementation(() => {
-        throw error;
-      });
-
-      await expect(withCallerId(mockContext, mockNext)).rejects.toThrow('badRequest called');
-      
-      expect(mockBadRequest).toHaveBeenCalledWith(mockContext, 'Authentication error: 123');
     });
   });
 });

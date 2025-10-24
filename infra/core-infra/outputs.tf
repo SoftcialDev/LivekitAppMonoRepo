@@ -94,46 +94,45 @@ output AZURE_AD_API_IDENTIFIER_URI {
 # PostgreSQL Module Outputs in Root
 
 # Fully qualified domain name of the PostgreSQL Flexible Server
-/*
+
 output "postgres_server_fqdn" {
   description = "FQDN of the PostgreSQL Flexible Server from the database module"
   value       = module.postgres.postgres_server_fqdn
 }
-*/
+
 # Administrator username for PostgreSQL Flexible Server
-/*
+
 output "postgres_server_admin_username" {
   description = "Admin username for PostgreSQL Flexible Server from the database module"
   value       = module.postgres.postgres_server_admin_username
 }
-*/
+
 # Name of the default database created
 output "postgres_database_name" {
   description = "Default database name created by the database module"
   value       = module.postgres.postgres_database_name
 }
-/*
+
 output "postgres_database_password" {
   description = "Default database name created by the database module"
   value       = module.postgres.postgres_server_password
   sensitive = true
 }
-*/
+
 # Resource ID of the PostgreSQL Flexible Server
-/*
+
 output "postgres_server_id" {
   description = "Resource ID of the PostgreSQL Flexible Server from the database module"
   value       = module.postgres.postgres_server_id
 }
-*/
+
 # Resource ID of the PostgreSQL Flexible Server
-/*
+
 output "postgres_database_url" {
   description = "Resource ID of the PostgreSQL Flexible Server from the database module"
   value       = module.postgres.database_url
   sensitive = true
 }
-*/
 
 ########################################
 # Function App Module Outputs in Root
