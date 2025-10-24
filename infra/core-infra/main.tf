@@ -277,7 +277,7 @@ module "keyvault" {
   service_bus_connection= module.service_bus.connection_string
   webpubsub_key         = module.web_pubsub.primary_key
   key_vault_sku_name = var.key_vault_sku_name 
-  postgres_database_url = var.database_url
+  postgres_database_url = module.postgres.database_url
   webpubsub_connection_string = module.web_pubsub.primary_connection_string
-  depends_on = [ module.aad_spa , module.web_pubsub /*module.postgres*/]
+  depends_on = [ module.aad_spa , module.web_pubsub ,module.postgres]
 }

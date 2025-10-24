@@ -14,10 +14,6 @@ variable "region" {
   default     = "eastus"
 }
 
-variable "database_url" {
-  description = "Database connection URL"
-  type        = string
-}
 
 variable "github_repo" {
   description = "GitHub repo for OIDC: format ORG/REPO"
