@@ -7,7 +7,7 @@
 name_prefix                    = "in-contact-app-prod"
 
 # Azure region where resources will be deployed (e.g. "eastus").
-region                         = "eastus"
+region                         = "canadaeast"
 
 ########################################
 # AKS cluster settings
@@ -75,7 +75,7 @@ aad_logout_uris                = [
 
 github_repo ="InContactApplication"
 # Emails of users to assign the Admin role.
-aad_admins_group_members       = ["marco.vargas@collettehealth.com"]
+aad_admins_group_members       = ["daniel.villanueva@softcial.com"]
 
 
 # Enable automatic assignment of Azure Directory roles for invited users.
@@ -126,7 +126,7 @@ postgres_vnet_subnet_id        = ""
 postgres_public_network_access = "Enabled"
 
 # List of IP addresses or CIDR blocks allowed when public access is enabled
-postgres_allowed_ips           = ["your ip or app funcions ip, either way the function ip will be set by terraform automatically, just add your ip"]
+postgres_allowed_ips           = ["192.168.0.1"]
 
 ########################################
 # Simple Storage module overrides 
@@ -177,7 +177,7 @@ servicebus_auth_rule_name      = "sb-policy"
 
 # WebSocket endpoint URL for LiveKit signaling.
 # This must be a secure WebSocket (wss://) pointing to your LiveKit subdomain.
-livekit_url = "wss://livekit.mydomain.com"
+livekit_url = "wss://livekit.nosenses.xyz"
 
 # API key for authenticating with LiveKit.
 # Create this in your LiveKit server or dashboard—name it as you like.

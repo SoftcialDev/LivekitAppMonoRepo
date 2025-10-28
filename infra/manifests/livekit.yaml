@@ -234,9 +234,9 @@ metadata:
   name: livekit-egress
 data:
   config.yaml: |
-    ws_url: wss://livekit.xyzhub.pw
-    api_key: access_token
-    api_secret: secret
+    ws_url: wss://livekit.nosenses.xyz
+    api_key: livekit
+    api_secret: ADC2030.
     redis:
       address: redis:6379
     azure:

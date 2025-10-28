@@ -8,7 +8,7 @@
 
 import apiClient from "./apiClient";
 
-export type RecordingCommand = "START" | "STOP";
+export type RecordingCommand = "start" | "stop";
 
 export interface RecordingCommandRequest {
   command: RecordingCommand;
@@ -38,12 +38,12 @@ export async function sendRecordingCommand(
 
 /** Helper: start recording */
 export async function startRecording(roomName: string) {
-  return sendRecordingCommand({ command: "START", roomName });
+  return sendRecordingCommand({ command: "start", roomName });
 }
 
 /** Helper: stop recording */
 export async function stopRecording(roomName: string) {
-  return sendRecordingCommand({ command: "STOP", roomName });
+  return sendRecordingCommand({ command: "stop", roomName });
 }
 
 /* ----------------------------- GET /recordings ----------------------------- */

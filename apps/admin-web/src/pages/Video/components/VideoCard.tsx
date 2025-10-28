@@ -9,7 +9,6 @@ import {
 } from 'livekit-client'
 import { useSnapshot } from '../hooks/useSnapshot'
 import { useAuth } from '@/shared/auth/useAuth'
-import { useUserInfo } from '@/shared/hooks/useUserInfo'
 import { VideoCardProps } from '@/shared/types/VideoCardProps'
 import AddModal from '@/shared/ui/ModalComponent'
 import { useRecording } from '../hooks/useRecording'
@@ -77,14 +76,10 @@ const VideoCard: React.FC<VideoCardProps & {
   // ✅ Obtener información de autenticación para autorización
   const { account } = useAuth();
   
-  // ✅ Obtener información de usuario desde localStorage
-  const { userInfo } = useUserInfo();
-  
-  // ✅ Verificar si el usuario es Admin o SuperAdmin desde userInfo
-  const isAdminOrSuperAdmin = userInfo?.role === 'Admin' || userInfo?.role === 'SuperAdmin';
-  
-  // ✅ Verificar si el usuario es específicamente SuperAdmin desde userInfo
-  const isSuperAdmin = userInfo?.role === 'SuperAdmin';
+  // ✅ Verificar si el usuario es Admin o SuperAdmin
+  const isAdminOrSuperAdmin = account?.idTokenClaims?.roles?.some((role: string) => 
+    role === 'Admin' || role === 'SuperAdmin'
+  ) || false;
   const roomRef  = useRef<Room | null>(null)
   const audioRef = useRef<HTMLAudioElement>(null)
 
@@ -446,17 +441,15 @@ const VideoCard: React.FC<VideoCardProps & {
             Snapshot
           </button>
 
-          {/* Recording — Solo visible para SuperAdmin, greyed out if no active video or while connecting */}
-          {isSuperAdmin && (
-            <button
-              onClick={toggleRecording}
-              disabled={recordDisabled}
-              className={`flex-1 py-2 rounded-xl ${isRecording ? 'bg-red-500 text-white' : 'bg-[#BBA6CF] text-white'} disabled:opacity-50`}
-              title={!mediaReady ? 'Recording is available only while streaming' : undefined}
-            >
-              {recordingLoading ? '...' : isRecording ? 'Stop Rec' : 'Start Rec'}
-            </button>
-          )}
+          {/* Recording — greyed out if no active video or while connecting
+          <button
+            onClick={toggleRecording}
+            disabled={recordDisabled}
+            className={`flex-1 py-2 rounded-xl ${isRecording ? 'bg-red-500 text-white' : 'bg-[#BBA6CF] text-white'} disabled:opacity-50`}
+            title={!mediaReady ? 'Recording is available only while streaming' : undefined}
+          >
+            {recordingLoading ? '...' : isRecording ? 'Stop' : 'Record'}
+          </button> */}
         </div>
       </div>
 

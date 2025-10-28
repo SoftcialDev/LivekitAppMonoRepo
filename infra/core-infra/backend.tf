@@ -1,7 +1,7 @@
 terraform {
   backend "azurerm" {
-    resource_group_name   = "tfstate-rg-in-contact-app-421"
-    storage_account_name  = "tfstateaccountai7iyp"
+    resource_group_name   = "in-contact-app-daniel"
+    storage_account_name  = "tfstateaccountdh7sbp"
     container_name        = "tfstate"
     key                   = "core-infra-prod.tfstate"
   }
