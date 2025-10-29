@@ -2,11 +2,14 @@
  * @fileoverview AuthorizationService - unit tests
  */
 
+// Mock Prisma enums using centralized mock
+jest.mock('@prisma/client', () => require('../../../mocks/prisma-enums').PrismaMock);
+
 import { AuthorizationService } from '../../../../shared/domain/services/AuthorizationService';
 import { IUserRepository } from '../../../../shared/domain/interfaces/IUserRepository';
 import { AuthError } from '../../../../shared/domain/errors/DomainError';
 import { AuthErrorCode } from '../../../../shared/domain/errors/ErrorCodes';
-import { UserRole } from '../../../../shared/domain/enums/UserRole';
+import { UserRole } from '@prisma/client';
 
 describe('AuthorizationService', () => {
   let service: AuthorizationService;

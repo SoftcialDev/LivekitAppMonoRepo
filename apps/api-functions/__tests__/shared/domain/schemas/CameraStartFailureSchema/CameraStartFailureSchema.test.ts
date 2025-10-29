@@ -3,18 +3,12 @@
  * @description Tests for camera start failure validation schema
  */
 
+// Mock Prisma enums using centralized mock
+jest.mock('@prisma/client', () => require('../../../../mocks/prisma-enums').PrismaMock);
+
 import { cameraStartFailureSchema, CameraStartFailureRequest } from '../../../../../shared/domain/schemas/CameraStartFailureSchema';
 import { AttemptResult } from '../../../../../shared/domain/interfaces/CameraFailureTypes';
-
-// Mock CameraFailureStage enum since it's not available in test environment
-const CameraFailureStage = {
-  Permission: 'Permission',
-  Enumerate: 'Enumerate',
-  TrackCreate: 'TrackCreate',
-  LiveKitConnect: 'LiveKitConnect',
-  Publish: 'Publish',
-  Unknown: 'Unknown'
-} as const;
+import { CameraFailureStage } from '@prisma/client';
 
 describe('CameraStartFailureSchema', () => {
   describe('cameraStartFailureSchema', () => {

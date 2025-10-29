@@ -1,28 +1,12 @@
+// Mock Prisma enums using centralized mock
+jest.mock('@prisma/client', () => require('../../../mocks/prisma-enums').PrismaMock);
+
 import { ContactManagerDomainService } from '../../../../shared/domain/services/ContactManagerDomainService';
 import { CreateContactManagerRequest } from '../../../../shared/domain/value-objects/CreateContactManagerRequest';
 import { DeleteContactManagerRequest } from '../../../../shared/domain/value-objects/DeleteContactManagerRequest';
 import { UpdateContactManagerStatusRequest } from '../../../../shared/domain/value-objects/UpdateContactManagerStatusRequest';
 import { IUserRepository } from '../../../../shared/domain/interfaces/IUserRepository';
 import { IWebPubSubService } from '../../../../shared/domain/interfaces/IWebPubSubService';
-
-// Mock Prisma enums
-jest.mock('@prisma/client', () => ({
-  UserRole: {
-    SuperAdmin: 'SuperAdmin',
-    Admin: 'Admin',
-    Supervisor: 'Supervisor',
-    Employee: 'Employee',
-    ContactManager: 'ContactManager',
-    Unassigned: 'Unassigned',
-  },
-  ContactManagerStatus: {
-    Available: 'Available',
-    Unavailable: 'Unavailable',
-    OnBreak: 'OnBreak',
-    OnAnotherTask: 'OnAnotherTask',
-  },
-}));
-
 import { ContactManagerStatus, UserRole } from '@prisma/client';
 
 describe('ContactManagerDomainService', () => {

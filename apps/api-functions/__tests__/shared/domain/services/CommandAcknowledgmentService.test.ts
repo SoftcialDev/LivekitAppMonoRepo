@@ -3,11 +3,14 @@
  * @description Tests for command acknowledgment domain service
  */
 
+// Mock Prisma enums using centralized mock
+jest.mock('@prisma/client', () => require('../../../mocks/prisma-enums').PrismaMock);
+
 import { CommandAcknowledgmentService } from '../../../../shared/domain/services/CommandAcknowledgmentService';
 import { AcknowledgeCommandRequest } from '../../../../shared/domain/value-objects/AcknowledgeCommandRequest';
 import { IPendingCommandRepository } from '../../../../shared/domain/interfaces/IPendingCommandRepository';
 import { IUserRepository } from '../../../../shared/domain/interfaces/IUserRepository';
-import { UserRole } from '../../../../shared/domain/enums/UserRole';
+import { UserRole } from '@prisma/client';
 
 describe('CommandAcknowledgmentService', () => {
   let commandAcknowledgmentService: CommandAcknowledgmentService;

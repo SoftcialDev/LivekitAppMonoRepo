@@ -1,15 +1,6 @@
-// Mock Prisma enums before importing
-jest.mock('@prisma/client', () => ({
-  RecordingCommandType: {
-    START: 'START',
-    STOP: 'STOP',
-  },
-  RecordingStatus: {
-    Active: 'Active',
-    Completed: 'Completed',
-    Failed: 'Failed',
-  },
-}));
+// Mock Prisma enums using centralized mock
+import { PrismaMock } from '../../../mocks/prisma-enums';
+jest.mock('@prisma/client', () => PrismaMock);
 
 // Mock config before importing the service
 jest.mock('../../../../shared/config', () => ({

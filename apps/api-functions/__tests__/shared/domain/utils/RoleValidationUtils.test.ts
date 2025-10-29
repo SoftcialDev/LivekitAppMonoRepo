@@ -3,8 +3,11 @@
  * @description Tests for role validation utilities
  */
 
+// Mock Prisma enums using centralized mock
+jest.mock('@prisma/client', () => require('../../../mocks/prisma-enums').PrismaMock);
+
 import { RoleValidationUtils } from '../../../../shared/domain/utils/RoleValidationUtils';
-import { UserRole } from '../../../../shared/domain/enums/UserRole';
+import { UserRole } from '@prisma/client';
 
 describe('RoleValidationUtils', () => {
   describe('isValidRoleAssignment', () => {

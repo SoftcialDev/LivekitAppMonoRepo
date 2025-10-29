@@ -2,9 +2,11 @@
  * @fileoverview UserRoleChangeApplicationService - unit tests
  */
 
+// Mock Prisma enums using centralized mock
+jest.mock('@prisma/client', () => require('../../../../mocks/prisma-enums').PrismaMock);
 
 import { UserRoleChangeApplicationService } from '../../../../../shared/application/services/UserRoleChangeApplicationService';
-import { UserRole } from '../../../../../shared/domain/enums/UserRole';
+import { UserRole } from '@prisma/client';
 import { UserRoleChangeError } from '../../../../../shared/domain/errors/DomainError';
 import { UserRoleChangeErrorCode } from '../../../../../shared/domain/errors/ErrorCodes';
 

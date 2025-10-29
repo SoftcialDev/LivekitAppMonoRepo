@@ -3,6 +3,14 @@
  * @description Tests for user role change application service
  */
 
+// Mock Prisma enums using centralized mock
+jest.mock('@prisma/client', () => require('../../../mocks/prisma-enums').PrismaMock);
+
+// Mock dependencies
+jest.mock('../../../../shared/domain/utils/AuthorizationUtils');
+jest.mock('../../../../shared/domain/utils/ValidationUtils');
+jest.mock('../../../../shared/domain/utils/AuditUtils');
+
 import { UserRoleChangeApplicationService } from '../../../../shared/application/services/UserRoleChangeApplicationService';
 import { UserRoleChangeRequest } from '../../../../shared/domain/value-objects/UserRoleChangeRequest';
 import { UserRoleChangeResult } from '../../../../shared/domain/value-objects/UserRoleChangeResult';
@@ -12,12 +20,7 @@ import { IAuditService } from '../../../../shared/domain/interfaces/IAuditServic
 import { IPresenceService } from '../../../../shared/domain/interfaces/IPresenceService';
 import { UserRoleChangeError } from '../../../../shared/domain/errors/DomainError';
 import { UserRoleChangeErrorCode } from '../../../../shared/domain/errors/ErrorCodes';
-import { UserRole } from '../../../../shared/domain/enums/UserRole';
-
-// Mock dependencies
-jest.mock('../../../../shared/domain/utils/AuthorizationUtils');
-jest.mock('../../../../shared/domain/utils/ValidationUtils');
-jest.mock('../../../../shared/domain/utils/AuditUtils');
+import { UserRole } from '@prisma/client';
 
 describe('UserRoleChangeApplicationService', () => {
   let userRoleChangeApplicationService: UserRoleChangeApplicationService;

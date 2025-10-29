@@ -1,20 +1,10 @@
+// Mock Prisma enums using centralized mock
+jest.mock('@prisma/client', () => require('../../../mocks/prisma-enums').PrismaMock);
+
 import { SuperAdminDomainService } from '../../../../shared/domain/services/SuperAdminDomainService';
 import { CreateSuperAdminRequest } from '../../../../shared/domain/value-objects/CreateSuperAdminRequest';
 import { DeleteSuperAdminRequest } from '../../../../shared/domain/value-objects/DeleteSuperAdminRequest';
 import { IUserRepository } from '../../../../shared/domain/interfaces/IUserRepository';
-
-// Mock Prisma UserRole enum
-jest.mock('@prisma/client', () => ({
-  UserRole: {
-    SuperAdmin: 'SuperAdmin',
-    Admin: 'Admin',
-    Supervisor: 'Supervisor',
-    Employee: 'Employee',
-    ContactManager: 'ContactManager',
-    Unassigned: 'Unassigned',
-  },
-}));
-
 import { UserRole } from '@prisma/client';
 
 describe('SuperAdminDomainService', () => {

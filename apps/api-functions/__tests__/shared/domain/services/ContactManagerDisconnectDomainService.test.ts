@@ -1,18 +1,10 @@
+// Mock Prisma enums using centralized mock
+jest.mock('@prisma/client', () => require('../../../mocks/prisma-enums').PrismaMock);
+jest.mock('../../../../shared/infrastructure/database/PrismaClientService', () => ({ __esModule: true, default: { contactManagerProfile: { findUnique: jest.fn(), update: jest.fn() } } }));
+
 import { ContactManagerDisconnectDomainService } from '../../../../shared/domain/services/ContactManagerDisconnectDomainService';
 import { WebSocketEventRequest } from '../../../../shared/domain/value-objects/WebSocketEventRequest';
 import { ICommandMessagingService } from '../../../../shared/domain/interfaces/ICommandMessagingService';
-
-// Mock Prisma ContactManagerStatus enum
-jest.mock('@prisma/client', () => ({
-  ContactManagerStatus: {
-    Available: 'Available',
-    Unavailable: 'Unavailable',
-    OnBreak: 'OnBreak',
-    OnAnotherTask: 'OnAnotherTask',
-  },
-}));
-
-jest.mock('../../../../shared/infrastructure/database/PrismaClientService', () => ({ __esModule: true, default: { contactManagerProfile: { findUnique: jest.fn(), update: jest.fn() } } }));
 
 import prisma from '../../../../shared/infrastructure/database/PrismaClientService';
 
