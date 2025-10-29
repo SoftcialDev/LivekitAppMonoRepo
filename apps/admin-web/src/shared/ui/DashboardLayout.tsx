@@ -5,7 +5,6 @@ import { useAuth } from "../auth/useAuth";
 import { usePresenceStore } from "../presence/usePresenceStore";
 import Header from "./Header";
 import Sidebar from "./Sidebar";
-import SidebarToggle from "./SidebarToggle";
 
 interface LayoutProps {}
 

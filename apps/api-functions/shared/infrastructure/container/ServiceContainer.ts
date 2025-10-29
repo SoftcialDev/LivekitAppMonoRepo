@@ -102,6 +102,8 @@ import { ISnapshotRepository } from '../../domain/interfaces/ISnapshotRepository
 import { SnapshotRepository } from '../repositories/SnapshotRepository';
 import { IAuditRepository } from '../../domain/interfaces/IAuditRepository';
 import { AuditRepository } from '../repositories/AuditRepository';
+import { GetCurrentUserDomainService } from '../../domain/services/GetCurrentUserDomainService';
+import { GetCurrentUserApplicationService } from '../../application/services/GetCurrentUserApplicationService';
 
 /**
  * Service container for dependency injection
@@ -580,6 +582,17 @@ export class ServiceContainer {
             const getSupervisorForPsoDomainService = this.resolve<GetSupervisorForPsoDomainService>('GetSupervisorForPsoDomainService');
             const userRepository = this.resolve<IUserRepository>('UserRepository');
             return new GetSupervisorForPsoApplicationService(getSupervisorForPsoDomainService, userRepository);
+          });
+
+          // Register Get Current User services
+          this.register<GetCurrentUserDomainService>('GetCurrentUserDomainService', () => {
+            const userRepository = this.resolve<IUserRepository>('UserRepository');
+            return new GetCurrentUserDomainService(userRepository);
+          });
+
+          this.register<GetCurrentUserApplicationService>('GetCurrentUserApplicationService', () => {
+            const getCurrentUserDomainService = this.resolve<GetCurrentUserDomainService>('GetCurrentUserDomainService');
+            return new GetCurrentUserApplicationService(getCurrentUserDomainService);
           });
     
     ServiceContainer.initialized = true;

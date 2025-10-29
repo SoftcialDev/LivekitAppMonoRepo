@@ -18,7 +18,7 @@ output "function_principal_id" {
 
 output "function_app_url" {
   description = "URL base de la Function App para invocar la API"
-  value       = "https://${azurerm_function_app.function_app.default_hostname}/api"
+  value       = "https://${azurerm_function_app.function_app.default_hostname}"
 }
 
 

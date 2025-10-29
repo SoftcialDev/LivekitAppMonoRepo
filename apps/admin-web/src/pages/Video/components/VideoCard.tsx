@@ -446,8 +446,8 @@ const VideoCard: React.FC<VideoCardProps & {
             Snapshot
           </button>
 
-          {/* Recording — Solo visible para SuperAdmin, greyed out if no active video or while connecting */}
-          {isSuperAdmin && (
+          {/* Recording — TEMPORALMENTE COMENTADO - Solo visible para SuperAdmin, greyed out if no active video or while connecting */}
+          {/* {isSuperAdmin && (
             <button
               onClick={toggleRecording}
               disabled={recordDisabled}
@@ -456,7 +456,7 @@ const VideoCard: React.FC<VideoCardProps & {
             >
               {recordingLoading ? '...' : isRecording ? 'Stop Rec' : 'Start Rec'}
             </button>
-          )}
+          )} */}
         </div>
       </div>
 

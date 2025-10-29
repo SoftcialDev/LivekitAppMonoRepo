@@ -16,7 +16,7 @@ async function runHandler(ctx: Context) {
 describe('GetCurrentUser handler - unit', () => {
   let ctx: Context;
   let container: { initialize: jest.Mock; resolve: jest.Mock };
-  let userRepository: any;
+  let applicationService: any;
 
   beforeEach(() => {
     jest.resetModules();
@@ -24,13 +24,20 @@ describe('GetCurrentUser handler - unit', () => {
     require('../../mocks/response');
 
     ctx = TestHelpers.createMockContext();
-    ctx.bindings.user = { id: 'ad-123' } as any;
+    ctx.bindings.user = { 
+      oid: 'ad-123',
+      upn: 'user@example.com',
+      name: 'John Doe'
+    } as any;
 
-    userRepository = { findByAzureAdObjectId: jest.fn() };
+    // Mock application service
+    applicationService = { 
+      getCurrentUser: jest.fn()
+    };
 
     const initialize = jest.fn();
     const resolve = jest.fn((token: string) => {
-      if (token === 'UserRepository') return userRepository;
+      if (token === 'GetCurrentUserApplicationService') return applicationService;
       return null;
     });
     container = { initialize, resolve } as any;
@@ -44,53 +51,130 @@ describe('GetCurrentUser handler - unit', () => {
       getCallerAdId: (_user: any) => 'ad-123'
     }));
 
-    // UserSummary.fromPrismaUser passthrough
-    jest.doMock('../../../shared/domain/entities/UserSummary', () => ({
-      UserSummary: {
-        fromPrismaUser: (u: any) => ({
-          azureAdObjectId: u.azureAdObjectId,
-          email: u.email,
-          firstName: (u.fullName || '').split(' ')[0] || '',
-          lastName: (u.fullName || '').split(' ').slice(1).join(' ') || '',
-          role: u.role,
-          supervisorAdId: null,
-          supervisorName: null
-        })
+    // Mock GetCurrentUserRequest
+    jest.doMock('../../../shared/domain/value-objects/GetCurrentUserRequest', () => ({
+      GetCurrentUserRequest: {
+        fromCallerId: (callerId: string) => ({ callerId })
       }
     }));
   });
 
   it('should return 200 with current user info', async () => {
-    userRepository.findByAzureAdObjectId.mockResolvedValue({
+    applicationService.getCurrentUser.mockResolvedValue({
       azureAdObjectId: 'ad-123',
       email: 'user@example.com',
-      fullName: 'John Doe',
-      role: 'Admin'
+      firstName: 'John',
+      lastName: 'Doe',
+      role: 'Admin',
+      isNewUser: false,
+      toPayload: () => ({
+        azureAdObjectId: 'ad-123',
+        email: 'user@example.com',
+        firstName: 'John',
+        lastName: 'Doe',
+        role: 'Admin',
+        isNewUser: false
+      })
     });
 
     await runHandler(ctx);
 
     expect(container.initialize).toHaveBeenCalled();
-    expect(container.resolve).toHaveBeenCalledWith('UserRepository');
+    expect(container.resolve).toHaveBeenCalledWith('GetCurrentUserApplicationService');
     expect(ctx.res?.status).toBe(200);
     expect(ctx.res?.body).toMatchObject({
       azureAdObjectId: 'ad-123',
       email: 'user@example.com',
       firstName: 'John',
       lastName: 'Doe',
-      role: 'Admin'
+      role: 'Admin',
+      isNewUser: false
     });
   });
 
-  it('should return 404 when user not found', async () => {
-    userRepository.findByAzureAdObjectId.mockResolvedValue(null);
+  it('should auto-create user with Employee role when not found', async () => {
+    applicationService.getCurrentUser.mockResolvedValue({
+      azureAdObjectId: 'ad-123',
+      email: 'user@example.com',
+      firstName: 'John',
+      lastName: 'Doe',
+      role: 'Employee',
+      isNewUser: true,
+      toPayload: () => ({
+        azureAdObjectId: 'ad-123',
+        email: 'user@example.com',
+        firstName: 'John',
+        lastName: 'Doe',
+        role: 'Employee',
+        isNewUser: true
+      })
+    });
+
+    await runHandler(ctx);
+
+    expect(applicationService.getCurrentUser).toHaveBeenCalled();
+    expect(ctx.res?.status).toBe(200);
+    expect(ctx.res?.body).toMatchObject({
+      azureAdObjectId: 'ad-123',
+      email: 'user@example.com',
+      firstName: 'John',
+      lastName: 'Doe',
+      role: 'Employee',
+      isNewUser: true
+    });
+  });
+
+  it('should use email from upn when creating new user', async () => {
+    ctx.bindings.user = {
+      oid: 'ad-456',
+      upn: 'newuser@example.com',
+      name: 'New User'
+    };
+
+    jest.doMock('../../../shared/utils/authHelpers', () => ({
+      getCallerAdId: (_user: any) => 'ad-456'
+    }));
+
+    applicationService.getCurrentUser.mockResolvedValue({
+      azureAdObjectId: 'ad-456',
+      email: 'newuser@example.com',
+      firstName: 'New',
+      lastName: 'User',
+      role: 'Employee',
+      isNewUser: true,
+      toPayload: () => ({
+        azureAdObjectId: 'ad-456',
+        email: 'newuser@example.com',
+        firstName: 'New',
+        lastName: 'User',
+        role: 'Employee',
+        isNewUser: true
+      })
+    });
+
+    await runHandler(ctx);
+
+    expect(applicationService.getCurrentUser).toHaveBeenCalled();
+  });
+
+  it('should return 500 when application service throws email error', async () => {
+    ctx.bindings.user = {
+      oid: 'ad-789',
+      // No upn, email, or preferred_username
+    };
+
+    jest.doMock('../../../shared/utils/authHelpers', () => ({
+      getCallerAdId: (_user: any) => 'ad-789'
+    }));
+
+    applicationService.getCurrentUser.mockRejectedValue(new Error('User email not found in authentication token'));
 
     await runHandler(ctx);
 
     expect(ctx.res).toEqual({
-      status: 404,
+      status: 500,
       headers: { 'Content-Type': 'application/json' },
-      body: { error: 'User not found in database' }
+      body: { error: 'Internal error' }
     });
   });
 
@@ -132,15 +216,15 @@ describe('GetCurrentUser handler - unit', () => {
     });
   });
 
-  it('should return 500 when repository throws (catch block)', async () => {
-    userRepository.findByAzureAdObjectId.mockRejectedValue(new Error('DB error'));
+  it('should return 500 when application service throws (catch block)', async () => {
+    applicationService.getCurrentUser.mockRejectedValue(new Error('DB error'));
 
     await runHandler(ctx);
 
     expect(ctx.res).toEqual({
       status: 500,
       headers: { 'Content-Type': 'application/json' },
-      body: { error: 'Internal server error' }
+      body: { error: 'Internal error' }
     });
   });
 });
