@@ -160,7 +160,7 @@ If you provision your SPA via Terraform, these URIs are set automatically.
 
 ---
 
-## 📜 Development Scripts
+## 📜 Development Script
 
 * `npm run dev` — start dev server
 * `npm run build` — build for production
