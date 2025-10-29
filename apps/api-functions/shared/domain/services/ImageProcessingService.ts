@@ -39,14 +39,22 @@ export class ImageProcessingService {
    * @returns True if valid, false otherwise
    */
   validateImageData(base64Data: string): boolean {
-    try {
-      if (!base64Data || typeof base64Data !== 'string') {
-        return false;
-      }
+    if (!base64Data || typeof base64Data !== 'string') {
+      return false;
+    }
 
-      // Try to create buffer to validate base64 format
-      Buffer.from(base64Data, 'base64');
-      return true;
+    // Strict base64 validation: valid chars and proper padding
+    const base64Regex = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
+    if (!base64Regex.test(base64Data)) {
+      return false;
+    }
+
+    // Decode and re-encode to ensure integrity (ignoring padding differences)
+    try {
+      const buffer = Buffer.from(base64Data, 'base64');
+      const reencoded = buffer.toString('base64');
+      const stripPad = (s: string) => s.replace(/=+$/, '');
+      return stripPad(reencoded) === stripPad(base64Data);
     } catch {
       return false;
     }
