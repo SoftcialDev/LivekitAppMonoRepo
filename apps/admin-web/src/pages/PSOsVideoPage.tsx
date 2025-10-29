@@ -256,6 +256,7 @@ const displayList = useMemo(() => {
           selectedValues={fixedEmails}
           onSelectionChange={setFixedEmails}
           placeholder="Choose PSOs to display"
+          showSelectAll={true}
         />
         <Dropdown
           options={LAYOUT_OPTIONS.map(n => ({ label: `Layout ${n} - cams`, value: n }))}

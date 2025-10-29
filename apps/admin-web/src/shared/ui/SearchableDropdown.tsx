@@ -18,14 +18,14 @@ export interface DropdownOption<Value> {
 /**
  * Props for the SearchableDropdown component.
  *
- * @template Value The type of each option’s `value`.
+ * @template Value The type of each option's `value`.
  */
 export interface SearchableDropdownProps<Value> {
   /** The complete list of options to display in the menu. */
   options: DropdownOption<Value>[];
   /**
    * The currently selected values (controlled).
-   * Only these values will remain “fixed” and shown elsewhere in your UI.
+   * Only these values will remain "fixed" and shown elsewhere in your UI.
    */
   selectedValues: Value[];
   /** Callback invoked when the user checks or unchecks an option. */
@@ -46,6 +46,8 @@ export interface SearchableDropdownProps<Value> {
   portalMinWidthPx?: number;
   /** Close the menu upon selecting an item. Defaults to false to allow multiple selections. */
   closeOnSelect?: boolean;
+  /** Show "Select All" button in the dropdown footer. Defaults to false. */
+  showSelectAll?: boolean;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -88,7 +90,7 @@ export function SearchableDropdown<Value>({
     focus:outline-none
   `,
   menuClassName = `
-    absolute left-0 top-full mt-1 w-full max-h-60 overflow-auto custom-scrollbar
+    absolute left-0 top-full mt-1 w-full
     bg-[var(--color-primary)] border-0 rounded shadow-lg z-50
     text-gray-200 font-normal text-base
   `,
@@ -100,6 +102,7 @@ export function SearchableDropdown<Value>({
   usePortal = false,
   portalMinWidthPx,
   closeOnSelect = false,
+  showSelectAll = false,
 }: SearchableDropdownProps<Value>): JSX.Element {
   const [isOpen, setIsOpen] = useState(false);
   const [term, setTerm] = useState('');
@@ -152,6 +155,21 @@ export function SearchableDropdown<Value>({
     }
   }, [isOpen, usePortal]);
 
+  // Clear all selections
+  const handleClearAll = () => {
+    onSelectionChange([]);
+    setTerm('');
+    setIsOpen(false);
+  };
+
+  // Select all filtered options (only those currently filtered by search)
+  const handleSelectAll = () => {
+    const allFilteredValues = filtered.map(opt => opt.value);
+    // Combine existing selections with all filtered values (avoiding duplicates)
+    const newSelection = [...new Set([...selectedValues, ...allFilteredValues])];
+    onSelectionChange(newSelection);
+  };
+
   const menuContent = (
     <div
       ref={menuRef}
@@ -162,37 +180,47 @@ export function SearchableDropdown<Value>({
         e.stopPropagation();
       }}
     >
-      {filtered.map(opt => (
-        <div
-          key={String(opt.value)}
-          className={itemClassName}
-          onMouseDown={e => { e.preventDefault(); e.stopPropagation(); }} // Prevent blur and outside close
-          onClick={() => toggle(opt.value)}
-        >
-          <input
-            type="checkbox"
-            checked={selectedValues.includes(opt.value)}
-            readOnly
-            className="mr-5 appearance-none w-5 h-5 rounded border-2 border-[var(--color-primary)] bg-[var(--color-primary-light)] checked:bg-[var(--color-secondary)] checked:border-[var(--color-secondary)] focus:ring-0 focus:outline-none cursor-pointer transition-colors"
-          />
-          <span>{opt.label}</span>
-        </div>
-      ))}
+      {/* Scrollable options container */}
+      <div className="max-h-52 overflow-y-auto custom-scrollbar">
+        {filtered.map(opt => (
+          <div
+            key={String(opt.value)}
+            className={itemClassName}
+            onMouseDown={e => { e.preventDefault(); e.stopPropagation(); }} // Prevent blur and outside close
+            onClick={() => toggle(opt.value)}
+          >
+            <input
+              type="checkbox"
+              checked={selectedValues.includes(opt.value)}
+              readOnly
+              className="mr-5 appearance-none w-5 h-5 rounded border-2 border-[var(--color-primary)] bg-[var(--color-primary-light)] checked:bg-[var(--color-secondary)] checked:border-[var(--color-secondary)] focus:ring-0 focus:outline-none cursor-pointer transition-colors"
+            />
+            <span>{opt.label}</span>
+          </div>
+        ))}
 
-      {filtered.length === 0 && (
-        <div className="px-4 py-2 text-xs text-white font-medium">
-          No results found
+        {filtered.length === 0 && (
+          <div className="px-4 py-2 text-xs text-white font-medium">
+            No results found
+          </div>
+        )}
+      </div>
+
+      {/* Footer with Select All button - only show if showSelectAll prop is true and there are filtered results */}
+      {showSelectAll && filtered.length > 0 && (
+        <div className="sticky bottom-0 bg-[var(--color-primary)] border-t border-[var(--color-primary-light)] px-4 py-2 flex justify-end">
+          <button
+            type="button"
+            onClick={handleSelectAll}
+            onMouseDown={e => { e.preventDefault(); e.stopPropagation(); }}
+            className="text-sm text-[var(--color-secondary)] hover:text-white transition-colors font-medium"
+          >
+            Select All
+          </button>
         </div>
       )}
     </div>
   );
-
-  // Clear all selections
-  const handleClearAll = () => {
-    onSelectionChange([]);
-    setTerm('');
-    setIsOpen(false);
-  };
 
   return (
     <div className={`relative inline-block w-1/3  ${className}`} ref={containerRef}>
