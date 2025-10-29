@@ -14,7 +14,7 @@ resource "azurerm_resource_group" "main-rg" {
 # so we can reference the tenant ID and object ID in later modules.
 data "azuread_client_config" "current" {}
 
-# 2. Invoke network module for VNet + Subnet
+# 2. Invoke network module for VNet + Subnetg
 module "network" {
   source      = "./modules/network"
   # Prefix used by the network module for naming VNet, subnets, etc.
