@@ -2,7 +2,7 @@ import { AzureFunction, Context, HttpRequest } from "@azure/functions";
 import { withAuth } from "../shared/middleware/auth";
 import { withErrorHandler } from "../shared/middleware/errorHandler";
 import { withCallerId } from "../shared/middleware/callerId";
-import { withPathValidation } from "../shared/middleware/pathValidation";
+import { withPathValidation } from "../shared/middleware/validate";
 import { ok } from "../shared/utils/response";
 import { ServiceContainer } from "../shared/infrastructure/container/ServiceContainer";
 import { DeleteRecordingRequest } from "../shared/domain/value-objects/DeleteRecordingRequest";
@@ -27,7 +27,7 @@ const deleteRecordingFunction: AzureFunction = withErrorHandler(
   async (ctx: Context, req: HttpRequest) => {
     await withAuth(ctx, async () => {
       await withCallerId(ctx, async () => {
-        await withPathValidation(ctx, deleteRecordingSchema, async (validatedParams) => {
+        await withPathValidation(deleteRecordingSchema)(ctx, async () => {
           // Initialize service container
           const serviceContainer = ServiceContainer.getInstance();
           serviceContainer.initialize();
@@ -36,8 +36,11 @@ const deleteRecordingFunction: AzureFunction = withErrorHandler(
           const applicationService = serviceContainer.resolve<DeleteRecordingApplicationService>('DeleteRecordingApplicationService');
           const callerId = ctx.bindings.callerId as string;
 
+          // Get validated params from bindings
+          const validatedParams = (ctx as any).bindings.validatedParams;
+          
           // Create request object
-          const request = DeleteRecordingRequest.fromParams(validatedParams as unknown as { id: string });
+          const request = DeleteRecordingRequest.fromParams(validatedParams);
 
           // Execute deletion
           const response = await applicationService.deleteRecording(callerId, request);
