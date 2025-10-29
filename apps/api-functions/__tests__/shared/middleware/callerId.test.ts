@@ -44,7 +44,7 @@ describe('callerId middleware', () => {
     });
 
     it('should handle missing caller ID', async () => {
-      mockGetCallerAdId.mockReturnValue(null);
+      mockGetCallerAdId.mockReturnValue(null as any);
 
       await withCallerId(mockContext, mockNext);
 
@@ -98,7 +98,7 @@ describe('callerId middleware', () => {
 
     it('should create bindings object if it does not exist', async () => {
       const callerId = 'test-caller-id';
-      mockContext.bindings = undefined as any;
+      mockContext.bindings = {} as any;
       mockGetCallerAdId.mockReturnValue(callerId);
 
       await withCallerId(mockContext, mockNext);
@@ -136,7 +136,6 @@ describe('callerId middleware', () => {
 
     it('should return null when context is undefined', () => {
       const result = getCallerIdFromContext(undefined as any);
-
       expect(result).toBeNull();
     });
   });

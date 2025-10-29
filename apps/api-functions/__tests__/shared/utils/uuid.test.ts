@@ -41,7 +41,7 @@ describe('UUID utilities', () => {
     });
 
     it('should return false for UUID with invalid variant', () => {
-      const invalidVariantFormat = '123e4567-e89b-12d3-a456-42661417400c';
+      const invalidVariantFormat = '123e4567-e89b-12d3-c456-426614174000';
       expect(isUuid(invalidVariantFormat)).toBe(false);
     });
 

@@ -1,25 +1,5 @@
 import { UserRoleChangeRequest } from '../../../../../shared/domain/value-objects/UserRoleChangeRequest';
-
-// Mock UserRole enum since it's not available in test environment
-const UserRole = {
-  SuperAdmin: 'SuperAdmin',
-  Admin: 'Admin',
-  Supervisor: 'Supervisor',
-  Employee: 'Employee',
-  ContactManager: 'ContactManager',
-  Unassigned: 'Unassigned'
-} as const;
-
-jest.mock('@prisma/client', () => ({
-  UserRole: {
-    SuperAdmin: 'SuperAdmin',
-    Admin: 'Admin',
-    Supervisor: 'Supervisor',
-    Employee: 'Employee',
-    ContactManager: 'ContactManager',
-    Unassigned: 'Unassigned'
-  }
-}));
+import { UserRole } from '../../../../../shared/domain/enums/UserRole';
 
 describe('UserRoleChangeRequest', () => {
   describe('constructor', () => {

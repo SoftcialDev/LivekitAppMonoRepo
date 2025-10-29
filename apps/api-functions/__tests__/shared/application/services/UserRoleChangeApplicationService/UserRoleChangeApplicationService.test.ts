@@ -2,18 +2,9 @@
  * @fileoverview UserRoleChangeApplicationService - unit tests
  */
 
-// Mock UserRole enum globally
-jest.mock('@prisma/client', () => ({
-  UserRole: {
-    Admin: 'Admin',
-    Supervisor: 'Supervisor',
-    Employee: 'Employee',
-    Unassigned: 'Unassigned'
-  }
-}));
 
 import { UserRoleChangeApplicationService } from '../../../../../shared/application/services/UserRoleChangeApplicationService';
-import { UserRole } from '@prisma/client';
+import { UserRole } from '../../../../../shared/domain/enums/UserRole';
 import { UserRoleChangeError } from '../../../../../shared/domain/errors/DomainError';
 import { UserRoleChangeErrorCode } from '../../../../../shared/domain/errors/ErrorCodes';
 

@@ -106,5 +106,72 @@ describe('LivekitRecordingApplicationService', () => {
       expect(mockDomainService.startRecording).toHaveBeenCalled();
       expect(result).toBe(expectedResult);
     });
+
+    it('uses fallback user when subject is not found', async () => {
+      const callerId = 'caller123';
+      const request = {
+        command: 'START',
+        roomName: 'room123',
+        isStartCommand: jest.fn().mockReturnValue(true)
+      } as any;
+      const caller = { id: '1', fullName: 'Caller', email: 'caller@example.com' };
+      const expectedResult = { success: true } as any;
+
+      mockAuthService.canAccessSuperAdmin.mockResolvedValue(undefined);
+      mockUserRepository.findByAzureAdObjectId.mockResolvedValue(caller);
+      mockUserRepository.findById.mockResolvedValue(null);
+      mockDomainService.startRecording.mockResolvedValue(expectedResult);
+
+      const result = await service.processRecordingCommand(callerId, request);
+
+      expect(mockDomainService.startRecording).toHaveBeenCalled();
+      expect(result).toBe(expectedResult);
+    });
+
+    it('uses email as label when fullName is not available', async () => {
+      const callerId = 'caller123';
+      const request = {
+        command: 'START',
+        roomName: 'room123',
+        isStartCommand: jest.fn().mockReturnValue(true)
+      } as any;
+      const caller = { id: '1', email: 'caller@example.com' };
+      const subject = { id: '2', email: 'subject@example.com' };
+      const expectedResult = { success: true } as any;
+
+      mockAuthService.canAccessSuperAdmin.mockResolvedValue(undefined);
+      mockUserRepository.findByAzureAdObjectId.mockResolvedValue(caller);
+      mockUserRepository.findById.mockResolvedValue(subject);
+      mockDomainService.startRecording.mockResolvedValue(expectedResult);
+
+      const result = await service.processRecordingCommand(callerId, request);
+
+      const commandCall = mockDomainService.startRecording.mock.calls[0][0];
+      expect(commandCall.subjectLabel).toBe('subject@example.com');
+      expect(result).toBe(expectedResult);
+    });
+
+    it('uses id as label when fullName and email are not available', async () => {
+      const callerId = 'caller123';
+      const request = {
+        command: 'START',
+        roomName: 'room123',
+        isStartCommand: jest.fn().mockReturnValue(true)
+      } as any;
+      const caller = { id: '1', fullName: 'Caller', email: 'caller@example.com' };
+      const subject = { id: '2' };
+      const expectedResult = { success: true } as any;
+
+      mockAuthService.canAccessSuperAdmin.mockResolvedValue(undefined);
+      mockUserRepository.findByAzureAdObjectId.mockResolvedValue(caller);
+      mockUserRepository.findById.mockResolvedValue(subject);
+      mockDomainService.startRecording.mockResolvedValue(expectedResult);
+
+      const result = await service.processRecordingCommand(callerId, request);
+
+      const commandCall = mockDomainService.startRecording.mock.calls[0][0];
+      expect(commandCall.subjectLabel).toBe('2');
+      expect(result).toBe(expectedResult);
+    });
   });
 });

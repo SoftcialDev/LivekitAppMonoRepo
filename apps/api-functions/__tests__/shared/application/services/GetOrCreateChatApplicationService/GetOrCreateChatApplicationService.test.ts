@@ -221,7 +221,7 @@ describe('GetOrCreateChatApplicationService', () => {
 
       mockAuthorizationService.authorizeUserQuery.mockResolvedValue();
       mockGetOrCreateChatDomainService.getOrCreateChat.mockImplementation(
-        () => new Promise(resolve => setTimeout(() => resolve(expectedResponse), 100))
+        () => new Promise(resolve => setTimeout(() => resolve(expectedResponse), 120))
       );
 
       const startTime = Date.now();

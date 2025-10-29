@@ -8,13 +8,12 @@ import dayjs from 'dayjs';
 
 // Mock dayjs
 jest.mock('dayjs', () => {
-  const originalDayjs = jest.requireActual('dayjs');
   const mockDayjs = jest.fn(() => ({
     tz: jest.fn().mockReturnThis(),
     format: jest.fn().mockReturnValue('2025-08-12T14:03:21-06:00'),
   }));
   
-  mockDayjs.extend = jest.fn();
+  (mockDayjs as any).extend = jest.fn();
   return mockDayjs;
 });
 

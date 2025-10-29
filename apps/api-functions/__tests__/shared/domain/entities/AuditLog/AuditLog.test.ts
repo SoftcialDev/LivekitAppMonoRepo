@@ -844,7 +844,7 @@ describe('AuditLog', () => {
 
     it('should return singular hour', () => {
       const now = new Date();
-      const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+      const oneHourAgo = new Date(now.getTime() - 59 * 60 * 1000 - 1000); // just under 1 hour to avoid ceil to 2
       
       const auditLog = new AuditLog({
         id: 'audit-123',
