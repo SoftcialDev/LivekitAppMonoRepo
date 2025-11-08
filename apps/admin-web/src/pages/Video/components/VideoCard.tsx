@@ -313,11 +313,7 @@ const VideoCard: React.FC<VideoCardProps & {
    * Handles stop reason selection
    */
   const handleStopReasonSelect = (reason: StopReason) => {
-    console.log('[VideoCard] handleStopReasonSelect called with reason:', reason);
-    console.log('[VideoCard] Calling onToggle with email:', email, 'reason:', reason);
-    // Call the original onToggle with the reason
     onToggle?.(email, reason);
-    console.log(`Stopping with reason: ${reason}`);
   };
 
   return (

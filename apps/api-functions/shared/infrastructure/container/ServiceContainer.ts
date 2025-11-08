@@ -430,7 +430,8 @@ export class ServiceContainer {
           this.register<StreamingSessionUpdateDomainService>('StreamingSessionUpdateDomainService', () => {
             const streamingSessionDomainService = this.resolve<StreamingSessionDomainService>('StreamingSessionDomainService');
             const userRepository = this.resolve<IUserRepository>('UserRepository');
-            return new StreamingSessionUpdateDomainService(streamingSessionDomainService, userRepository);
+            const webPubSubService = this.resolve<IWebPubSubService>('WebPubSubService');
+            return new StreamingSessionUpdateDomainService(streamingSessionDomainService, userRepository, webPubSubService);
           });
 
           this.register<StreamingSessionUpdateApplicationService>('StreamingSessionUpdateApplicationService', () => {

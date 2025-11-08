@@ -41,7 +41,6 @@ export class CameraCommandClient {
       payload.reason = reason;
     }
     
-    console.log('[CameraCommandClient] Sending payload:', payload);
     await apiClient.post(this.endpoint, payload);
   }
 }

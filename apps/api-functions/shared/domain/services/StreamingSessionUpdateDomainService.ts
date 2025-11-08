@@ -10,6 +10,7 @@ import { StreamingSessionDomainService } from "./StreamingSessionDomainService";
 import { IUserRepository } from "../interfaces/IUserRepository";
 import { StreamingStatus } from "../enums/StreamingStatus";
 import { UserNotFoundError } from "../errors/UserErrors";
+import { IWebPubSubService } from "../interfaces/IWebPubSubService";
 
 /**
  * Domain service for handling streaming session update operations
@@ -23,7 +24,8 @@ export class StreamingSessionUpdateDomainService {
    */
   constructor(
     private readonly streamingSessionDomainService: StreamingSessionDomainService,
-    private readonly userRepository: IUserRepository
+    private readonly userRepository: IUserRepository,
+    private readonly webPubSubService: IWebPubSubService
   ) {}
 
   /**
@@ -40,11 +42,22 @@ export class StreamingSessionUpdateDomainService {
     
     // 2. Start or stop streaming session based on status
     if (request.status === StreamingStatus.Started) {
-      await this.streamingSessionDomainService.startStreamingSession(user.id);
-      return new StreamingSessionUpdateResponse(
-        "Streaming session started",
-        StreamingStatus.Started
-      );
+      try {
+        await this.streamingSessionDomainService.startStreamingSession(user.id);
+        await this.broadcastStreamEvent(user.email, 'started');
+        return new StreamingSessionUpdateResponse(
+          "Streaming session started",
+          StreamingStatus.Started
+        );
+      } catch (error) {
+        await this.broadcastStreamEvent(
+          user.email,
+          'failed',
+          undefined,
+          error instanceof Error ? error.message : 'Unknown error'
+        );
+        throw error;
+      }
     } else {
       // Use provided reason, COMMAND if triggered by command, or DISCONNECT as fallback
       const stopReason = request.reason || (request.isCommand ? 'COMMAND' : 'DISCONNECT');
@@ -55,12 +68,23 @@ export class StreamingSessionUpdateDomainService {
         isCommand: request.isCommand,
         providedReason: request.reason
       });
-      await this.streamingSessionDomainService.stopStreamingSession(user.id, stopReason);
-      return new StreamingSessionUpdateResponse(
-        `Streaming session stopped (${stopReason})`,
-        StreamingStatus.Stopped,
-        stopReason
-      );
+      try {
+        await this.streamingSessionDomainService.stopStreamingSession(user.id, stopReason);
+        await this.broadcastStreamEvent(user.email, 'stopped', stopReason);
+        return new StreamingSessionUpdateResponse(
+          `Streaming session stopped (${stopReason})`,
+          StreamingStatus.Stopped,
+          stopReason
+        );
+      } catch (error) {
+        await this.broadcastStreamEvent(
+          user.email,
+          'failed',
+          stopReason,
+          error instanceof Error ? error.message : 'Unknown error'
+        );
+        throw error;
+      }
     }
   }
 
@@ -82,5 +106,42 @@ export class StreamingSessionUpdateDomainService {
       id: user.id,
       email: user.email
     };
+  }
+
+  /**
+   * Broadcasts stream status updates to interested supervisors
+   * @param email - The PSO email
+   * @param status - The stream status
+   * @param reason - Optional stop reason
+   * @param errorMessage - Optional error message for failed status
+   * @private
+   */
+  private async broadcastStreamEvent(
+    email: string,
+    status: 'started' | 'stopped' | 'failed',
+    reason?: string,
+    errorMessage?: string
+  ): Promise<void> {
+    try {
+      const message: Record<string, unknown> = {
+        email,
+        status
+      };
+
+      if (reason) {
+        message.reason = reason;
+      }
+
+      if (errorMessage) {
+        message.error = errorMessage;
+      }
+
+      await this.webPubSubService.broadcastMessage(email, message);
+    } catch (error) {
+      console.error(
+        `[StreamingSessionUpdateDomainService] Failed to broadcast stream event for ${email}:`,
+        error
+      );
+    }
   }
 }

@@ -36,6 +36,7 @@ export function useIsolatedStreams(viewerEmail: string, emails: string[]): Creds
   const isInitializedRef = useRef(false);
   const lastEmailsRef = useRef<string[]>([]);
   const cooldownUntilRef = useRef<Record<string, number>>({}); // avoid early fetches
+  const pendingTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   // Helper: convert batch response to statusInfo map
   const buildStatusMap = (statuses: UserStreamingStatus[]) => {
@@ -81,18 +82,25 @@ export function useIsolatedStreams(viewerEmail: string, emails: string[]): Creds
       const token = room ? byRoom.get(room) : undefined;
       
       setCredsMap((prev) => {
-        const newCreds = room && token 
-          ? { accessToken: token, roomName: room, livekitUrl, loading: false }
-          : { loading: false };
-        
-        // Solo actualizar si realmente cambió
-        const currentCreds = prev[key];
-        if (JSON.stringify(currentCreds) === JSON.stringify(newCreds)) {
+        const currentCreds = prev[key] ?? {};
+        if (room && token) {
+          const newCreds = { accessToken: token, roomName: room, livekitUrl, loading: false };
+          if (JSON.stringify(currentCreds) === JSON.stringify(newCreds)) {
+            return prev;
+          }
+          return {
+            ...prev,
+            [key]: newCreds
+          };
+        }
+
+        if (!currentCreds.loading) {
           return prev;
         }
+
         return {
           ...prev,
-          [key]: newCreds
+          [key]: { ...currentCreds }
         };
       });
     } catch (error) {
@@ -113,6 +121,15 @@ export function useIsolatedStreams(viewerEmail: string, emails: string[]): Creds
         [key]: { loading: false, accessToken: undefined, roomName: undefined, livekitUrl: undefined },
       };
     });
+  }, []);
+
+  const clearPendingTimer = useCallback((email: string) => {
+    const key = email.toLowerCase();
+    const timer = pendingTimersRef.current[key];
+    if (timer) {
+      clearTimeout(timer);
+      delete pendingTimersRef.current[key];
+    }
   }, []);
 
   // ✅ REMOVED: No more batch status refresh to prevent connecting issues
@@ -308,9 +325,12 @@ export function useIsolatedStreams(viewerEmail: string, emails: string[]): Creds
     
     // Limpiar emails que se fueron
     if (toLeave.length > 0) {
-      toLeave.forEach(email => clearOne(email));
+      toLeave.forEach(email => {
+        clearPendingTimer(email);
+        clearOne(email);
+      });
     }
-  }, [emails, clearOne]); // Added clearOne to dependencies
+  }, [emails, clearOne, clearPendingTimer]); // Added clearOne to dependencies
 
   // ✅ Join WS groups only for new emails (no duplicate joins)
   useEffect(() => {
@@ -341,18 +361,26 @@ export function useIsolatedStreams(viewerEmail: string, emails: string[]): Creds
     }
 
     const handleMessage = (msg: any) => {
+      console.debug('[useIsolatedStreams] WebSocket message received:', msg);
       let targetEmail: string | null = null;
       let started: boolean | null = null;
+      let pending = false;
+      let failed = false;
 
-      // Procesar mensajes de comando (START/STOP)
       if (msg?.command && msg?.employeeEmail) {
         targetEmail = String(msg.employeeEmail).toLowerCase();
         started = msg.command === 'START' ? true : msg.command === 'STOP' ? false : null;
-      } 
-      // Procesar mensajes de estado (started/stopped)
-      else if (msg?.email && msg?.status) {
+      } else if (msg?.email && msg?.status) {
         targetEmail = String(msg.email).toLowerCase();
-        started = msg.status === 'started' ? true : msg.status === 'stopped' ? false : null;
+        if (msg.status === 'started') {
+          started = true;
+        } else if (msg.status === 'stopped') {
+          started = false;
+        } else if (msg.status === 'pending') {
+          pending = true;
+        } else if (msg.status === 'failed') {
+          failed = true;
+        }
       }
 
       const currentEmails = emailsRef.current;
@@ -360,7 +388,45 @@ export function useIsolatedStreams(viewerEmail: string, emails: string[]): Creds
         return;
       }
 
+      if (pending) {
+        const key = targetEmail;
+        clearPendingTimer(key);
+        setCredsMap(prev => ({
+          ...prev,
+          [key]: { ...(prev[key] ?? {}), loading: true }
+        }));
+
+        pendingTimersRef.current[key] = setTimeout(() => {
+          setCredsMap(prev => {
+            const current = prev[key];
+            if (!current || current.accessToken || !current.loading) {
+              return prev;
+            }
+            return {
+              ...prev,
+              [key]: { ...current, loading: false }
+            };
+          });
+          clearPendingTimer(key);
+        }, 10000);
+        return;
+      }
+
+      if (failed) {
+        const key = targetEmail;
+        clearPendingTimer(key);
+        setCredsMap(prev => {
+          const current = prev[key] ?? {};
+          return {
+            ...prev,
+            [key]: { ...current, loading: false }
+          };
+        });
+        return;
+      }
+
       if (started === true) {
+        clearPendingTimer(targetEmail);
         if (canceledUsersRef.current.has(targetEmail)) {
           const ns = new Set(canceledUsersRef.current);
           ns.delete(targetEmail);
@@ -407,6 +473,7 @@ export function useIsolatedStreams(viewerEmail: string, emails: string[]): Creds
           }
         }, 6000);
       } else if (started === false) {
+        clearPendingTimer(targetEmail);
         const ns = new Set(canceledUsersRef.current);
         ns.add(targetEmail);
         canceledUsersRef.current = ns;
@@ -436,6 +503,13 @@ export function useIsolatedStreams(viewerEmail: string, emails: string[]): Creds
 
   // ✅ REMOVED: No more separate batch status integration
   // Everything is now loaded together in the initialization
+
+  useEffect(() => {
+    return () => {
+      Object.values(pendingTimersRef.current).forEach(clearTimeout);
+      pendingTimersRef.current = {};
+    };
+  }, []);
 
   return credsMap;
 }

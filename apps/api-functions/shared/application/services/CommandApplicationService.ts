@@ -95,7 +95,16 @@ export class CommandApplicationService {
    */
   private async broadcastStreamEvent(email: string, command: CommandType, reason?: string): Promise<void> {
     try {
-      const status = command === CommandType.START ? 'started' : 'stopped';
+      const status =
+        command === CommandType.START
+          ? 'pending'
+          : command === CommandType.STOP
+          ? 'stopped'
+          : null;
+
+      if (!status) {
+        return;
+      }
       const message: any = {
         email: email,
         status: status
