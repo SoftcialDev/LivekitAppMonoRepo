@@ -31,15 +31,23 @@ jest.mock('@azure/functions', () => ({
   HttpRequest: jest.fn()
 }));
 
+const devServiceAccountKey = Buffer.from('incontact-svc-account-key-123xyz').toString('base64');
+
 // Mock configuration
 jest.mock('../shared/config', () => ({
   config: {
     node_env: 'test',
     azureTenantId: 'test-tenant-id',
     azureClientId: 'test-client-id',
+    azureClientSecret: 'test-client-secret',
     webPubSubEndpoint: 'https://test-endpoint.webpubsub.azure.com',
     webPubSubHubName: 'test-hub',
-    webPubSubKey: 'test-webpubsub-key'
+    webPubSubKey: 'test-webpubsub-key',
+    serviceAccountUpn: 'service.account@test.local',
+    serviceAccountDisplayName: 'Test Notifications',
+    serviceAccountLicenseSkuId: undefined,
+    serviceAccountPreferredSkuPartNumbers: ['MCOEV', 'M365_BUSINESS_BASIC'],
+    serviceAccountEncryptionKey: devServiceAccountKey
   }
 }));
 
