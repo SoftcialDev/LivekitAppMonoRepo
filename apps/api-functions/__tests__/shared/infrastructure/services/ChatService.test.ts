@@ -4,22 +4,27 @@
  */
 
 import { ChatService } from '../../../../shared/infrastructure/services/ChatService';
-import { OnBehalfOfCredential } from '@azure/identity';
+import { ClientSecretCredential, OnBehalfOfCredential } from '@azure/identity';
 import { Client } from '@microsoft/microsoft-graph-client';
 import { TokenCredentialAuthenticationProvider } from '@microsoft/microsoft-graph-client/authProviders/azureTokenCredentials';
 import prisma from '../../../../shared/infrastructure/database/PrismaClientService';
+import { ServiceAccountManager } from '../../../../shared/infrastructure/services/ServiceAccountManager';
 
 // Mock Azure Identity
 jest.mock('@azure/identity', () => ({
   OnBehalfOfCredential: jest.fn().mockImplementation(() => ({
     getToken: jest.fn().mockResolvedValue({ token: 'mock-token' })
+  })),
+  ClientSecretCredential: jest.fn().mockImplementation(() => ({
+    getToken: jest.fn().mockResolvedValue({ token: 'mock-app-token' })
   }))
 }));
 
 // Mock Microsoft Graph Client
 jest.mock('@microsoft/microsoft-graph-client', () => ({
   Client: {
-    initWithMiddleware: jest.fn()
+    initWithMiddleware: jest.fn(),
+    init: jest.fn()
   }
 }));
 
@@ -30,12 +35,18 @@ jest.mock('@microsoft/microsoft-graph-client/authProviders/azureTokenCredentials
 
 // Mock Prisma
 jest.mock('../../../../shared/infrastructure/database/PrismaClientService', () => ({
-    user: {
+  user: {
     findMany: jest.fn()
-    },
-    chat: {
-      findFirst: jest.fn(),
-    create: jest.fn()
+  },
+  chat: {
+    findFirst: jest.fn(),
+    findUnique: jest.fn(),
+    create: jest.fn(),
+    update: jest.fn()
+  },
+  chatParticipant: {
+    deleteMany: jest.fn(),
+    upsert: jest.fn()
   }
 }));
 
@@ -48,7 +59,9 @@ describe('ChatService', () => {
   let chatService: ChatService;
   let mockGraphClient: any;
   let mockCredential: any;
+  let mockAppCredential: any;
   let mockAuthProvider: any;
+  let mockServiceAccountManager: jest.Mocked<ServiceAccountManager>;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -70,16 +83,70 @@ describe('ChatService', () => {
     mockCredential = {
       getToken: jest.fn().mockResolvedValue({ token: 'mock-token' })
     };
+    mockAppCredential = {
+      getToken: jest.fn().mockResolvedValue({ token: 'mock-app-token' })
+    };
 
     // Mock auth provider
     mockAuthProvider = {};
 
     // Setup mocks
     (OnBehalfOfCredential as jest.Mock).mockImplementation(() => mockCredential);
+    (ClientSecretCredential as jest.Mock).mockImplementation(() => mockAppCredential);
     (TokenCredentialAuthenticationProvider as jest.Mock).mockImplementation(() => mockAuthProvider);
     (Client.initWithMiddleware as jest.Mock).mockReturnValue(mockGraphClient);
+    (Client.init as jest.Mock).mockReturnValue(mockGraphClient);
 
-    chatService = new ChatService();
+    mockServiceAccountManager = {
+      ensureServiceAccount: jest.fn().mockResolvedValue({
+        azureAdObjectId: 'SERVICE-OID',
+        userPrincipalName: 'service.account@test.local',
+        displayName: 'Service Notifications',
+        password: 'P@ssword123!'
+      }),
+      getDelegatedToken: jest.fn().mockResolvedValue('delegated-token')
+    } as any;
+
+    chatService = new ChatService(mockServiceAccountManager);
+  });
+
+  describe('getContactManagersChatId', () => {
+    it('should create chat when no record exists', async () => {
+      (prisma.user.findMany as jest.Mock).mockResolvedValue([
+        { id: 'user-super', azureAdObjectId: 'SUPER-OID' }
+      ]);
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue({
+        id: 'service-user-id',
+        azureAdObjectId: 'SERVICE-OID'
+      });
+      (prisma.chat.findFirst as jest.Mock).mockResolvedValue(null);
+      (prisma.chat.findUnique as jest.Mock).mockResolvedValue(null);
+      (prisma.chat.create as jest.Mock).mockResolvedValue({ id: 'new-chat-id' });
+      (prisma.chatParticipant.deleteMany as jest.Mock).mockResolvedValue(undefined);
+      (prisma.chatParticipant.upsert as jest.Mock).mockResolvedValue(undefined);
+
+      mockGraphClient.get
+        .mockResolvedValueOnce({ value: [] }) // search by topic
+        .mockResolvedValueOnce({ value: [] }); // fetch members
+      mockGraphClient.post.mockResolvedValue({ id: 'new-chat-id' });
+
+      const result = await chatService.getContactManagersChatId();
+
+      expect(result).toBe('new-chat-id');
+      expect(prisma.user.findMany).toHaveBeenCalledWith({
+        where: { role: { in: ['SuperAdmin'] } }
+      });
+    expect(mockServiceAccountManager.ensureServiceAccount).toHaveBeenCalled();
+    });
+
+    it('should throw when there are no SuperAdmins configured', async () => {
+      (prisma.user.findMany as jest.Mock).mockResolvedValue([]);
+
+      await expect(chatService.getContactManagersChatId()).rejects.toThrow(
+        'No SuperAdmin users found to compose the Contact Managers chat'
+      );
+    expect(mockServiceAccountManager.ensureServiceAccount).toHaveBeenCalled();
+    });
   });
 
   afterEach(() => {
@@ -95,7 +162,7 @@ describe('ChatService', () => {
       const originalTenantId = process.env.AZURE_TENANT_ID;
       delete process.env.AZURE_TENANT_ID;
       
-      const service = new ChatService();
+      const service = new ChatService(mockServiceAccountManager);
       expect(service).toBeInstanceOf(ChatService);
       
       // Restore original value
@@ -106,7 +173,7 @@ describe('ChatService', () => {
       const originalClientId = process.env.AZURE_CLIENT_ID;
       delete process.env.AZURE_CLIENT_ID;
       
-      const service = new ChatService();
+      const service = new ChatService(mockServiceAccountManager);
       expect(service).toBeInstanceOf(ChatService);
       
       // Restore original value
@@ -117,7 +184,7 @@ describe('ChatService', () => {
       const originalClientSecret = process.env.AZURE_CLIENT_SECRET;
       delete process.env.AZURE_CLIENT_SECRET;
       
-      const service = new ChatService();
+      const service = new ChatService(mockServiceAccountManager);
       expect(service).toBeInstanceOf(ChatService);
       
       // Restore original value
@@ -127,68 +194,40 @@ describe('ChatService', () => {
 
   describe('getOrSyncChat', () => {
     const mockToken = 'test-token';
-    const mockUsers = [
-        { id: 'user1', azureAdObjectId: 'oid1', role: 'Admin' },
-        { id: 'user2', azureAdObjectId: 'oid2', role: 'ContactManager' },
-      { id: 'user3', azureAdObjectId: 'oid3', role: 'SuperAdmin' }
-    ];
 
-    beforeEach(() => {
-      (prisma.user.findMany as jest.Mock).mockResolvedValue(mockUsers);
-    });
-
-    it('should create new chat when no existing chat found', async () => {
-      (prisma.chat.findFirst as jest.Mock).mockResolvedValue(null);
-      mockGraphClient.get.mockResolvedValue({ value: [] });
-      mockGraphClient.post.mockResolvedValue({ id: 'new-chat-id' });
-      (prisma.chat.create as jest.Mock).mockResolvedValue({ id: 'new-chat-id' });
+    it('should delegate to getContactManagersChatId when participants are not provided', async () => {
+      const spy = jest
+        .spyOn(chatService, 'getContactManagersChatId')
+        .mockResolvedValue('contact-chat-id');
 
       const result = await chatService.getOrSyncChat(mockToken);
 
-      expect(result).toBe('new-chat-id');
-      expect(prisma.user.findMany).toHaveBeenCalledWith({
-        where: { role: { in: ['Admin', 'ContactManager', 'SuperAdmin'] } }
-      });
-      expect(prisma.chat.findFirst).toHaveBeenCalledWith({
-        where: { topic: 'InContactApp – Contact Managers' },
-        include: { members: true }
-      });
-      expect(prisma.chat.create).toHaveBeenCalled();
+      expect(result).toBe('contact-chat-id');
+      expect(spy).toHaveBeenCalled();
+
+      spy.mockRestore();
     });
 
-    it('should return existing chat ID when chat found', async () => {
-      const existingChat = { id: 'existing-chat-id', topic: 'InContactApp – Contact Managers' };
-      (prisma.chat.findFirst as jest.Mock).mockResolvedValue(existingChat);
-
-      const result = await chatService.getOrSyncChat(mockToken);
-
-      expect(result).toBe('existing-chat-id');
-      expect(prisma.chat.create).not.toHaveBeenCalled();
-    });
-
-    it('should create specific chat with participants and topic', async () => {
+    it('should create specific chat when exactly two participants provided', async () => {
       const participants = [
         { userId: 'user1', azureAdObjectId: 'oid1' },
         { userId: 'user2', azureAdObjectId: 'oid2' }
       ];
       const topic = 'Test Chat';
 
-      // Mock the Graph API calls
-      mockGraphClient.get.mockResolvedValue({ value: [] });
-      mockGraphClient.post.mockResolvedValue({ id: 'specific-chat-id' });
-      (prisma.chat.create as jest.Mock).mockResolvedValue({ id: 'specific-chat-id' });
-
-      // Mock the createSpecificChat method to return the expected result
-      const createSpecificChatSpy = jest.spyOn(chatService as any, 'createSpecificChat')
+      const createSpecificChatSpy = jest
+        .spyOn(chatService as any, 'createSpecificChat')
         .mockResolvedValue('specific-chat-id');
 
       const result = await (chatService as any).getOrSyncChat(mockToken, participants, topic);
 
       expect(result).toBe('specific-chat-id');
       expect(createSpecificChatSpy).toHaveBeenCalledWith(mockToken, participants, topic);
+
+      createSpecificChatSpy.mockRestore();
     });
 
-    it('should create group chat for more than 2 participants', async () => {
+    it('should create group chat for more than two participants', async () => {
       const participants = [
         { userId: 'user1', azureAdObjectId: 'oid1' },
         { userId: 'user2', azureAdObjectId: 'oid2' },
@@ -196,19 +235,32 @@ describe('ChatService', () => {
       ];
       const topic = 'Group Chat';
 
-      mockGraphClient.get.mockResolvedValue({ value: [] });
-      mockGraphClient.post.mockResolvedValue({ id: 'group-chat-id' });
+      const createGraphChatSpy = jest
+        .spyOn(chatService as any, 'createGraphChat')
+        .mockResolvedValue('group-chat-id');
+      const ensureSpy = jest
+        .spyOn(chatService as any, 'ensureChatRecordAndMembers')
+        .mockResolvedValue(undefined);
 
       const result = await (chatService as any).getOrSyncChat(mockToken, participants, topic);
 
       expect(result).toBe('group-chat-id');
+      expect(createGraphChatSpy).toHaveBeenCalled();
+      expect(ensureSpy).toHaveBeenCalled();
+
+      createGraphChatSpy.mockRestore();
+      ensureSpy.mockRestore();
     });
 
-    it('should handle errors gracefully', async () => {
-      (prisma.user.findMany as jest.Mock).mockRejectedValue(new Error('Database error'));
+    it('should surface errors from getContactManagersChatId', async () => {
+      const spy = jest
+        .spyOn(chatService, 'getContactManagersChatId')
+        .mockRejectedValue(new Error('failure'));
 
       await expect(chatService.getOrSyncChat(mockToken))
-        .rejects.toThrow('Failed to get or sync chat: Database error');
+        .rejects.toThrow('Failed to get or sync chat: failure');
+
+      spy.mockRestore();
     });
   });
 
@@ -218,7 +270,8 @@ describe('ChatService', () => {
     const mockMessage = {
       subject: 'Test Subject',
       senderName: 'Test Sender',
-      formType: 'Test Form',
+      senderEmail: 'sender@example.com',
+      formType: 'DISCONNECTIONS',
       data: { field1: 'value1', field2: 'value2' },
       imageUrl: 'https://example.com/image.jpg'
     };
@@ -250,6 +303,26 @@ describe('ChatService', () => {
 
       await chatService.sendMessage(mockToken, mockChatId, messageWithoutImage);
 
+      expect(mockGraphClient.api).toHaveBeenCalledWith(`/chats/${mockChatId}/messages`);
+    });
+  });
+
+  describe('sendMessageAsServiceAccount', () => {
+    const mockChatId = 'chat-456';
+    const mockMessage = { subject: 'Subject', data: {} };
+
+    beforeEach(() => {
+      mockGraphClient.post.mockResolvedValue({});
+    });
+
+    it('should obtain delegated token and post message', async () => {
+      await chatService.sendMessageAsServiceAccount(mockChatId, mockMessage);
+
+      expect(mockServiceAccountManager.getDelegatedToken).toHaveBeenCalledWith([
+        'https://graph.microsoft.com/Chat.ReadWrite',
+        'https://graph.microsoft.com/ChatMessage.Send'
+      ]);
+      expect(Client.init).toHaveBeenCalled();
       expect(mockGraphClient.api).toHaveBeenCalledWith(`/chats/${mockChatId}/messages`);
     });
   });

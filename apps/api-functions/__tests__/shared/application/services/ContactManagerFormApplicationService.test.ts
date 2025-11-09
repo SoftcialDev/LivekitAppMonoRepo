@@ -48,7 +48,6 @@ describe('ContactManagerFormApplicationService', () => {
   describe('processForm', () => {
     it('should process form successfully when user is authorized', async () => {
       const callerId = 'test-caller-id';
-      const token = 'test-token';
       const request = new ContactManagerFormRequest(
         FormType.DISCONNECTIONS,
         { description: 'Test description' },
@@ -67,22 +66,21 @@ describe('ContactManagerFormApplicationService', () => {
       mockUserRepository.findByAzureAdObjectId.mockResolvedValue(mockUser as any);
       mockContactManagerFormService.processForm.mockResolvedValue(expectedResult);
 
-      const result = await contactManagerFormApplicationService.processForm(request, callerId, token);
+      const result = await contactManagerFormApplicationService.processForm(request, callerId);
 
       expect(mockAuthorizationService.authorizeCommandAcknowledgment).toHaveBeenCalledWith(callerId);
       expect(mockUserRepository.findByAzureAdObjectId).toHaveBeenCalledWith(callerId);
       expect(mockContactManagerFormService.processForm).toHaveBeenCalledWith(
         request,
         'user-123',
-        token,
-        'Test User'
+        'Test User',
+        'test@example.com'
       );
       expect(result).toBe(expectedResult);
     });
 
     it('should throw error when user is not authorized', async () => {
       const callerId = 'test-caller-id';
-      const token = 'test-token';
       const request = new ContactManagerFormRequest(
         FormType.DISCONNECTIONS,
         { description: 'Test description' },
@@ -92,7 +90,7 @@ describe('ContactManagerFormApplicationService', () => {
       const authError = new Error('User not authorized');
       mockAuthorizationService.authorizeCommandAcknowledgment.mockRejectedValue(authError);
 
-      await expect(contactManagerFormApplicationService.processForm(request, callerId, token))
+      await expect(contactManagerFormApplicationService.processForm(request, callerId))
         .rejects.toThrow('User not authorized');
 
       expect(mockAuthorizationService.authorizeCommandAcknowledgment).toHaveBeenCalledWith(callerId);
@@ -102,7 +100,6 @@ describe('ContactManagerFormApplicationService', () => {
 
     it('should throw error when user is not found', async () => {
       const callerId = 'test-caller-id';
-      const token = 'test-token';
       const request = new ContactManagerFormRequest(
         FormType.DISCONNECTIONS,
         { description: 'Test description' },
@@ -112,7 +109,7 @@ describe('ContactManagerFormApplicationService', () => {
       mockAuthorizationService.authorizeCommandAcknowledgment.mockResolvedValue(undefined);
       mockUserRepository.findByAzureAdObjectId.mockResolvedValue(null);
 
-      await expect(contactManagerFormApplicationService.processForm(request, callerId, token))
+      await expect(contactManagerFormApplicationService.processForm(request, callerId))
         .rejects.toThrow('User not found');
 
       expect(mockAuthorizationService.authorizeCommandAcknowledgment).toHaveBeenCalledWith(callerId);
@@ -122,7 +119,6 @@ describe('ContactManagerFormApplicationService', () => {
 
     it('should propagate domain service errors', async () => {
       const callerId = 'test-caller-id';
-      const token = 'test-token';
       const request = new ContactManagerFormRequest(
         FormType.DISCONNECTIONS,
         { description: 'Test description' },
@@ -141,7 +137,7 @@ describe('ContactManagerFormApplicationService', () => {
       mockUserRepository.findByAzureAdObjectId.mockResolvedValue(mockUser as any);
       mockContactManagerFormService.processForm.mockRejectedValue(domainError);
 
-      await expect(contactManagerFormApplicationService.processForm(request, callerId, token))
+      await expect(contactManagerFormApplicationService.processForm(request, callerId))
         .rejects.toThrow('Form processing failed');
 
       expect(mockAuthorizationService.authorizeCommandAcknowledgment).toHaveBeenCalledWith(callerId);
@@ -149,14 +145,13 @@ describe('ContactManagerFormApplicationService', () => {
       expect(mockContactManagerFormService.processForm).toHaveBeenCalledWith(
         request,
         'user-123',
-        token,
-        'Test User'
+        'Test User',
+        'test@example.com'
       );
     });
 
     it('should handle different form types', async () => {
       const callerId = 'test-caller-id';
-      const token = 'test-token';
       const mockUser = {
         id: 'user-123',
         fullName: 'Test User',
@@ -181,27 +176,26 @@ describe('ContactManagerFormApplicationService', () => {
         'complaint-image-url'
       );
 
-      await contactManagerFormApplicationService.processForm(incidentRequest, callerId, token);
-      await contactManagerFormApplicationService.processForm(complaintRequest, callerId, token);
+      await contactManagerFormApplicationService.processForm(incidentRequest, callerId);
+      await contactManagerFormApplicationService.processForm(complaintRequest, callerId);
 
       expect(mockContactManagerFormService.processForm).toHaveBeenCalledTimes(2);
       expect(mockContactManagerFormService.processForm).toHaveBeenCalledWith(
         incidentRequest,
         'user-123',
-        token,
-        'Test User'
+        'Test User',
+        'test@example.com'
       );
       expect(mockContactManagerFormService.processForm).toHaveBeenCalledWith(
         complaintRequest,
         'user-123',
-        token,
-        'Test User'
+        'Test User',
+        'test@example.com'
       );
     });
 
     it('should handle form without image', async () => {
       const callerId = 'test-caller-id';
-      const token = 'test-token';
       const request = new ContactManagerFormRequest(
         FormType.DISCONNECTIONS,
         { description: 'Test description' },
@@ -219,13 +213,13 @@ describe('ContactManagerFormApplicationService', () => {
       mockUserRepository.findByAzureAdObjectId.mockResolvedValue(mockUser as any);
       mockContactManagerFormService.processForm.mockResolvedValue(new ContactManagerFormResult('form-123', true));
 
-      const result = await contactManagerFormApplicationService.processForm(request, callerId, token);
+      const result = await contactManagerFormApplicationService.processForm(request, callerId);
 
       expect(mockContactManagerFormService.processForm).toHaveBeenCalledWith(
         request,
         'user-123',
-        token,
-        'Test User'
+        'Test User',
+        'test@example.com'
       );
       expect(result.messageSent).toBe(true);
     });
@@ -234,7 +228,6 @@ describe('ContactManagerFormApplicationService', () => {
   describe('authorizeFormSubmission', () => {
     it('should call authorization service', async () => {
       const callerId = 'test-caller-id';
-      const token = 'test-token';
       const request = new ContactManagerFormRequest(
         FormType.DISCONNECTIONS,
         { description: 'Test description' },
@@ -252,7 +245,7 @@ describe('ContactManagerFormApplicationService', () => {
       mockUserRepository.findByAzureAdObjectId.mockResolvedValue(mockUser as any);
       mockContactManagerFormService.processForm.mockResolvedValue(new ContactManagerFormResult('form-123', true));
 
-      await contactManagerFormApplicationService.processForm(request, callerId, token);
+      await contactManagerFormApplicationService.processForm(request, callerId);
 
       expect(mockAuthorizationService.authorizeCommandAcknowledgment).toHaveBeenCalledWith(callerId);
     });
