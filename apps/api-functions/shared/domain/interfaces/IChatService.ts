@@ -30,10 +30,36 @@ export interface IChatService {
    * @param token - Authentication token
    * @param chatId - ID of the chat
    * @param message - Message content
+   * @param options - Optional send configuration
    * @returns Promise that resolves when message is sent
    * @throws Error if message sending fails
    */
-  sendMessage(token: string, chatId: string, message: any): Promise<void>;
+  sendMessage(
+    token: string,
+    chatId: string,
+    message: any,
+    options?: { skipCleanup?: boolean }
+  ): Promise<void>;
+
+  /**
+   * Gets the Contact Managers chat ID ensuring SuperAdmin-only membership
+   * @returns Promise that resolves to chat ID
+   */
+  getContactManagersChatId(): Promise<string>;
+
+  /**
+   * Gets the Snapshot Reports chat ID ensuring SuperAdmin-only membership
+   * @returns Promise that resolves to chat ID
+   */
+  getSnapshotReportsChatId(): Promise<string>;
+
+  /**
+   * Sends a message to a chat using the managed service account
+   * @param chatId - ID of the chat
+   * @param message - Message content
+   * @returns Promise that resolves when message is sent
+   */
+  sendMessageAsServiceAccount(chatId: string, message: any): Promise<void>;
 
   /**
    * Removes a member from a chat

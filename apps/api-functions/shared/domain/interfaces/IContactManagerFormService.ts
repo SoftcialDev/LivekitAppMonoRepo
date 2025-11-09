@@ -22,7 +22,7 @@ export interface IContactManagerFormService {
   processForm(
     request: ContactManagerFormRequest,
     senderId: string,
-    token: string,
-    senderName: string
+    senderName: string,
+    senderEmail: string
   ): Promise<ContactManagerFormResult>;
 }
