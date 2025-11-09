@@ -37,6 +37,12 @@
     "WEBPUBSUB_HUB":        "your-hub-name",
     "WEBPUBSUB_CONNECTION": "Endpoint=https://your-webpubsub.webpubsub.azure.com;AccessKey=your-key;Version=1.0;",
 
+    "SERVICE_ACCOUNT_UPN": "incontact.service@yourtenant.com",
+    "SERVICE_ACCOUNT_DISPLAY_NAME": "InContact Notifications",
+    "SERVICE_ACCOUNT_ENCRYPTION_KEY": "base64-encoded-32-byte-key",
+    "SERVICE_ACCOUNT_LICENSE_SKU_ID": "",
+    "SERVICE_ACCOUNT_LICENSE_PREFERRED_SKUS": "MCOEV,M365_BUSINESS_BASIC,M365_BUSINESS_STANDARD,ENTERPRISEPACK",
+
     "WEBSITE_CONTENTAZUREFILECONNECTIONSTRING": "DefaultEndpointsProtocol=https;AccountName=yourstorage;AccountKey=your-account-key;EndpointSuffix=core.windows.net",
     "WEBSITE_CONTENTSHARE": "your-content-share",
     "WEBSITE_RUN_FROM_PACKAGE": "1"
