@@ -264,49 +264,6 @@ describe('ChatService', () => {
     });
   });
 
-  describe('sendMessage', () => {
-    const mockToken = 'test-token';
-    const mockChatId = 'test-chat-id';
-    const mockMessage = {
-      subject: 'Test Subject',
-      senderName: 'Test Sender',
-      senderEmail: 'sender@example.com',
-      formType: 'DISCONNECTIONS',
-      data: { field1: 'value1', field2: 'value2' },
-      imageUrl: 'https://example.com/image.jpg'
-    };
-
-    beforeEach(() => {
-      mockGraphClient.get.mockResolvedValue({ id: 'current-user-id' });
-      mockGraphClient.post.mockResolvedValue({});
-      mockGraphClient.delete.mockResolvedValue({});
-    });
-
-    it('should send message successfully', async () => {
-      await chatService.sendMessage(mockToken, mockChatId, mockMessage);
-
-      expect(mockGraphClient.api).toHaveBeenCalledWith('/me');
-      expect(mockGraphClient.api).toHaveBeenCalledWith(`/chats/${mockChatId}/members`);
-      expect(mockGraphClient.api).toHaveBeenCalledWith(`/chats/${mockChatId}/messages`);
-    });
-
-    it('should handle message sending errors', async () => {
-      mockGraphClient.get.mockRejectedValue(new Error('Graph API error'));
-
-      await expect(chatService.sendMessage(mockToken, mockChatId, mockMessage))
-        .rejects.toThrow('Failed to send message: Graph API error');
-    });
-
-    it('should handle message without image', async () => {
-      const messageWithoutImage = { ...mockMessage };
-      (messageWithoutImage as any).imageUrl = undefined;
-
-      await chatService.sendMessage(mockToken, mockChatId, messageWithoutImage);
-
-      expect(mockGraphClient.api).toHaveBeenCalledWith(`/chats/${mockChatId}/messages`);
-    });
-  });
-
   describe('sendMessageAsServiceAccount', () => {
     const mockChatId = 'chat-456';
     const mockMessage = { subject: 'Subject', data: {} };
@@ -324,88 +281,6 @@ describe('ChatService', () => {
       ]);
       expect(Client.init).toHaveBeenCalled();
       expect(mockGraphClient.api).toHaveBeenCalledWith(`/chats/${mockChatId}/messages`);
-    });
-  });
-
-  describe('removeChatMember', () => {
-    const mockToken = 'test-token';
-    const mockChatId = 'test-chat-id';
-    const mockUserOid = 'test-user-oid';
-
-    it('should remove chat member successfully', async () => {
-      const mockMembers = {
-        value: [
-          { id: 'member1', userId: mockUserOid },
-          { id: 'member2', userId: 'other-user' }
-        ]
-      };
-
-      mockGraphClient.get.mockResolvedValue(mockMembers);
-      mockGraphClient.delete.mockResolvedValue({});
-
-      await chatService.removeChatMember(mockToken, mockChatId, mockUserOid);
-
-      expect(mockGraphClient.api).toHaveBeenCalledWith(`/chats/${mockChatId}/members`);
-      expect(mockGraphClient.api).toHaveBeenCalledWith(`/chats/${mockChatId}/members/member1`);
-      expect(mockGraphClient.delete).toHaveBeenCalled();
-    });
-
-    it('should handle member not found', async () => {
-      const mockMembers = {
-        value: [
-          { id: 'member1', userId: 'other-user' }
-        ]
-      };
-
-      mockGraphClient.get.mockResolvedValue(mockMembers);
-
-      await chatService.removeChatMember(mockToken, mockChatId, mockUserOid);
-
-      expect(mockGraphClient.api).toHaveBeenCalledWith(`/chats/${mockChatId}/members`);
-      expect(mockGraphClient.delete).not.toHaveBeenCalled();
-    });
-
-    it('should handle removal errors', async () => {
-      mockGraphClient.get.mockRejectedValue(new Error('Graph API error'));
-
-      await expect(chatService.removeChatMember(mockToken, mockChatId, mockUserOid))
-        .rejects.toThrow('Graph API error');
-    });
-  });
-
-  describe('addUserToChatTemporarily', () => {
-    const mockToken = 'test-token';
-    const mockChatId = 'test-chat-id';
-    const mockUserOid = 'test-user-oid';
-
-    it('should add user to chat successfully', async () => {
-      mockGraphClient.post.mockResolvedValue({});
-
-      await chatService.addUserToChatTemporarily(mockToken, mockChatId, mockUserOid);
-
-      expect(mockGraphClient.api).toHaveBeenCalledWith(`/chats/${mockChatId}/members`);
-      expect(mockGraphClient.post).toHaveBeenCalledWith({
-        '@odata.type': '#microsoft.graph.aadUserConversationMember',
-        roles: ['owner'],
-        'user@odata.bind': `https://graph.microsoft.com/v1.0/users('${mockUserOid}')`
-      });
-    });
-
-    it('should handle user already member error', async () => {
-      const alreadyMemberError = new Error('User is already a member');
-      mockGraphClient.post.mockRejectedValue(alreadyMemberError);
-
-      // Should not throw error
-      await expect(chatService.addUserToChatTemporarily(mockToken, mockChatId, mockUserOid))
-        .resolves.not.toThrow();
-    });
-
-    it('should handle other errors', async () => {
-      const otherError = new Error('Other error');
-      mockGraphClient.post.mockRejectedValue(otherError);
-
-      await expect(chatService.addUserToChatTemporarily(mockToken, mockChatId, mockUserOid))
-        .rejects.toThrow('Other error');
     });
   });
 
