@@ -9,10 +9,10 @@ import { SendSnapshotResponse } from "../value-objects/SendSnapshotResponse";
 import { IUserRepository } from "../interfaces/IUserRepository";
 import { IBlobStorageService } from "../interfaces/IBlobStorageService";
 import { ISnapshotRepository } from "../interfaces/ISnapshotRepository";
+import { IChatService } from "../interfaces/IChatService";
 import { ImageUploadRequest } from "../value-objects/ImageUploadRequest";
 import { UserNotFoundError } from "../errors/UserErrors";
-import { getCentralAmericaTime } from "../../utils/dateUtils";
-import { randomUUID } from "crypto";
+import { formatCentralAmericaTime, getCentralAmericaTime } from "../../utils/dateUtils";
 
 /**
  * Domain service for snapshot report business logic
@@ -28,24 +28,18 @@ export class SendSnapshotDomainService {
   constructor(
     private readonly userRepository: IUserRepository,
     private readonly blobStorageService: IBlobStorageService,
-    private readonly snapshotRepository: ISnapshotRepository
+    private readonly snapshotRepository: ISnapshotRepository,
+    private readonly chatService: IChatService
   ) {}
 
   /**
-   * Sends a snapshot report for a PSO
-   * @param request - The snapshot report request
-   * @param supervisorName - The name of the supervisor sending the report
-   * @param token - Authentication token for chat notifications
-   * @returns Promise that resolves to the snapshot report response
-   * @throws UserNotFoundError when supervisor or PSO not found
-   * @example
-   * const response = await sendSnapshotDomainService.sendSnapshot(request, supervisorName, token);
+   * Processes a snapshot report request and notifies stakeholders.
+   *
+   * @param request - Snapshot request containing PSO email, reason, image and caller metadata.
+   * @returns Snapshot response with the stored snapshot identifier.
+   * @throws UserNotFoundError when the supervisor (caller) or the PSO cannot be located or are soft-deleted.
    */
-  async sendSnapshot(
-    request: SendSnapshotRequest,
-    supervisorName: string,
-    token: string
-  ): Promise<SendSnapshotResponse> {
+  async sendSnapshot(request: SendSnapshotRequest): Promise<SendSnapshotResponse> {
     // 1. Find supervisor by Azure AD Object ID
     const supervisor = await this.userRepository.findByAzureAdObjectId(request.callerId);
     if (!supervisor || supervisor.deletedAt) {
@@ -59,10 +53,6 @@ export class SendSnapshotDomainService {
     }
 
     // 3. Upload image to blob storage
-    const imageBuffer = Buffer.from(request.imageBase64, "base64");
-    const datePath = getCentralAmericaTime().toISOString().slice(0, 10);
-    const filename = `${datePath}/${randomUUID()}.jpg`;
-    
     const imageUploadRequest = new ImageUploadRequest(
       request.imageBase64,
       supervisor.id
@@ -78,6 +68,15 @@ export class SendSnapshotDomainService {
       imageUrl
     );
 
+    await this.notifySnapshotReport({
+      psoName: pso.fullName ?? pso.email,
+      psoEmail: pso.email,
+      capturedBy: supervisor.fullName ?? supervisor.email,
+      reason: request.reason,
+      imageUrl,
+      capturedAt: formatCentralAmericaTime(getCentralAmericaTime()),
+      subject: `Snapshot Report – ${pso.fullName ?? pso.email}`
+    });
 
     return new SendSnapshotResponse(
       snapshot.id,
@@ -85,5 +84,47 @@ export class SendSnapshotDomainService {
     );
   }
 
-
+  /**
+   * Emits a snapshot notification to the Snapshot Reports Teams chat using the service account.
+   * Errors are logged but do not prevent the main flow from succeeding.
+   *
+   * @param details - Structured snapshot notification payload.
+   */
+  private async notifySnapshotReport(details: {
+    /** Friendly PSO name shown in the notification card. */
+    psoName: string;
+    /** PSO email address used for routing/audit purposes. */
+    psoEmail: string;
+    /** Supervisor name who captured the snapshot. */
+    capturedBy: string;
+    /** Reason provided for the snapshot. */
+    reason: string;
+    /** LiveKit or blob storage URL of the snapshot image. */
+    imageUrl: string;
+    /** Timestamp (Central time) when the snapshot was captured. */
+    capturedAt: string;
+    /** Notification subject/title shown in Teams. */
+    subject: string;
+  }): Promise<void> {
+    try {
+      const chatId = await this.chatService.getSnapshotReportsChatId();
+      await this.chatService.sendMessageAsServiceAccount(chatId, {
+        type: 'snapshotReport',
+        subject: details.subject,
+        psoName: details.psoName,
+        psoEmail: details.psoEmail,
+        capturedBy: details.capturedBy,
+        capturedAt: details.capturedAt,
+        reason: details.reason || 'Not provided',
+        imageUrl: details.imageUrl
+      });
+      
+    } catch (error: any) {
+      console.error('[SendSnapshotDomainService] Failed to send snapshot notification', {
+        message: error?.message,
+        status: error?.status ?? error?.statusCode ?? error?.response?.status,
+        body: error?.response?.data ?? error?.body ?? error?.value ?? null
+      });
+    }
+  }
 }
