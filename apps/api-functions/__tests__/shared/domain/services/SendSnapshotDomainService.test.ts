@@ -40,7 +40,7 @@ describe('SendSnapshotDomainService', () => {
       blobStorageService.uploadImage.mockResolvedValue('https://example.com/image.jpg');
       snapshotRepository.create.mockResolvedValue(mockSnapshot as any);
       const request = new SendSnapshotRequest('caller-123', 'pso@example.com', 'Test reason', 'base64data');
-      const result = await service.sendSnapshot(request, 'Supervisor Name', 'token');
+      const result = await service.sendSnapshot(request);
       expect(result.snapshotId).toBe('snap-123');
       expect(chatService.getSnapshotReportsChatId).toHaveBeenCalled();
       expect(chatService.sendMessageAsServiceAccount).toHaveBeenCalledWith(
@@ -56,14 +56,14 @@ describe('SendSnapshotDomainService', () => {
     it('should throw UserNotFoundError when supervisor not found', async () => {
       userRepository.findByAzureAdObjectId.mockResolvedValue(null);
       const request = new SendSnapshotRequest('caller-123', 'pso@example.com', 'Test reason', 'base64data');
-      await expect(service.sendSnapshot(request, 'Supervisor Name', 'token')).rejects.toThrow(UserNotFoundError);
+      await expect(service.sendSnapshot(request)).rejects.toThrow(UserNotFoundError);
     });
 
     it('should throw UserNotFoundError when PSO not found', async () => {
       userRepository.findByAzureAdObjectId.mockResolvedValue({ id: 'sup-123', deletedAt: null } as any);
       userRepository.findByEmail.mockResolvedValue(null);
       const request = new SendSnapshotRequest('caller-123', 'pso@example.com', 'Test reason', 'base64data');
-      await expect(service.sendSnapshot(request, 'Supervisor Name', 'token')).rejects.toThrow(UserNotFoundError);
+      await expect(service.sendSnapshot(request)).rejects.toThrow(UserNotFoundError);
     });
   });
 });

@@ -10,9 +10,9 @@ describe('SendSnapshotApplicationService', () => {
     const auth = { authorizeUserWithRoles: jest.fn().mockResolvedValue(undefined) } as any;
     const svc = new SendSnapshotApplicationService(domain as any, auth);
     const req = { psoEmail: 'pso@example.com' } as any;
-    const result = await svc.sendSnapshot('caller', req, 'Supervisor Name', 'token');
+    const result = await svc.sendSnapshot('caller', req);
     expect(auth.authorizeUserWithRoles).toHaveBeenCalled();
-    expect(domain.sendSnapshot).toHaveBeenCalledWith(req, 'Supervisor Name', 'token');
+    expect(domain.sendSnapshot).toHaveBeenCalledWith(req);
     expect(result).toEqual({ payload: true });
   });
 });

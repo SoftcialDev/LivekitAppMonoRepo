@@ -53,14 +53,12 @@ describe('SendSnapshot handler - unit', () => {
     expect(container.resolve).toHaveBeenCalledWith('SendSnapshotApplicationService');
     expect(appService.sendSnapshot).toHaveBeenCalledWith(
       ctx.bindings.callerId,
-      expect.objectContaining({ 
-        callerId: ctx.bindings.callerId, 
+      expect.objectContaining({
+        callerId: ctx.bindings.callerId,
         psoEmail: 'pso@test.com',
         imageBase64: 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD...',
         reason: 'Test snapshot'
-      }),
-      'John Supervisor',
-      'test-token-123'
+      })
     );
     expect(ctx.res).toEqual({
       status: 200,
@@ -79,12 +77,7 @@ describe('SendSnapshot handler - unit', () => {
 
     await runHandler(ctx, req);
 
-    expect(appService.sendSnapshot).toHaveBeenCalledWith(
-      ctx.bindings.callerId,
-      expect.any(Object),
-      'John Supervisor',
-      undefined
-    );
+    expect(appService.sendSnapshot).toHaveBeenCalledWith(ctx.bindings.callerId, expect.any(Object));
   });
 
   it('should return 500 when application service throws', async () => {
