@@ -1,11 +1,6 @@
 /**
- * @file Preload script that exposes a safe persistence API to the renderer.
- *
- * @remarks
- * - The object exposed via `contextBridge.exposeInMainWorld` is available in the
- *   renderer "main world", not inside the preload context itself.
- * - Therefore, when the preload needs to call the same methods, it must keep a
- *   local reference to the API object instead of reading `window.<name>`.
+ * @fileoverview Electron preload script exposing persistence helpers.
+ * @description Provides a safe bridge for localStorage persistence using IPC between the renderer and main processes.
  */
 
 const { contextBridge, ipcRenderer } = require('electron');

@@ -4,6 +4,22 @@ Electron desktop client that serves the **admin-web** React build statically, wi
 
 ---
 
+## 🚀 Getting Started
+
+Install dependencies before running any script. Do this once per environment or whenever dependencies change.
+
+```bash
+cd apps/admin-web
+npm install
+
+cd ../electron
+npm install
+```
+
+With that in place, the commands defined in both `package.json` files will find their dependencies without warnings.
+
+---
+
 ## 📂 Monorepo Layout (relevant parts)
 
 ```
@@ -21,14 +37,14 @@ apps/
 
 ## ⚙️ How it works
 
-* **Development**
+* **Development (`npm start`)**
 
-  * `admin-web` runs on **Vite dev server** at `http://localhost:5173`.
+  * `admin-web` runs on the **Vite dev server** at `http://localhost:5173`.
   * Electron waits for that URL and loads it directly.
-* **Production**
+* **Production (`npm run start:prod` or installer builds)**
 
   * `admin-web` is built with **`vite build --mode electron`** into `apps/admin-web/dist`.
-  * During packaging, that `dist/` is copied into the Electron app under:
+  * During packaging, that `dist/` folder is copied into the Electron app under:
 
     ```
     <app>/resources/admin-web
@@ -49,11 +65,11 @@ apps/
   * Add **Redirect URIs**:
 
     * `http://localhost:5173` (dev)
-    * `http://localhost:3000` (prod desktop)
+    * `http://localhost:3000` (production desktop)
   * Use Authorization Code + PKCE (MSAL Browser)
   * API scope must match `VITE_AZURE_AD_API_SCOPE_URI`
 
-> You do **not** need “Mobile & desktop” platform unless you move to `msal-node/msal-electron`. With MSAL React inside the renderer, treat this as **SPA**.
+> You do **not** need the “Mobile & desktop” platform unless you move to `msal-node`/`msal-electron`. With MSAL React in the renderer, treat this as an **SPA**.
 
 ---
 
@@ -61,28 +77,22 @@ apps/
 
 Create **`apps/admin-web/.env.electron`**. This file is loaded by Vite when you run `vite build --mode electron`.
 
-Use the provided example (`apps/admin-web/.env.electron.example`) as your baseline and ensure **localhost uses port 3000** in redirect URIs.
+Use the provided example (`apps/admin-web/.env.electron.example`) as your baseline and make sure every redirect URI in Electron mode points to **http://localhost:3000**.
 
 **Example `apps/admin-web/.env.electron`:**
 
 ```ini
 # Azure AD (SPA) — client & tenant
-VITE_AZURE_AD_CLIENT_ID=
-VITE_AZURE_AD_TENANT_ID=
-
-# Redirect URIs (must match Azure app registration EXACTLY)
+VITE_AZURE_AD_CLIENT_ID=9880433c-29f6-4522-a215-7bac089aa27c
+VITE_AZURE_AD_TENANT_ID=a080ad22-43aa-4696-b40b-9b68b702c9f3
 VITE_AZURE_AD_REDIRECT_URI=http://localhost:3000/
 VITE_AZURE_AD_POST_LOGOUT_REDIRECT_URI=http://localhost:3000/
-VITE_AZURE_AD_DESKTOP_REDIRECT_URI=http://localhost:3000/
-
-# Backend/API
-VITE_AZURE_AD_API_CLIENT_ID=   # Client ID of the API app registration (backend)
-VITE_AZURE_AD_API_SCOPE_URI=api://a080ad22-43aa-4696-b40b-9b68b702c9f3/livekit-app-prod-API/access_as_user
-VITE_API_URL=                  # Your production API base URL
-
-# Build/runtime hints
+VITE_AZURE_AD_API_CLIENT_ID=875c2631-358c-4324-a128-1de60fb894a4
+VITE_AZURE_AD_API_SCOPE_URI=api://a080ad22-43aa-4696-b40b-9b68b702c9f3/livekit-app-prod-API/access_as_user  # change it to your api scope uri
+VITE_API_URL=https://livekit-agent-azure-func.azurewebsites.net
 NODE_ENV=production
-VITE_IS_ELECTRON=TRUE          # Case-insensitive; "true"/"TRUE" both work
+VITE_AZURE_AD_DESKTOP_REDIRECT_URI=http://localhost:3000/
+VITE_IS_ELECTRON=TRUE
 ```
 
 > Only variables prefixed with `VITE_` are exposed to the frontend bundle.
@@ -92,7 +102,7 @@ VITE_IS_ELECTRON=TRUE          # Case-insensitive; "true"/"TRUE" both work
 
 ## 🧩 Scripts (Electron)
 
-`apps/electron/package.json` :
+`apps/electron/package.json`:
 
 ```json
 {
@@ -190,27 +200,30 @@ npm run start:prod
 * Builds `admin-web` with `--mode electron` (consuming `.env.electron`)
 * Starts Express at `http://localhost:3000`
 * Launches Electron pointing at `http://localhost:3000`
+* Requires `.env.electron` and the dependencies installed (see [Getting Started](#getting-started))
 
 ---
 
 ## 📦 Build Installers
 
-From `apps/electron`:
+Generate installers from the `apps/electron` directory. All commands reuse the React build under `apps/admin-web/dist`, so there is no need to run Vite separately.
 
 ```bash
-npm run build         # package app (includes admin-web/dist via extraResources)
-npm run dist:exe      # Windows NSIS installer (.exe)
-npm run dist:msi      # Windows MSI installer (.msi)
-npm run dist:win      # Both
+npm run build         # Packages the Electron app and prepares artifacts
+npm run dist:exe      # Produces a Windows installer (.exe) using NSIS
+npm run dist:msi      # Produces a Windows installer (.msi)
+npm run dist:win      # Builds both NSIS (.exe) and MSI outputs in one go
 ```
 
-Output: `apps/electron/dist/`
+> Tip: electron-builder downloads NSIS and the required binaries automatically. All you need is Windows 10+ with PowerShell; if your antivirus blocks the downloads, whitelist them.
+
+Finished installers are written to `apps/electron/dist/`. After running any of the commands above you should see, for example:
 
 ```
 dist/
-├─ In Contact App Setup.exe
-├─ In Contact App-1.0.0.msi
-└─ win-unpacked/
+├─ In Contact App Setup.exe    # NSIS-based installer
+├─ In Contact App-1.0.0.msi    # MSI installer
+└─ win-unpacked/               # Portable unpacked build for inspection or debugging
 ```
 
 ---

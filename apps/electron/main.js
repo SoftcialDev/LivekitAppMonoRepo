@@ -1,35 +1,25 @@
 /**
- * @file Electron main process (with verbose logging).
- *
- * @overview
- * In development:
- *   - Loads Vite dev server at http://localhost:5173
- *
- * In production (packaged MSI/EXE):
- *   - Starts an internal Express server on an available port (prefers 3000)
- *   - Serves static files from:
- *       • <app>/resources/admin-web   (copied via electron-builder extraResources)
- *       • Fallback (for local prod runs): ../admin-web/dist
- *   - Chooses the correct start URL and opens it in the BrowserWindow
- *
- * Extras:
- *   - node-windows service hooks (install/uninstall)
- *   - persisted storage bridge (electron-store)
- *   - tray with guarded Quit
- *   - detailed logging to console and to a file (userData/main.log)
+ * @fileoverview Electron main process entry point.
+ * @description Boots the application window, serves the compiled web app in production, wires persistence IPC, and exposes Windows service helpers.
  */
 
 const { app, BrowserWindow, session, ipcMain, Tray, Menu } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
-// ----------------------------- Logging ---------------------------------
 
-/** Buffered logger that writes to console and (once ready) to a file. */
+/**
+ * Buffered logger that writes to the console immediately and to disk once available.
+ * @type {string|null}
+ */
 let logFilePath = null;
 const logBuffer = [];
 
-/** Formats and writes a log line. */
+/**
+ * Formats a log message and routes it to console and file sinks.
+ * @param {'INFO'|'WARN'|'ERROR'|string} level - Log severity.
+ * @param {unknown[]} args - Message fragments.
+ */
 function writeLogLine(level, args) {
   const ts = new Date().toISOString();
   const msg = `[${ts}] [${level}] ${args.map(String).join(' ')}`;
@@ -47,7 +37,10 @@ const log = (...a) => writeLogLine('INFO', a);
 const warn = (...a) => writeLogLine('WARN', a);
 const error = (...a) => writeLogLine('ERROR', a);
 
-/** Attach file sink once app is ready and userData is available. */
+/**
+ * Hooks the buffered logger to a file once the userData path is available.
+ * Flushes any log lines collected before the file existed.
+ */
 function attachFileLogger() {
   try {
     logFilePath = path.join(app.getPath('userData'), 'main.log');
@@ -56,33 +49,29 @@ function attachFileLogger() {
       try { fs.appendFileSync(logFilePath, line + '\n'); } catch {}
     }
     logBuffer.length = 0;
-    log('📝 Log file:', logFilePath);
+    log('Log file path:', logFilePath);
   } catch (e) {
     warn('Could not attach file logger:', e?.message || e);
   }
 }
 
-// --------------------------- Constants ---------------------------------
-
 const APP_NAME = 'InContact';
 const SERVICE_NAME = 'InContactService';
 const SERVICE_DESC = 'InContact background service';
 
-const DEV_PORT = 5173; // Vite
-const PREF_PROD_PORT = 3000; // Express preferred
+const DEV_PORT = 5173;
+const PREF_PROD_PORT = 3000;
 
-// Static roots for production (packaged vs local fallback)
 const ADMIN_WEB_DIST_PROD  = path.join(process.resourcesPath, 'admin-web');
 const ADMIN_WEB_DIST_LOCAL = path.join(__dirname, '..', 'admin-web', 'dist');
 
-// ✅ Robust production detection: packaged binaries always true
+// app.isPackaged is true for bundled builds; NODE_ENV allows overriding during local testing.
 const IS_PROD = app.isPackaged || process.env.NODE_ENV === 'production';
 
 let mainWindow = null;
 let tray = null;
 let allowQuit = false;
 
-// --------------------- Service install/uninstall -----------------------
 
 if (process.argv.includes('--install-service')) {
   const { Service } = require('node-windows');
@@ -93,7 +82,6 @@ if (process.argv.includes('--install-service')) {
   });
   svc.on('install', () => svc.start());
   svc.install();
-  // Do not continue running in foreground
   return;
 }
 
@@ -105,10 +93,13 @@ if (process.argv.includes('--uninstall-service')) {
   return;
 }
 
-// ------------------------- Persistence (IPC) ---------------------------
+/** @type {import('electron-store') | undefined} */
+let store;
 
-let store; // electron-store instance
-
+/**
+ * Initializes electron-store persistence and IPC handlers.
+ * @returns {Promise<void>}
+ */
 async function setupPersistence() {
   const { default: Store } = await import('electron-store');
   store = new Store();
@@ -126,13 +117,12 @@ async function setupPersistence() {
 
   ipcMain.on('storage-clear', () => {
     if (store) {
-      store.clear(); // or store.delete('localStorage')
-      log('✅ Electron store cleared via IPC');
+      store.clear();
+      log('Electron store cleared via IPC');
     }
   });
 }
 
-// ---------------------- Static server (production) ---------------------
 
 /**
  * Resolves the static root (packaged vs local fallback) and validates index.html.
@@ -146,11 +136,11 @@ function resolveStaticRoot() {
   const indexPath = path.join(candidate, 'index.html');
   const ok = fs.existsSync(indexPath);
   if (!ok) {
-    error('❌ index.html NOT found at:', indexPath);
-    error('   Expected admin-web dist at:', ADMIN_WEB_DIST_PROD, 'or', ADMIN_WEB_DIST_LOCAL);
+    error('index.html not found at:', indexPath);
+    error('Expected admin-web dist at:', ADMIN_WEB_DIST_PROD, 'or', ADMIN_WEB_DIST_LOCAL);
   } else {
-    log('📦 Serving admin-web from:', candidate);
-    log('✅ index.html found:', indexPath);
+    log('Serving admin-web from:', candidate);
+    log('index.html resolved at:', indexPath);
   }
   return { staticRoot: candidate, indexPath, ok };
 }
@@ -166,14 +156,17 @@ function startExpress(staticRoot, indexPath) {
     const express = require('express');
     const server  = express();
 
-    server.use((req, _res, next) => { log('HTTP', req.method, req.url); next(); });
+    server.use((req, _res, next) => {
+      log('HTTP', req.method, req.url);
+      next();
+    });
     server.use(express.static(staticRoot));
     server.get('*', (_req, res) => res.sendFile(indexPath));
 
     const tryListen = (port) => {
       const s = server.listen(port, () => {
         const url = `http://localhost:${port}`;
-        log(`✔️ UI (build) served at ${url}`);
+        log(`UI build served at ${url}`);
         resolve(url);
       });
       s.on('error', (err) => {
@@ -182,7 +175,7 @@ function startExpress(staticRoot, indexPath) {
           const fallback = server.listen(0, () => {
             const used = fallback.address().port;
             const url = `http://localhost:${used}`;
-            log(`✔️ UI (build) served at ${url} (fallback)`);
+            log(`UI build served at ${url} (fallback)`);
             resolve(url);
           });
           fallback.on('error', (e2) => error('Express fallback listen error:', e2));
@@ -196,7 +189,6 @@ function startExpress(staticRoot, indexPath) {
   });
 }
 
-// --------------------------- BrowserWindow -----------------------------
 
 /**
  * Creates the BrowserWindow and wires up logs.
@@ -281,7 +273,6 @@ async function createWindow(startUrl) {
   });
 }
 
-// ------------------------------ Lifecycle ------------------------------
 
 app.whenReady().then(async () => {
   attachFileLogger(); // enable file logging

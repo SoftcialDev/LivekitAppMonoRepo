@@ -71,7 +71,7 @@ export class ChatService implements IChatService {
   async getContactManagersChatId(): Promise<string> {
     const chatTopic = 'InContactApp – Contact Managers';
     return this.ensureManagedChat(chatTopic, 'Contact Managers', async (_serviceAccount) =>
-      this.buildParticipantsForRoles('Contact Managers', [UserRole.SuperAdmin])
+      this.buildParticipantsForRoles('Contact Managers', [UserRole.SuperAdmin, UserRole.Admin, UserRole.ContactManager])
     );
   }
 
@@ -84,7 +84,7 @@ export class ChatService implements IChatService {
   async getSnapshotReportsChatId(): Promise<string> {
     const chatTopic = 'InContactApp – Snapshot Reports';
     return this.ensureManagedChat(chatTopic, 'Snapshot Reports', async (_serviceAccount) =>
-      this.buildParticipantsForRoles('Snapshot Reports', [UserRole.SuperAdmin])
+      this.buildParticipantsForRoles('Snapshot Reports', [UserRole.SuperAdmin, UserRole.Admin])
     );
   }
 

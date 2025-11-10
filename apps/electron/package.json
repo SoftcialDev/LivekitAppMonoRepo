@@ -52,8 +52,8 @@
       "target": ["nsis", "msi"],
       "protocols": [
         {
-          "name": "MyApp Protocol",
-          "schemes": ["myapp"]
+          "name": "In contact app",
+          "schemes": ["incontactapp"]
         }
       ]
     }
