@@ -46,9 +46,7 @@ const contactManagersFormFunction = withErrorHandler(
           const applicationService = serviceContainer.resolve<ContactManagerFormApplicationService>('ContactManagerFormApplicationService');
           const request = ContactManagerFormRequest.fromBody(ctx.bindings.validatedBody);
           const callerId = ctx.bindings.callerId as string;
-          const token = (req.headers.authorization || "").split(" ")[1];
-
-          const result = await applicationService.processForm(request, callerId, token);
+          const result = await applicationService.processForm(request, callerId);
           ok(ctx, result.toPayload());
         });
       });
