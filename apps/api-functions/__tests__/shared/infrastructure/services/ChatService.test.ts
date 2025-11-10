@@ -134,7 +134,7 @@ describe('ChatService', () => {
 
       expect(result).toBe('new-chat-id');
       expect(prisma.user.findMany).toHaveBeenCalledWith({
-        where: { role: { in: ['SuperAdmin'] } }
+        where: { role: { in: ['SuperAdmin', 'Admin', 'ContactManager'] } }
       });
     expect(mockServiceAccountManager.ensureServiceAccount).toHaveBeenCalled();
     });
@@ -143,7 +143,7 @@ describe('ChatService', () => {
       (prisma.user.findMany as jest.Mock).mockResolvedValue([]);
 
       await expect(chatService.getContactManagersChatId()).rejects.toThrow(
-        'No SuperAdmin users found to compose the Contact Managers chat'
+        'No users with roles [SuperAdmin, Admin, ContactManager] found to compose the Contact Managers chat'
       );
     expect(mockServiceAccountManager.ensureServiceAccount).toHaveBeenCalled();
     });

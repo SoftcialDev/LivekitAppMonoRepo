@@ -34,8 +34,8 @@ export class ContactManagerFormService implements IContactManagerFormService {
   async processForm(
     request: ContactManagerFormRequest,
     senderId: string,
-    token: string,
-    senderName: string
+    senderName: string,
+    senderEmail: string
   ): Promise<ContactManagerFormResult> {
     try {
       // 1. Process image upload if provided
@@ -54,7 +54,7 @@ export class ContactManagerFormService implements IContactManagerFormService {
       });
 
       // 3. Send notification to chat (async, don't wait for completion)
-      this.sendNotificationAsync(request, imageUrl, token, senderName);
+      void this.sendNotificationAsync(request, imageUrl, senderName, senderEmail);
 
       return ContactManagerFormResult.fromFormCreation(formId, true, imageUrl);
     } catch (error: any) {
@@ -66,33 +66,53 @@ export class ContactManagerFormService implements IContactManagerFormService {
    * Sends notification to chat asynchronously using admin token
    * @param request - Contact manager form request
    * @param imageUrl - Optional image URL
-   * @param token - Authentication token from admin user
    * @param senderName - Name of the user submitting the form
    */
   private async sendNotificationAsync(
     request: ContactManagerFormRequest,
     imageUrl: string | undefined,
-    token: string,
-    senderName: string
+    senderName: string,
+    senderEmail: string
   ): Promise<void> {
     try {
-      // Get or sync chat using admin token
-      const chatId = await this.chatService.getOrSyncChat(token);
+      console.log('[ContactManagerFormService] Preparing chat notification', {
+        formType: request.formType,
+        senderName,
+        hasImage: Boolean(imageUrl)
+      });
+
+      // Get or sync chat using application credentials
+      const chatId = await this.chatService.getContactManagersChatId();
+      console.log('[ContactManagerFormService] Resolved Contact Managers chat', { chatId });
 
       // Create message payload
+      const safeSenderEmail = senderEmail?.trim() || 'Not provided';
+
       const message = {
+        type: 'contactManagerForm',
         subject: this.getSubjectForFormType(request.formType),
         senderName,
+        senderEmail: safeSenderEmail,
         formType: request.formType,
         data: request.getFormDataForStorage(),
         imageUrl
       };
 
-      // Send message using admin token
-      await this.chatService.sendMessage(token, chatId, message);
+      // Send message using application identity
+      await this.chatService.sendMessageAsServiceAccount(chatId, message);
+      console.log('[ContactManagerFormService] Chat notification sent', {
+        chatId,
+        formType: request.formType
+      });
     } catch (error) {
       // Log error but don't fail the main operation
-      console.error('Failed to send notification:', error);
+      const err = error as any;
+      console.error('[ContactManagerFormService] Failed to send notification', {
+        message: err?.message,
+        stack: err?.stack,
+        status: err?.status ?? err?.statusCode ?? err?.response?.status,
+        body: err?.response?.data ?? err?.body ?? err?.value ?? null
+      });
     }
   }
 
