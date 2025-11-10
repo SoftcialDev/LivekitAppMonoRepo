@@ -29,8 +29,7 @@ export class ContactManagerFormApplicationService {
    */
   async processForm(
     request: ContactManagerFormRequest,
-    callerId: string,
-    token: string
+    callerId: string
   ): Promise<ContactManagerFormResult> {
     // 1. Authorize the operation
     await this.authorizeFormSubmission(callerId);
@@ -42,7 +41,12 @@ export class ContactManagerFormApplicationService {
     }
 
     // 3. Execute the domain service with user token
-    return await this.contactManagerFormService.processForm(request, user.id, token, user.fullName);
+    return await this.contactManagerFormService.processForm(
+      request,
+      user.id,
+      user.fullName,
+      user.email
+    );
   }
 
   /**

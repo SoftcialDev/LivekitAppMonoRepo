@@ -26,25 +26,16 @@ export class SendSnapshotApplicationService {
   ) {}
 
   /**
-   * Sends a snapshot report for a PSO
-   * @param callerId - The ID of the user making the request
-   * @param request - The snapshot report request
-   * @param supervisorName - The name of the supervisor sending the report
-   * @param token - Authentication token for chat notifications
-   * @returns Promise that resolves to the snapshot report response
-   * @throws Error when caller is not authorized or snapshot fails
-   * @example
-   * const response = await sendSnapshotApplicationService.sendSnapshot(callerId, request, supervisorName, token);
+   * Sends a snapshot report for a PSO.
+   * @param callerId - Azure AD object ID of the caller
+   * @param request - Snapshot domain request object
+   * @returns Snapshot response with the persisted identifier
+   * @throws Error when the caller lacks the required role or domain processing fails
    */
-  async sendSnapshot(
-    callerId: string,
-    request: SendSnapshotRequest,
-    supervisorName: string,
-    token: string
-  ): Promise<SendSnapshotResponse> {
+  async sendSnapshot(callerId: string, request: SendSnapshotRequest): Promise<SendSnapshotResponse> {
     // Supervisors, Admins, and SuperAdmins can send snapshot reports
     await this.authorizationService.authorizeUserWithRoles(callerId, [UserRole.Supervisor, UserRole.Admin, UserRole.SuperAdmin], "sending snapshots");
 
-    return await this.sendSnapshotDomainService.sendSnapshot(request, supervisorName, token);
+    return await this.sendSnapshotDomainService.sendSnapshot(request);
   }
 }
