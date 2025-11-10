@@ -219,6 +219,19 @@ model ChatParticipant {
   @@map("chat_participants")
 }
 
+// Stored credentials for the Azure AD service account used in Teams notifications
+model ServiceAccountCredential {
+  id                 String   @id @default(uuid()) @db.Uuid
+  azureAdObjectId    String   @unique
+  userPrincipalName  String   @unique
+  displayName        String
+  encryptedPassword  String
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@map("service_account_credentials")
+}
+
 // Supervisor snapshots of PSOs
 model Snapshot {
   id           String   @id @default(uuid()) @db.Uuid
