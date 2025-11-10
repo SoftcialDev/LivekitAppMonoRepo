@@ -45,14 +45,7 @@ const sendSnapshotHandler = withErrorHandler(
           const validatedBody = (ctx as any).bindings.validatedBody;
           const request = SendSnapshotRequest.fromBody(callerId, validatedBody);
 
-          // Extract supervisor name from token claims
-          const claims = (ctx as any).bindings.user as { fullName: string };
-          const supervisorName = claims.fullName;
-
-          // Extract token for chat notifications
-          const token = (req.headers.authorization || "").split(" ")[1];
-
-          const response = await applicationService.sendSnapshot(callerId, request, supervisorName, token);
+          const response = await applicationService.sendSnapshot(callerId, request);
 
           return ok(ctx, response.toPayload());
         });
