@@ -71,11 +71,7 @@ export class ChatService implements IChatService {
   async getContactManagersChatId(): Promise<string> {
     const chatTopic = 'InContactApp – Contact Managers';
     return this.ensureManagedChat(chatTopic, 'Contact Managers', async (_serviceAccount) =>
-      this.buildParticipantsForRoles('Contact Managers', [
-        UserRole.SuperAdmin,
-        UserRole.Admin,
-        UserRole.ContactManager
-      ])
+      this.buildParticipantsForRoles('Contact Managers', [UserRole.SuperAdmin])
     );
   }
 
@@ -88,7 +84,7 @@ export class ChatService implements IChatService {
   async getSnapshotReportsChatId(): Promise<string> {
     const chatTopic = 'InContactApp – Snapshot Reports';
     return this.ensureManagedChat(chatTopic, 'Snapshot Reports', async (_serviceAccount) =>
-      this.buildParticipantsForRoles('Snapshot Reports', [UserRole.SuperAdmin, UserRole.Admin])
+      this.buildParticipantsForRoles('Snapshot Reports', [UserRole.SuperAdmin])
     );
   }
 
@@ -267,7 +263,7 @@ export class ChatService implements IChatService {
         if (message.capturedAt) {
           cardBody.push({
             type: 'TextBlock',
-            text: `**Captured At (Central):** ${message.capturedAt}`,
+            text: `**Captured At (Central Time):** ${message.capturedAt}`,
             wrap: true
           });
         }
@@ -307,14 +303,9 @@ export class ChatService implements IChatService {
         cardBody.push(
           {
             type: 'TextBlock',
-            text: `PSO ${message.senderName} has submitted the following report:`,
+            text: `**PSO** **${message.senderName}** has submitted the following report:`,
             wrap: true
           },
-          {
-            type: 'TextBlock',
-            text: `**PSO:** ${message.senderName}`,
-            wrap: true
-          }
         );
 
         if (message.senderEmail) {
