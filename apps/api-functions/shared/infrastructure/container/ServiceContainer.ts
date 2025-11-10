@@ -78,6 +78,13 @@ import { WebPubSubTokenDomainService } from '../../domain/services/WebPubSubToke
 import { WebPubSubTokenApplicationService } from '../../application/services/WebPubSubTokenApplicationService';
 import { IWebPubSubService } from '../../domain/interfaces/IWebPubSubService';
 import { WebPubSubService } from '../services/WebPubSubService';
+import { EncryptionService } from '../services/EncryptionService';
+import { ServiceAccountManager } from '../services/ServiceAccountManager';
+import {
+  IServiceAccountCredentialRepository
+} from '../../domain/interfaces/IServiceAccountCredentialRepository';
+import { ServiceAccountCredentialRepository } from '../repositories/ServiceAccountCredentialRepository';
+import { config } from '../../config';
 import { TransferPsosDomainService } from '../../domain/services/TransferPsosDomainService';
 import { TransferPsosApplicationService } from '../../application/services/TransferPsosApplicationService';
 import { SendSnapshotDomainService } from '../../domain/services/SendSnapshotDomainService';
@@ -162,6 +169,7 @@ export class ServiceContainer {
     this.register<ISupervisorRepository>('SupervisorRepository', () => new SupervisorRepository());
     this.register<ISnapshotRepository>('ISnapshotRepository', () => new SnapshotRepository());
     this.register<ICameraStartFailureRepository>('CameraStartFailureRepository', () => new CameraStartFailureRepository());
+    this.register<IServiceAccountCredentialRepository>('ServiceAccountCredentialRepository', () => new ServiceAccountCredentialRepository());
 
     // Register Audit services
     this.register<IAuditRepository>('IAuditRepository', () => new AuditRepository());
@@ -246,7 +254,19 @@ export class ServiceContainer {
           // Register contact manager form services
           this.register<IContactManagerFormRepository>('ContactManagerFormRepository', () => new ContactManagerFormRepository());
           this.register<IBlobStorageService>('BlobStorageService', () => new BlobStorageService());
-          this.register<IChatService>('ChatService', () => new ChatService());
+          this.register<EncryptionService>('EncryptionService', () => new EncryptionService(config.serviceAccountEncryptionKey));
+
+          this.register<ServiceAccountManager>('ServiceAccountManager', () => {
+            const credentialRepository = this.resolve<IServiceAccountCredentialRepository>('ServiceAccountCredentialRepository');
+            const encryptionService = this.resolve<EncryptionService>('EncryptionService');
+            const userRepository = this.resolve<IUserRepository>('UserRepository');
+            return new ServiceAccountManager(credentialRepository, encryptionService, userRepository);
+          });
+
+          this.register<IChatService>('ChatService', () => {
+            const serviceAccountManager = this.resolve<ServiceAccountManager>('ServiceAccountManager');
+            return new ChatService(serviceAccountManager);
+          });
 
           this.register<IContactManagerFormService>('ContactManagerFormService', () => {
             const formRepository = this.resolve<IContactManagerFormRepository>('ContactManagerFormRepository');
@@ -474,7 +494,13 @@ export class ServiceContainer {
             const userRepository = this.resolve<IUserRepository>('UserRepository');
             const blobStorageService = this.resolve<IBlobStorageService>('BlobStorageService');
             const snapshotRepository = this.resolve<ISnapshotRepository>('ISnapshotRepository');
-            return new SendSnapshotDomainService(userRepository, blobStorageService, snapshotRepository);
+            const chatService = this.resolve<IChatService>('ChatService');
+            return new SendSnapshotDomainService(
+              userRepository,
+              blobStorageService,
+              snapshotRepository,
+              chatService
+            );
           });
 
           this.register<SendSnapshotApplicationService>('SendSnapshotApplicationService', () => {
