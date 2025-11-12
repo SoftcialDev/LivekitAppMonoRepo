@@ -40,6 +40,23 @@ const SnapshotsReportPage: React.FC = () => {
   const [reports, setReports] = useState<SnapshotReport[]>([]);
   const [loading, setLoading] = useState(false);
 
+/**
+ * Formats a timestamp string without applying a local timezone offset.
+ * Falls back to the original value if parsing fails.
+ *
+ * @param isoString - ISO-8601 timestamp returned by the API.
+ */
+const formatTakenAtUtc = (isoString: string | undefined) => {
+  if (!isoString) return '—';
+  const dt = new Date(isoString);
+  if (Number.isNaN(dt.getTime())) return isoString;
+  return new Intl.DateTimeFormat(undefined, {
+    timeZone: 'UTC',
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(dt);
+};
+
   // Preview modal
   const [preview, setPreview]         = useState<SnapshotReport | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -153,11 +170,10 @@ const handleDownload = async (url: string) => {
       )
     },
     {
-      key: 'takenAt',       // <-- use `createdAt`, not `takenAt`
+      key: 'takenAt',       
       header: 'Date & Time',
       render: row => {
-        const dt = new Date(row.takenAt);
-        return isNaN(dt.getTime()) ? '—' : dt.toLocaleString();
+      return formatTakenAtUtc(row.takenAt);
       }
     },
     {
