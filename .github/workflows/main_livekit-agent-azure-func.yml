@@ -44,7 +44,6 @@ jobs:
             Write-Error "❌ Prisma Client was not generated"
             Exit 1
           }
-          npm run migrate:deploy
           Pop-Location
 
       - name: Package deployable ZIP
