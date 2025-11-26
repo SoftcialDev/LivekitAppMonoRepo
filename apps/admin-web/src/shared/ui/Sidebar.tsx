@@ -172,9 +172,13 @@ const cmFilterAdornment = useMemo(() => {
     ? employeeCMUsers.filter((u) => u.status === "online")
     : onlineUsers;
 
-  const sourceOffline: UserStatus[] = isEmployee
+  const sourceOffline: UserStatus[] = (isEmployee
     ? employeeCMUsers.filter((u) => u.status === "offline")
-    : offlineUsers;
+    : offlineUsers).filter((u) => {
+      // Exclude users with role "Unassigned" from offline list
+      const role = (u.role as string | undefined);
+      return role !== "Unassigned";
+    });
 
   /** Apply text + role filtering. */
   const filterUsers = (list: UserStatus[]): UserStatus[] =>
