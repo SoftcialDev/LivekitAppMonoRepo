@@ -9,7 +9,7 @@ import { withAuth } from "../shared/middleware/auth";
 import { withErrorHandler } from "../shared/middleware/errorHandler";
 import { withCallerId } from "../shared/middleware/callerId";
 import { withBodyValidation } from "../shared/middleware/validate";
-import { ok } from "../shared/utils/response";
+import { ok, badRequest } from "../shared/utils/response";
 import { ServiceContainer } from "../shared/infrastructure/container/ServiceContainer";
 import { DeleteErrorLogsApplicationService } from "../shared/application/services/DeleteErrorLogsApplicationService";
 import { DeleteErrorLogsRequest } from "../shared/domain/value-objects/DeleteErrorLogsRequest";
@@ -46,7 +46,13 @@ const deleteErrorLogsHandler = withErrorHandler(
 
           const applicationService = serviceContainer.resolve<DeleteErrorLogsApplicationService>('DeleteErrorLogsApplicationService');
           const user = (ctx as any).bindings.user;
-          const callerEmail = user?.upn || user?.email || '';
+          
+          // Extract email from JWT token (try multiple fields)
+          const callerEmail = (user?.upn || user?.email || user?.preferred_username || '').toLowerCase();
+          
+          if (!callerEmail) {
+            return badRequest(ctx, 'Email not found in authentication token');
+          }
 
           const validatedBody = (ctx as any).bindings.validatedBody;
           const request = DeleteErrorLogsRequest.fromBody(validatedBody);

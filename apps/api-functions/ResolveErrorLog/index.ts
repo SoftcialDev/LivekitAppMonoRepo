@@ -9,7 +9,7 @@ import { withAuth } from "../shared/middleware/auth";
 import { withErrorHandler } from "../shared/middleware/errorHandler";
 import { withCallerId } from "../shared/middleware/callerId";
 import { withPathValidation } from "../shared/middleware/validate";
-import { ok } from "../shared/utils/response";
+import { ok, badRequest } from "../shared/utils/response";
 import { ServiceContainer } from "../shared/infrastructure/container/ServiceContainer";
 import { GetErrorLogsApplicationService } from "../shared/application/services/GetErrorLogsApplicationService";
 import { getErrorLogByIdSchema } from "../shared/domain/schemas/GetErrorLogByIdSchema";
@@ -39,10 +39,17 @@ const resolveErrorLogHandler = withErrorHandler(
           const serviceContainer = ServiceContainer.getInstance();
           serviceContainer.initialize();
 
-          const applicationService = serviceContainer.resolve<GetErrorLogsApplicationService>('GetErrorLogsApplicationService');
-          const user = (ctx as any).bindings.user;
-          const callerEmail = user?.upn || user?.email || '';
-          const callerId = ctx.bindings.callerId as string;
+        const applicationService = serviceContainer.resolve<GetErrorLogsApplicationService>('GetErrorLogsApplicationService');
+        const user = (ctx as any).bindings.user;
+        
+        // Extract email from JWT token (try multiple fields)
+        const callerEmail = (user?.upn || user?.email || user?.preferred_username || '').toLowerCase();
+        
+        if (!callerEmail) {
+          return badRequest(ctx, 'Email not found in authentication token');
+        }
+        
+        const callerId = ctx.bindings.callerId as string;
 
           const validatedParams = (ctx as any).bindings.validatedParams;
           await applicationService.markAsResolved(callerEmail, validatedParams.id, callerId);

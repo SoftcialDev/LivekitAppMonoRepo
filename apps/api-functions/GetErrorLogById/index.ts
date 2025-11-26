@@ -41,7 +41,13 @@ const getErrorLogByIdHandler = withErrorHandler(
 
           const applicationService = serviceContainer.resolve<GetErrorLogsApplicationService>('GetErrorLogsApplicationService');
           const user = (ctx as any).bindings.user;
-          const callerEmail = user?.upn || user?.email || '';
+          
+          // Extract email from JWT token (try multiple fields)
+          const callerEmail = (user?.upn || user?.email || user?.preferred_username || '').toLowerCase();
+          
+          if (!callerEmail) {
+            return badRequest(ctx, 'Email not found in authentication token');
+          }
 
           const validatedParams = (ctx as any).bindings.validatedParams;
           const errorLog = await applicationService.getErrorLogById(callerEmail, validatedParams.id);

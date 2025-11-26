@@ -8,7 +8,7 @@ import { Context, HttpRequest } from "@azure/functions";
 import { withAuth } from "../shared/middleware/auth";
 import { withErrorHandler } from "../shared/middleware/errorHandler";
 import { withCallerId } from "../shared/middleware/callerId";
-import { ok } from "../shared/utils/response";
+import { ok, badRequest } from "../shared/utils/response";
 import { ServiceContainer } from "../shared/infrastructure/container/ServiceContainer";
 import { GetErrorLogsApplicationService } from "../shared/application/services/GetErrorLogsApplicationService";
 import { GetErrorLogsRequest } from "../shared/domain/value-objects/GetErrorLogsRequest";
@@ -40,7 +40,13 @@ const getErrorLogsHandler = withErrorHandler(
 
         const applicationService = serviceContainer.resolve<GetErrorLogsApplicationService>('GetErrorLogsApplicationService');
         const user = (ctx as any).bindings.user;
-        const callerEmail = user?.upn || user?.email || '';
+        
+        // Extract email from JWT token (try multiple fields, same as GetCurrentUserDomainService)
+        const callerEmail = (user?.upn || user?.email || user?.preferred_username || '').toLowerCase();
+        
+        if (!callerEmail) {
+          return badRequest(ctx, 'Email not found in authentication token');
+        }
 
         const query = req.query || {};
         const request = GetErrorLogsRequest.fromQuery(query);
