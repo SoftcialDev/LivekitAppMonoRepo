@@ -115,5 +115,5 @@ jobs:
         run: |
           az functionapp deployment source config-zip `
             --resource-group livekit-agent-azure `
-            --name livekit-agent-azure-func `
+            --name in-contact-serverless-api `
             --src "${{ steps.findzip.outputs.path }}"
