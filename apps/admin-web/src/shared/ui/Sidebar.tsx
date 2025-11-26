@@ -16,7 +16,7 @@ import {
   ManagerStatus,
 } from "@/pages/ContactManager/hooks/useContactManagerStatus";
 import { PsoDashboardForm } from '@/pages/PSO/components/PSODashboardForm';
-import SidebarToggle from "./SidebarToggle";
+
 
 /**
  * SidebarProps
@@ -175,9 +175,9 @@ const cmFilterAdornment = useMemo(() => {
   const sourceOffline: UserStatus[] = (isEmployee
     ? employeeCMUsers.filter((u) => u.status === "offline")
     : offlineUsers).filter((u) => {
-      // Exclude users with role "Unassigned" from offline list
-      const role = (u.role as string | undefined);
-      return role !== "Unassigned";
+      // Exclude users with role "Unassigned" or null/undefined from offline list
+      const role = u.role as string | null | undefined;
+      return role !== "Unassigned" && role !== null && role !== undefined;
     });
 
   /** Apply text + role filtering. */

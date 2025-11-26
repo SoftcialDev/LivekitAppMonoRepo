@@ -202,10 +202,20 @@ ${errorLog.stackTrace ? `\nStack Trace:\n${errorLog.stackTrace}` : ''}
     {
       key: 'errorMessage',
       header: 'Message',
+      cellClassName: 'whitespace-normal',
       render: (row) => (
-        <span className="truncate max-w-xs" title={row.errorMessage}>
+        <div 
+          className="break-words max-w-md" 
+          title={row.errorMessage}
+          style={{ 
+            wordBreak: 'break-word',
+            overflowWrap: 'break-word',
+            lineHeight: '1.4',
+            minWidth: '200px'
+          }}
+        >
           {row.errorMessage}
-        </span>
+        </div>
       ),
     },
     {

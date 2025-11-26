@@ -31,6 +31,12 @@ export interface Column<T> {
    * @returns A React node to render inside this cell.
    */
   render?: (row: T) => React.ReactNode;
+
+  /**
+   * Optional custom className for the cell (td element).
+   * Useful for overriding default whitespace-nowrap behavior.
+   */
+  cellClassName?: string;
 }
 
 /**
@@ -306,7 +312,7 @@ export function TableComponent<T extends { azureAdObjectId?: string }>(
                 {columns.map((col, colIdx) => (
                   <td
                     key={`${String(col.key ?? col.header)}-${idx}-${colIdx}`}
-                    className="px-6 py-4 whitespace-nowrap text-sm text-white"
+                    className={`px-6 py-4 text-sm text-white ${col.cellClassName || 'whitespace-nowrap'}`}
                   >
                     {col.render
                       ? col.render(row)
