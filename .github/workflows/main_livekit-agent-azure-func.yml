@@ -106,9 +106,9 @@ jobs:
       - name: Login to Azure (Service Principal)
         uses: azure/login@v2
         with:
-          client-id:       ${{ secrets.AZUREAPPSERVICE_CLIENTID_BB7ED3C2C8D841F3B4502B8A848971AA }}
-          tenant-id:       ${{ secrets.AZUREAPPSERVICE_TENANTID_70FAA7D8B7DB4B13879DAEC8D3FBB8F1 }}
-          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_CF84BFAFF9D542F894D95F7FA7234F5A }}
+          client-id:       ${{ secrets.AZURE_API_CLIENT_ID }}
+          tenant-id:       ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Deploy ZIP to Azure Function
         shell: pwsh
