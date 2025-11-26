@@ -22,12 +22,12 @@ export class DeleteErrorLogsApplicationService {
   ) {}
 
   /**
-   * Authorizes access to delete error logs - only user with email "shanty" is allowed
+   * Authorizes access to delete error logs - only user with email containing "shanty.cerdas" is allowed
    * @param callerEmail - Email of the caller
    * @throws AuthError if caller is not authorized
    */
   private async authorizeAccess(callerEmail: string): Promise<void> {
-    if (!callerEmail || callerEmail.toLowerCase() !== 'shanty') {
+    if (!callerEmail || !callerEmail.toLowerCase().includes('shanty.cerdas')) {
       throw new AuthError('Access denied: Only authorized user can delete error logs', AuthErrorCode.INSUFFICIENT_PRIVILEGES);
     }
   }

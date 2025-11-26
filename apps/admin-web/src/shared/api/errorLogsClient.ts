@@ -49,6 +49,10 @@ export interface ErrorLogQueryParams {
 export interface GetErrorLogsResponse {
   logs: ErrorLog[];
   count: number;
+  total: number;
+  limit?: number;
+  offset?: number;
+  hasMore: boolean;
 }
 
 /**

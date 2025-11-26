@@ -32,6 +32,16 @@ export class GetErrorLogsDomainService {
   }
 
   /**
+   * Counts error logs matching the specified query parameters (without pagination)
+   * @param params - Query parameters for filtering (limit and offset are ignored)
+   * @returns Promise that resolves to the total count
+   * @throws Error if the query operation fails
+   */
+  async countErrorLogs(params?: Omit<ErrorLogQueryParams, 'limit' | 'offset'>): Promise<number> {
+    return await this.errorLogRepository.count(params);
+  }
+
+  /**
    * Retrieves a single error log by its identifier
    * @param id - Error log identifier
    * @returns Promise that resolves to the error log entity or null if not found

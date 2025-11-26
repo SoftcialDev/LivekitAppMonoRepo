@@ -10,12 +10,15 @@ import { ApiErrorLog } from '../entities/ApiErrorLog';
  */
 export class GetErrorLogsResponse {
   /**
-   * Creates a response for a list of error logs
+   * Creates a response for a list of error logs with total count
    * @param logs - Array of error log entities
+   * @param total - Total count of matching error logs (before pagination)
+   * @param limit - Limit used for pagination
+   * @param offset - Offset used for pagination
    * @returns GetErrorLogsResponse instance
    */
-  static fromLogs(logs: ApiErrorLog[]): GetErrorLogsResponse {
-    return new GetErrorLogsResponse(logs);
+  static fromLogs(logs: ApiErrorLog[], total: number, limit?: number, offset?: number): GetErrorLogsResponse {
+    return new GetErrorLogsResponse(logs, total, limit, offset);
   }
 
   /**
@@ -24,10 +27,15 @@ export class GetErrorLogsResponse {
    * @returns GetErrorLogsResponse instance
    */
   static fromLog(log: ApiErrorLog): GetErrorLogsResponse {
-    return new GetErrorLogsResponse([log]);
+    return new GetErrorLogsResponse([log], 1);
   }
 
-  private constructor(private readonly logs: ApiErrorLog[]) {}
+  private constructor(
+    private readonly logs: ApiErrorLog[],
+    private readonly total: number = logs.length,
+    private readonly limit?: number,
+    private readonly offset?: number
+  ) {}
 
   /**
    * Converts the response to a payload object
@@ -53,6 +61,10 @@ export class GetErrorLogsResponse {
       createdAt: Date;
     }>;
     count: number;
+    total: number;
+    limit?: number;
+    offset?: number;
+    hasMore: boolean;
   } {
     return {
       logs: this.logs.map(log => ({
@@ -73,7 +85,13 @@ export class GetErrorLogsResponse {
         resolvedBy: log.resolvedBy,
         createdAt: log.createdAt
       })),
-      count: this.logs.length
+      count: this.logs.length,
+      total: this.total,
+      limit: this.limit,
+      offset: this.offset,
+      hasMore: this.offset !== undefined && this.limit !== undefined 
+        ? (this.offset + this.logs.length) < this.total 
+        : false
     };
   }
 

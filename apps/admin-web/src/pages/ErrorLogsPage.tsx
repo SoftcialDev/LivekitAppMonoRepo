@@ -34,6 +34,8 @@ const ErrorLogsPage: React.FC = () => {
   const [errorLogs, setErrorLogs] = useState<ErrorLog[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [total, setTotal] = useState<number>(0);
+  const [hasMore, setHasMore] = useState<boolean>(false);
   const [filters, setFilters] = useState<ErrorLogQueryParams>({
     limit: 100,
     offset: 0,
@@ -48,18 +50,31 @@ const ErrorLogsPage: React.FC = () => {
   /**
    * Fetches error logs from the API
    */
-  const fetchErrorLogs = async (): Promise<void> => {
+  const fetchErrorLogs = React.useCallback(async (): Promise<void> => {
     setLoading(true);
     try {
       const response = await getErrorLogs(filters);
       setErrorLogs(response.logs);
+      setTotal(response.total || response.count);
+      setHasMore(response.hasMore || false);
+      
+      // Log pagination info for debugging
+      if (response.total !== undefined) {
+        console.log('[ErrorLogsPage] Pagination info:', {
+          returned: response.count,
+          total: response.total,
+          limit: response.limit,
+          offset: response.offset,
+          hasMore: response.hasMore
+        });
+      }
     } catch (err: any) {
       console.error('Failed to load error logs:', err);
       showToast('Failed to load error logs', 'error');
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters, showToast]);
 
   /**
    * Handles deletion of selected error logs
@@ -264,8 +279,62 @@ ${errorLog.stackTrace ? `\nStack Trace:\n${errorLog.stackTrace}` : ''}
     </div>
   );
 
+  /**
+   * Handles loading more error logs (next page)
+   */
+  const handleLoadMore = (): void => {
+    if (!hasMore) return;
+    
+    setFilters(prev => ({
+      ...prev,
+      offset: (prev.offset || 0) + (prev.limit || 100)
+    }));
+  };
+
+  /**
+   * Handles going to previous page
+   */
+  const handleLoadPrevious = (): void => {
+    const currentOffset = filters.offset || 0;
+    const limit = filters.limit || 100;
+    if (currentOffset === 0) return;
+    
+    setFilters(prev => ({
+      ...prev,
+      offset: Math.max(0, currentOffset - limit)
+    }));
+  };
+
   return (
     <div className="flex flex-col flex-1 min-h-0 bg-[var(--color-primary-dark)] p-4">
+      {/* Pagination info and controls */}
+      <div className="mb-4 flex items-center justify-between text-sm text-gray-300">
+        <div>
+          Showing {errorLogs.length} of {total} error logs
+          {filters.offset !== undefined && filters.limit !== undefined && (
+            <span className="ml-2">
+              (Page {Math.floor((filters.offset || 0) / (filters.limit || 100)) + 1})
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleLoadPrevious}
+            disabled={!filters.offset || filters.offset === 0}
+            className="px-3 py-1 bg-[var(--color-primary)] text-white rounded hover:bg-[var(--color-primary-light)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            Previous
+          </button>
+          <button
+            onClick={handleLoadMore}
+            disabled={!hasMore}
+            className="px-3 py-1 bg-[var(--color-primary)] text-white rounded hover:bg-[var(--color-primary-light)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            Next
+          </button>
+        </div>
+      </div>
+
       <TableComponent<ErrorLog & { azureAdObjectId?: string }>
         columns={columns}
         data={errorLogs.map(log => ({ ...log, azureAdObjectId: log.id }))}

@@ -90,5 +90,13 @@ export interface IErrorLogRepository {
    * @throws Error if the database operation fails
    */
   deleteMany(ids: string[]): Promise<void>;
+
+  /**
+   * Counts error logs matching the specified query parameters (without pagination)
+   * @param params - Query parameters for filtering (limit and offset are ignored)
+   * @returns Promise that resolves to the total count of matching error logs
+   * @throws Error if the database query fails
+   */
+  count(params?: Omit<ErrorLogQueryParams, 'limit' | 'offset'>): Promise<number>;
 }
 

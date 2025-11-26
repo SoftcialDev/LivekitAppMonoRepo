@@ -174,5 +174,51 @@ export class ErrorLogRepository implements IErrorLogRepository {
       throw new Error(`Failed to delete error logs: ${error.message}`);
     }
   }
+
+  /**
+   * Counts error logs matching the specified query parameters (without pagination)
+   * @param params - Query parameters for filtering (limit and offset are ignored)
+   * @returns Promise that resolves to the total count of matching error logs
+   * @throws Error if the database query fails
+   */
+  async count(params?: Omit<ErrorLogQueryParams, 'limit' | 'offset'>): Promise<number> {
+    try {
+      const where: any = {};
+
+      if (params?.source) {
+        where.source = params.source;
+      }
+
+      if (params?.severity) {
+        where.severity = params.severity;
+      }
+
+      if (params?.endpoint) {
+        where.endpoint = params.endpoint;
+      }
+
+      if (params?.resolved !== undefined) {
+        where.resolved = params.resolved;
+      }
+
+      if (params?.startDate || params?.endDate) {
+        where.createdAt = {};
+        if (params.startDate) {
+          where.createdAt.gte = params.startDate;
+        }
+        if (params.endDate) {
+          where.createdAt.lte = params.endDate;
+        }
+      }
+
+      const count = await (prisma as any).apiErrorLog.count({
+        where
+      });
+
+      return count;
+    } catch (error: any) {
+      throw new Error(`Failed to count error logs: ${error.message}`);
+    }
+  }
 }
 

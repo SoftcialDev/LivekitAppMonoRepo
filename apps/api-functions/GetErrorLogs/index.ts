@@ -17,14 +17,15 @@ import { GetErrorLogsResponse } from "../shared/domain/value-objects/GetErrorLog
 /**
  * HTTP GET /api/error-logs
  *
- * Returns all error logs with optional filtering.
- * Only user with email "shanty" may call this endpoint.
+ * Returns all error logs with optional filtering and pagination.
+ * Only user with email containing "shanty.cerdas" may call this endpoint.
  *
  * @remarks
  * This function:
- * 1. Authenticates the caller and verifies they are the authorized user (email: shanty).
+ * 1. Authenticates the caller and verifies they are the authorized user (email contains "shanty.cerdas").
  * 2. Supports query parameters for filtering: source, severity, endpoint, resolved, startDate, endDate, limit, offset.
- * 3. Returns a list of error logs matching the criteria.
+ * 3. Returns a paginated list of error logs with total count and pagination metadata.
+ * 4. Use limit and offset for pagination: ?limit=100&offset=0 for first page, ?limit=100&offset=100 for second page, etc.
  *
  * @param ctx - The Azure Functions execution context
  * @param req - The incoming HTTP request
@@ -43,8 +44,9 @@ const getErrorLogsHandler = withErrorHandler(
 
         const query = req.query || {};
         const request = GetErrorLogsRequest.fromQuery(query);
-        const errorLogs = await applicationService.getErrorLogs(callerEmail, request.toQueryParams());
-        const response = GetErrorLogsResponse.fromLogs(errorLogs);
+        const queryParams = request.toQueryParams();
+        const { logs, total } = await applicationService.getErrorLogs(callerEmail, queryParams);
+        const response = GetErrorLogsResponse.fromLogs(logs, total, queryParams.limit, queryParams.offset);
 
         return ok(ctx, response.toPayload());
       });
