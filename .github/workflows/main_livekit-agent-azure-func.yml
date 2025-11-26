@@ -10,8 +10,8 @@ on:
   workflow_dispatch:
 
 env:
-  FUNC_SRC: apps/api-functions      # folder containing host.json, functions code, node_modules, etc.
-  NODE_VER: '20.x'                  # Node.js version to use
+  FUNC_SRC: apps/api-functions
+  NODE_VER: '20.x'
 
 permissions:
   contents: read
@@ -19,101 +19,76 @@ permissions:
 
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     permissions:
       contents: read
-    env:
-      DATABASE_URL: ${{ secrets.DATABASE_URL }}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
+      - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VER }}
+          cache: npm
+          cache-dependency-path: ${{ env.FUNC_SRC }}/package-lock.json
 
-      - name: Install deps, build & generate Prisma client
-        shell: pwsh
+      - name: Install deps, generate Prisma client, build
+        shell: bash
         run: |
-          Push-Location ${{ env.FUNC_SRC }}
+          set -euo pipefail
+          cd "${{ env.FUNC_SRC }}"
           npm ci
-          npm run build
           npm run prisma:generate
-          if (-Not (Test-Path ".\node_modules\.prisma\client")) {
-            Write-Error "❌ Prisma Client was not generated"
-            Exit 1
-          }
-          Pop-Location
+          test -d "node_modules/.prisma/client"
+          npm run build
 
       - name: Package deployable ZIP
-        shell: pwsh
+        shell: bash
         run: |
-          Remove-Item -Force deploy.zip -ErrorAction Ignore
-          Compress-Archive -Path ${{ env.FUNC_SRC }}\* -DestinationPath deploy.zip -Force
+          set -euo pipefail
+          rm -f deploy.zip
+          cd "${{ env.FUNC_SRC }}"
+          zip -r ../../deploy.zip . -x "**/.git/**"
 
       - name: Validate ZIP contents
-        shell: pwsh
+        shell: bash
         run: |
-          Remove-Item -Recurse -Force zip-temp -ErrorAction Ignore
-          Expand-Archive -Path deploy.zip -DestinationPath zip-temp -Force
-          if (-Not (Test-Path "zip-temp/host.json")) {
-            Write-Error "❌ host.json is missing in ZIP root"
-            Exit 1
-          }
-          if (Test-Path "zip-temp/apps/api-functions") {
-            Write-Error "❌ ZIP contains nested apps/api-functions folder"
-            Exit 1
-          }
-          if (-Not (Test-Path "zip-temp/node_modules/.prisma/client")) {
-            Write-Error "❌ node_modules/.prisma/client is missing in ZIP"
-            Exit 1
-          }
-          Write-Host "✅ ZIP structure is valid"
-          Remove-Item -Recurse -Force zip-temp
+          set -euo pipefail
+          rm -rf zip-temp
+          mkdir -p zip-temp
+          unzip -q deploy.zip -d zip-temp
+          test -f "zip-temp/host.json"
+          test ! -d "zip-temp/apps/api-functions"
+          test -d "zip-temp/node_modules/.prisma/client"
+          rm -rf zip-temp
 
-      - name: Upload deploy.zip artifact
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: function-zip
           path: deploy.zip
 
   deploy:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     needs: build
     permissions:
       contents: read
       id-token: write
     steps:
-      - name: Download deploy.zip artifact
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
           name: function-zip
           path: .
 
-      - name: Find deploy.zip
-        id: findzip
-        shell: pwsh
-        run: |
-          $zip = Get-ChildItem -Path . -Filter deploy.zip -Recurse |
-                 Select-Object -First 1 -ExpandProperty FullName
-          if (-Not (Test-Path $zip)) {
-            Write-Error "❌ deploy.zip not found"
-            Exit 1
-          }
-          Write-Output "::set-output name=path::$zip"
-
-      - name: Login to Azure (Service Principal)
-        uses: azure/login@v2
+      - uses: azure/login@v2
         with:
-          client-id:       ${{ secrets.AZURE_API_CLIENT_ID }}
-          tenant-id:       ${{ secrets.AZURE_TENANT_ID }}
+          client-id: ${{ secrets.AZURE_API_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Deploy ZIP to Azure Function
-        shell: pwsh
+        shell: bash
         run: |
-          az functionapp deployment source config-zip `
-            --resource-group livekit-agent-azure `
-            --name in-contact-serverless-api `
-            --src "${{ steps.findzip.outputs.path }}"
+          set -euo pipefail
+          az functionapp deployment source config-zip \
+            --resource-group livekit-agent-azure \
+            --name in-contact-serverless-api \
+            --src "./deploy.zip"
