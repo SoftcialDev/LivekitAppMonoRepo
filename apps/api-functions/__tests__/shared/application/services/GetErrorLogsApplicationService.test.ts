@@ -22,7 +22,8 @@ describe('GetErrorLogsApplicationService', () => {
     getErrorLogsDomainService = {
       getErrorLogs: jest.fn(),
       getErrorLogById: jest.fn(),
-      markAsResolved: jest.fn()
+      markAsResolved: jest.fn(),
+      countErrorLogs: jest.fn()
     } as any;
 
     userRepository = {
@@ -48,13 +49,14 @@ describe('GetErrorLogsApplicationService', () => {
       ];
 
       getErrorLogsDomainService.getErrorLogs.mockResolvedValue(mockErrorLogs);
-      getErrorLogsDomainService.countErrorLogs = jest.fn().mockResolvedValue(1);
+      getErrorLogsDomainService.countErrorLogs.mockResolvedValue(1);
 
       const result = await service.getErrorLogs('shanty.cerdas@example.com', {});
 
       expect(result.logs).toHaveLength(1);
       expect(result.total).toBe(1);
       expect(getErrorLogsDomainService.getErrorLogs).toHaveBeenCalledWith({});
+      expect(getErrorLogsDomainService.countErrorLogs).toHaveBeenCalledWith({});
     });
 
     it('should throw AuthError for unauthorized user', async () => {
@@ -81,7 +83,7 @@ describe('GetErrorLogsApplicationService', () => {
       ];
 
       getErrorLogsDomainService.getErrorLogs.mockResolvedValue(mockErrorLogs);
-      getErrorLogsDomainService.countErrorLogs = jest.fn().mockResolvedValue(1);
+      getErrorLogsDomainService.countErrorLogs.mockResolvedValue(1);
 
       // Test different email formats that should work
       const emails = [
@@ -92,8 +94,12 @@ describe('GetErrorLogsApplicationService', () => {
       ];
 
       for (const email of emails) {
+        jest.clearAllMocks();
         const result = await service.getErrorLogs(email, {});
         expect(result.logs).toHaveLength(1);
+        expect(result.total).toBe(1);
+        expect(getErrorLogsDomainService.getErrorLogs).toHaveBeenCalledWith({});
+        expect(getErrorLogsDomainService.countErrorLogs).toHaveBeenCalledWith({});
       }
     });
 

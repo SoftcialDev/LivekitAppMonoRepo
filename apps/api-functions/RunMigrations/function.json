@@ -1,0 +1,13 @@
+{
+  "bindings": [
+    {
+      "name": "PrismaMigrationTrigger",
+      "type": "timerTrigger",
+      "direction": "in",
+      "schedule": "0 0 0 * * *",
+      "runOnStartup": true,
+      "useMonitor": true
+    }
+  ]
+}
+

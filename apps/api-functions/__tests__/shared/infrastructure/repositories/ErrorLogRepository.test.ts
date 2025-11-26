@@ -17,7 +17,8 @@ jest.mock('../../../../shared/infrastructure/database/PrismaClientService', () =
     findUnique: jest.fn(),
     update: jest.fn(),
     delete: jest.fn(),
-    deleteMany: jest.fn()
+    deleteMany: jest.fn(),
+    count: jest.fn()
   }
 }));
 
@@ -26,9 +27,9 @@ jest.mock('../../../../shared/utils/dateUtils', () => ({
   getCentralAmericaTime: jest.fn().mockReturnValue(new Date('2023-01-01T10:00:00Z'))
 }));
 
-// Mock uuid
-jest.mock('../../../../shared/utils/uuid', () => ({
-  generateUuid: jest.fn().mockReturnValue('error-uuid-123')
+// Mock crypto randomUUID
+jest.mock('crypto', () => ({
+  randomUUID: jest.fn().mockReturnValue('error-uuid-123')
 }));
 
 describe('ErrorLogRepository', () => {

@@ -61,12 +61,12 @@ describe('ApiErrorLog', () => {
       });
 
       expect(errorLog.id).toBe('error-456');
-      expect(errorLog.endpoint).toBeUndefined();
-      expect(errorLog.functionName).toBeUndefined();
-      expect(errorLog.stackTrace).toBeUndefined();
-      expect(errorLog.httpStatusCode).toBeUndefined();
-      expect(errorLog.userId).toBeUndefined();
-      expect(errorLog.requestId).toBeUndefined();
+      expect(errorLog.endpoint).toBeNull();
+      expect(errorLog.functionName).toBeNull();
+      expect(errorLog.stackTrace).toBeNull();
+      expect(errorLog.httpStatusCode).toBeNull();
+      expect(errorLog.userId).toBeNull();
+      expect(errorLog.requestId).toBeNull();
       expect(errorLog.context).toBeUndefined();
       expect(errorLog.resolved).toBe(true);
       expect(errorLog.resolvedAt).toEqual(mockResolvedDate);
