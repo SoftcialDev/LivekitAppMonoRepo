@@ -19,8 +19,8 @@ import {
   ErrorLogQueryParams,
 } from '@/shared/api/errorLogsClient';
 import { ErrorSeverity } from '@/shared/api/types/errorLogs';
-import { ErrorSource } from '@/shared/api/types/errorLogs';
 import managementIcon from '@/shared/assets/manage_icon_sidebar.png';
+import { parseIsoAsCRWallClock } from '@/shared/utils/time';
 
 /**
  * ErrorLogsPage component
@@ -136,7 +136,7 @@ Endpoint: ${errorLog.endpoint || 'N/A'}
 Function: ${errorLog.functionName || 'N/A'}
 Status Code: ${errorLog.httpStatusCode || 'N/A'}
 Resolved: ${errorLog.resolved ? 'Yes' : 'No'}
-Created: ${new Date(errorLog.createdAt).toLocaleString()}
+Created: ${formatDate(errorLog.createdAt)}
 ${errorLog.stackTrace ? `\nStack Trace:\n${errorLog.stackTrace}` : ''}
       `.trim();
       alert(details);
@@ -153,11 +153,14 @@ ${errorLog.stackTrace ? `\nStack Trace:\n${errorLog.stackTrace}` : ''}
   }, [initialized, account, filters]);
 
   /**
-   * Formats date for display
+   * Formats date for display in Central America Time
+   * The API already returns dates in Central America Time, so we parse them as such
    */
   const formatDate = (date: Date | string | undefined): string => {
     if (!date) return 'N/A';
-    return new Date(date).toLocaleString();
+    // Parse the ISO string as Central America wall-clock time (no timezone conversion)
+    const dateStr = typeof date === 'string' ? date : date.toISOString();
+    return parseIsoAsCRWallClock(dateStr).format('YYYY-MM-DD HH:mm:ss');
   };
 
   /**
