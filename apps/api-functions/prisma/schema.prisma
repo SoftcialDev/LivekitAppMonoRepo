@@ -115,6 +115,9 @@ model User {
   // Camera start failures (optional relation)
   cameraStartFailures         CameraStartFailure[]        @relation("UserCameraStartFailures")
 
+  // API error logs (optional relation)
+  apiErrorLogs                ApiErrorLog[]               @relation("UserApiErrorLogs")
+
   @@index([supervisorId])
 }
 
@@ -309,6 +312,24 @@ enum CameraFailureStage {
   Unknown
 }
 
+// Error severity levels for API error logging
+enum ErrorSeverity {
+  Low
+  Medium
+  High
+  Critical
+}
+
+// Error source identification for API error logging
+enum ErrorSource {
+  ChatService
+  BlobStorage
+  Database
+  Authentication
+  Validation
+  Unknown
+}
+
 model CameraStartFailure {
   id                        String             @id @default(cuid())
   userId                    String?            @db.Uuid
@@ -330,4 +351,31 @@ model CameraStartFailure {
 
   @@index([userAdId, createdAt])
   @@index([stage, createdAt])
+}
+
+// API error logging for tracking and debugging application errors
+model ApiErrorLog {
+  id              String        @id @default(uuid()) @db.Uuid
+  severity        ErrorSeverity @default(Medium)
+  source          ErrorSource
+  endpoint        String?       @db.VarChar(200)
+  functionName    String?       @db.VarChar(200)
+  errorName       String?       @db.VarChar(200)
+  errorMessage    String        @db.Text
+  stackTrace      String?       @db.Text
+  httpStatusCode  Int?
+  userId          String?       @db.Uuid
+  user            User?         @relation("UserApiErrorLogs", fields: [userId], references: [id], onDelete: SetNull)
+  requestId       String?       @db.VarChar(100)
+  context         Json?
+  resolved        Boolean       @default(false)
+  resolvedAt      DateTime?
+  resolvedBy      String?       @db.Uuid
+  createdAt       DateTime      @default(now())
+
+  @@index([source, createdAt])
+  @@index([endpoint, createdAt])
+  @@index([severity, createdAt])
+  @@index([resolved, createdAt])
+  @@map("api_error_logs")
 }

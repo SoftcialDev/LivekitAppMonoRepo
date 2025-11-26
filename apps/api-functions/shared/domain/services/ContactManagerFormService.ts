@@ -7,6 +7,7 @@ import { IContactManagerFormService } from '../interfaces/IContactManagerFormSer
 import { IContactManagerFormRepository } from '../interfaces/IContactManagerFormRepository';
 import { IBlobStorageService } from '../interfaces/IBlobStorageService';
 import { IChatService } from '../interfaces/IChatService';
+import { IErrorLogService } from '../interfaces/IErrorLogService';
 import { ContactManagerFormRequest } from '../value-objects/ContactManagerFormRequest';
 import { ContactManagerFormResult } from '../value-objects/ContactManagerFormResult';
 import { ImageUploadRequest } from '../value-objects/ImageUploadRequest';
@@ -19,7 +20,8 @@ export class ContactManagerFormService implements IContactManagerFormService {
   constructor(
     private formRepository: IContactManagerFormRepository,
     private blobStorageService: IBlobStorageService,
-    private chatService: IChatService
+    private chatService: IChatService,
+    private errorLogService: IErrorLogService
   ) {}
 
   /**
@@ -54,7 +56,7 @@ export class ContactManagerFormService implements IContactManagerFormService {
       });
 
       // 3. Send notification to chat (async, don't wait for completion)
-      void this.sendNotificationAsync(request, imageUrl, senderName, senderEmail);
+      void this.sendNotificationAsync(request, imageUrl, senderName, senderEmail, senderId, formId);
 
       return ContactManagerFormResult.fromFormCreation(formId, true, imageUrl);
     } catch (error: any) {
@@ -67,13 +69,19 @@ export class ContactManagerFormService implements IContactManagerFormService {
    * @param request - Contact manager form request
    * @param imageUrl - Optional image URL
    * @param senderName - Name of the user submitting the form
+   * @param senderEmail - Email of the user submitting the form
+   * @param senderId - ID of the user submitting the form
+   * @param formId - ID of the created form
    */
   private async sendNotificationAsync(
     request: ContactManagerFormRequest,
     imageUrl: string | undefined,
     senderName: string,
-    senderEmail: string
+    senderEmail: string,
+    senderId: string,
+    formId: string
   ): Promise<void> {
+    let chatId: string | undefined;
     try {
       console.log('[ContactManagerFormService] Preparing chat notification', {
         formType: request.formType,
@@ -82,7 +90,7 @@ export class ContactManagerFormService implements IContactManagerFormService {
       });
 
       // Get or sync chat using application credentials
-      const chatId = await this.chatService.getContactManagersChatId();
+      chatId = await this.chatService.getContactManagersChatId();
       console.log('[ContactManagerFormService] Resolved Contact Managers chat', { chatId });
 
       // Create message payload
@@ -113,6 +121,23 @@ export class ContactManagerFormService implements IContactManagerFormService {
         status: err?.status ?? err?.statusCode ?? err?.response?.status,
         body: err?.response?.data ?? err?.body ?? err?.value ?? null
       });
+
+      try {
+        await this.errorLogService.logChatServiceError({
+          endpoint: 'ContactManagersForm',
+          functionName: 'sendNotificationAsync',
+          error,
+          userId: senderId,
+          chatId,
+          context: {
+            formType: request.formType,
+            formId,
+            senderEmail
+          }
+        });
+      } catch (logError) {
+        console.error('[ErrorLogService] Failed to persist error log', logError);
+      }
     }
   }
 

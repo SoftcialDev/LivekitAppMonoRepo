@@ -200,7 +200,7 @@ npm run start:prod
 * Builds `admin-web` with `--mode electron` (consuming `.env.electron`)
 * Starts Express at `http://localhost:3000`
 * Launches Electron pointing at `http://localhost:3000`
-* Requires `.env.electron` and the dependencies installed (see [Getting Started](#getting-started))
+* Requires `.env.electron` and the dependencies installed (see [Getting Started](#-getting-started))
 
 ---
 

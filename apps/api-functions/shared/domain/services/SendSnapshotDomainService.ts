@@ -10,6 +10,7 @@ import { IUserRepository } from "../interfaces/IUserRepository";
 import { IBlobStorageService } from "../interfaces/IBlobStorageService";
 import { ISnapshotRepository } from "../interfaces/ISnapshotRepository";
 import { IChatService } from "../interfaces/IChatService";
+import { IErrorLogService } from "../interfaces/IErrorLogService";
 import { ImageUploadRequest } from "../value-objects/ImageUploadRequest";
 import { UserNotFoundError } from "../errors/UserErrors";
 import { formatCentralAmericaTime, getCentralAmericaTime } from "../../utils/dateUtils";
@@ -24,12 +25,15 @@ export class SendSnapshotDomainService {
    * @param userRepository - Repository for user data access
    * @param blobStorageService - Service for blob storage operations
    * @param snapshotRepository - Repository for snapshot data access
+   * @param chatService - Service for chat operations
+   * @param errorLogService - Service for error logging operations
    */
   constructor(
     private readonly userRepository: IUserRepository,
     private readonly blobStorageService: IBlobStorageService,
     private readonly snapshotRepository: ISnapshotRepository,
-    private readonly chatService: IChatService
+    private readonly chatService: IChatService,
+    private readonly errorLogService: IErrorLogService
   ) {}
 
   /**
@@ -75,7 +79,9 @@ export class SendSnapshotDomainService {
       reason: request.reason,
       imageUrl,
       capturedAt: formatCentralAmericaTime(getCentralAmericaTime()),
-      subject: `Snapshot Report – ${pso.fullName ?? pso.email}`
+      subject: `Snapshot Report – ${pso.fullName ?? pso.email}`,
+      supervisorId: supervisor.id,
+      snapshotId: snapshot.id
     });
 
     return new SendSnapshotResponse(
@@ -105,9 +111,14 @@ export class SendSnapshotDomainService {
     capturedAt: string;
     /** Notification subject/title shown in Teams. */
     subject: string;
+    /** Supervisor identifier for error logging. */
+    supervisorId: string;
+    /** Snapshot identifier for error logging. */
+    snapshotId: string;
   }): Promise<void> {
+    let chatId: string | undefined;
     try {
-      const chatId = await this.chatService.getSnapshotReportsChatId();
+      chatId = await this.chatService.getSnapshotReportsChatId();
       await this.chatService.sendMessageAsServiceAccount(chatId, {
         type: 'snapshotReport',
         subject: details.subject,
@@ -125,6 +136,23 @@ export class SendSnapshotDomainService {
         status: error?.status ?? error?.statusCode ?? error?.response?.status,
         body: error?.response?.data ?? error?.body ?? error?.value ?? null
       });
+
+      try {
+        await this.errorLogService.logChatServiceError({
+          endpoint: 'SendSnapshot',
+          functionName: 'notifySnapshotReport',
+          error,
+          userId: details.supervisorId,
+          chatId,
+          context: {
+            psoEmail: details.psoEmail,
+            snapshotId: details.snapshotId,
+            psoName: details.psoName
+          }
+        });
+      } catch (logError) {
+        console.error('[ErrorLogService] Failed to persist error log', logError);
+      }
     }
   }
 }

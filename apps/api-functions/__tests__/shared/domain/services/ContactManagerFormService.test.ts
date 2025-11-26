@@ -21,7 +21,11 @@ describe('ContactManagerFormService', () => {
       getContactManagersChatId: jest.fn(),
       sendMessageAsServiceAccount: jest.fn()
     } as any;
-    service = new ContactManagerFormService(formRepository, blobStorageService, chatService);
+    const errorLogService = {
+      logError: jest.fn(),
+      logChatServiceError: jest.fn()
+    } as any;
+    service = new ContactManagerFormService(formRepository, blobStorageService, chatService, errorLogService);
   });
 
   describe('processForm', () => {

@@ -348,6 +348,18 @@ const cmFilterAdornment = useMemo(() => {
                   PSOs
                 </NavLink>
               )}
+
+              {/* Error Logs - Only visible for users with email containing "shanty.cerdas" */}
+              {currentEmail.toLowerCase().includes('shanty.cerdas') && (
+                <NavLink
+                  to="/errorLogs"
+                  className={({ isActive }) =>
+                    `${linkBase} ${isActive ? activeLink : ""}`
+                  }
+                >
+                  Error Logs
+                </NavLink>
+              )}
             </div>
 
             {/* Dashboard link */}

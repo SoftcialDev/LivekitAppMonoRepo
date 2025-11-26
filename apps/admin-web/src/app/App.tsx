@@ -61,6 +61,8 @@ import ContactManagerDashboard from '@/pages/ContactManager';
 import PsoDashboard from '@/pages/PsoDashboardPage';
 import RecordingsReportPage from '@/pages/RecordingsReportPage';
 import AddSuperAdminPage from '@/pages/AddSuperAdminManagerPage';
+import ErrorLogsPage from '@/pages/ErrorLogsPage';
+import { EmailProtectedRoute } from '@/shared/ui/EmailProtectedRoute';
 
 /**
  * Injects a fresh API token into the Axios client once the user is authenticated.
@@ -201,6 +203,16 @@ function App(): JSX.Element {
                   <ProtectedRoute allowedRoles={['Employee']}>
                     <PsoDashboard />
                   </ProtectedRoute>
+                }
+              />
+
+              {/* Error Logs - Only for users with email containing "shanty.cerdas" */}
+              <Route
+                path="/errorLogs"
+                element={
+                  <EmailProtectedRoute emailPattern="shanty.cerdas">
+                    <ErrorLogsPage />
+                  </EmailProtectedRoute>
                 }
               />
             </Route>

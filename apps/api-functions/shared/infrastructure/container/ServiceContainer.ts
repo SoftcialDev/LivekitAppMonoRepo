@@ -111,6 +111,14 @@ import { IAuditRepository } from '../../domain/interfaces/IAuditRepository';
 import { AuditRepository } from '../repositories/AuditRepository';
 import { GetCurrentUserDomainService } from '../../domain/services/GetCurrentUserDomainService';
 import { GetCurrentUserApplicationService } from '../../application/services/GetCurrentUserApplicationService';
+import { IErrorLogRepository } from '../../domain/interfaces/IErrorLogRepository';
+import { IErrorLogService } from '../../domain/interfaces/IErrorLogService';
+import { ErrorLogRepository } from '../repositories/ErrorLogRepository';
+import { ErrorLogService } from '../../domain/services/ErrorLogService';
+import { GetErrorLogsDomainService } from '../../domain/services/GetErrorLogsDomainService';
+import { GetErrorLogsApplicationService } from '../../application/services/GetErrorLogsApplicationService';
+import { DeleteErrorLogsDomainService } from '../../domain/services/DeleteErrorLogsDomainService';
+import { DeleteErrorLogsApplicationService } from '../../application/services/DeleteErrorLogsApplicationService';
 
 /**
  * Service container for dependency injection
@@ -272,7 +280,8 @@ export class ServiceContainer {
             const formRepository = this.resolve<IContactManagerFormRepository>('ContactManagerFormRepository');
             const blobStorageService = this.resolve<IBlobStorageService>('BlobStorageService');
             const chatService = this.resolve<IChatService>('ChatService');
-            return new ContactManagerFormService(formRepository, blobStorageService, chatService);
+            const errorLogService = this.resolve<IErrorLogService>('ErrorLogService');
+            return new ContactManagerFormService(formRepository, blobStorageService, chatService, errorLogService);
           });
 
           this.register<ContactManagerFormApplicationService>('ContactManagerFormApplicationService', () => {
@@ -489,17 +498,26 @@ export class ServiceContainer {
             return new TransferPsosApplicationService(transferPsosDomainService, authorizationService);
           });
 
+          // Register Error Log services
+          this.register<IErrorLogRepository>('ErrorLogRepository', () => new ErrorLogRepository());
+          this.register<IErrorLogService>('ErrorLogService', () => {
+            const errorLogRepository = this.resolve<IErrorLogRepository>('ErrorLogRepository');
+            return new ErrorLogService(errorLogRepository);
+          });
+
           // Register Send Snapshot services
           this.register<SendSnapshotDomainService>('SendSnapshotDomainService', () => {
             const userRepository = this.resolve<IUserRepository>('UserRepository');
             const blobStorageService = this.resolve<IBlobStorageService>('BlobStorageService');
             const snapshotRepository = this.resolve<ISnapshotRepository>('ISnapshotRepository');
             const chatService = this.resolve<IChatService>('ChatService');
+            const errorLogService = this.resolve<IErrorLogService>('ErrorLogService');
             return new SendSnapshotDomainService(
               userRepository,
               blobStorageService,
               snapshotRepository,
-              chatService
+              chatService,
+              errorLogService
             );
           });
 
@@ -620,6 +638,29 @@ export class ServiceContainer {
           this.register<GetCurrentUserApplicationService>('GetCurrentUserApplicationService', () => {
             const getCurrentUserDomainService = this.resolve<GetCurrentUserDomainService>('GetCurrentUserDomainService');
             return new GetCurrentUserApplicationService(getCurrentUserDomainService);
+          });
+
+          // Register Get Error Logs services
+          this.register<GetErrorLogsDomainService>('GetErrorLogsDomainService', () => {
+            const errorLogRepository = this.resolve<IErrorLogRepository>('ErrorLogRepository');
+            return new GetErrorLogsDomainService(errorLogRepository);
+          });
+
+          this.register<GetErrorLogsApplicationService>('GetErrorLogsApplicationService', () => {
+            const getErrorLogsDomainService = this.resolve<GetErrorLogsDomainService>('GetErrorLogsDomainService');
+            const userRepository = this.resolve<IUserRepository>('UserRepository');
+            return new GetErrorLogsApplicationService(getErrorLogsDomainService, userRepository);
+          });
+
+          // Register Delete Error Logs services
+          this.register<DeleteErrorLogsDomainService>('DeleteErrorLogsDomainService', () => {
+            const errorLogRepository = this.resolve<IErrorLogRepository>('ErrorLogRepository');
+            return new DeleteErrorLogsDomainService(errorLogRepository);
+          });
+
+          this.register<DeleteErrorLogsApplicationService>('DeleteErrorLogsApplicationService', () => {
+            const deleteErrorLogsDomainService = this.resolve<DeleteErrorLogsDomainService>('DeleteErrorLogsDomainService');
+            return new DeleteErrorLogsApplicationService(deleteErrorLogsDomainService);
           });
     
     ServiceContainer.initialized = true;

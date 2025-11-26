@@ -22,11 +22,16 @@ describe('SendSnapshotDomainService', () => {
       getSnapshotReportsChatId: jest.fn().mockResolvedValue('chat-123'),
       sendMessageAsServiceAccount: jest.fn()
     } as any;
+    const errorLogService = {
+      logError: jest.fn(),
+      logChatServiceError: jest.fn()
+    } as any;
     service = new SendSnapshotDomainService(
       userRepository,
       blobStorageService,
       snapshotRepository,
-      chatService
+      chatService,
+      errorLogService
     );
   });
 
