@@ -2,11 +2,10 @@
   "version": "2.0",
   "extensionBundle": {
     "id": "Microsoft.Azure.Functions.ExtensionBundle",
-    "version": "[3.3.0,4.0.0)" 
+    "version": "[4.*, 5.0.0)"
   },
   "extensions": {
     "webPubSub": {
-      "version": "1.0.0",
       "connectionStringSetting": "WEBPUBSUB_CONNECTION",
       "pathPrefix": "runtime/webhooks/webpubsub"
     }
