@@ -217,8 +217,8 @@ resource "azurerm_web_pubsub_hub" "with_handler" {
   web_pubsub_id = module.web_pubsub.webpubsub_hub_id
 
   event_handler {
-    url_template = "https://${module.function_app.function_default_hostname}/runtime/webhooks/webpubsub?code=${data.azurerm_function_app_host_keys.host_keys.webpubsub_extension_key}"
-    system_events                 = ["connect", "connected", "disconnected"]
+    url_template = "https://${module.function_app.function_default_hostname}/api/webpubsub-events?code=${data.azurerm_function_app_host_keys.host_keys.default_key}"
+    system_events = ["connect", "connected", "disconnected"]
   }
   depends_on = [ 
     module.function_app,

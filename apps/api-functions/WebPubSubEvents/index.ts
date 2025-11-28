@@ -9,24 +9,11 @@ const webPubSubEvents: AzureFunction = async (
   req: HttpRequest,
   webPubSubContext: any
 ): Promise<void> => {
-  context.log.info("WebPubSubEvents function started", {
-    method: req.method,
-    url: req.url,
-    hasWebPubSubContext: !!webPubSubContext,
-    webPubSubContextType: typeof webPubSubContext,
-    bindingDataKeys: Object.keys(context.bindingData || {}),
-    bodyType: typeof req.body,
-    headerKeys: Object.keys(req.headers || {})
-  });
-
   if (req.method === "OPTIONS") {
     context.res = {
       status: 200,
-      headers: {
-        "WebHook-Allowed-Origin": "*"
-      }
+      headers: { "WebHook-Allowed-Origin": "*" }
     };
-    context.log.info("OPTIONS request handled for WebHook-Allowed-Origin");
     return;
   }
 
@@ -36,7 +23,6 @@ const webPubSubEvents: AzureFunction = async (
       headers: { "Content-Type": "application/json" },
       body: { error: "Method not allowed" }
     };
-    context.log.warn(`Method not allowed: ${req.method}`);
     return;
   }
 
@@ -46,17 +32,11 @@ const webPubSubEvents: AzureFunction = async (
   let userId = "";
 
   const headers = req.headers || {};
-  const allHeaderKeys = Object.keys(headers);
-  context.log.verbose("Headers available", { 
-    keys: allHeaderKeys,
-    ceHeaders: allHeaderKeys.filter(k => k.toLowerCase().startsWith("ce-"))
-  });
 
-  for (const key of allHeaderKeys) {
+  for (const key of Object.keys(headers)) {
     const lowerKey = key.toLowerCase();
     if (lowerKey === "ce-eventname" || lowerKey === "ce-event") {
       eventName = String(headers[key]).toLowerCase().trim();
-      context.log.verbose(`Found eventName in header ${key}: ${eventName}`);
       break;
     }
   }
@@ -69,7 +49,6 @@ const webPubSubEvents: AzureFunction = async (
         hub = parsed.hub || "";
         connectionId = parsed.connectionId || "";
         userId = parsed.userId || parsed.user?.id || parsed.claims?.userId || "";
-        context.log.verbose(`Parsed webPubSubContext from string, eventName: ${eventName}`);
       } catch (e) {
         context.log.warn("Failed to parse webPubSubContext as JSON", { error: e });
       }
@@ -78,7 +57,6 @@ const webPubSubEvents: AzureFunction = async (
       hub = webPubSubContext.hub || "";
       connectionId = webPubSubContext.connectionId || "";
       userId = webPubSubContext.userId || webPubSubContext.user?.id || webPubSubContext.claims?.userId || "";
-      context.log.verbose(`Extracted from webPubSubContext object, eventName: ${eventName}`);
     }
   }
 
@@ -91,7 +69,6 @@ const webPubSubEvents: AzureFunction = async (
         hub = hub || parsed.hub || "";
         connectionId = connectionId || parsed.connectionId || "";
         userId = userId || parsed.userId || parsed.user?.id || parsed.claims?.userId || "";
-        context.log.verbose(`Parsed bindingData.webPubSubContext from string, eventName: ${eventName}`);
       } catch (e) {
         context.log.warn("Failed to parse bindingData.webPubSubContext as JSON", { error: e });
       }
@@ -100,7 +77,6 @@ const webPubSubEvents: AzureFunction = async (
       hub = hub || bindingContext.hub || "";
       connectionId = connectionId || bindingContext.connectionId || "";
       userId = userId || bindingContext.userId || bindingContext.user?.id || bindingContext.claims?.userId || "";
-      context.log.verbose(`Extracted from bindingData.webPubSubContext object, eventName: ${eventName}`);
     }
   }
 
@@ -109,9 +85,7 @@ const webPubSubEvents: AzureFunction = async (
     if (typeof req.body === "string") {
       try {
         bodyData = JSON.parse(req.body);
-        context.log.verbose("Parsed request body from string");
       } catch (e) {
-        context.log.warn("Failed to parse body as JSON", { body: req.body });
         bodyData = null;
       }
     }
@@ -121,64 +95,34 @@ const webPubSubEvents: AzureFunction = async (
       hub = hub || bodyData.hub || "";
       connectionId = connectionId || bodyData.connectionId || "";
       userId = userId || bodyData.userId || bodyData.user?.id || bodyData.claims?.userId || "";
-      context.log.verbose(`Extracted from request body, eventName: ${eventName}`);
     }
   }
 
   if (!eventName) {
-    const hubHeader = headers["ce-hub"] || headers["Ce-Hub"];
-    if (hubHeader) {
-      hub = String(hubHeader);
-    }
-    const connectionIdHeader = headers["ce-connectionid"] || headers["Ce-Connectionid"];
-    if (connectionIdHeader) {
-      connectionId = String(connectionIdHeader);
-    }
-    const userIdHeader = headers["ce-userid"] || headers["Ce-Userid"];
-    if (userIdHeader) {
-      userId = String(userIdHeader);
-    }
+    hub = hub || headers["ce-hub"] || headers["Ce-Hub"] || "";
+    connectionId = connectionId || headers["ce-connectionid"] || headers["Ce-Connectionid"] || "";
+    userId = userId || headers["ce-userid"] || headers["Ce-Userid"] || "";
 
     if (hub && !eventName) {
-      context.log.warn("Handshake detected (has hub but no eventName), treating as connect");
       eventName = "connect";
     }
   }
 
   eventName = eventName.toLowerCase().trim();
-
-  if (!hub) {
-    hub = headers["ce-hub"] || headers["Ce-Hub"] || "";
-  }
-  if (!connectionId) {
-    connectionId = headers["ce-connectionid"] || headers["Ce-Connectionid"] || "";
-  }
-  if (!userId) {
-    userId = headers["ce-userid"] || headers["Ce-Userid"] || "";
-  }
-
-  context.log.info("WebPubSub event parsed", {
-    hub,
-    eventName,
-    connectionId,
-    userId,
-    hasWebPubSubContext: !!webPubSubContext,
-    hasBindingData: !!context.bindingData?.webPubSubContext
-  });
+  hub = hub || headers["ce-hub"] || headers["Ce-Hub"] || "";
+  connectionId = connectionId || headers["ce-connectionid"] || headers["Ce-Connectionid"] || "";
+  userId = userId || headers["ce-userid"] || headers["Ce-Userid"] || "";
 
   if (!eventName) {
-    context.log.error("Missing eventName after all extraction attempts", {
-      method: req.method,
-      webPubSubContextType: typeof webPubSubContext,
+    context.log.error("Missing eventName", {
       webPubSubContext: JSON.stringify(webPubSubContext),
       bindingData: JSON.stringify(context.bindingData),
-      body: JSON.stringify(req.body),
-      headers: JSON.stringify(headers)
+      body: JSON.stringify(req.body)
     });
     context.res = {
       status: 400,
       headers: { "Content-Type": "application/json" },
-      body: { error: `Unknown event name: ${eventName || ""}` }
+      body: { error: "Unknown event name" }
     };
     return;
   }
@@ -194,25 +138,7 @@ const webPubSubEvents: AzureFunction = async (
       contextData.userId = userId;
     }
 
-    context.log.verbose("Creating WebSocketEventRequest", {
-      eventName,
-      hub,
-      connectionId,
-      userId,
-      contextDataKeys: Object.keys(contextData)
-    });
-
-    const request = WebSocketEventRequest.fromWebPubSubContext(
-      contextData,
-      eventName
-    );
-
-    context.log.verbose("WebSocketEventRequest created", {
-      requestUserId: request.userId,
-      requestConnectionId: request.connectionId,
-      requestHub: request.hub,
-      requestPhase: request.phase
-    });
+    const request = WebSocketEventRequest.fromWebPubSubContext(contextData, eventName);
 
     if (eventName === "connect" || eventName === "connected") {
       const applicationService = serviceContainer.resolve<WebSocketConnectionApplicationService>(
@@ -221,10 +147,10 @@ const webPubSubEvents: AzureFunction = async (
       const response = await applicationService.handleConnection(request);
       
       if (response.status !== 200) {
-        context.log.error(`handleConnection returned error status ${response.status}`, {
+        context.log.error("handleConnection error", {
+          status: response.status,
           message: response.message,
-          userId: request.userId,
-          connectionId: request.connectionId
+          userId: request.userId
         });
       }
       
@@ -233,7 +159,6 @@ const webPubSubEvents: AzureFunction = async (
         headers: { "Content-Type": "application/json" },
         body: response.status !== 200 ? { error: response.message } : undefined
       };
-      context.log.info(`Handled ${eventName} event for user ${request.userId || userId} with status ${response.status || 200}`);
       return;
     }
 
@@ -252,15 +177,13 @@ const webPubSubEvents: AzureFunction = async (
         const webPubSubService = serviceContainer.resolve<any>("WebPubSubService");
         await webPubSubService.syncAllUsersWithDatabase();
       } catch (syncError: any) {
-        context.log.warn("Sync error (non-critical)", syncError);
+        context.log.warn("Sync error", syncError);
       }
 
       context.res = { status: 200 };
-      context.log.info(`Handled disconnected event for user ${userId}`);
       return;
     }
 
-    context.log.warn("Unknown event name", { eventName });
     context.res = {
       status: 400,
       headers: { "Content-Type": "application/json" },
