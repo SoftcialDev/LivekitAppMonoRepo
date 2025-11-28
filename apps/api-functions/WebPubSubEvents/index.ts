@@ -187,18 +187,53 @@ const webPubSubEvents: AzureFunction = async (
     const serviceContainer = ServiceContainer.getInstance();
     serviceContainer.initialize();
 
+    const contextData = webPubSubContext || req.body || {};
+    if (hub && !contextData.hub) contextData.hub = hub;
+    if (connectionId && !contextData.connectionId) contextData.connectionId = connectionId;
+    if (userId && !contextData.userId && !contextData.user?.id && !contextData.claims?.userId) {
+      contextData.userId = userId;
+    }
+
+    context.log.verbose("Creating WebSocketEventRequest", {
+      eventName,
+      hub,
+      connectionId,
+      userId,
+      contextDataKeys: Object.keys(contextData)
+    });
+
     const request = WebSocketEventRequest.fromWebPubSubContext(
-      webPubSubContext || req.body || {},
+      contextData,
       eventName
     );
+
+    context.log.verbose("WebSocketEventRequest created", {
+      requestUserId: request.userId,
+      requestConnectionId: request.connectionId,
+      requestHub: request.hub,
+      requestPhase: request.phase
+    });
 
     if (eventName === "connect" || eventName === "connected") {
       const applicationService = serviceContainer.resolve<WebSocketConnectionApplicationService>(
         "WebSocketConnectionApplicationService"
       );
       const response = await applicationService.handleConnection(request);
-      context.res = { status: response.status || 200 };
-      context.log.info(`Handled ${eventName} event for user ${userId} with status ${response.status || 200}`);
+      
+      if (response.status !== 200) {
+        context.log.error(`handleConnection returned error status ${response.status}`, {
+          message: response.message,
+          userId: request.userId,
+          connectionId: request.connectionId
+        });
+      }
+      
+      context.res = { 
+        status: response.status || 200,
+        headers: { "Content-Type": "application/json" },
+        body: response.status !== 200 ? { error: response.message } : undefined
+      };
+      context.log.info(`Handled ${eventName} event for user ${request.userId || userId} with status ${response.status || 200}`);
       return;
     }
 
