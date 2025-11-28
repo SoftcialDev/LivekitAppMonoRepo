@@ -55,4 +55,17 @@ export class WebSocketEventRequest {
 
     return new WebSocketEventRequest(userId, connectionId, hub, phase, c);
   }
+
+  static fromWebPubSubContext(
+    webPubSubContext: any,
+    eventName: string
+  ): WebSocketEventRequest {
+    const c = webPubSubContext || {};
+    const phase: WebSocketPhase = eventName.toLowerCase() as WebSocketPhase;
+    const userId = String(c.userId ?? c.user?.id ?? c.claims?.userId ?? "").trim().toLowerCase();
+    const connectionId = String(c.connectionId ?? "");
+    const hub = String(c.hub ?? "");
+
+    return new WebSocketEventRequest(userId, connectionId, hub, phase, c);
+  }
 }
