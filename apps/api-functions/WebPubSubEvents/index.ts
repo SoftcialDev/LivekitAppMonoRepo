@@ -1,9 +1,88 @@
+/**
+ * @fileoverview WebPubSubEvents - Azure Function for handling Web PubSub events
+ * @summary HTTP-triggered function that processes Web PubSub connection events
+ * @description Handles connect, connected, and disconnected events from Azure Web PubSub service
+ */
+
 import { AzureFunction, Context, HttpRequest } from "@azure/functions";
 import { ServiceContainer } from "../shared/infrastructure/container/ServiceContainer";
 import { WebSocketEventRequest } from "../shared/domain/value-objects/WebSocketEventRequest";
 import { WebSocketConnectionApplicationService } from "../shared/application/services/WebSocketConnectionApplicationService";
 import { ContactManagerDisconnectApplicationService } from "../shared/application/services/ContactManagerDisconnectApplicationService";
+import { IErrorLogService } from "../shared/domain/interfaces/IErrorLogService";
+import { ErrorSource } from "../shared/domain/enums/ErrorSource";
+import { WebSocketEventResponse } from "../shared/domain/value-objects/WebSocketEventResponse";
 
+async function logErrorIfAny(
+  response: WebSocketEventResponse,
+  request: WebSocketEventRequest,
+  eventName: string,
+  serviceContainer: ServiceContainer,
+  context: Context,
+  serviceName?: string
+): Promise<void> {
+  if (response.status >= 400) {
+    context.log.error(`${serviceName || "Service"} error`, {
+      status: response.status,
+      message: response.message,
+      userId: request.userId
+    });
+
+    try {
+      const errorLogService = serviceContainer.resolve<IErrorLogService>("ErrorLogService");
+      await errorLogService.logError({
+        source: ErrorSource.Unknown,
+        endpoint: "/api/webpubsub-events",
+        functionName: "WebPubSubEvents",
+        error: new Error(response.message),
+        userId: request.userId,
+        httpStatusCode: response.status,
+        context: {
+          eventName,
+          connectionId: request.connectionId,
+          hub: request.hub,
+          phase: request.phase,
+          ...(serviceName && { service: serviceName })
+        }
+      });
+    } catch (logError) {
+      context.log.warn("Failed to log error", logError);
+    }
+  }
+}
+
+/**
+ * Azure Function: WebPubSubEvents
+ *
+ * **HTTP POST** `/api/webpubsub-events`
+ *
+ * Handles Web PubSub system events (connect, connected, disconnected) via HTTP trigger
+ * with webPubSubContext binding. This replaces the webPubSubTrigger which doesn't work
+ * in Flexible Consumption plans.
+ *
+ * **Workflow:**
+ * 1. Handles OPTIONS requests for Web PubSub handshake validation
+ * 2. Extracts event information from CloudEvents headers or webPubSubContext binding
+ * 3. Routes to appropriate handler based on event type:
+ *    - `connect` / `connected`: Sets user online and syncs presence
+ *    - `disconnected`: Sets user offline, stops streaming session, and syncs presence
+ * 4. Logs errors to error log table for any 500 status responses
+ *
+ * **Event Types:**
+ * - `connect`: Initial connection handshake
+ * - `connected`: Connection established
+ * - `disconnected`: Connection terminated
+ *
+ * **Error Handling:**
+ * - 400: Missing or unknown event name
+ * - 405: Method not allowed (non-POST requests)
+ * - 500: Internal server error (logged to error log table)
+ *
+ * @param context - Azure Functions execution context
+ * @param req - HTTP request object
+ * @param webPubSubContext - Web PubSub context binding containing event metadata
+ * @returns HTTP response with appropriate status code
+ */
 const webPubSubEvents: AzureFunction = async (
   context: Context,
   req: HttpRequest,
@@ -146,13 +225,7 @@ const webPubSubEvents: AzureFunction = async (
       );
       const response = await applicationService.handleConnection(request);
       
-      if (response.status !== 200) {
-        context.log.error("handleConnection error", {
-          status: response.status,
-          message: response.message,
-          userId: request.userId
-        });
-      }
+      await logErrorIfAny(response, request, eventName, serviceContainer, context, "handleConnection");
       
       context.res = { 
         status: response.status || 200,
@@ -166,12 +239,14 @@ const webPubSubEvents: AzureFunction = async (
       const connectionService = serviceContainer.resolve<WebSocketConnectionApplicationService>(
         "WebSocketConnectionApplicationService"
       );
-      await connectionService.handleDisconnection(request, context);
+      const disconnectResponse = await connectionService.handleDisconnection(request, context);
+      await logErrorIfAny(disconnectResponse, request, eventName, serviceContainer, context, "handleDisconnection");
 
       const cmService = serviceContainer.resolve<ContactManagerDisconnectApplicationService>(
         "ContactManagerDisconnectApplicationService"
       );
-      await cmService.handleContactManagerDisconnect(request);
+      const cmResponse = await cmService.handleContactManagerDisconnect(request);
+      await logErrorIfAny(cmResponse, request, eventName, serviceContainer, context, "ContactManagerDisconnect");
 
       try {
         const webPubSubService = serviceContainer.resolve<any>("WebPubSubService");
@@ -194,6 +269,30 @@ const webPubSubEvents: AzureFunction = async (
       error: error.message,
       stack: error.stack
     });
+
+    try {
+      const serviceContainer = ServiceContainer.getInstance();
+      serviceContainer.initialize();
+      const errorLogService = serviceContainer.resolve<IErrorLogService>("ErrorLogService");
+      await errorLogService.logError({
+        source: ErrorSource.Unknown,
+        endpoint: "/api/webpubsub-events",
+        functionName: "WebPubSubEvents",
+        error: error,
+        userId: userId,
+        httpStatusCode: 500,
+        context: {
+          eventName,
+          connectionId,
+          hub,
+          method: req.method,
+          url: req.url
+        }
+      });
+    } catch (logError) {
+      context.log.warn("Failed to log error", logError);
+    }
+
     context.res = {
       status: 500,
       headers: { "Content-Type": "application/json" },
