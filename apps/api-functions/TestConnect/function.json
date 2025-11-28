@@ -1,0 +1,13 @@
+{
+  "bindings": [
+    {
+      "type": "webPubSubTrigger",
+      "name": "connectionContext",
+      "direction": "in",
+      "hub": "livekit_agent_azure_pubsub",
+      "connection": "WEBPUBSUB_CONNECTION",
+      "eventType": "system",
+      "eventName": "connect"
+    }
+  ]
+}
