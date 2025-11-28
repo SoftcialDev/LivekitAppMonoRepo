@@ -10,6 +10,16 @@ const webPubSubEvents: AzureFunction = async (
   webPubSubContext: any
 ): Promise<void> => {
   try {
+    context.log.info("WebPubSubEvents received", {
+      method: req.method,
+      url: req.url,
+      hasWebPubSubContext: !!webPubSubContext,
+      webPubSubContext: JSON.stringify(webPubSubContext),
+      bindingData: JSON.stringify(context.bindingData),
+      body: JSON.stringify(req.body),
+      headers: JSON.stringify(req.headers)
+    });
+
     if (req.method === "OPTIONS") {
       context.res = {
         status: 200,
@@ -29,23 +39,76 @@ const webPubSubEvents: AzureFunction = async (
       return;
     }
 
-    const eventName = webPubSubContext?.eventName || req.body?.eventName || "";
-    const hub = webPubSubContext?.hub || "";
-    const connectionId = webPubSubContext?.connectionId || "";
-    const userId = webPubSubContext?.userId || webPubSubContext?.user?.id || "";
+    let eventName = "";
+    let hub = "";
+    let connectionId = "";
+    let userId = "";
 
-    context.log.info("WebPubSub event received", {
+    const bindingData = context.bindingData?.webPubSubContext || webPubSubContext || {};
+
+    if (bindingData && Object.keys(bindingData).length > 0) {
+      eventName = bindingData.eventName || bindingData.event?.name || "";
+      hub = bindingData.hub || "";
+      connectionId = bindingData.connectionId || "";
+      userId = bindingData.userId || bindingData.user?.id || bindingData.claims?.userId || "";
+    }
+
+    if (!eventName && req.body) {
+      if (typeof req.body === "string") {
+        try {
+          const parsed = JSON.parse(req.body);
+          eventName = parsed.eventName || parsed.event?.name || "";
+          hub = hub || parsed.hub || "";
+          connectionId = connectionId || parsed.connectionId || "";
+          userId = userId || parsed.userId || parsed.user?.id || "";
+        } catch (e) {
+          context.log.warn("Failed to parse body as JSON", { body: req.body });
+        }
+      } else {
+        eventName = eventName || req.body.eventName || req.body.event?.name || "";
+        hub = hub || req.body.hub || "";
+        connectionId = connectionId || req.body.connectionId || "";
+        userId = userId || req.body.userId || req.body.user?.id || "";
+      }
+    }
+
+    if (!eventName) {
+      const ceEventName = req.headers?.["ce-eventname"] || req.headers?.["Ce-Eventname"];
+      if (ceEventName) {
+        eventName = String(ceEventName).toLowerCase();
+      }
+    }
+
+    eventName = eventName.toLowerCase().trim();
+
+    context.log.info("WebPubSub event parsed", {
       hub,
       eventName,
       connectionId,
-      userId
+      userId,
+      rawContext: JSON.stringify(webPubSubContext),
+      rawBody: JSON.stringify(req.body)
     });
+
+    if (!eventName) {
+      context.log.error("Missing eventName", {
+        webPubSubContext,
+        body: req.body,
+        headers: req.headers
+      });
+      context.res = {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+        body: { error: "Missing eventName in request" }
+      };
+      return;
+    }
 
     const serviceContainer = ServiceContainer.getInstance();
     serviceContainer.initialize();
 
     const request = WebSocketEventRequest.fromWebPubSubContext(
-      webPubSubContext,
+      webPubSubContext || req.body || {},
       eventName
     );
 
@@ -54,7 +117,7 @@ const webPubSubEvents: AzureFunction = async (
         "WebSocketConnectionApplicationService"
       );
       const response = await applicationService.handleConnection(request);
-      context.res = { status: response.status };
+      context.res = { status: response.status || 200 };
       return;
     }
 
