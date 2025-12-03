@@ -86,7 +86,7 @@ export class TalkSessionClient {
       limit: number;
       totalPages: number;
       hasMore: boolean;
-    }>('/api/talk-sessions', {
+    }>('/api/GetTalkSessions', {
       params: { page, limit }
     });
 

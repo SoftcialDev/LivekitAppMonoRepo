@@ -6,7 +6,7 @@
       "direction": "in",
       "name": "req",
       "methods": ["post"],
-      "route": "talksession-stop"
+      "route": "TalkSessionStop"
     },
     {
       "type": "http",

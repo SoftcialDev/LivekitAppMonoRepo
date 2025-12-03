@@ -8,7 +8,7 @@
       "methods": [
         "get"
       ],
-      "route": "talk-sessions"
+      "route": "GetTalkSessions"
     },
     {
       "type": "http",
