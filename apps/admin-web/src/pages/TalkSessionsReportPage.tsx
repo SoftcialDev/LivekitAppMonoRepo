@@ -6,6 +6,7 @@
  */
 
 import React, { useEffect, useState } from 'react';
+import snapshotIcon from '@/shared/assets/manage_icon_sidebar.png';
 import { TalkSessionClient, TalkSessionReport as TalkSessionReportDTO } from '@/shared/api/talkSessionClient';
 import { useHeader } from '@/app/providers/HeaderContext';
 import { useAuth } from '@/shared/auth/useAuth';
@@ -109,7 +110,7 @@ const TalkSessionsReportPage: React.FC = () => {
 
   useHeader({
     title: 'Talk Sessions Report',
-    iconSrc: '/favicon.ico',
+    iconSrc: snapshotIcon,
     iconAlt: 'Talk Sessions',
   });
 
