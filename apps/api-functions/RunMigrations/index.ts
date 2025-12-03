@@ -118,6 +118,10 @@ export default async function runMigrations(
     ctx.log.info(`[RunMigrations] Working directory: ${workingDir}`);
     ctx.log.info(`[RunMigrations] Schema directory: ${schemaDir}`);
     
+    process.env.PRISMA_ENGINES_TARGET_DIR = prismaEnginesDir;
+    process.env.PRISMA_CLI_ALLOW_ENGINE_DOWNLOAD = "1";
+    process.env.PRISMA_GENERATE_SKIP_AUTOINSTALL = "1";
+
     const { stdout, stderr } = await execAsync(MIGRATION_COMMAND, {
       cwd: workingDir,
       env: {
