@@ -111,6 +111,10 @@ export default async function runMigrations(
         ...process.env,
         DATABASE_URL: config.databaseUrl,
         PATH: process.env.PATH || '/usr/local/bin:/usr/bin:/bin',
+        NODE_PATH: [
+          join(workingDir, "node_modules"),
+          join(process.cwd(), "node_modules")
+        ].join(":"),
         PRISMA_ENGINES_TARGET_DIR: prismaEnginesDir,
       },
       timeout: MIGRATION_TIMEOUT_MS,
@@ -155,6 +159,14 @@ function preparePrismaRuntime(): { migrationCommand: string; workingDir: string 
   const sourceNodeModules = join(process.cwd(), "node_modules");
   const sourcePrismaDir = join(sourceNodeModules, "prisma");
   const sourceVendorDir = join(sourceNodeModules, "@prisma");
+
+  if (!existsSync(runtimeRoot)) {
+    mkdirSync(runtimeRoot, { recursive: true });
+  }
+
+  if (!existsSync(runtimeNodeModules)) {
+    mkdirSync(runtimeNodeModules, { recursive: true });
+  }
 
   if (!existsSync(runtimePrismaDir)) {
     mkdirSync(runtimePrismaDir, { recursive: true });
