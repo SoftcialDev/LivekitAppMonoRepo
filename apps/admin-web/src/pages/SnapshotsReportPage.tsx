@@ -174,14 +174,46 @@ const handleDownload = async (url: string) => {
     {
       key: 'reason',
       header: 'Reason',
-      render: row => SNAPSHOT_REASON_LABELS[row.reason] || row.reason,
-      cellClassName: 'max-w-[200px] break-words whitespace-normal'
+      cellClassName: 'whitespace-normal',
+      render: (row) => {
+        const reasonText = SNAPSHOT_REASON_LABELS[row.reason] || row.reason;
+        return (
+          <div 
+            className="break-words max-w-md" 
+            title={reasonText}
+            style={{ 
+              wordBreak: 'break-word',
+              overflowWrap: 'break-word',
+              lineHeight: '1.4',
+              minWidth: '150px'
+            }}
+          >
+            {reasonText}
+          </div>
+        );
+      },
     },
     {
       key: 'description',
       header: 'Description',
-      render: row => row.description || '—',
-      cellClassName: 'max-w-[300px] break-words whitespace-normal'
+      cellClassName: 'whitespace-normal',
+      render: (row) => {
+        const description = row.description || '—';
+        return (
+          <div 
+            className="break-words max-w-md" 
+            title={description}
+            style={{ 
+              wordBreak: 'break-word',
+              overflowWrap: 'break-word',
+              lineHeight: '1.4',
+              minWidth: '200px'
+            }}
+          >
+            {description}
+          </div>
+        );
+      },
     },
     {
       key: 'imageUrl',
