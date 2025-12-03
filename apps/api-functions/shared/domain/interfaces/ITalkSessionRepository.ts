@@ -70,5 +70,31 @@ export interface ITalkSessionRepository {
    * @throws Error if database operation fails
    */
   getActiveTalkSessionsForPso(psoId: string): Promise<TalkSession[]>;
+
+  /**
+   * Gets all talk sessions with pagination and user relations
+   * @param page - Page number (1-based)
+   * @param limit - Number of items per page
+   * @returns Promise that resolves to object with sessions and total count
+   * @throws Error if database operation fails
+   */
+  getAllTalkSessionsWithRelations(
+    page: number,
+    limit: number
+  ): Promise<{
+    sessions: Array<{
+      id: string;
+      supervisorId: string;
+      supervisor: { fullName: string; email: string };
+      psoId: string;
+      pso: { fullName: string; email: string };
+      startedAt: Date;
+      stoppedAt: Date | null;
+      stopReason: string | null;
+      createdAt: Date;
+      updatedAt: Date;
+    }>;
+    total: number;
+  }>;
 }
 

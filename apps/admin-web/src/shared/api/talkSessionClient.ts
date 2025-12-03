@@ -63,5 +63,52 @@ export class TalkSessionClient {
 
     return response.data;
   }
+
+  /**
+   * Gets all talk sessions with pagination
+   * @param page - Page number (1-based)
+   * @param limit - Number of items per page
+   * @returns Promise resolving to paginated talk sessions response
+   * @throws {Error} If the API request fails
+   */
+  public async getTalkSessions(page: number = 1, limit: number = 10): Promise<{
+    sessions: TalkSessionReport[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+    hasMore: boolean;
+  }> {
+    const response = await apiClient.get<{
+      sessions: TalkSessionReport[];
+      total: number;
+      page: number;
+      limit: number;
+      totalPages: number;
+      hasMore: boolean;
+    }>('/api/talk-sessions', {
+      params: { page, limit }
+    });
+
+    return response.data;
+  }
+}
+
+/**
+ * Talk session report DTO from the API.
+ */
+export interface TalkSessionReport {
+  id: string;
+  supervisorId: string;
+  supervisorName: string;
+  supervisorEmail: string;
+  psoId: string;
+  psoName: string;
+  psoEmail: string;
+  startedAt: string;
+  stoppedAt: string | null;
+  stopReason: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 

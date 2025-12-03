@@ -5,6 +5,7 @@ import { IBlobStorageService } from '../../../../shared/domain/interfaces/IBlobS
 import { ISnapshotRepository } from '../../../../shared/domain/interfaces/ISnapshotRepository';
 import { IChatService } from '../../../../shared/domain/interfaces/IChatService';
 import { UserNotFoundError } from '../../../../shared/domain/errors/UserErrors';
+import { SnapshotReason } from '../../../../shared/domain/enums/SnapshotReason';
 
 describe('SendSnapshotDomainService', () => {
   let service: SendSnapshotDomainService;
@@ -44,7 +45,7 @@ describe('SendSnapshotDomainService', () => {
       userRepository.findByEmail.mockResolvedValue(mockPso as any);
       blobStorageService.uploadImage.mockResolvedValue('https://example.com/image.jpg');
       snapshotRepository.create.mockResolvedValue(mockSnapshot as any);
-      const request = new SendSnapshotRequest('caller-123', 'pso@example.com', 'Test reason', 'base64data');
+      const request = new SendSnapshotRequest('caller-123', 'pso@example.com', SnapshotReason.PERFORMANCE, undefined, 'base64data');
       const result = await service.sendSnapshot(request);
       expect(result.snapshotId).toBe('snap-123');
       expect(chatService.getSnapshotReportsChatId).toHaveBeenCalled();
@@ -60,14 +61,14 @@ describe('SendSnapshotDomainService', () => {
 
     it('should throw UserNotFoundError when supervisor not found', async () => {
       userRepository.findByAzureAdObjectId.mockResolvedValue(null);
-      const request = new SendSnapshotRequest('caller-123', 'pso@example.com', 'Test reason', 'base64data');
+      const request = new SendSnapshotRequest('caller-123', 'pso@example.com', SnapshotReason.PERFORMANCE, undefined, 'base64data');
       await expect(service.sendSnapshot(request)).rejects.toThrow(UserNotFoundError);
     });
 
     it('should throw UserNotFoundError when PSO not found', async () => {
       userRepository.findByAzureAdObjectId.mockResolvedValue({ id: 'sup-123', deletedAt: null } as any);
       userRepository.findByEmail.mockResolvedValue(null);
-      const request = new SendSnapshotRequest('caller-123', 'pso@example.com', 'Test reason', 'base64data');
+      const request = new SendSnapshotRequest('caller-123', 'pso@example.com', SnapshotReason.PERFORMANCE, undefined, 'base64data');
       await expect(service.sendSnapshot(request)).rejects.toThrow(UserNotFoundError);
     });
   });

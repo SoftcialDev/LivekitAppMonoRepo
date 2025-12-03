@@ -123,6 +123,8 @@ import { ITalkSessionRepository } from '../../domain/interfaces/ITalkSessionRepo
 import { TalkSessionRepository } from '../repositories/TalkSessionRepository';
 import { TalkSessionDomainService } from '../../domain/services/TalkSessionDomainService';
 import { TalkSessionApplicationService } from '../../application/services/TalkSessionApplicationService';
+import { GetTalkSessionsDomainService } from '../../domain/services/GetTalkSessionsDomainService';
+import { GetTalkSessionsApplicationService } from '../../application/services/GetTalkSessionsApplicationService';
 
 /**
  * Service container for dependency injection
@@ -571,6 +573,18 @@ export class ServiceContainer {
             const getSnapshotsDomainService = this.resolve<GetSnapshotsDomainService>('GetSnapshotsDomainService');
             const authorizationService = this.resolve<AuthorizationService>('AuthorizationService');
             return new GetSnapshotsApplicationService(getSnapshotsDomainService, authorizationService);
+          });
+
+          this.register<GetTalkSessionsDomainService>('GetTalkSessionsDomainService', () => {
+            const talkSessionRepository = this.resolve<ITalkSessionRepository>('TalkSessionRepository');
+            return new GetTalkSessionsDomainService(talkSessionRepository);
+          });
+
+          this.register<GetTalkSessionsApplicationService>('GetTalkSessionsApplicationService', () => {
+            const getTalkSessionsDomainService = this.resolve<GetTalkSessionsDomainService>('GetTalkSessionsDomainService');
+            const authorizationService = this.resolve<AuthorizationService>('AuthorizationService');
+            const userRepository = this.resolve<IUserRepository>('UserRepository');
+            return new GetTalkSessionsApplicationService(getTalkSessionsDomainService, authorizationService, userRepository);
           });
 
           // Register Get Or Create Chat services

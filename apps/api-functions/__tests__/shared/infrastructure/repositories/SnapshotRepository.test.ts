@@ -48,6 +48,7 @@ describe('SnapshotRepository', () => {
         'supervisor-123',
         'pso-123',
         'Test reason',
+        undefined,
         'https://example.com/image.jpg'
       );
 
@@ -57,6 +58,7 @@ describe('SnapshotRepository', () => {
           supervisorId: 'supervisor-123',
           psoId: 'pso-123',
           reason: 'Test reason',
+          description: null,
           imageUrl: 'https://example.com/image.jpg',
           takenAt: new Date('2023-01-01T00:00:00Z')
         }
@@ -79,6 +81,7 @@ describe('SnapshotRepository', () => {
         'supervisor-456',
         'pso-456',
         'Different reason',
+        undefined,
         'https://example.com/different.jpg'
       );
 

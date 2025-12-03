@@ -140,6 +140,85 @@ export class TalkSessionRepository implements ITalkSessionRepository {
   }
 
   /**
+   * Gets all talk sessions with pagination and user relations.
+   * @param page - Page number (1-based)
+   * @param limit - Number of items per page
+   * @returns Promise that resolves to object with sessions and total count
+   * @throws Error if database operation fails
+   */
+  async getAllTalkSessionsWithRelations(
+    page: number,
+    limit: number
+  ): Promise<{
+    sessions: Array<{
+      id: string;
+      supervisorId: string;
+      supervisor: { fullName: string; email: string };
+      psoId: string;
+      pso: { fullName: string; email: string };
+      startedAt: Date;
+      stoppedAt: Date | null;
+      stopReason: string | null;
+      createdAt: Date;
+      updatedAt: Date;
+    }>;
+    total: number;
+  }> {
+    try {
+      const skip = (page - 1) * limit;
+
+      const [sessions, total] = await Promise.all([
+        prisma.talkSessionHistory.findMany({
+          skip,
+          take: limit,
+          include: {
+            supervisor: {
+              select: {
+                fullName: true,
+                email: true
+              }
+            },
+            pso: {
+              select: {
+                fullName: true,
+                email: true
+              }
+            }
+          },
+          orderBy: {
+            startedAt: 'desc'
+          }
+        }),
+        prisma.talkSessionHistory.count()
+      ]);
+
+      return {
+        sessions: sessions.map(s => ({
+          id: s.id,
+          supervisorId: s.supervisorId,
+          supervisor: {
+            fullName: s.supervisor.fullName,
+            email: s.supervisor.email
+          },
+          psoId: s.psoId,
+          pso: {
+            fullName: s.pso.fullName,
+            email: s.pso.email
+          },
+          startedAt: s.startedAt,
+          stoppedAt: s.stoppedAt,
+          stopReason: s.stopReason,
+          createdAt: s.createdAt,
+          updatedAt: s.updatedAt
+        })),
+        total
+      };
+    } catch (error: any) {
+      throw new Error(`Failed to get talk sessions: ${error.message}`);
+    }
+  }
+
+  /**
    * Maps Prisma model to TalkSession entity
    * @param prismaSession - Prisma talk session model
    * @returns TalkSession entity

@@ -51,6 +51,7 @@ import { LoginPage } from '@/pages/LoginPage';
 import { LoadingPage } from '@/pages/LoadingPage';
 import AdminsPage from '@/pages/AdminsPage';
 import SnapshotsReportPage from '@/pages/SnapshotsReportPage';
+import TalkSessionsReportPage from '@/pages/TalkSessionsReportPage';
 import AddContactManagerPage from '@/pages/AddContactManagerPage';
 import SupervisorsPage from '@/pages/SupervisorsPage';
 import PSOsVideoPage from '@/pages/PSOsVideoPage';
@@ -114,6 +115,14 @@ function App(): JSX.Element {
                 element={
                   <ProtectedRoute allowedRoles={['Admin', 'SuperAdmin']}>
                     <SnapshotsReportPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/talkSessionsReport"
+                element={
+                  <ProtectedRoute allowedRoles={['Admin', 'SuperAdmin']}>
+                    <TalkSessionsReportPage />
                   </ProtectedRoute>
                 }
               />

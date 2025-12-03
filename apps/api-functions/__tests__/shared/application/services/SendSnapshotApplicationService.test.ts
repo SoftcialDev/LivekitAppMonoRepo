@@ -4,6 +4,7 @@
  */
 
 import { SendSnapshotApplicationService } from '../../../../shared/application/services/SendSnapshotApplicationService';
+import { SnapshotReason } from '../../../../shared/domain/enums/SnapshotReason';
 import { SendSnapshotRequest } from '../../../../shared/domain/value-objects/SendSnapshotRequest';
 import { SendSnapshotResponse } from '../../../../shared/domain/value-objects/SendSnapshotResponse';
 import { SendSnapshotDomainService } from '../../../../shared/domain/services/SendSnapshotDomainService';
@@ -49,7 +50,7 @@ describe('SendSnapshotApplicationService', () => {
   describe('sendSnapshot', () => {
     it('authorizes allowed roles and delegates to the domain service', async () => {
       const callerId = 'test-caller-id';
-      const request = new SendSnapshotRequest('test-caller-id', 'pso@example.com', 'Test message', 'base64-image-data');
+      const request = new SendSnapshotRequest('test-caller-id', 'pso@example.com', SnapshotReason.PERFORMANCE, undefined, 'base64-image-data');
       const expectedResponse = new SendSnapshotResponse('snapshot-id', 'Snapshot sent successfully');
 
       mockAuthorizationService.authorizeUserWithRoles.mockResolvedValue(undefined);
@@ -68,7 +69,7 @@ describe('SendSnapshotApplicationService', () => {
 
     it('propagates authorization failures', async () => {
       const callerId = 'test-caller-id';
-      const request = new SendSnapshotRequest('test-caller-id', 'pso@example.com', 'Test message', 'base64-image-data');
+      const request = new SendSnapshotRequest('test-caller-id', 'pso@example.com', SnapshotReason.PERFORMANCE, undefined, 'base64-image-data');
       const authError = new Error('User not authorized');
 
       mockAuthorizationService.authorizeUserWithRoles.mockRejectedValue(authError);
@@ -82,7 +83,7 @@ describe('SendSnapshotApplicationService', () => {
 
     it('propagates domain service failures', async () => {
       const callerId = 'test-caller-id';
-      const request = new SendSnapshotRequest('test-caller-id', 'pso@example.com', 'Test message', 'base64-image-data');
+      const request = new SendSnapshotRequest('test-caller-id', 'pso@example.com', SnapshotReason.PERFORMANCE, undefined, 'base64-image-data');
       const domainError = new Error('Domain service error');
 
       mockAuthorizationService.authorizeUserWithRoles.mockResolvedValue(undefined);

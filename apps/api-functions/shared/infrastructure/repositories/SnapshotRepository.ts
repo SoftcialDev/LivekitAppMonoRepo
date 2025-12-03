@@ -34,7 +34,7 @@ export class SnapshotRepository implements ISnapshotRepository {
         supervisorId,
         psoId,
         reason,
-        description,
+        description: description || null,
         imageUrl,
         takenAt: getCentralAmericaTime(),
       },
@@ -82,7 +82,12 @@ export class SnapshotRepository implements ISnapshotRepository {
     pso: { fullName: string; email: string };
   }>> {
     const snapshots = await prisma.snapshot.findMany({
-      include: {
+      select: {
+        id: true,
+        reason: true,
+        description: true,
+        imageUrl: true,
+        takenAt: true,
         supervisor: { select: { fullName: true } },
         pso: { select: { fullName: true, email: true } },
       },
