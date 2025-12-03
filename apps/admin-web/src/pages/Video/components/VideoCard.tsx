@@ -1,3 +1,12 @@
+/**
+ * @fileoverview VideoCard.tsx - React component for displaying LiveKit video/audio streams
+ * @summary Displays a video/audio stream for one remote user with controls
+ * @description This component renders a LiveKit video/audio stream card with controls for
+ * play/stop, chat, mute/unmute, snapshot capture, talkback (two-way audio), and recording.
+ * It handles connection management, participant setup, and provides a synchronized timer
+ * display for break/lunch/emergency statuses.
+ */
+
 import React, { useRef, useEffect, useState, memo } from 'react'
 import {
   Room,
@@ -18,26 +27,6 @@ import StopReasonButton, { StopReason } from '@/shared/ui/Buttons/StopReasonButt
 import SupervisorSelector from './SupervisorSelector'
 import { useSynchronizedTimer } from '../hooks/useSynchronizedTimer'
 import { TimerDisplay, CompactTimer } from './TimerDisplay'
-
-/**
- * VideoCard
- * ----------
- * Displays a LiveKit video/audio stream for one remote user and provides:
- * - Play/Stop (connect/disconnect viewing of the remote stream)
- * - Chat
- * - Mute/Unmute (local playback of the remote user's audio)
- * - Snapshot (open a modal to capture and report a frame)
- * - Talk/Stop Talk (publish/unpublish local mic to speak to the remote user)
- * - Start/Stop Rec (start/stop recording for this participant)
- *
- * Key rules:
- * - **Recording is optional**. It does **not** auto-start on first video frame.
- * - **Stop order**: when stopping stream while recording or talking,
- *   first stop recording (if active), then stop talkback (if active), then toggle the stream.
- * - **Disabled states**:
- *   - **Talk** is disabled when there is no active video (not in Play) or while connecting.
- *   - **Start Rec** is also disabled (greyed out) when there is no active video or while connecting.
- */
 const VideoCard: React.FC<VideoCardProps & { 
   livekitUrl?: string;
   psoName?: string;
@@ -71,42 +60,23 @@ const VideoCard: React.FC<VideoCardProps & {
   onSupervisorChange,
   portalMinWidthPx,
 }) => {
-  // ✅ DETECTAR PANTALLA NEGRA
   const isBlackScreen = !shouldStream || connecting || !accessToken || !roomName || !livekitUrl;
   
-  // ✅ Obtener información de autenticación para autorización
   const { account } = useAuth();
-  
-  // ✅ Obtener información de usuario desde localStorage
   const { userInfo } = useUserInfo();
-  
-  // ✅ Verificar si el usuario es Admin o SuperAdmin desde userInfo
   const isAdminOrSuperAdmin = userInfo?.role === 'Admin' || userInfo?.role === 'SuperAdmin';
-  
-  // ✅ Verificar si el usuario es específicamente SuperAdmin desde userInfo
   const isSuperAdmin = userInfo?.role === 'SuperAdmin';
-  const roomRef  = useRef<Room | null>(null)
+  
+  const roomRef = useRef<Room | null>(null)
   const audioRef = useRef<HTMLAudioElement>(null)
 
-  /** Local playback mute toggle for the remote audio. */
   const [isAudioMuted, setIsAudioMuted] = useState(true)
 
-
-  /**
-   * Per-card recording controller.
-   * NOTE: Must be stopped prior to stopping the stream to avoid backend/API errors.
-   * Recording does NOT auto-start; it is explicitly user-triggered.
-   */
   const {
     isRecording,
     loading: recordingLoading,
     toggleRecording,
   } = useRecording(roomName!, email!)
-
-  /**
-   * Two-way audio (talkback): publish/unpublish the local mic to the same room.
-   * Also stopped before stopping the stream.
-   */
   const {
     isTalking,
     loading: talkLoading,
@@ -190,69 +160,37 @@ const VideoCard: React.FC<VideoCardProps & {
     const connectAndWatch = async (retryCount = 0) => {
       const room = new Room()
       try {
-
-        
         await room.connect(livekitUrl!, accessToken!)
-
-        
-        // ✅ VERIFICAR PARTICIPANTES DESPUÉS DE CONECTAR
-
-
-        
       } catch (error) {
-
-        
-        // ✅ REINTENTOS - Si falla la conexión, reintentar hasta 3 veces
         if (retryCount < 2 && !canceled) {
-          const delay = (retryCount + 1) * 1500; // 1.5s, 3s, 4.5s
-
+          const delay = (retryCount + 1) * 1500;
           setTimeout(() => connectAndWatch(retryCount + 1), delay);
           return;
         }
-        
-        // Parent can reflect "connecting" externally; ignore here.
       }
+      
       if (canceled) {
-
         room.disconnect()
         return
       }
+      
       lkRoom = room
       roomRef.current = room
 
-      // Attach to any existing remote participant
-
-
-      
       room.remoteParticipants.forEach(p => {
-
-
-        
         if (p.identity === roomName) {
-
           setupParticipant(p)
         }
       })
       
-      // ✅ VERIFICAR SI NO HAY PARTICIPANTES
-      if (room.remoteParticipants.size === 0) {
-
-      }
-      
-      // ✅ LISTENER MEJORADO - También escuchar cuando el participante publica tracks
       room.on(RoomEvent.ParticipantConnected, p => {
-
         if (p.identity === roomName) {
-
           setupParticipant(p)
         }
       })
       
-      // ✅ ESCUCHAR CUANDO SE PUBLICAN TRACKS - Por si el participante ya estaba pero no tenía tracks
       room.on(RoomEvent.TrackPublished, (publication, participant) => {
-
         if (participant.identity === roomName) {
-
           setupParticipant(participant)
         }
       })
@@ -497,7 +435,6 @@ const VideoCard: React.FC<VideoCardProps & {
     </>
   )
 }, (prevProps, nextProps) => {
-  // Solo comparar props críticas para el streaming
   const criticalProps = ['email', 'accessToken', 'roomName', 'livekitUrl', 'shouldStream', 'connecting', 'statusMessage'];
   
   for (const prop of criticalProps) {

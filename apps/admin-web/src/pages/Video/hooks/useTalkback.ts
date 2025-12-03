@@ -1,3 +1,12 @@
+/**
+ * @fileoverview useTalkback.ts - Hook for managing local microphone publishing (push-to-talk)
+ * @summary Provides functionality to publish/unpublish local microphone to LiveKit room
+ * @description This hook manages two-way audio communication by publishing the local
+ * microphone track to a LiveKit room. It includes a countdown before activation,
+ * integrates with the backend API for talk session management, plays notification
+ * sounds, and handles browser refresh events.
+ */
+
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { MutableRefObject } from 'react'
 import type { Room } from 'livekit-client'
@@ -8,8 +17,6 @@ import { playIncomingCallSound, playHangUpSound } from '@/shared/utils/audioPlay
 
 /**
  * Options for {@link useTalkback}.
- *
- * @public
  */
 export interface UseTalkbackOptions {
   /**

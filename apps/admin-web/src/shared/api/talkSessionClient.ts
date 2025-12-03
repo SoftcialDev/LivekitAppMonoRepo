@@ -1,6 +1,9 @@
 /**
- * @fileoverview TalkSessionClient - API client for talk session operations
- * @summary Handles HTTP requests for starting and stopping talk sessions
+ * @fileoverview talkSessionClient.ts - API client for talk session management
+ * @summary Provides methods to start and stop talk sessions via the backend API
+ * @description This client handles HTTP requests to the TalkSessionStart and
+ * TalkSessionStop endpoints, managing the communication between supervisors
+ * and PSOs for two-way audio sessions.
  */
 
 import apiClient from './apiClient';
@@ -12,7 +15,7 @@ import {
 } from '../types/talkSession';
 
 /**
- * Client for managing talk sessions between supervisors and PSOs
+ * Client for managing talk sessions with the backend API.
  */
 export class TalkSessionClient {
   private readonly startEndpoint = '/api/TalkSessionStart';

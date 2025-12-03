@@ -1,28 +1,34 @@
 /**
- * @fileoverview AudioPlayer - Utility for playing notification sounds
+ * @fileoverview audioPlayer.ts - Utility for playing notification sounds
  * @summary Provides functions to play incoming call and hang up sounds
+ * @description This utility abstracts the HTML5 Audio API to play specific
+ * notification sounds. Sound paths can be configured via environment variables
+ * to allow for easy customization without code changes.
  */
 
 /**
- * Default path for incoming call sound
+ * Default path for the incoming call sound file.
  */
 const DEFAULT_INCOMING_CALL_SOUND = '/sounds/incoming-call.wav';
 
 /**
- * Default path for hang up sound
+ * Default path for the hang up sound file.
  */
 const DEFAULT_HANG_UP_SOUND = '/sounds/hang-up.wav';
 
 /**
- * Default volume for notification sounds (0.0 to 1.0)
+ * Default volume level for notification sounds (0.0 to 1.0).
  */
 const DEFAULT_VOLUME = 0.3;
 
 /**
- * Gets the configured sound path from environment variables or returns default
- * @param envVar - Environment variable name
- * @param defaultValue - Default path if env var is not set
- * @returns Sound file path
+ * Retrieves the sound file path from environment variables.
+ * If the environment variable is not set or not a string, it falls back to a default value.
+ * This function is client-side safe, returning the default if `window` is undefined.
+ *
+ * @param envVar - The name of the environment variable (e.g., 'VITE_TALK_INCOMING_CALL_SOUND').
+ * @param defaultValue - The default path to use if the environment variable is not found.
+ * @returns The resolved sound file path.
  */
 function getSoundPath(envVar: string, defaultValue: string): string {
   if (typeof window === 'undefined') {
@@ -34,9 +40,11 @@ function getSoundPath(envVar: string, defaultValue: string): string {
 }
 
 /**
- * Creates and plays an audio file
- * @param soundPath - Path to the audio file
- * @param volume - Volume level (0.0 to 1.0)
+ * Creates and plays an audio element with a specified sound path and volume.
+ * Catches and logs any errors during audio playback to prevent application crashes.
+ *
+ * @param soundPath - The URL or path to the audio file.
+ * @param volume - The volume level for the audio, clamped between 0.0 and 1.0.
  */
 function playSound(soundPath: string, volume: number = DEFAULT_VOLUME): void {
   try {
@@ -51,8 +59,9 @@ function playSound(soundPath: string, volume: number = DEFAULT_VOLUME): void {
 }
 
 /**
- * Plays the incoming call notification sound
- * Volume is set to a low level to avoid startling the user
+ * Plays the configured incoming call notification sound.
+ * The sound path is determined by `VITE_TALK_INCOMING_CALL_SOUND` environment variable
+ * or defaults to `/sounds/incoming-call.wav`.
  */
 export function playIncomingCallSound(): void {
   const soundPath = getSoundPath(
@@ -63,8 +72,9 @@ export function playIncomingCallSound(): void {
 }
 
 /**
- * Plays the hang up notification sound
- * Volume is set to a low level to avoid startling the user
+ * Plays the configured hang up notification sound.
+ * The sound path is determined by `VITE_TALK_HANG_UP_SOUND` environment variable
+ * or defaults to `/sounds/hang-up.wav`.
  */
 export function playHangUpSound(): void {
   const soundPath = getSoundPath(

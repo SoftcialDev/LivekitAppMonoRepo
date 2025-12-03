@@ -1,10 +1,13 @@
 /**
- * @fileoverview Talk session types and enums
- * @summary Type definitions for talk session operations
+ * @fileoverview talkSession.ts - Type definitions for talk session operations
+ * @summary Defines TypeScript interfaces and enums for talk session management
+ * @description Provides type definitions for talk session requests, responses,
+ * WebSocket messages, and stop reasons used throughout the application.
  */
 
 /**
- * Stop reason for a talk session
+ * Enum representing the reasons a talk session can be stopped.
+ * Matches the backend `TalkStopReason` enum.
  */
 export enum TalkStopReason {
   USER_STOP = 'USER_STOP',
@@ -16,14 +19,14 @@ export enum TalkStopReason {
 }
 
 /**
- * Request payload for starting a talk session
+ * Interface for the payload sent to start a talk session.
  */
 export interface TalkSessionStartRequest {
   psoEmail: string;
 }
 
 /**
- * Response from starting a talk session
+ * Interface for the response received after starting a talk session.
  */
 export interface TalkSessionStartResponse {
   message: string;
@@ -31,7 +34,7 @@ export interface TalkSessionStartResponse {
 }
 
 /**
- * Request payload for stopping a talk session
+ * Interface for the payload sent to stop a talk session.
  */
 export interface TalkSessionStopRequest {
   talkSessionId: string;
@@ -39,7 +42,7 @@ export interface TalkSessionStopRequest {
 }
 
 /**
- * Response from stopping a talk session
+ * Interface for the response received after stopping a talk session.
  */
 export interface TalkSessionStopResponse {
   message: string;
@@ -47,7 +50,7 @@ export interface TalkSessionStopResponse {
 }
 
 /**
- * WebSocket message payload for talk session start notification
+ * Interface for a WebSocket message indicating a talk session has started.
  */
 export interface TalkSessionStartMessage {
   type: 'talk_session_start';
