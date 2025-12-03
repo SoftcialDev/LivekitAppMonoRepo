@@ -1,4 +1,4 @@
-name: Build, Zip & Deploy – livekit-agent-azure-func
+name: Deploy API Functions
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
       - main
     paths:
       - 'apps/api-functions/**'
-      - '.github/workflows/main_livekit-agent-azure-func.yml'
+      - '.github/workflows/deploy-api.yml'
   workflow_dispatch:
 
 env:

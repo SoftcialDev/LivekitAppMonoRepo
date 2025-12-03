@@ -322,17 +322,6 @@ const cmFilterAdornment = useMemo(() => {
 
               {(isAdmin || isSuperAdmin) && (
                 <NavLink
-                  to="/snapshotReport"
-                  className={({ isActive }) =>
-                    `${linkBase} ${isActive ? activeLink : ""}`
-                  }
-                >
-                  Snapshot Report
-                </NavLink>
-              )}
-
-              {(isAdmin || isSuperAdmin) && (
-                <NavLink
                   to="/talkSessionsReport"
                   className={({ isActive }) =>
                     `${linkBase} ${isActive ? activeLink : ""}`
