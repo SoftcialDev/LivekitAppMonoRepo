@@ -12,7 +12,6 @@ import { useIsolatedStreams } from './Video/hooks/useIsolatedStreams';
 import { useVideoActions } from './Video/hooks/UseVideoAction';
 import { useStablePSOs } from './Video/hooks/useStablePSOs';
 import { useSupervisorChangeNotifications } from '@/shared/hooks/useSupervisorChangeNotifications';
-import { useTalkSessionNotifications } from './Video/hooks/useTalkSessionNotifications';
 
 /**
  * Converts streaming status and stop reason to a user-friendly message

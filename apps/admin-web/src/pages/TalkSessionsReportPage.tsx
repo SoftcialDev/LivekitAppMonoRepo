@@ -153,6 +153,11 @@ const TalkSessionsReportPage: React.FC = () => {
       cellClassName: 'max-w-[200px] break-words whitespace-normal'
     },
     {
+      key: 'supervisorEmail',
+      header: '',
+      cellClassName: 'hidden'
+    },
+    {
       key: 'psoName',
       header: 'PSO',
       render: row => (
@@ -162,6 +167,11 @@ const TalkSessionsReportPage: React.FC = () => {
         </div>
       ),
       cellClassName: 'max-w-[200px] break-words whitespace-normal'
+    },
+    {
+      key: 'psoEmail',
+      header: '',
+      cellClassName: 'hidden'
     },
     {
       key: 'startedAt',
@@ -197,7 +207,7 @@ const TalkSessionsReportPage: React.FC = () => {
       <TableComponent<TalkSessionReport>
         columns={columns}
         data={sessions}
-        pageSize={sessions.length || 10}
+        pageSize={Math.max(sessions.length, 10)}
         loading={loading}
         loadingAction="Loading talk sessions..."
         addButton={null}

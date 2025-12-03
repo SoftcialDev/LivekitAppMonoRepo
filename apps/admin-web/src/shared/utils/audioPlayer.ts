@@ -41,7 +41,7 @@ function getSoundPath(envVar: string, defaultValue: string): string {
 
 /**
  * Creates and plays an audio element with a specified sound path and volume.
- * Catches and logs any errors during audio playback to prevent application crashes.
+ * Stops playback after 2 seconds maximum.
  *
  * @param soundPath - The URL or path to the audio file.
  * @param volume - The volume level for the audio, clamped between 0.0 and 1.0.
@@ -50,7 +50,18 @@ function playSound(soundPath: string, volume: number = DEFAULT_VOLUME): void {
   try {
     const audio = new Audio(soundPath);
     audio.volume = Math.max(0, Math.min(1, volume));
+    
+    const stopTimeout = setTimeout(() => {
+      audio.pause();
+      audio.currentTime = 0;
+    }, 2000);
+    
+    audio.addEventListener('ended', () => {
+      clearTimeout(stopTimeout);
+    });
+    
     audio.play().catch((error) => {
+      clearTimeout(stopTimeout);
       console.warn('[AudioPlayer] Failed to play sound:', soundPath, error);
     });
   } catch (error) {
