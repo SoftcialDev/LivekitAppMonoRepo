@@ -256,7 +256,8 @@ const VideoCard: React.FC<VideoCardProps & {
     ? 'Stop Talk'
     : 'Talk'
   const talkDisabled = !mediaReady || talkLoading
-  const recordDisabled = !mediaReady || recordingLoading  // <- greyed out if no video or connecting
+  const recordDisabled = !mediaReady || recordingLoading
+  const snapshotDisabled = !mediaReady
 
   /**
    * Handles stop reason selection
@@ -388,7 +389,9 @@ const VideoCard: React.FC<VideoCardProps & {
 
           <button
             onClick={openModal}
-            className="flex-1 py-2 bg-yellow-400 rounded-xl"
+            disabled={snapshotDisabled}
+            className="flex-1 py-2 bg-yellow-400 rounded-xl disabled:opacity-50"
+            title={!mediaReady ? 'Snapshot is available only while streaming' : undefined}
           >
             Snapshot
           </button>
@@ -409,26 +412,26 @@ const VideoCard: React.FC<VideoCardProps & {
       {/* Snapshot Modal */}
       <AddModal
         open={isModalOpen}
-        title="Report Snapshot"
+        title={<strong className="text-xl">Report</strong>}
         onClose={closeModal}
         onConfirm={confirm}
         confirmLabel="Send"
         loading={isSubmitting}
-        className="w-fit"
+        className="w-[600px] max-w-[90vw]"
         loadingAction="Sending…"
       >
-        <div className="space-y-4 text-white overflow-y-auto w-full max-w-md mx-auto">
+        <div className="space-y-4 text-white overflow-y-auto w-full mx-auto">
           <p><strong>PSO:</strong> {email}</p>
           {screenshot && (
             <img
               src={screenshot}
               alt="Snapshot preview"
-              className="w-48 h-32 object-cover rounded mx-auto"
+              className="w-full max-w-md h-48 object-cover rounded mx-auto"
             />
           )}
           
           <div>
-            <label className="block mb-2 text-sm font-medium">Reason *</label>
+            <label className="block mb-2 text-sm font-medium"><strong>Reason *</strong></label>
             <Dropdown
               value={reason || ''}
               onSelect={(value) => setReason(value as SnapshotReason)}
@@ -438,22 +441,20 @@ const VideoCard: React.FC<VideoCardProps & {
                 value: r
               }))}
               className="w-full"
-              menuBgClassName="bg-[var(--color-tertiary)] text-[var(--color-primary-dark)]"
+              buttonClassName="w-full flex items-center justify-between px-4 py-2 bg-[var(--color-tertiary)] text-[var(--color-primary-dark)] rounded-lg focus:ring-0 focus:border-transparent"
+              menuBgClassName="bg-[var(--color-primary-light)] text-white"
             />
           </div>
 
-          {reason === SnapshotReason.OTHER && (
-            <div>
-              <label className="block mb-2 text-sm font-medium">Description *</label>
-              <textarea
-                value={description}
-                onChange={e => setDescription(e.target.value)}
-                placeholder="Please provide a description"
-                className="w-full h-32 p-2 rounded border text-black"
-                required
-              />
-            </div>
-          )}
+          <div>
+            <label className="block mb-2 text-sm font-medium">Description (optional)</label>
+            <textarea
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              placeholder="Enter additional details (optional)"
+              className="w-full h-32 p-2 rounded border text-black"
+            />
+          </div>
         </div>
       </AddModal>
 

@@ -16,8 +16,8 @@ import Loading from './Loading';
 export interface AddModalProps {
   /** Determines if the modal is visible. */
   open: boolean;
-  /** Text to display in the modal header. */
-  title: string;
+  /** Text or React node to display in the modal header. */
+  title: string | ReactNode;
   /** URL or import for the header icon. */
   iconSrc?: string;
   /** Alternative text for the header icon. */
@@ -198,7 +198,7 @@ const AddModal: React.FC<AddModalProps> = ({
         >
           <div className="flex items-center space-x-2 text-white text-lg font-semibold">
             {iconSrc && <img src={iconSrc} alt={iconAlt} className="w-6 h-6" />}
-            <span>{title}</span>
+            {typeof title === 'string' ? <span>{title}</span> : title}
           </div>
           <button onClick={onClose} className="leading-none" aria-label="Close">
             <CancelIcon />
