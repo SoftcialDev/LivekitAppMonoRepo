@@ -1,5 +1,11 @@
 ﻿import { Context, HttpRequest } from "@azure/functions";
 import { config } from "../config";
+import { ServiceContainer } from "../infrastructure/container/ServiceContainer";
+import { IErrorLogService } from "../domain/interfaces/IErrorLogService";
+import { ErrorContextExtractor } from "../utils/error/ErrorContextExtractor";
+import { ErrorTypeClassifier } from "../utils/error/ErrorTypeClassifier";
+import { ErrorLogger } from "../utils/error/ErrorLogger";
+import { ErrorResponseBuilder } from "../utils/error/ErrorResponseBuilder";
 
 /**
  * Configuration options for the error handler middleware.
@@ -66,10 +72,12 @@ export class ExpectedError extends Error {
  *   1. Invokes `fn(ctx, ...args)`.
  *   2. If `ExpectedError` is thrown:
  *      - Logs a warning with its message, status code, and details.
+ *      - Logs the error to database with appropriate severity (Medium for 4xx).
  *      - For HTTP triggers (`ctx.req` present), sets `ctx.res` to the specified 4xx.
  *      - Returns without rethrowing.
  *   3. If other error is thrown:
  *      - Logs as an error (including stack).
+ *      - Logs the error to database with Critical severity (5xx).
  *      - For HTTP triggers, sets `ctx.res` to 500 (unless already set),
  *        including stack if `showStackInDev && !isProd()`.
  *      - For non‐HTTP triggers, rethrows to let Azure mark function as failed.
@@ -114,79 +122,70 @@ export function withErrorHandler<Args extends any[]>(
     try {
       await fn(ctx, ...args);
     } catch (err: unknown) {
-      // Handle expected (4xx) errors
-      if (err instanceof ExpectedError) {
-        ctx.log.warn(
-          {
-            event: "ExpectedError",
-            message: err.message,
-            statusCode: err.statusCode,
-            details: err.details,
-          },
-          "Expected error thrown by handler"
-        );
+      const classification = ErrorTypeClassifier.classify(err);
+      const context = ErrorContextExtractor.extract(ctx);
 
-        if (ctx.req) {
-          if (!ctx.res?.status) {
-            const body: Record<string, unknown> = { error: err.message };
-            if (err.details !== undefined) {
-              body.details = err.details;
-            }
-            ctx.res = {
-              status: err.statusCode,
-              headers: { "Content-Type": "application/json" },
-              body,
-            };
-          } else {
-            ctx.log.warn(
-              "Response already populated before ExpectedError; skipping override"
-            );
-          }
-        }
+      const errorLogger = createErrorLogger();
+      await errorLogger.log(err, context, classification);
+
+      if (classification.type === 'expected') {
+        logExpectedError(ctx, err as ExpectedError);
+        ErrorResponseBuilder.buildExpectedErrorResponse(err as ExpectedError, ctx);
         return;
       }
 
-      // Handle unexpected (5xx) errors
-      if (err instanceof Error) {
-        ctx.log.error(
-          {
-            event: "UnhandledError",
-            message: err.message,
-            stack: err.stack,
-          },
-          "Unhandled exception in function"
-        );
-      } else {
-        ctx.log.error(
-          {
-            event: "UnhandledNonError",
-            error: String(err),
-          },
-          "Non-Error thrown in function"
-        );
-      }
+      logUnexpectedError(ctx, err);
+      ErrorResponseBuilder.buildUnexpectedErrorResponse(
+        err,
+        ctx,
+        { genericMessage, showStackInDev, isProd }
+      );
 
-      if (ctx.req) {
-        if (!ctx.res?.status) {
-          const body: Record<string, unknown> = { error: genericMessage };
-          if (showStackInDev && !isProd() && err instanceof Error) {
-            body.stack = err.stack;
-          }
-          ctx.res = {
-            status: 500,
-            headers: { "Content-Type": "application/json" },
-            body,
-          };
-        } else {
-          ctx.log.warn(
-            "Response already populated; skipping setting 500 response"
-          );
-        }
-        return;
+      if (!ctx.req) {
+        throw err;
       }
-
-      // For non-HTTP triggers, rethrow so Azure marks function as failed
-      throw err;
     }
   };
+}
+
+function createErrorLogger(): ErrorLogger {
+  const serviceContainer = ServiceContainer.getInstance();
+  if (!ServiceContainer.initialized) {
+    serviceContainer.initialize();
+  }
+  const errorLogService = serviceContainer.resolve<IErrorLogService>("ErrorLogService");
+  return new ErrorLogger(errorLogService);
+}
+
+function logExpectedError(ctx: Context, error: ExpectedError): void {
+  ctx.log.warn(
+    {
+      event: "ExpectedError",
+      message: error.message,
+      statusCode: error.statusCode,
+      details: error.details,
+    },
+    "Expected error thrown by handler"
+  );
+}
+
+function logUnexpectedError(ctx: Context, error: unknown): void {
+  if (error instanceof Error) {
+    ctx.log.error(
+      {
+        event: "UnhandledError",
+        message: error.message,
+        stack: error.stack,
+      },
+      "Unhandled exception in function"
+    );
+  } else {
+    ctx.log.error(
+      {
+        event: "UnhandledNonError",
+        error: String(error),
+      },
+      "Non-Error thrown in function"
+    );
+  }
 }

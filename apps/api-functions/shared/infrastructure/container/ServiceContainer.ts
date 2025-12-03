@@ -119,6 +119,10 @@ import { GetErrorLogsDomainService } from '../../domain/services/GetErrorLogsDom
 import { GetErrorLogsApplicationService } from '../../application/services/GetErrorLogsApplicationService';
 import { DeleteErrorLogsDomainService } from '../../domain/services/DeleteErrorLogsDomainService';
 import { DeleteErrorLogsApplicationService } from '../../application/services/DeleteErrorLogsApplicationService';
+import { ITalkSessionRepository } from '../../domain/interfaces/ITalkSessionRepository';
+import { TalkSessionRepository } from '../repositories/TalkSessionRepository';
+import { TalkSessionDomainService } from '../../domain/services/TalkSessionDomainService';
+import { TalkSessionApplicationService } from '../../application/services/TalkSessionApplicationService';
 
 /**
  * Service container for dependency injection
@@ -467,6 +471,21 @@ export class ServiceContainer {
             const streamingSessionUpdateDomainService = this.resolve<StreamingSessionUpdateDomainService>('StreamingSessionUpdateDomainService');
             const authorizationService = this.resolve<AuthorizationService>('AuthorizationService');
             return new StreamingSessionUpdateApplicationService(streamingSessionUpdateDomainService, authorizationService);
+          });
+
+          // Register Talk Session services
+          this.register<ITalkSessionRepository>('TalkSessionRepository', () => new TalkSessionRepository());
+          
+          this.register<TalkSessionDomainService>('TalkSessionDomainService', () => {
+            const talkSessionRepository = this.resolve<ITalkSessionRepository>('TalkSessionRepository');
+            const userRepository = this.resolve<IUserRepository>('UserRepository');
+            const webPubSubService = this.resolve<IWebPubSubService>('WebPubSubService');
+            return new TalkSessionDomainService(talkSessionRepository, userRepository, webPubSubService);
+          });
+
+          this.register<TalkSessionApplicationService>('TalkSessionApplicationService', () => {
+            const talkSessionDomainService = this.resolve<TalkSessionDomainService>('TalkSessionDomainService');
+            return new TalkSessionApplicationService(talkSessionDomainService);
           });
 
           // Register WebPubSub services

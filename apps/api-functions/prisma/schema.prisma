@@ -110,6 +110,9 @@ model User {
   updatedAt                    DateTime
   deletedAt                    DateTime?
 
+  supervisorTalkSessions       TalkSessionHistory[]       @relation("SupervisorTalkSessions")
+  psoTalkSessions              TalkSessionHistory[]       @relation("PsoTalkSessions")
+
   ContactManagerStatusHistory  ContactManagerStatusHistory[]
 
   // Camera start failures (optional relation)
@@ -179,6 +182,34 @@ model StreamingSessionHistory {
 
   @@index([userId])
   @@index([startedAt])
+}
+
+// Talk session history between supervisor and PSO
+model TalkSessionHistory {
+  id            String          @id @default(uuid()) @db.Uuid
+  supervisorId  String          @db.Uuid
+  supervisor    User            @relation("SupervisorTalkSessions", fields: [supervisorId], references: [id], onDelete: Cascade)
+  psoId         String          @db.Uuid
+  pso           User            @relation("PsoTalkSessions", fields: [psoId], references: [id], onDelete: Cascade)
+  startedAt     DateTime
+  stoppedAt     DateTime?
+  stopReason    TalkStopReason?
+  createdAt     DateTime
+  updatedAt     DateTime
+
+  @@index([supervisorId])
+  @@index([psoId])
+  @@index([startedAt])
+}
+
+// Talk session stop reasons
+enum TalkStopReason {
+  USER_STOP
+  PSO_DISCONNECTED
+  SUPERVISOR_DISCONNECTED
+  BROWSER_REFRESH
+  CONNECTION_ERROR
+  UNKNOWN
 }
 
 // System audit trail
