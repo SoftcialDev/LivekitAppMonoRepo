@@ -1,12 +1,13 @@
 /**
- * @fileoverview SnapshotReport - Value object for snapshot report data
+ * @fileoverview SnapshotReport.ts - Value object for snapshot report data
  * @summary Encapsulates snapshot report information
  * @description Value object representing a snapshot report with all related data
  */
 
 /**
- * Value object representing a snapshot report
- * @description Encapsulates all snapshot report data including supervisor and PSO information
+ * Value object representing a snapshot report.
+ * @description Encapsulates all snapshot report data including supervisor and PSO information.
+ * Used as a DTO for API responses.
  */
 export interface SnapshotReport {
   /** Unique identifier of the snapshot */
@@ -23,6 +24,9 @@ export interface SnapshotReport {
   
   /** Reason for taking the snapshot */
   reason: string;
+  
+  /** Optional description for the snapshot (required when reason is "OTHER") */
+  description?: string | null;
   
   /** URL of the stored image */
   imageUrl: string;

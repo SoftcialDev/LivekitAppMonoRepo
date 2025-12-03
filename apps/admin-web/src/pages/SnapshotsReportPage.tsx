@@ -1,5 +1,12 @@
+/**
+ * @fileoverview SnapshotsReportPage.tsx - Page for viewing and managing snapshot reports
+ * @summary Displays a table of all snapshot reports with filtering and deletion
+ * @description This page shows all snapshot reports taken by supervisors, including
+ * reason labels, descriptions, and provides functionality to view, download, and delete snapshots.
+ */
+
 import React, { useEffect, useState } from 'react';
-import snapshotIcon                      from '@/shared/assets/manage_icon_sidebar.png';
+import snapshotIcon from '@/shared/assets/manage_icon_sidebar.png';
 import {
   getSnapshots,
   deleteSnapshot,
@@ -11,6 +18,7 @@ import TrashButton from '@/shared/ui/Buttons/TrashButton';
 import AddModal from '@/shared/ui/ModalComponent';
 import { Column, TableComponent } from '@/shared/ui/TableComponent';
 import { useToast } from '@/shared/ui/ToastContext';
+import { SNAPSHOT_REASON_LABELS } from '@/shared/types/snapshot';
 
 
 //////////////////////
@@ -156,7 +164,16 @@ const handleDownload = async (url: string) => {
   const columns: Column<SnapshotReport>[] = [
     { key: 'supervisorName', header: 'Taken By' },
     { key: 'psoFullName',    header: 'PSO' },
-    { key: 'reason',         header: 'Reason' },
+    {
+      key: 'reason',
+      header: 'Reason',
+      render: row => SNAPSHOT_REASON_LABELS[row.reason as keyof typeof SNAPSHOT_REASON_LABELS] || row.reason
+    },
+    {
+      key: 'description',
+      header: 'Description',
+      render: row => row.description || '—'
+    },
     {
       key: 'imageUrl',
       header: 'Snapshot',

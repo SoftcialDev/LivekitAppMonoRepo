@@ -272,6 +272,7 @@ model Snapshot {
   supervisorId String   @db.Uuid
   psoId        String   @db.Uuid
   reason       String
+  description  String?
   takenAt      DateTime
   imageUrl     String
 

@@ -18,6 +18,7 @@ export class SnapshotRepository implements ISnapshotRepository {
    * @param supervisorId - The ID of the supervisor
    * @param psoId - The ID of the PSO
    * @param reason - The reason for the snapshot
+   * @param description - Optional description for the snapshot
    * @param imageUrl - The URL of the uploaded image
    * @returns Promise that resolves to the created snapshot record
    */
@@ -25,6 +26,7 @@ export class SnapshotRepository implements ISnapshotRepository {
     supervisorId: string,
     psoId: string,
     reason: string,
+    description: string | undefined,
     imageUrl: string
   ): Promise<{ id: string }> {
     const snapshot = await prisma.snapshot.create({
@@ -32,6 +34,7 @@ export class SnapshotRepository implements ISnapshotRepository {
         supervisorId,
         psoId,
         reason,
+        description,
         imageUrl,
         takenAt: getCentralAmericaTime(),
       },
@@ -67,11 +70,12 @@ export class SnapshotRepository implements ISnapshotRepository {
 
   /**
    * Finds all snapshots with supervisor and PSO relations
-   * @returns Promise that resolves to snapshots with relations
+   * @returns Promise that resolves to Snapshot entities with relations
    */
   async findAllWithRelations(): Promise<Array<{
     id: string;
     reason: string;
+    description: string | null;
     imageUrl: string;
     takenAt: Date;
     supervisor: { fullName: string };

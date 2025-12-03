@@ -14,6 +14,7 @@ export interface ISnapshotRepository {
    * @param supervisorId - The ID of the supervisor
    * @param psoId - The ID of the PSO
    * @param reason - The reason for the snapshot
+   * @param description - Optional description for the snapshot
    * @param imageUrl - The URL of the uploaded image
    * @returns Promise that resolves to the created snapshot record
    */
@@ -21,6 +22,7 @@ export interface ISnapshotRepository {
     supervisorId: string,
     psoId: string,
     reason: string,
+    description: string | undefined,
     imageUrl: string
   ): Promise<{ id: string }>;
 
@@ -45,6 +47,7 @@ export interface ISnapshotRepository {
   findAllWithRelations(): Promise<Array<{
     id: string;
     reason: string;
+    description: string | null;
     imageUrl: string;
     takenAt: Date;
     supervisor: { fullName: string };

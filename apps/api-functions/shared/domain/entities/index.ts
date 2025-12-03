@@ -5,6 +5,7 @@
 
 export { User } from './User';
 export { PendingCommand } from './PendingCommand';
+export { Snapshot } from './Snapshot';
 export { StreamingSessionHistory } from './StreamingSessionHistory';
 export { Presence } from './Presence';
 export { ContactManagerProfile } from './ContactManagerProfile';

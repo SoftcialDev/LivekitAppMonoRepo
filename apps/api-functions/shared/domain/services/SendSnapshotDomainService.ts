@@ -69,6 +69,7 @@ export class SendSnapshotDomainService {
       supervisor.id,
       pso.id,
       request.reason,
+      request.description,
       imageUrl
     );
 

@@ -27,6 +27,8 @@ import StopReasonButton, { StopReason } from '@/shared/ui/Buttons/StopReasonButt
 import SupervisorSelector from './SupervisorSelector'
 import { useSynchronizedTimer } from '../hooks/useSynchronizedTimer'
 import { TimerDisplay, CompactTimer } from './TimerDisplay'
+import { Dropdown } from '@/shared/ui/Dropdown'
+import { SnapshotReason, SNAPSHOT_REASON_LABELS } from '@/shared/types/snapshot'
 const VideoCard: React.FC<VideoCardProps & { 
   livekitUrl?: string;
   psoName?: string;
@@ -107,7 +109,9 @@ const VideoCard: React.FC<VideoCardProps & {
     isModalOpen,
     screenshot,
     reason,
+    description,
     setReason,
+    setDescription,
     isSubmitting,
     openModal,
     closeModal,
@@ -389,8 +393,7 @@ const VideoCard: React.FC<VideoCardProps & {
             Snapshot
           </button>
 
-          {/* Recording — TEMPORALMENTE COMENTADO - Solo visible para SuperAdmin, greyed out if no active video or while connecting */}
-          {/* {isSuperAdmin && (
+          {isSuperAdmin && (
             <button
               onClick={toggleRecording}
               disabled={recordDisabled}
@@ -399,7 +402,7 @@ const VideoCard: React.FC<VideoCardProps & {
             >
               {recordingLoading ? '...' : isRecording ? 'Stop Rec' : 'Start Rec'}
             </button>
-          )} */}
+          )}
         </div>
       </div>
 
@@ -414,7 +417,7 @@ const VideoCard: React.FC<VideoCardProps & {
         className="w-fit"
         loadingAction="Sending…"
       >
-        <div className="space-y-4 text-white overflow-y-auto w-full max-h-96 mx-auto">
+        <div className="space-y-4 text-white overflow-y-auto w-full max-w-md mx-auto">
           <p><strong>PSO:</strong> {email}</p>
           {screenshot && (
             <img
@@ -423,12 +426,34 @@ const VideoCard: React.FC<VideoCardProps & {
               className="w-48 h-32 object-cover rounded mx-auto"
             />
           )}
-          <textarea
-            value={reason}
-            onChange={e => setReason(e.target.value)}
-            placeholder="Enter reason for snapshot"
-            className="w-full h-32 p-2 rounded border"
-          />
+          
+          <div>
+            <label className="block mb-2 text-sm font-medium">Reason *</label>
+            <Dropdown
+              value={reason || ''}
+              onSelect={(value) => setReason(value as SnapshotReason)}
+              label="Select a reason"
+              options={Object.values(SnapshotReason).map(r => ({
+                label: SNAPSHOT_REASON_LABELS[r],
+                value: r
+              }))}
+              className="w-full"
+              menuBgClassName="bg-[var(--color-tertiary)] text-[var(--color-primary-dark)]"
+            />
+          </div>
+
+          {reason === SnapshotReason.OTHER && (
+            <div>
+              <label className="block mb-2 text-sm font-medium">Description *</label>
+              <textarea
+                value={description}
+                onChange={e => setDescription(e.target.value)}
+                placeholder="Please provide a description"
+                className="w-full h-32 p-2 rounded border text-black"
+                required
+              />
+            </div>
+          )}
         </div>
       </AddModal>
 

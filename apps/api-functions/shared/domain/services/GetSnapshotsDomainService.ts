@@ -51,6 +51,7 @@ export class GetSnapshotsDomainService {
       psoFullName: snapshot.pso.fullName,
       psoEmail: snapshot.pso.email,
       reason: snapshot.reason,
+      description: snapshot.description,
       imageUrl: snapshot.imageUrl,
       takenAt: snapshot.takenAt.toISOString(),
     }));
