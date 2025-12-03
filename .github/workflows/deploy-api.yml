@@ -39,6 +39,9 @@ jobs:
           npm ci
           # Ensure Prisma CLI is available
           test -f "node_modules/prisma/build/index.js" || test -f "node_modules/.bin/prisma" || (echo "Prisma CLI not found" && exit 1)
+          # Validate Prisma schema syntax
+          npx prisma validate
+          # Generate Prisma client
           npm run prisma:generate
           test -d "node_modules/.prisma/client"
           npm run build

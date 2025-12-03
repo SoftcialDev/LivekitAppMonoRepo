@@ -1,9 +1,10 @@
 /**
- * @fileoverview RunMigrations - Timer-triggered Azure Function for Prisma database migrations
- * @summary Executes Prisma migrations on schedule and application startup
- * @description Timer-triggered function that runs Prisma migrations using `prisma migrate deploy`.
- * Configured via function.json to execute daily at midnight UTC and on Function App startup.
- * Uses explicit schema path resolution to handle different deployment environments.
+ * @fileoverview Timer-triggered Azure Function for executing Prisma database migrations.
+ * 
+ * This function runs Prisma migrations using `prisma migrate deploy` in a writable
+ * temporary directory to work around Azure Functions' read-only file system restrictions.
+ * Configured via function.json to execute on schedule (daily at midnight UTC) and
+ * automatically on Function App startup/deployment.
  */
 
 import { Context, Timer } from "@azure/functions";
@@ -15,20 +16,15 @@ import { config } from "../shared/config";
 
 const execAsync = promisify(exec);
 
-/**
- * Migration execution timeout in milliseconds (5 minutes)
- */
 const MIGRATION_TIMEOUT_MS = 300000;
 
 /**
  * Resolves the absolute path to the Prisma schema file.
- * Attempts multiple path resolution strategies to handle different deployment contexts:
- * - Compiled output locations in Azure Functions
- * - Local development directory structure
- * - Working directory fallbacks
  * 
- * @returns Absolute path to schema.prisma file
- * @throws If schema file cannot be located after all resolution attempts
+ * Attempts multiple path resolution strategies to handle different deployment contexts.
+ * 
+ * @returns Absolute path to schema.prisma file.
+ * @throws {Error} If schema file cannot be located after all resolution attempts.
  */
 function getPrismaSchemaPath(): string {
   const currentDir = __dirname;
@@ -53,53 +49,31 @@ const PRISMA_SCHEMA_PATH = getPrismaSchemaPath();
 /**
  * Executes Prisma database migrations using the Prisma CLI.
  * 
- * Runs `prisma migrate deploy` which applies pending migrations to the database
- * without generating new migration files. This is the recommended approach for
- * production deployments.
+ * This function stages Prisma runtime files in a writable `/tmp` directory because
+ * Azure Functions deployment directories are read-only. It copies the Prisma CLI and
+ * engines to `/tmp/prisma-runtime` and executes migrations from there.
  * 
- * The function:
- * - Resolves the Prisma schema path dynamically
- * - Executes migrations with a 5-minute timeout
- * - Sets DATABASE_URL from application configuration
- * - Logs execution details and results
- * - Re-throws errors to mark function execution as failed
- * 
- * @param ctx - Azure Functions execution context for logging and execution metadata
- * @param PrismaMigrationTrigger - Timer trigger binding containing schedule information
- * @throws {Error} If migration command execution fails or times out
- * 
- * @example
- * Timer configuration in function.json:
- * ```json
- * {
- *   "schedule": "0 0 0 * * *",
- *   "runOnStartup": true
- * }
- * ```
+ * @param ctx - Azure Functions execution context for logging.
+ * @param PrismaMigrationTrigger - Timer trigger binding.
+ * @throws {Error} If migration command execution fails or times out.
  */
 export default async function runMigrations(
   ctx: Context,
   PrismaMigrationTrigger: Timer
 ): Promise<void> {
   const { migrationCommand, workingDir } = preparePrismaRuntime();
-  ctx.log.info(`[RunMigrations] Starting migration with schema at: ${PRISMA_SCHEMA_PATH}`);
-  ctx.log.info(`[RunMigrations] Working directory: ${workingDir}`);
-  ctx.log.info(`[RunMigrations] Command: ${migrationCommand}`);
 
   try {
-    const schemaDir = dirname(PRISMA_SCHEMA_PATH);
     const prismaEnginesDir = "/tmp/prisma-engines";
+    
     if (!existsSync(prismaEnginesDir)) {
       mkdirSync(prismaEnginesDir, { recursive: true });
     }
+    
     const packagedEnginesDir = join(process.cwd(), "node_modules", "@prisma", "engines");
     if (existsSync(packagedEnginesDir)) {
       cpSync(packagedEnginesDir, prismaEnginesDir, { recursive: true });
     }
-    
-    ctx.log.info(`[RunMigrations] Node version: ${process.version}`);
-    ctx.log.info(`[RunMigrations] Working directory: ${workingDir}`);
-    ctx.log.info(`[RunMigrations] Schema directory: ${schemaDir}`);
     
     process.env.PRISMA_ENGINES_TARGET_DIR = prismaEnginesDir;
     process.env.PRISMA_CLI_ALLOW_ENGINE_DOWNLOAD = "1";
@@ -126,8 +100,6 @@ export default async function runMigrations(
     if (stderr) {
       ctx.log.warn(`[RunMigrations] ${stderr}`);
     }
-
-    ctx.log.info("[RunMigrations] Migration completed successfully");
   } catch (error: unknown) {
     ctx.log.error(`[RunMigrations] Command failed: ${migrationCommand}`);
     
@@ -149,6 +121,15 @@ export default async function runMigrations(
   }
 }
 
+/**
+ * Prepares a writable Prisma runtime environment in `/tmp/prisma-runtime`.
+ * 
+ * Copies the Prisma CLI and `@prisma` packages from the read-only deployment
+ * directory to a writable temporary directory. This allows Prisma to execute
+ * migrations in Azure Functions where the deployment directory is read-only.
+ * 
+ * @returns Object containing the migration command and working directory path.
+ */
 function preparePrismaRuntime(): { migrationCommand: string; workingDir: string } {
   const runtimeRoot = "/tmp/prisma-runtime";
   const runtimeNodeModules = join(runtimeRoot, "node_modules");
