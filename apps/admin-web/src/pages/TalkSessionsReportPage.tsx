@@ -114,14 +114,15 @@ const TalkSessionsReportPage: React.FC = () => {
     iconAlt: 'Talk Sessions',
   });
 
-  /**
-   * Loads talk sessions for the current page.
-   */
   const fetchSessions = async () => {
     setLoading(true);
     try {
       const response = await talkSessionClient.getTalkSessions(page, limit);
-      setSessions(response.sessions);
+      const sessionsWithId = response.sessions.map(session => ({
+        ...session,
+        azureAdObjectId: session.id
+      }));
+      setSessions(sessionsWithId);
       setTotal(response.total);
       setTotalPages(response.totalPages);
     } catch (err: any) {

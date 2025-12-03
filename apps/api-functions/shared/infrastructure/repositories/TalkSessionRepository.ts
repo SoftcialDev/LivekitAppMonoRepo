@@ -219,6 +219,37 @@ export class TalkSessionRepository implements ITalkSessionRepository {
   }
 
   /**
+   * Gets a talk session by ID with PSO information
+   * @param talkSessionId - The ID of the talk session
+   * @returns Promise that resolves to the session with PSO email or null
+   * @throws Error if database operation fails
+   */
+  async findByIdWithPso(talkSessionId: string): Promise<{ psoEmail: string } | null> {
+    try {
+      const session = await prisma.talkSessionHistory.findUnique({
+        where: { id: talkSessionId },
+        include: {
+          pso: {
+            select: {
+              email: true
+            }
+          }
+        }
+      });
+
+      if (!session || !session.pso) {
+        return null;
+      }
+
+      return {
+        psoEmail: session.pso.email
+      };
+    } catch (error: any) {
+      throw new Error(`Failed to find talk session: ${error.message}`);
+    }
+  }
+
+  /**
    * Maps Prisma model to TalkSession entity
    * @param prismaSession - Prisma talk session model
    * @returns TalkSession entity

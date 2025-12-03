@@ -66,10 +66,16 @@ export class TalkSessionDomainService {
    * @returns Promise that resolves to the talk session stop response
    */
   async stopTalkSession(request: TalkSessionStopRequest): Promise<TalkSessionStopResponse> {
+    const sessionWithPso = await this.talkSessionRepository.findByIdWithPso(request.talkSessionId);
+
     await this.talkSessionRepository.stopTalkSession(
       request.talkSessionId,
       request.stopReason
     );
+
+    if (sessionWithPso) {
+      await this.broadcastTalkStoppedEvent(sessionWithPso.psoEmail);
+    }
 
     return new TalkSessionStopResponse(
       `Talk session stopped (${request.stopReason})`
@@ -131,19 +137,35 @@ export class TalkSessionDomainService {
   ): Promise<void> {
     try {
       const message = {
-        type: 'talk_started',
+        type: 'talk_session_start',
         supervisorEmail,
         supervisorName,
-        psoEmail,
+        psoEmail: psoEmail.toLowerCase().trim(),
         timestamp: new Date().toISOString()
       };
 
-      await this.webPubSubService.broadcastMessage(psoEmail, message);
+      await this.webPubSubService.broadcastMessage(psoEmail.toLowerCase().trim(), message);
     } catch (error) {
-      console.error(
-        `[TalkSessionDomainService] Failed to broadcast talk started event for ${psoEmail}:`,
-        error
-      );
+      console.error(`[TalkSessionDomainService] Failed to broadcast talk started event for ${psoEmail}:`, error);
+    }
+  }
+
+  /**
+   * Broadcasts talk stopped event to PSO via WebSocket
+   * @param psoEmail - The PSO's email
+   * @private
+   */
+  private async broadcastTalkStoppedEvent(psoEmail: string): Promise<void> {
+    try {
+      const message = {
+        type: 'talk_session_stop',
+        psoEmail: psoEmail.toLowerCase().trim(),
+        timestamp: new Date().toISOString()
+      };
+
+      await this.webPubSubService.broadcastMessage(psoEmail.toLowerCase().trim(), message);
+    } catch (error) {
+      console.error(`[TalkSessionDomainService] Failed to broadcast talk stopped event for ${psoEmail}:`, error);
     }
   }
 }

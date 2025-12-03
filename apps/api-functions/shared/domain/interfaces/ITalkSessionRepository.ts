@@ -96,5 +96,13 @@ export interface ITalkSessionRepository {
     }>;
     total: number;
   }>;
+
+  /**
+   * Gets a talk session by ID with PSO information
+   * @param talkSessionId - The ID of the talk session
+   * @returns Promise that resolves to the session with PSO email or null
+   * @throws Error if database operation fails
+   */
+  findByIdWithPso(talkSessionId: string): Promise<{ psoEmail: string } | null>;
 }
 
