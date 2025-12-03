@@ -10,7 +10,7 @@ import { Context, Timer } from "@azure/functions";
 import { exec } from "child_process";
 import { promisify } from "util";
 import { join, dirname } from "path";
-import { existsSync } from "fs";
+import { existsSync, mkdirSync } from "fs";
 import { config } from "../shared/config";
 
 const execAsync = promisify(exec);
@@ -109,6 +109,10 @@ export default async function runMigrations(
   try {
     const schemaDir = dirname(PRISMA_SCHEMA_PATH);
     const workingDir = process.cwd();
+    const prismaEnginesDir = "/tmp/prisma-engines";
+    if (!existsSync(prismaEnginesDir)) {
+      mkdirSync(prismaEnginesDir, { recursive: true });
+    }
     
     ctx.log.info(`[RunMigrations] Node version: ${process.version}`);
     ctx.log.info(`[RunMigrations] Working directory: ${workingDir}`);
@@ -120,6 +124,7 @@ export default async function runMigrations(
         ...process.env,
         DATABASE_URL: config.databaseUrl,
         PATH: process.env.PATH || '/usr/local/bin:/usr/bin:/bin',
+        PRISMA_ENGINES_TARGET_DIR: prismaEnginesDir,
       },
       timeout: MIGRATION_TIMEOUT_MS,
     });
