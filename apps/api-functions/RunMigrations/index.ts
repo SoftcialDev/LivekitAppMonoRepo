@@ -1,7 +1,7 @@
 /**
- * @fileoverview Timer-triggered Azure Function for executing Prisma database migrations.
+ * @fileoverview Timer-triggered Azure Function for executing Prisma database schema synchronization.
  * 
- * This function runs Prisma migrations using `prisma migrate deploy` in a writable
+ * This function runs Prisma schema synchronization using `prisma db push` in a writable
  * temporary directory to work around Azure Functions' read-only file system restrictions.
  * Configured via function.json to execute on schedule (daily at midnight UTC) and
  * automatically on Function App startup/deployment.
@@ -47,15 +47,15 @@ function getPrismaSchemaPath(): string {
 const PRISMA_SCHEMA_PATH = getPrismaSchemaPath();
 
 /**
- * Executes Prisma database migrations using the Prisma CLI.
+ * Executes Prisma database schema synchronization using the Prisma CLI.
  * 
  * This function stages Prisma runtime files in a writable `/tmp` directory because
  * Azure Functions deployment directories are read-only. It copies the Prisma CLI and
- * engines to `/tmp/prisma-runtime` and executes migrations from there.
+ * engines to `/tmp/prisma-runtime` and executes `db push` to synchronize the schema.
  * 
  * @param ctx - Azure Functions execution context for logging.
  * @param PrismaMigrationTrigger - Timer trigger binding.
- * @throws {Error} If migration command execution fails or times out.
+ * @throws {Error} If schema synchronization command execution fails or times out.
  */
 export default async function runMigrations(
   ctx: Context,
@@ -160,7 +160,7 @@ function preparePrismaRuntime(): { migrationCommand: string; workingDir: string 
   }
 
   return {
-    migrationCommand: `node "${runtimePrismaBuild}" migrate deploy --schema "${PRISMA_SCHEMA_PATH}"`,
+    migrationCommand: `node "${runtimePrismaBuild}" db push --schema "${PRISMA_SCHEMA_PATH}" --accept-data-loss`,
     workingDir: runtimeRoot,
   };
 }
