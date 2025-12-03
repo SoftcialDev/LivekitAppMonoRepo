@@ -142,15 +142,7 @@ const PSOsPage: React.FC = () => {
 
   useSupervisorChangeNotifications(handleSupervisorChange, viewerEmail, viewerRole || undefined);
 
-  useTalkSessionNotifications({
-    psoEmail: viewerEmail,
-    onTalkSessionStart: (message) => {
-      console.log('[PSOsVideoPage] Talk session started:', message);
-    },
-    onTalkSessionEnd: () => {
-      console.log('[PSOsVideoPage] Talk session ended');
-    }
-  });
+
 
   const onlineUsers = usePresenceStore(useCallback(s => s.onlineUsers, []));
   const presenceLoading = usePresenceStore(useCallback(s => s.loading, []));

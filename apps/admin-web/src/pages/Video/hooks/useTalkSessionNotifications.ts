@@ -55,9 +55,18 @@ export function useTalkSessionNotifications(
      * @param message - The received `TalkSessionStartMessage`.
      */
     const handleTalkSessionStart = (message: TalkSessionStartMessage) => {
-      if (psoEmail && message.psoEmail.toLowerCase() !== psoEmail.toLowerCase()) {
+      console.log('[useTalkSessionNotifications] Talk session start received:', {
+        messagePsoEmail: message.psoEmail,
+        filterPsoEmail: psoEmail,
+        match: psoEmail && message.psoEmail?.toLowerCase() === psoEmail.toLowerCase()
+      });
+      
+      if (psoEmail && message.psoEmail?.toLowerCase() !== psoEmail.toLowerCase()) {
+        console.log('[useTalkSessionNotifications] Message filtered out - email mismatch');
         return;
       }
+      
+      console.log('[useTalkSessionNotifications] Playing incoming call sound');
       playIncomingCallSound();
       onTalkSessionStart?.(message);
     };
@@ -68,9 +77,18 @@ export function useTalkSessionNotifications(
      * @param message - The received `TalkSessionEndedMessage`.
      */
     const handleTalkSessionEnd = (message: { psoEmail?: string }) => {
+      console.log('[useTalkSessionNotifications] Talk session end received:', {
+        messagePsoEmail: message.psoEmail,
+        filterPsoEmail: psoEmail,
+        match: psoEmail && message.psoEmail?.toLowerCase() === psoEmail.toLowerCase()
+      });
+      
       if (psoEmail && message.psoEmail?.toLowerCase() !== psoEmail.toLowerCase()) {
+        console.log('[useTalkSessionNotifications] Message filtered out - email mismatch');
         return;
       }
+      
+      console.log('[useTalkSessionNotifications] Playing hang up sound');
       playHangUpSound();
       onTalkSessionEnd?.();
     };
@@ -82,10 +100,12 @@ export function useTalkSessionNotifications(
 
     const handleMessage = (msg: any): void => {
       if (msg?.type === 'talk_session_start') {
+        console.log('[useTalkSessionNotifications] Received talk_session_start message:', msg);
         handleTalkSessionStart(msg as TalkSessionStartMessage);
       }
 
       if (msg?.type === 'talk_session_stop') {
+        console.log('[useTalkSessionNotifications] Received talk_session_stop message:', msg);
         handleTalkSessionEnd(msg as { psoEmail?: string });
       }
     };
