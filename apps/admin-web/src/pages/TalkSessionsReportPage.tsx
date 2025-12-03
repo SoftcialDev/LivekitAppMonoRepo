@@ -6,12 +6,19 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { TalkSessionClient, TalkSessionReport } from '@/shared/api/talkSessionClient';
+import { TalkSessionClient, TalkSessionReport as TalkSessionReportDTO } from '@/shared/api/talkSessionClient';
 import { useHeader } from '@/app/providers/HeaderContext';
 import { useAuth } from '@/shared/auth/useAuth';
 import { Column, TableComponent } from '@/shared/ui/TableComponent';
 import { useToast } from '@/shared/ui/ToastContext';
 import { TalkStopReason } from '@/shared/types/talkSession';
+
+/**
+ * Talk session report row type, extended with optional azureAdObjectId for TableComponent filtering.
+ */
+type TalkSessionReport = TalkSessionReportDTO & {
+  azureAdObjectId?: string;
+};
 
 /**
  * Provides a human-readable label for each TalkStopReason.

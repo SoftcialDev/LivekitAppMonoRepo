@@ -9,8 +9,7 @@ import React, { useEffect, useState } from 'react';
 import snapshotIcon from '@/shared/assets/manage_icon_sidebar.png';
 import {
   getSnapshots,
-  deleteSnapshot,
-  SnapshotReport as SnapshotDTO      
+  deleteSnapshot
 } from '@/shared/api/snapshotsClient';
 import { useHeader } from '@/app/providers/HeaderContext';
 import { useAuth } from '@/shared/auth/useAuth';
@@ -18,7 +17,7 @@ import TrashButton from '@/shared/ui/Buttons/TrashButton';
 import AddModal from '@/shared/ui/ModalComponent';
 import { Column, TableComponent } from '@/shared/ui/TableComponent';
 import { useToast } from '@/shared/ui/ToastContext';
-import { SNAPSHOT_REASON_LABELS } from '@/shared/types/snapshot';
+import { SnapshotReport as SnapshotDTO, SNAPSHOT_REASON_LABELS } from '@/shared/types/snapshot';
 
 
 //////////////////////
@@ -167,7 +166,7 @@ const handleDownload = async (url: string) => {
     {
       key: 'reason',
       header: 'Reason',
-      render: row => SNAPSHOT_REASON_LABELS[row.reason as keyof typeof SNAPSHOT_REASON_LABELS] || row.reason
+      render: row => SNAPSHOT_REASON_LABELS[row.reason] || row.reason
     },
     {
       key: 'description',
