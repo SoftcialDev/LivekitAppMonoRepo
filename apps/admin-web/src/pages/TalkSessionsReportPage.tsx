@@ -118,15 +118,17 @@ const TalkSessionsReportPage: React.FC = () => {
     setLoading(true);
     try {
       const response = await talkSessionClient.getTalkSessions(page, limit);
+      console.log('[TalkSessionsReportPage] API response:', response);
       const sessionsWithId = response.sessions.map(session => ({
         ...session,
         azureAdObjectId: session.id
       }));
+      console.log('[TalkSessionsReportPage] Mapped sessions:', sessionsWithId);
       setSessions(sessionsWithId);
       setTotal(response.total);
       setTotalPages(response.totalPages);
     } catch (err: any) {
-      console.error(err);
+      console.error('[TalkSessionsReportPage] Error fetching sessions:', err);
       showToast(err.message || 'Failed to load talk sessions', 'error');
     } finally {
       setLoading(false);
@@ -195,7 +197,7 @@ const TalkSessionsReportPage: React.FC = () => {
       <TableComponent<TalkSessionReport>
         columns={columns}
         data={sessions}
-        pageSize={limit}
+        pageSize={sessions.length || 10}
         loading={loading}
         loadingAction="Loading talk sessions..."
         addButton={null}
