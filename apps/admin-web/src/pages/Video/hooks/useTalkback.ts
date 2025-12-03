@@ -2,6 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { MutableRefObject } from 'react'
 import type { Room } from 'livekit-client'
 import { createLocalAudioTrack, LocalAudioTrack } from 'livekit-client'
+import { TalkSessionClient } from '@/shared/api/talkSessionClient'
+import { TalkStopReason } from '@/shared/types/talkSession'
+import { playIncomingCallSound, playHangUpSound } from '@/shared/utils/audioPlayer'
 
 /**
  * Options for {@link useTalkback}.
@@ -22,6 +25,12 @@ export interface UseTalkbackOptions {
   targetIdentity?: string
 
   /**
+   * Email of the PSO to start a talk session with.
+   * If provided, the hook will call TalkSessionStart/Stop APIs.
+   */
+  psoEmail?: string
+
+  /**
    * Whether to stop the underlying MediaStreamTrack when unpublishing.
    * Defaults to `true`.
    */
@@ -38,10 +47,16 @@ export interface UseTalkback {
   isTalking: boolean
   /** `true` while starting/stopping the talkback flow. */
   loading: boolean
+  /** Current countdown value (3, 2, 1, or null) */
+  countdown: number | null
+  /** `true` if countdown is active */
+  isCountdownActive: boolean
   /** Starts publishing the local microphone to the LiveKit room. */
   start: () => Promise<void>
   /** Stops publishing the local microphone to the LiveKit room. */
   stop: () => Promise<void>
+  /** Cancels an active countdown */
+  cancel: () => void
 }
 
 /**
@@ -65,73 +80,144 @@ export interface UseTalkback {
  *
  * @public
  */
+const COUNTDOWN_DURATION_MS = 3000;
+const COUNTDOWN_INTERVAL_MS = 1000;
+
 export function useTalkback(options: UseTalkbackOptions): UseTalkback {
-  const { roomRef, targetIdentity, stopOnUnpublish = true } = options
+  const { roomRef, targetIdentity, psoEmail, stopOnUnpublish = true } = options
 
   const [isTalking, setIsTalking] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [countdown, setCountdown] = useState<number | null>(null)
+  const [isCountdownActive, setIsCountdownActive] = useState(false)
 
-  // We keep the created LocalAudioTrack to unpublish/stop later.
   const localTrackRef = useRef<LocalAudioTrack | null>(null)
+  const talkSessionIdRef = useRef<string | null>(null)
+  const countdownTimerRef = useRef<number | null>(null)
+  const talkSessionClientRef = useRef(new TalkSessionClient())
 
   /**
-   * Publish a (new or existing) local mic track to the connected room.
-   * Safe to call repeatedly; duplicate publish attempts are ignored.
+   * Cancels an active countdown and stops the talk session if started
+   */
+  const cancel = useCallback(() => {
+    if (countdownTimerRef.current) {
+      window.clearTimeout(countdownTimerRef.current)
+      countdownTimerRef.current = null
+    }
+    setCountdown(null)
+    setIsCountdownActive(false)
+
+    if (talkSessionIdRef.current && psoEmail) {
+      talkSessionClientRef.current
+        .stop(talkSessionIdRef.current, TalkStopReason.USER_STOP)
+        .catch(() => {})
+      talkSessionIdRef.current = null
+    }
+  }, [psoEmail])
+
+  /**
+   * Publishes the microphone track to LiveKit room
+   */
+  const publishMicrophone = useCallback(async (): Promise<void> => {
+    const room = roomRef.current
+    if (!room) throw new Error('useTalkback.start(): room is not connected')
+
+    if (localTrackRef.current) {
+      try {
+        await room.localParticipant.publishTrack(localTrackRef.current)
+      } catch {
+        /* ignore duplicate publish */
+      }
+      return
+    }
+
+    const track = await createLocalAudioTrack()
+    localTrackRef.current = track
+    await room.localParticipant.publishTrack(track)
+  }, [roomRef])
+
+  /**
+   * Starts a talk session with countdown and microphone publishing
    */
   const start = useCallback(async () => {
-    if (loading || isTalking) return
+    if (loading || isTalking || isCountdownActive) return
     setLoading(true)
 
     try {
       const room = roomRef.current
       if (!room) throw new Error('useTalkback.start(): room is not connected')
 
-      if (localTrackRef.current) {
-        // Attempt to (re)publish; if already published, LiveKit may throw—treat as success.
-        try {
-          await room.localParticipant.publishTrack(localTrackRef.current)
-        } catch {
-          /* ignore duplicate publish */
+      if (psoEmail) {
+        const response = await talkSessionClientRef.current.start(psoEmail)
+        talkSessionIdRef.current = response.talkSessionId
+      }
+
+      setIsCountdownActive(true)
+      setCountdown(3)
+
+      playIncomingCallSound()
+
+      let currentCountdown = 3
+      const countdownInterval = setInterval(() => {
+        currentCountdown -= 1
+        if (currentCountdown > 0) {
+          setCountdown(currentCountdown)
+        } else {
+          clearInterval(countdownInterval)
+          setCountdown(null)
+          setIsCountdownActive(false)
         }
-        setIsTalking(true)
-        return
-      }
+      }, COUNTDOWN_INTERVAL_MS)
 
-      // Create mic track and publish it.
-      const track = await createLocalAudioTrack()
-      localTrackRef.current = track
-      await room.localParticipant.publishTrack(track)
+      countdownTimerRef.current = window.setTimeout(async () => {
+        clearInterval(countdownInterval)
+        setCountdown(null)
+        setIsCountdownActive(false)
 
-      if (targetIdentity) {
-        // place for future logging/routing
-        // console.debug(`[Talkback] mic published for target "${targetIdentity}"`)
-      }
+        try {
+          await publishMicrophone()
+          setIsTalking(true)
+        } catch (err) {
+          try {
+            localTrackRef.current?.stop()
+          } catch {}
+          localTrackRef.current = null
+          setIsTalking(false)
 
-      setIsTalking(true)
+          if (talkSessionIdRef.current && psoEmail) {
+            await talkSessionClientRef.current.stop(
+              talkSessionIdRef.current,
+              TalkStopReason.CONNECTION_ERROR
+            )
+            talkSessionIdRef.current = null
+          }
+
+          throw err
+        }
+      }, COUNTDOWN_DURATION_MS)
     } catch (err) {
-      // If publish failed after capture, release the device.
-      try {
-        localTrackRef.current?.stop()
-      } catch {}
-      localTrackRef.current = null
-      setIsTalking(false)
+      cancel()
       throw err
     } finally {
       setLoading(false)
     }
-  }, [roomRef, targetIdentity, isTalking, loading])
+  }, [roomRef, psoEmail, loading, isTalking, isCountdownActive, publishMicrophone, cancel])
 
   /**
-   * Unpublish and stop the current mic track (if any).
-   * Safe to call repeatedly; will no-op if nothing is active.
+   * Stops the talk session and unpublishes the microphone track
    */
   const stop = useCallback(async () => {
+    cancel()
+
     if (loading || !localTrackRef.current) {
       setIsTalking(false)
       return
     }
+
     setLoading(true)
     try {
+      playHangUpSound()
+
       const room = roomRef.current
       if (room) {
         try {
@@ -145,16 +231,30 @@ export function useTalkback(options: UseTalkbackOptions): UseTalkback {
       } catch {}
       localTrackRef.current = null
       setIsTalking(false)
+
+      if (talkSessionIdRef.current) {
+        try {
+          await talkSessionClientRef.current.stop(
+            talkSessionIdRef.current,
+            TalkStopReason.USER_STOP
+          )
+        } catch {
+          /* ignore stop errors */
+        }
+        talkSessionIdRef.current = null
+      }
     } finally {
       setLoading(false)
     }
-  }, [roomRef, stopOnUnpublish, loading])
+  }, [roomRef, stopOnUnpublish, loading, cancel])
 
   /**
    * Cleanup on unmount: unpublish and stop any active mic track.
    */
   useEffect(() => {
     return () => {
+      cancel()
+
       try {
         const room = roomRef.current
         const track = localTrackRef.current
@@ -172,9 +272,38 @@ export function useTalkback(options: UseTalkbackOptions): UseTalkback {
         localTrackRef.current = null
         setIsTalking(false)
       }
+
+      if (talkSessionIdRef.current) {
+        talkSessionClientRef.current
+          .stop(talkSessionIdRef.current, TalkStopReason.BROWSER_REFRESH)
+          .catch(() => {})
+        talkSessionIdRef.current = null
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stopOnUnpublish])
+  }, [stopOnUnpublish, cancel])
 
-  return { isTalking, loading, start, stop }
+  /**
+   * Handle browser refresh/unload
+   */
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (talkSessionIdRef.current) {
+        navigator.sendBeacon(
+          '/api/TalkSessionStop',
+          JSON.stringify({
+            talkSessionId: talkSessionIdRef.current,
+            stopReason: TalkStopReason.BROWSER_REFRESH
+          })
+        )
+      }
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+    }
+  }, [])
+
+  return { isTalking, loading, countdown, isCountdownActive, start, stop, cancel }
 }

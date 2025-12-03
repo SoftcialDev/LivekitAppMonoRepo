@@ -65,6 +65,10 @@ VITE_AZURE_AD_POST_LOGOUT_REDIRECT_URI=http://localhost:5173/
 VITE_AZURE_AD_API_CLIENT_ID=your-api-client-id
 VITE_AZURE_AD_API_SCOPE_URI=api://your-api-scope
 VITE_API_URL=https://your-function-app.azurewebsites.net
+
+# Talk Session Sounds (optional - defaults to /sounds/incoming-call.mp3 and /sounds/hang-up.mp3)
+VITE_TALK_INCOMING_CALL_SOUND=/sounds/incoming-call.mp3
+VITE_TALK_HANG_UP_SOUND=/sounds/hang-up.mp3
 ```
 
 > **Note:**

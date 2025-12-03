@@ -110,9 +110,12 @@ const VideoCard: React.FC<VideoCardProps & {
   const {
     isTalking,
     loading: talkLoading,
+    countdown,
+    isCountdownActive,
     start: startTalk,
     stop: stopTalk,
-  } = useTalkback({ roomRef, targetIdentity: roomName })
+    cancel: cancelTalk,
+  } = useTalkback({ roomRef, targetIdentity: roomName, psoEmail: email })
 
   /**
    * Synchronized timer for break/lunch/emergency
@@ -305,8 +308,12 @@ const VideoCard: React.FC<VideoCardProps & {
   // Labels and disabled states
   const playLabel      = connecting ? 'Connecting…' : (shouldStream ? 'Stop' : 'Play')
   const isPlayDisabled = disableControls || connecting
-  const talkLabel      = isTalking ? 'Stop Talk' : 'Talk'
-  const talkDisabled   = !mediaReady || talkLoading
+  const talkLabel = isCountdownActive
+    ? `Starting... ${countdown}`
+    : isTalking
+    ? 'Stop Talk'
+    : 'Talk'
+  const talkDisabled = !mediaReady || talkLoading
   const recordDisabled = !mediaReady || recordingLoading  // <- greyed out if no video or connecting
 
   /**
@@ -421,15 +428,17 @@ const VideoCard: React.FC<VideoCardProps & {
           {isAdminOrSuperAdmin && (
             <button
               onClick={async () => {
-                if (isTalking) {
+                if (isCountdownActive) {
+                  cancelTalk()
+                } else if (isTalking) {
                   await stopTalk()
                 } else {
                   await startTalk()
                 }
               }}
-              disabled={talkDisabled}
+              disabled={talkDisabled && !isCountdownActive}
               className="flex-1 py-2 rounded-xl bg-indigo-600 text-white disabled:opacity-50"
-              title="Publish your microphone to this user"
+              title={isCountdownActive ? 'Cancel talk session' : 'Publish your microphone to this user'}
             >
               {talkLoading ? '...' : talkLabel}
             </button>
