@@ -37,9 +37,13 @@ jobs:
           set -euo pipefail
           cd "${{ env.FUNC_SRC }}"
           npm ci
+          # Ensure Prisma CLI is available
+          test -f "node_modules/.bin/prisma" || test -f "node_modules/prisma/cli.js" || (echo "Prisma CLI not found" && exit 1)
           npm run prisma:generate
           test -d "node_modules/.prisma/client"
           npm run build
+          # Verify Prisma files are present after build
+          test -f "node_modules/prisma/cli.js" || (echo "Prisma CLI missing after build" && exit 1)
 
       - name: Package deployable ZIP
         shell: bash
@@ -47,7 +51,13 @@ jobs:
           set -euo pipefail
           rm -f deploy.zip
           cd "${{ env.FUNC_SRC }}"
-          zip -r ../../deploy.zip . -x "**/.git/**"
+          # Include Prisma binaries explicitly
+          zip -r ../../deploy.zip . \
+            -x "**/.git/**" \
+            -x "**/__tests__/**" \
+            -x "**/*.test.ts" \
+            -x "**/*.test.js" \
+            -x "**/coverage/**"
 
       - name: Validate ZIP contents
         shell: bash
@@ -59,6 +69,9 @@ jobs:
           test -f "zip-temp/host.json"
           test ! -d "zip-temp/apps/api-functions"
           test -d "zip-temp/node_modules/.prisma/client"
+          # Validate Prisma CLI binaries are included
+          test -f "zip-temp/node_modules/.bin/prisma" || test -f "zip-temp/node_modules/prisma/cli.js"
+          test -d "zip-temp/node_modules/prisma" || echo "Warning: Prisma binaries may be missing"
           rm -rf zip-temp
 
       - uses: actions/upload-artifact@v4

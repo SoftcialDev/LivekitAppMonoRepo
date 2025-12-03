@@ -49,7 +49,27 @@ function getPrismaSchemaPath(): string {
 }
 
 const PRISMA_SCHEMA_PATH = getPrismaSchemaPath();
-const MIGRATION_COMMAND = `npx prisma migrate deploy --schema "${PRISMA_SCHEMA_PATH}"`;
+
+/**
+ * Resolves the Prisma CLI command to use.
+ * Prefers using node with prisma/cli.js directly to avoid binary issues.
+ */
+function getPrismaCommand(): string {
+  const prismaCliPath = join(process.cwd(), "node_modules", "prisma", "cli.js");
+  
+  if (existsSync(prismaCliPath)) {
+    return `node "${prismaCliPath}" migrate deploy --schema "${PRISMA_SCHEMA_PATH}"`;
+  }
+  
+  const prismaBinPath = join(process.cwd(), "node_modules", ".bin", "prisma");
+  if (existsSync(prismaBinPath)) {
+    return `"${prismaBinPath}" migrate deploy --schema "${PRISMA_SCHEMA_PATH}"`;
+  }
+  
+  return `npx --yes prisma migrate deploy --schema "${PRISMA_SCHEMA_PATH}"`;
+}
+
+const MIGRATION_COMMAND = getPrismaCommand();
 
 /**
  * Executes Prisma database migrations using the Prisma CLI.
@@ -88,12 +108,18 @@ export default async function runMigrations(
 
   try {
     const schemaDir = dirname(PRISMA_SCHEMA_PATH);
+    const workingDir = process.cwd();
+    
+    ctx.log.info(`[RunMigrations] Node version: ${process.version}`);
+    ctx.log.info(`[RunMigrations] Working directory: ${workingDir}`);
+    ctx.log.info(`[RunMigrations] Schema directory: ${schemaDir}`);
     
     const { stdout, stderr } = await execAsync(MIGRATION_COMMAND, {
-      cwd: schemaDir,
+      cwd: workingDir,
       env: {
         ...process.env,
         DATABASE_URL: config.databaseUrl,
+        PATH: process.env.PATH || '/usr/local/bin:/usr/bin:/bin',
       },
       timeout: MIGRATION_TIMEOUT_MS,
     });
