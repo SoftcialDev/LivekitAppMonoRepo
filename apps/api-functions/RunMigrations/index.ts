@@ -10,7 +10,7 @@ import { Context, Timer } from "@azure/functions";
 import { exec } from "child_process";
 import { promisify } from "util";
 import { join, dirname } from "path";
-import { existsSync, mkdirSync } from "fs";
+import { existsSync, mkdirSync, cpSync } from "fs";
 import { config } from "../shared/config";
 
 const execAsync = promisify(exec);
@@ -51,27 +51,6 @@ function getPrismaSchemaPath(): string {
 const PRISMA_SCHEMA_PATH = getPrismaSchemaPath();
 
 /**
- * Resolves the Prisma CLI command to use.
- * Prefers using node with prisma/cli.js directly to avoid binary issues.
- */
-function getPrismaCommand(): string {
-  const prismaBuildPath = join(process.cwd(), "node_modules", "prisma", "build", "index.js");
-  
-  if (existsSync(prismaBuildPath)) {
-    return `node "${prismaBuildPath}" migrate deploy --schema "${PRISMA_SCHEMA_PATH}"`;
-  }
-  
-  const prismaBinPath = join(process.cwd(), "node_modules", ".bin", "prisma");
-  if (existsSync(prismaBinPath)) {
-    return `"${prismaBinPath}" migrate deploy --schema "${PRISMA_SCHEMA_PATH}"`;
-  }
-  
-  return `npx --yes prisma migrate deploy --schema "${PRISMA_SCHEMA_PATH}"`;
-}
-
-const MIGRATION_COMMAND = getPrismaCommand();
-
-/**
  * Executes Prisma database migrations using the Prisma CLI.
  * 
  * Runs `prisma migrate deploy` which applies pending migrations to the database
@@ -102,16 +81,20 @@ export default async function runMigrations(
   ctx: Context,
   PrismaMigrationTrigger: Timer
 ): Promise<void> {
+  const { migrationCommand, workingDir } = preparePrismaRuntime();
   ctx.log.info(`[RunMigrations] Starting migration with schema at: ${PRISMA_SCHEMA_PATH}`);
-  ctx.log.info(`[RunMigrations] Working directory: ${process.cwd()}`);
-  ctx.log.info(`[RunMigrations] Command: ${MIGRATION_COMMAND}`);
+  ctx.log.info(`[RunMigrations] Working directory: ${workingDir}`);
+  ctx.log.info(`[RunMigrations] Command: ${migrationCommand}`);
 
   try {
     const schemaDir = dirname(PRISMA_SCHEMA_PATH);
-    const workingDir = process.cwd();
     const prismaEnginesDir = "/tmp/prisma-engines";
     if (!existsSync(prismaEnginesDir)) {
       mkdirSync(prismaEnginesDir, { recursive: true });
+    }
+    const packagedEnginesDir = join(process.cwd(), "node_modules", "@prisma", "engines");
+    if (existsSync(packagedEnginesDir)) {
+      cpSync(packagedEnginesDir, prismaEnginesDir, { recursive: true });
     }
     
     ctx.log.info(`[RunMigrations] Node version: ${process.version}`);
@@ -122,7 +105,7 @@ export default async function runMigrations(
     process.env.PRISMA_CLI_ALLOW_ENGINE_DOWNLOAD = "1";
     process.env.PRISMA_GENERATE_SKIP_AUTOINSTALL = "1";
 
-    const { stdout, stderr } = await execAsync(MIGRATION_COMMAND, {
+    const { stdout, stderr } = await execAsync(migrationCommand, {
       cwd: workingDir,
       env: {
         ...process.env,
@@ -142,7 +125,7 @@ export default async function runMigrations(
 
     ctx.log.info("[RunMigrations] Migration completed successfully");
   } catch (error: unknown) {
-    ctx.log.error(`[RunMigrations] Command failed: ${MIGRATION_COMMAND}`);
+    ctx.log.error(`[RunMigrations] Command failed: ${migrationCommand}`);
     
     if (error instanceof Error) {
       ctx.log.error(`[RunMigrations] ${error.message}`);
@@ -160,5 +143,32 @@ export default async function runMigrations(
 
     throw error;
   }
+}
+
+function preparePrismaRuntime(): { migrationCommand: string; workingDir: string } {
+  const runtimeRoot = "/tmp/prisma-runtime";
+  const runtimeNodeModules = join(runtimeRoot, "node_modules");
+  const runtimePrismaDir = join(runtimeNodeModules, "prisma");
+  const runtimeVendorDir = join(runtimeNodeModules, "@prisma");
+  const runtimePrismaBuild = join(runtimePrismaDir, "build", "index.js");
+
+  const sourceNodeModules = join(process.cwd(), "node_modules");
+  const sourcePrismaDir = join(sourceNodeModules, "prisma");
+  const sourceVendorDir = join(sourceNodeModules, "@prisma");
+
+  if (!existsSync(runtimePrismaDir)) {
+    mkdirSync(runtimePrismaDir, { recursive: true });
+    cpSync(sourcePrismaDir, runtimePrismaDir, { recursive: true });
+  }
+
+  if (!existsSync(runtimeVendorDir)) {
+    mkdirSync(runtimeVendorDir, { recursive: true });
+    cpSync(sourceVendorDir, runtimeVendorDir, { recursive: true });
+  }
+
+  return {
+    migrationCommand: `node "${runtimePrismaBuild}" migrate deploy --schema "${PRISMA_SCHEMA_PATH}"`,
+    workingDir: runtimeRoot,
+  };
 }
 
