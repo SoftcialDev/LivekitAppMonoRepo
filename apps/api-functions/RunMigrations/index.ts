@@ -55,10 +55,10 @@ const PRISMA_SCHEMA_PATH = getPrismaSchemaPath();
  * Prefers using node with prisma/cli.js directly to avoid binary issues.
  */
 function getPrismaCommand(): string {
-  const prismaCliPath = join(process.cwd(), "node_modules", "prisma", "cli.js");
+  const prismaBuildPath = join(process.cwd(), "node_modules", "prisma", "build", "index.js");
   
-  if (existsSync(prismaCliPath)) {
-    return `node "${prismaCliPath}" migrate deploy --schema "${PRISMA_SCHEMA_PATH}"`;
+  if (existsSync(prismaBuildPath)) {
+    return `node "${prismaBuildPath}" migrate deploy --schema "${PRISMA_SCHEMA_PATH}"`;
   }
   
   const prismaBinPath = join(process.cwd(), "node_modules", ".bin", "prisma");
