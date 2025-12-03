@@ -164,12 +164,10 @@ const handleDownload = async (url: string) => {
     { 
       key: 'supervisorName', 
       header: 'Taken By',
-      cellClassName: 'max-w-[150px] break-words whitespace-normal'
     },
     { 
       key: 'psoFullName', 
       header: 'PSO',
-      cellClassName: 'max-w-[150px] break-words whitespace-normal'
     },
     {
       key: 'reason',
