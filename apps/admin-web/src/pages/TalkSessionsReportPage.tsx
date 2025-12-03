@@ -146,7 +146,8 @@ const TalkSessionsReportPage: React.FC = () => {
           <div className="font-semibold">{row.supervisorName}</div>
           <div className="text-sm text-gray-400">{row.supervisorEmail}</div>
         </div>
-      )
+      ),
+      cellClassName: 'max-w-[200px] break-words whitespace-normal'
     },
     {
       key: 'psoName',
@@ -156,17 +157,20 @@ const TalkSessionsReportPage: React.FC = () => {
           <div className="font-semibold">{row.psoName}</div>
           <div className="text-sm text-gray-400">{row.psoEmail}</div>
         </div>
-      )
+      ),
+      cellClassName: 'max-w-[200px] break-words whitespace-normal'
     },
     {
       key: 'startedAt',
       header: 'Started At',
-      render: row => formatDateTime(row.startedAt)
+      render: row => formatDateTime(row.startedAt),
+      cellClassName: 'whitespace-nowrap'
     },
     {
       key: 'stoppedAt',
       header: 'Stopped At',
-      render: row => formatDateTime(row.stoppedAt)
+      render: row => formatDateTime(row.stoppedAt),
+      cellClassName: 'whitespace-nowrap'
     },
     {
       key: 'duration',
@@ -174,12 +178,14 @@ const TalkSessionsReportPage: React.FC = () => {
       render: row => {
         const duration = calculateDuration(row.startedAt, row.stoppedAt);
         return formatDuration(duration);
-      }
+      },
+      cellClassName: 'whitespace-nowrap'
     },
     {
       key: 'stopReason',
       header: 'Stop Reason',
-      render: row => getStopReasonLabel(row.stopReason)
+      render: row => getStopReasonLabel(row.stopReason),
+      cellClassName: 'max-w-[180px] break-words whitespace-normal'
     }
   ];
 

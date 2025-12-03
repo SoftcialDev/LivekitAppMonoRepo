@@ -161,17 +161,27 @@ const handleDownload = async (url: string) => {
 
 
   const columns: Column<SnapshotReport>[] = [
-    { key: 'supervisorName', header: 'Taken By' },
-    { key: 'psoFullName',    header: 'PSO' },
+    { 
+      key: 'supervisorName', 
+      header: 'Taken By',
+      cellClassName: 'max-w-[150px] break-words whitespace-normal'
+    },
+    { 
+      key: 'psoFullName', 
+      header: 'PSO',
+      cellClassName: 'max-w-[150px] break-words whitespace-normal'
+    },
     {
       key: 'reason',
       header: 'Reason',
-      render: row => SNAPSHOT_REASON_LABELS[row.reason] || row.reason
+      render: row => SNAPSHOT_REASON_LABELS[row.reason] || row.reason,
+      cellClassName: 'max-w-[200px] break-words whitespace-normal'
     },
     {
       key: 'description',
       header: 'Description',
-      render: row => row.description || '—'
+      render: row => row.description || '—',
+      cellClassName: 'max-w-[300px] break-words whitespace-normal'
     },
     {
       key: 'imageUrl',
@@ -183,14 +193,16 @@ const handleDownload = async (url: string) => {
           className="w-16 h-16 object-cover rounded cursor-pointer"
           onClick={() => handleView(row)}
         />
-      )
+      ),
+      cellClassName: 'whitespace-nowrap'
     },
     {
       key: 'takenAt',       
       header: 'Date & Time',
       render: row => {
       return formatTakenAtUtc(row.takenAt);
-      }
+      },
+      cellClassName: 'whitespace-nowrap'
     },
     {
       key: 'actions',
@@ -205,7 +217,8 @@ const handleDownload = async (url: string) => {
             📥
           </button>
         </div>
-      )
+      ),
+      cellClassName: 'whitespace-nowrap'
     },
   ];
 
