@@ -30,7 +30,7 @@ import {  CompactTimer } from './TimerDisplay'
 import { Dropdown } from '@/shared/ui/Dropdown'
 import { SnapshotReason } from '@/shared/types/snapshot'
 import { useSnapshotReasons } from '@/shared/context/SnapshotReasonsContext'
-import { CameraCommandClient } from '@/shared/api/camaraCommandClient'
+import { RefreshButton } from './RefreshButton'
 const VideoCard: React.FC<VideoCardProps & { 
   livekitUrl?: string;
   psoName?: string;
@@ -74,7 +74,6 @@ const VideoCard: React.FC<VideoCardProps & {
   
   const roomRef = useRef<Room | null>(null)
   const audioRef = useRef<HTMLAudioElement>(null)
-  const cameraCommandClient = useRef(new CameraCommandClient()).current
 
   const [isAudioMuted, setIsAudioMuted] = useState(true)
 
@@ -326,34 +325,7 @@ const VideoCard: React.FC<VideoCardProps & {
             </div>
           )}
 
-          {/* Refresh button - small button in top right corner */}
-          <button
-            onClick={async () => {
-              if (!email) return;
-              try {
-                await cameraCommandClient.refresh(email);
-              } catch (error) {
-                console.error('[VideoCard] Failed to send refresh command:', error);
-              }
-            }}
-            className="absolute top-2 right-2 w-8 h-8 bg-gray-700 hover:bg-gray-600 text-white rounded-full flex items-center justify-center z-10"
-            title="Refresh browser"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth={2}
-              stroke="currentColor"
-              className="w-4 h-4"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 4.992a9.953 9.953 0 008.919-5.556m-8.919 5.556A9.953 9.953 0 002.985 9.644m8.919 5.556a9.953 9.953 0 01-8.919 5.556m8.919-5.556V9.644"
-              />
-            </svg>
-          </button>
+          <RefreshButton email={email || ''} />
 
           {/* Hidden audio element for remote mic */}
           <audio ref={audioRef} autoPlay className="hidden" />
@@ -465,30 +437,41 @@ const VideoCard: React.FC<VideoCardProps & {
           
           <div>
             <label className="block mb-2 text-sm font-medium"><strong>Reason *</strong></label>
-              <Dropdown
-                value={reason?.id || ''}
-                onSelect={(value) => {
-                  const selectedReason = snapshotReasons.find(r => r.id === value);
-                  setReason(selectedReason || null);
-                }}
-                label="Select a reason"
-                options={snapshotReasons.map(r => ({
-                  label: r.label,
-                  value: r.id
-                }))}
-                className="w-full"
-                buttonClassName="w-full flex items-center justify-between px-4 py-2 bg-[var(--color-tertiary)] text-[var(--color-primary-dark)] rounded-lg focus:ring-0 focus:border-transparent"
-                menuBgClassName="bg-[var(--color-primary-light)] text-white"
-              />
+              <div className="w-full">
+                <Dropdown
+                  value={reason?.id || ''}
+                  onSelect={(value) => {
+                    const selectedReason = snapshotReasons.find(r => r.id === value);
+                    setReason(selectedReason || null);
+                  }}
+                  label="Select a reason"
+                  options={snapshotReasons.map(r => ({
+                    label: r.label,
+                    value: r.id
+                  }))}
+                  className="w-full"
+                  buttonClassName="w-full flex items-center justify-between px-4 py-2 bg-[var(--color-tertiary)] text-[var(--color-primary-dark)] rounded-lg focus:ring-0 focus:border-transparent"
+                  menuClassNameOverride="absolute left-0 mt-1 bg-[var(--color-tertiary)] text-[var(--color-primary-dark)] border border-gray-200 rounded-lg shadow-lg z-50 divide-y divide-gray-100"
+                  menuStyle={{ width: '-webkit-fill-available', marginLeft: '24px', marginRight: '24px' }}
+                  menuBgClassName="bg-[var(--color-tertiary)] text-[var(--color-primary-dark)]"
+                />
+              </div>
           </div>
 
           <div>
-            <label className="block mb-2 text-sm font-medium">Description (optional)</label>
+            <label className="block mb-2 text-sm font-medium">
+              {reason?.code === 'OTHER' ? (
+                <strong>Description * (mandatory)</strong>
+              ) : (
+                'Description (optional)'
+              )}
+            </label>
             <textarea
               value={description}
               onChange={e => setDescription(e.target.value)}
-              placeholder="Enter additional details (optional)"
-              className="w-full h-32 p-2 rounded border text-black"
+              placeholder={reason?.code === 'OTHER' ? 'Enter description (required)' : 'Enter additional details (optional)'}
+              className="w-full h-32 p-2 rounded border bg-[var(--color-tertiary)] text-[var(--color-primary-dark)] placeholder-[var(--color-primary-dark)]/70 focus:outline-none focus:ring-0 focus:border-[var(--color-tertiary)] border-[var(--color-tertiary)] resize-none overflow-wrap break-words"
+              style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}
             />
           </div>
         </div>

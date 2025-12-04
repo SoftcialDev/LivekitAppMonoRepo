@@ -75,6 +75,11 @@ export interface DropdownProps {
    * If omitted, nothing is rendered.
    */
   leftAdornment?: React.ReactNode;
+
+  /**
+   * Optional inline styles applied to the dropdown menu container.
+   */
+  menuStyle?: React.CSSProperties;
 }
 
 /**
@@ -155,6 +160,7 @@ export const Dropdown: React.FC<DropdownProps> = ({
   menuClassNameOverride,
   menuBgClassName = 'bg-[var(--color-tertiary)] text-[var(--color-primary-dark)]',
   leftAdornment,
+  menuStyle,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -226,11 +232,14 @@ export const Dropdown: React.FC<DropdownProps> = ({
       </button>
 
       {isOpen && (
-        <div className={`
-          absolute z-10 mt-2 divide-y divide-gray-100 rounded-lg shadow-sm
-          w-11/12
-          ${menuContainerClass}
-        `}>
+        <div 
+          className={menuClassNameOverride ? menuContainerClass : `
+            absolute z-10 mt-2 divide-y divide-gray-100 rounded-lg shadow-sm
+            w-11/12
+            ${menuContainerClass}
+          `}
+          style={menuStyle}
+        >
           <ul role="listbox" className={`rounded-lg border-0 ${menuBgClassName}`}>
             {options.map((option) => (
               <li key={option.value} role="option" aria-selected={option.value === value}>

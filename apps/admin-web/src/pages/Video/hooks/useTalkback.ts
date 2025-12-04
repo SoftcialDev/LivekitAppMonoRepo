@@ -13,7 +13,6 @@ import type { Room } from 'livekit-client'
 import { createLocalAudioTrack, LocalAudioTrack } from 'livekit-client'
 import { TalkSessionClient } from '@/shared/api/talkSessionClient'
 import { TalkStopReason } from '@/shared/types/talkSession'
-import { playIncomingCallSound, playHangUpSound } from '@/shared/utils/audioPlayer'
 
 /**
  * Options for {@link useTalkback}.
@@ -162,8 +161,6 @@ export function useTalkback(options: UseTalkbackOptions): UseTalkback {
       setIsCountdownActive(true)
       setCountdown(3)
 
-      playIncomingCallSound()
-
       let currentCountdown = 3
       const countdownInterval = setInterval(() => {
         currentCountdown -= 1
@@ -223,8 +220,6 @@ export function useTalkback(options: UseTalkbackOptions): UseTalkback {
 
     setLoading(true)
     try {
-      playHangUpSound()
-
       const room = roomRef.current
       if (room) {
         try {

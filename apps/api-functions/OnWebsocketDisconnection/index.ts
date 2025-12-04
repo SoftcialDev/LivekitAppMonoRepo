@@ -1,4 +1,5 @@
 import { AzureFunction, Context } from "@azure/functions";
+import { withErrorHandler } from "../shared/middleware/errorHandler";
 import { ServiceContainer } from "../shared/infrastructure/container/ServiceContainer";
 import { WebSocketEventRequest } from "../shared/domain/value-objects/WebSocketEventRequest";
 import { WebSocketConnectionApplicationService } from "../shared/application/services/WebSocketConnectionApplicationService";
@@ -15,8 +16,8 @@ import { ContactManagerDisconnectApplicationService } from "../shared/applicatio
  *
  * @param context - Azure Functions execution context with connection data
  */
-const onDisconnected: AzureFunction = async (context: Context) => {
-  try {
+const onDisconnected: AzureFunction = withErrorHandler(
+  async (context: Context) => {
     const serviceContainer = ServiceContainer.getInstance();
     serviceContainer.initialize();
 
@@ -36,12 +37,15 @@ const onDisconnected: AzureFunction = async (context: Context) => {
       await webPubSubService.syncAllUsersWithDatabase();
     } catch (syncError: any) {
       // Sync errors are non-critical, continue execution
+      context.log.warn(`[OnWebsocketDisconnection] Sync error (non-critical): ${syncError.message}`);
     }
 
     context.res = { status: 200 };
-  } catch (error: any) {
-    context.res = { status: 500, body: `Internal error: ${error.message}` };
+  },
+  {
+    genericMessage: "Error processing WebSocket disconnection",
+    showStackInDev: true,
   }
-};
+);
 
 export default onDisconnected;

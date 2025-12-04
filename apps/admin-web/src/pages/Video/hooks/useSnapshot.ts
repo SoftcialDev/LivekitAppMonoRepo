@@ -106,7 +106,7 @@ export function useSnapshot(psoEmail: string): UseSnapshot {
 
     const selectedReason = reasons.find(r => r.id === reason.id);
     if (selectedReason?.code === 'OTHER' && !description.trim()) {
-      showToast('Description is required when reason is "Other"', 'error');
+      showToast('Description is mandatory for "Other" reason', 'error');
       return;
     }
 

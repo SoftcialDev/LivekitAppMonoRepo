@@ -5,51 +5,12 @@
  */
 
 import { AzureFunction, Context, HttpRequest } from "@azure/functions";
+import { withErrorHandler } from "../shared/middleware/errorHandler";
 import { ServiceContainer } from "../shared/infrastructure/container/ServiceContainer";
 import { WebSocketEventRequest } from "../shared/domain/value-objects/WebSocketEventRequest";
 import { WebSocketConnectionApplicationService } from "../shared/application/services/WebSocketConnectionApplicationService";
 import { ContactManagerDisconnectApplicationService } from "../shared/application/services/ContactManagerDisconnectApplicationService";
-import { IErrorLogService } from "../shared/domain/interfaces/IErrorLogService";
-import { ErrorSource } from "../shared/domain/enums/ErrorSource";
-import { WebSocketEventResponse } from "../shared/domain/value-objects/WebSocketEventResponse";
-
-async function logErrorIfAny(
-  response: WebSocketEventResponse,
-  request: WebSocketEventRequest,
-  eventName: string,
-  serviceContainer: ServiceContainer,
-  context: Context,
-  serviceName?: string
-): Promise<void> {
-  if (response.status >= 400) {
-    context.log.error(`${serviceName || "Service"} error`, {
-      status: response.status,
-      message: response.message,
-      userId: request.userId
-    });
-
-    try {
-      const errorLogService = serviceContainer.resolve<IErrorLogService>("ErrorLogService");
-      await errorLogService.logError({
-        source: ErrorSource.Unknown,
-        endpoint: "/api/webpubsub-events",
-        functionName: "WebPubSubEvents",
-        error: new Error(response.message),
-        userId: request.userId,
-        httpStatusCode: response.status,
-        context: {
-          eventName,
-          connectionId: request.connectionId,
-          hub: request.hub,
-          phase: request.phase,
-          ...(serviceName && { service: serviceName })
-        }
-      });
-    } catch (logError) {
-      context.log.warn("Failed to log error", logError);
-    }
-  }
-}
+import { logWebPubSubErrorIfAny } from "../shared/utils/webPubSubErrorLogger";
 
 /**
  * Azure Function: WebPubSubEvents
@@ -83,11 +44,12 @@ async function logErrorIfAny(
  * @param webPubSubContext - Web PubSub context binding containing event metadata
  * @returns HTTP response with appropriate status code
  */
-const webPubSubEvents: AzureFunction = async (
-  context: Context,
-  req: HttpRequest,
-  webPubSubContext: any
-): Promise<void> => {
+const webPubSubEvents: AzureFunction = withErrorHandler(
+  async (
+    context: Context,
+    req: HttpRequest,
+    webPubSubContext: any
+  ): Promise<void> => {
   if (req.method === "OPTIONS") {
     context.res = {
       status: 200,
@@ -206,100 +168,69 @@ const webPubSubEvents: AzureFunction = async (
     return;
   }
 
-  try {
-    const serviceContainer = ServiceContainer.getInstance();
-    serviceContainer.initialize();
+  const serviceContainer = ServiceContainer.getInstance();
+  serviceContainer.initialize();
 
-    const contextData = webPubSubContext || req.body || {};
-    if (hub && !contextData.hub) contextData.hub = hub;
-    if (connectionId && !contextData.connectionId) contextData.connectionId = connectionId;
-    if (userId && !contextData.userId && !contextData.user?.id && !contextData.claims?.userId) {
-      contextData.userId = userId;
-    }
+  const contextData = webPubSubContext || req.body || {};
+  if (hub && !contextData.hub) contextData.hub = hub;
+  if (connectionId && !contextData.connectionId) contextData.connectionId = connectionId;
+  if (userId && !contextData.userId && !contextData.user?.id && !contextData.claims?.userId) {
+    contextData.userId = userId;
+  }
 
-    const request = WebSocketEventRequest.fromWebPubSubContext(contextData, eventName);
+  const request = WebSocketEventRequest.fromWebPubSubContext(contextData, eventName);
 
-    if (eventName === "connect" || eventName === "connected") {
-      const applicationService = serviceContainer.resolve<WebSocketConnectionApplicationService>(
-        "WebSocketConnectionApplicationService"
-      );
-      const response = await applicationService.handleConnection(request);
-      
-      await logErrorIfAny(response, request, eventName, serviceContainer, context, "handleConnection");
-      
-      context.res = { 
-        status: response.status || 200,
-        headers: { "Content-Type": "application/json" },
-        body: response.status !== 200 ? { error: response.message } : undefined
-      };
-      return;
-    }
+  if (eventName === "connect" || eventName === "connected") {
+    const applicationService = serviceContainer.resolve<WebSocketConnectionApplicationService>(
+      "WebSocketConnectionApplicationService"
+    );
+    const response = await applicationService.handleConnection(request);
+    
+      await logWebPubSubErrorIfAny(response, request, eventName, serviceContainer, context, "handleConnection");
+    
+    context.res = { 
+      status: response.status || 200,
+      headers: { "Content-Type": "application/json" },
+      body: response.status !== 200 ? { error: response.message } : undefined
+    };
+    return;
+  }
 
-    if (eventName === "disconnected") {
-      const connectionService = serviceContainer.resolve<WebSocketConnectionApplicationService>(
-        "WebSocketConnectionApplicationService"
-      );
-      const disconnectResponse = await connectionService.handleDisconnection(request, context);
-      await logErrorIfAny(disconnectResponse, request, eventName, serviceContainer, context, "handleDisconnection");
+  if (eventName === "disconnected") {
+    const connectionService = serviceContainer.resolve<WebSocketConnectionApplicationService>(
+      "WebSocketConnectionApplicationService"
+    );
+    const disconnectResponse = await connectionService.handleDisconnection(request, context);
+      await logWebPubSubErrorIfAny(disconnectResponse, request, eventName, serviceContainer, context, "handleDisconnection");
 
       const cmService = serviceContainer.resolve<ContactManagerDisconnectApplicationService>(
         "ContactManagerDisconnectApplicationService"
       );
       const cmResponse = await cmService.handleContactManagerDisconnect(request);
-      await logErrorIfAny(cmResponse, request, eventName, serviceContainer, context, "ContactManagerDisconnect");
-
-      try {
-        const webPubSubService = serviceContainer.resolve<any>("WebPubSubService");
-        await webPubSubService.syncAllUsersWithDatabase();
-      } catch (syncError: any) {
-        context.log.warn("Sync error", syncError);
-      }
-
-      context.res = { status: 200 };
-      return;
-    }
-
-    context.res = {
-      status: 400,
-      headers: { "Content-Type": "application/json" },
-      body: { error: `Unknown event name: ${eventName}` }
-    };
-  } catch (error: any) {
-    context.log.error("Error processing WebPubSub event", {
-      error: error.message,
-      stack: error.stack
-    });
+      await logWebPubSubErrorIfAny(cmResponse, request, eventName, serviceContainer, context, "ContactManagerDisconnect");
 
     try {
-      const serviceContainer = ServiceContainer.getInstance();
-      serviceContainer.initialize();
-      const errorLogService = serviceContainer.resolve<IErrorLogService>("ErrorLogService");
-      await errorLogService.logError({
-        source: ErrorSource.Unknown,
-        endpoint: "/api/webpubsub-events",
-        functionName: "WebPubSubEvents",
-        error: error,
-        userId: userId,
-        httpStatusCode: 500,
-        context: {
-          eventName,
-          connectionId,
-          hub,
-          method: req.method,
-          url: req.url
-        }
-      });
-    } catch (logError) {
-      context.log.warn("Failed to log error", logError);
+      const webPubSubService = serviceContainer.resolve<any>("WebPubSubService");
+      await webPubSubService.syncAllUsersWithDatabase();
+    } catch (syncError: any) {
+      context.log.warn("[WebPubSubEvents] Sync error (non-critical)", syncError);
     }
 
-    context.res = {
-      status: 500,
-      headers: { "Content-Type": "application/json" },
-      body: { error: "Internal server error" }
-    };
+    context.res = { status: 200 };
+    return;
   }
-};
+
+  context.res = {
+    status: 400,
+    headers: { "Content-Type": "application/json" },
+    body: { error: `Unknown event name: ${eventName}` }
+  };
+  },
+  {
+    genericMessage: "Error processing WebPubSub event",
+    showStackInDev: true,
+  }
+);
 
 export default webPubSubEvents;
 

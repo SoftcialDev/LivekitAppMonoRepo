@@ -17,6 +17,8 @@ export enum ErrorSource {
   Authentication = 'Authentication',
   /** Errors originating from input validation */
   Validation = 'Validation',
+  /** Errors originating from WebPubSub/WebSocket operations */
+  WebPubSub = 'WebPubSub',
   /** Unknown or unclassified error source */
   Unknown = 'Unknown'
 }
