@@ -43,5 +43,5 @@ export interface IChatService {
    * @param message - Message content
    * @returns Promise that resolves when message is sent
    */
-  sendMessageAsServiceAccount(chatId: string, message: any): Promise<void>;
+  sendMessageAsApp(chatId: string, message: any): Promise<void>;
 }

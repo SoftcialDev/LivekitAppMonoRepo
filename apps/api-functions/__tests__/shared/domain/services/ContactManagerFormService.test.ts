@@ -19,7 +19,7 @@ describe('ContactManagerFormService', () => {
       getOrSyncChat: jest.fn(),
       sendMessage: jest.fn(),
       getContactManagersChatId: jest.fn(),
-      sendMessageAsServiceAccount: jest.fn()
+      sendMessageAsApp: jest.fn()
     } as any;
     const errorLogService = {
       logError: jest.fn(),
@@ -32,13 +32,13 @@ describe('ContactManagerFormService', () => {
     it('should process form without image', async () => {
       formRepository.createForm.mockResolvedValue('form-123');
       chatService.getContactManagersChatId.mockResolvedValue('chat-123');
-      chatService.sendMessageAsServiceAccount.mockResolvedValue(undefined);
+      chatService.sendMessageAsApp.mockResolvedValue(undefined);
       const request = new ContactManagerFormRequest(FormType.DISCONNECTIONS, { numberOfDisconnections: 5 });
       const result = await service.processForm(request, 'sender-123', 'Sender Name', 'sender@example.com');
       expect(result.formId).toBe('form-123');
       expect(result.messageSent).toBe(true);
       expect(chatService.getContactManagersChatId).toHaveBeenCalled();
-      expect(chatService.sendMessageAsServiceAccount).toHaveBeenCalledWith(
+      expect(chatService.sendMessageAsApp).toHaveBeenCalledWith(
         'chat-123',
         expect.objectContaining({
           type: 'contactManagerForm',
@@ -52,11 +52,11 @@ describe('ContactManagerFormService', () => {
       formRepository.createForm.mockResolvedValue('form-123');
       blobStorageService.uploadImage.mockResolvedValue('https://example.com/image.jpg');
       chatService.getContactManagersChatId.mockResolvedValue('chat-123');
-      chatService.sendMessageAsServiceAccount.mockResolvedValue();
+      chatService.sendMessageAsApp.mockResolvedValue();
       const request = new ContactManagerFormRequest(FormType.ADMISSIONS, { numberOfAdmissions: 3 }, 'base64imagedata');
       const result = await service.processForm(request, 'sender-123', 'Sender Name', 'sender@example.com');
       expect(result.imageUrl).toBe('https://example.com/image.jpg');
-      expect(chatService.sendMessageAsServiceAccount).toHaveBeenCalledWith(
+      expect(chatService.sendMessageAsApp).toHaveBeenCalledWith(
         'chat-123',
         expect.objectContaining({ imageUrl: 'https://example.com/image.jpg' })
       );

@@ -210,6 +210,7 @@ const webPubSubEvents: AzureFunction = withErrorHandler(
       await logWebPubSubErrorIfAny(cmResponse, request, eventName, serviceContainer, context, "ContactManagerDisconnect");
 
     try {
+
       const webPubSubService = serviceContainer.resolve<any>("WebPubSubService");
       await webPubSubService.syncAllUsersWithDatabase();
     } catch (syncError: any) {

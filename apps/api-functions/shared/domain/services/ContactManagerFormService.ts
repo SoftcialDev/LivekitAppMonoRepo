@@ -107,7 +107,7 @@ export class ContactManagerFormService implements IContactManagerFormService {
       };
 
       // Send message using application identity
-      await this.chatService.sendMessageAsServiceAccount(chatId, message);
+    await this.chatService.sendMessageAsApp(chatId, message);
       console.log('[ContactManagerFormService] Chat notification sent', {
         chatId,
         formType: request.formType

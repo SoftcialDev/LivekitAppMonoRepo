@@ -9,20 +9,15 @@ import { Client } from '@microsoft/microsoft-graph-client';
 import { TokenCredentialAuthenticationProvider } from '@microsoft/microsoft-graph-client/authProviders/azureTokenCredentials';
 import { getCentralAmericaTime } from '../../utils/dateUtils';
 import prisma from '../database/PrismaClientService';
-import { ServiceAccountManager } from './ServiceAccountManager';
-import { IServiceAccountCredentials } from '../../domain/interfaces/IServiceAccountCredentials';
 import { UserRole } from '../../domain/enums/UserRole';
 
 export class ChatService implements IChatService {
   private tenantId = process.env.AZURE_TENANT_ID!;
   private clientId = process.env.AZURE_CLIENT_ID!;
   private clientSecret = process.env.AZURE_CLIENT_SECRET!;
-  private readonly serviceAccountScopes = [
-    'https://graph.microsoft.com/Chat.ReadWrite',
-    'https://graph.microsoft.com/ChatMessage.Send'
-  ];
+  private readonly appScopes = ['https://graph.microsoft.com/.default'];
 
-  constructor(private readonly serviceAccountManager: ServiceAccountManager) {}
+  constructor() {}
 
   /**
    * Retrieves or creates a chat.
@@ -70,7 +65,7 @@ export class ChatService implements IChatService {
    */
   async getContactManagersChatId(): Promise<string> {
     const chatTopic = 'InContactApp – Contact Managers';
-    return this.ensureManagedChat(chatTopic, 'Contact Managers', async (_serviceAccount) =>
+    return this.ensureManagedChat(chatTopic, 'Contact Managers', async () =>
       this.buildParticipantsForRoles('Contact Managers', [UserRole.SuperAdmin, UserRole.Admin, UserRole.ContactManager])
     );
   }
@@ -83,7 +78,7 @@ export class ChatService implements IChatService {
    */
   async getSnapshotReportsChatId(): Promise<string> {
     const chatTopic = 'InContactApp – Snapshot Reports';
-    return this.ensureManagedChat(chatTopic, 'Snapshot Reports', async (_serviceAccount) =>
+    return this.ensureManagedChat(chatTopic, 'Snapshot Reports', async () =>
       this.buildParticipantsForRoles('Snapshot Reports', [UserRole.SuperAdmin, UserRole.Admin])
     );
   }
@@ -100,36 +95,14 @@ export class ChatService implements IChatService {
   private async ensureManagedChat(
     chatTopic: string,
     context: string,
-    participantsFactory: (
-      serviceAccount: IServiceAccountCredentials
-    ) => Promise<Array<{ userId: string; oid: string }>>
+    participantsFactory: () => Promise<Array<{ userId: string; oid: string }>>
   ): Promise<string> {
     console.log('[ChatService] ensureManagedChat invoked', { chatTopic, context });
 
-    const serviceAccount = await this.serviceAccountManager.ensureServiceAccount();
-    const serviceAccountOid = serviceAccount.azureAdObjectId.toLowerCase();
-    const desired = await participantsFactory(serviceAccount);
+    const desired = await participantsFactory();
 
     if (!desired.length) {
       throw new Error(`No participants resolved for ${context} chat`);
-    }
-
-    if (!desired.some((member) => member.oid === serviceAccountOid)) {
-      const serviceAccountUser = await prisma.user.findUnique({
-        where: { azureAdObjectId: serviceAccount.azureAdObjectId }
-      });
-
-      if (serviceAccountUser) {
-        desired.push({
-          userId: serviceAccountUser.id,
-          oid: serviceAccountOid
-        });
-      } else {
-        console.warn('[ChatService] Service account user not found in database; skipping chat membership', {
-          context,
-          serviceAccountOid
-        });
-      }
     }
 
     const graph = this.initGraphClientAsApp();
@@ -199,21 +172,20 @@ export class ChatService implements IChatService {
   }
 
   /**
-   * Sends a message to the specified chat impersonating the managed service account.
+   * Sends a message to the specified chat using app-only credentials.
    *
    * @param chatId - Microsoft Teams chat identifier.
    * @param message - Message payload (Adaptive Card data).
    * @returns Promise that resolves once the message is submitted to Graph.
    */
-  async sendMessageAsServiceAccount(chatId: string, message: any): Promise<void> {
-    console.log('[ChatService] Sending message with service account', {
+  async sendMessageAsApp(chatId: string, message: any): Promise<void> {
+    console.log('[ChatService] Sending message with app credentials', {
       chatId,
       subject: message?.subject,
       hasImage: Boolean(message?.imageUrl)
     });
 
-    const accessToken = await this.serviceAccountManager.getDelegatedToken(this.serviceAccountScopes);
-    const graph = this.initGraphClientWithAccessToken(accessToken);
+    const graph = this.initGraphClientAsApp();
     await this.sendMessageToChat(graph, chatId, message);
   }
 
@@ -551,9 +523,6 @@ export class ChatService implements IChatService {
     desired: readonly { userId: string; oid: string }[]
   ): Promise<void> {
     try {
-      const serviceAccount = await this.serviceAccountManager.ensureServiceAccount();
-      const serviceAccountOid = serviceAccount.azureAdObjectId.toLowerCase();
-
       const resp: any = await graph.api(`/chats/${chatId}/members`).get();
       const graphMembers = (resp.value as any[]).map((m) => ({
         oid: (m.user?.id as string)?.toLowerCase(),
@@ -580,7 +549,6 @@ export class ChatService implements IChatService {
         (g) =>
           g.oid &&
           !desiredOids.has(g.oid) &&
-          g.oid !== serviceAccountOid &&
           !protectedSuperAdminOids.has(g.oid)
       );
 

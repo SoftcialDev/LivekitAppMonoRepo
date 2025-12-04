@@ -6,12 +6,12 @@
  */
 
 import { Context } from "@azure/functions";
-import { ServiceContainer } from "../../infrastructure/container/ServiceContainer";
-import { IErrorLogService } from "../../domain/interfaces/IErrorLogService";
-import { ErrorSource } from "../../domain/enums/ErrorSource";
-import { ErrorSeverity } from "../../domain/enums/ErrorSeverity";
-import { WebSocketEventRequest } from "../../domain/value-objects/WebSocketEventRequest";
-import { WebSocketEventResponse } from "../../domain/value-objects/WebSocketEventResponse";
+import { ServiceContainer } from "../infrastructure/container/ServiceContainer";
+import { IErrorLogService } from "../domain/interfaces/IErrorLogService";
+import { ErrorSource } from "../domain/enums/ErrorSource";
+import { ErrorSeverity } from "../domain/enums/ErrorSeverity";
+import { WebSocketEventRequest } from "../domain/value-objects/WebSocketEventRequest";
+import { WebSocketEventResponse } from "../domain/value-objects/WebSocketEventResponse";
 
 /**
  * Logs an error to the database error log table if the response status indicates an error.

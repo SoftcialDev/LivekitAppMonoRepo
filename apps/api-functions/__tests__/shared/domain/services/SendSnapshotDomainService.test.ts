@@ -34,7 +34,7 @@ describe('SendSnapshotDomainService', () => {
     } as any;
     chatService = {
       getSnapshotReportsChatId: jest.fn().mockResolvedValue('chat-123'),
-      sendMessageAsServiceAccount: jest.fn()
+    sendMessageAsApp: jest.fn()
     } as any;
     const errorLogService = {
       logError: jest.fn(),
@@ -63,7 +63,7 @@ describe('SendSnapshotDomainService', () => {
       const result = await service.sendSnapshot(request);
       expect(result.snapshotId).toBe('snap-123');
       expect(chatService.getSnapshotReportsChatId).toHaveBeenCalled();
-      expect(chatService.sendMessageAsServiceAccount).toHaveBeenCalledWith(
+    expect(chatService.sendMessageAsApp).toHaveBeenCalledWith(
         'chat-123',
         expect.objectContaining({
           type: 'snapshotReport',

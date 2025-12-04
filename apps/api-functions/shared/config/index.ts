@@ -1,5 +1,4 @@
 ﻿import * as process from "process";
-import { getServiceAccountEncryptionKey } from "./serviceAccountEncryption";
 
 export const config = {
   databaseUrl: process.env.DATABASE_URL!,
@@ -24,18 +23,7 @@ export const config = {
   contactManagerAppRoleId : process.env.CONTACT_MANAGER_GROUP_ID!,
   accountName: process.env.AZURE_STORAGE_ACCOUNT!,
   accountKey: process.env.AZURE_STORAGE_KEY!,
-  superAdminAppRoleId: process.env.SUPER_ADMIN_GROUP_ID,
-  serviceAccountUpn: process.env.SERVICE_ACCOUNT_UPN || 'incontact.service',
-  serviceAccountDisplayName: process.env.SERVICE_ACCOUNT_DISPLAY_NAME || 'InContact Notifications',
-  serviceAccountUsageLocation: process.env.SERVICE_ACCOUNT_USAGE_LOCATION || 'US',
-  serviceAccountLicenseSkuId: process.env.SERVICE_ACCOUNT_LICENSE_SKU_ID,
-  serviceAccountPreferredSkuPartNumbers:
-    (process.env.SERVICE_ACCOUNT_LICENSE_PREFERRED_SKUS ||
-      'MCOEV,M365_BUSINESS_BASIC,M365_BUSINESS_STANDARD,ENTERPRISEPACK')
-      .split(',')
-      .map((value) => value.trim())
-      .filter(Boolean),
-  serviceAccountEncryptionKey: getServiceAccountEncryptionKey()
+  superAdminAppRoleId: process.env.SUPER_ADMIN_GROUP_ID
 };
 
 if (!config.databaseUrl) throw new Error("DATABASE_URL is required");

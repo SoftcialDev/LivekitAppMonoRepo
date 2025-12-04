@@ -116,7 +116,7 @@ export function useSnapshot(psoEmail: string): UseSnapshot {
       await sendSnapshotReport({
         psoEmail,
         reasonId: reason.id,
-        description: selectedReason?.code === 'OTHER' ? description : undefined,
+        description: description.trim() || undefined,
         imageBase64: base64
       });
       showToast('Snapshot report sent successfully', 'success');

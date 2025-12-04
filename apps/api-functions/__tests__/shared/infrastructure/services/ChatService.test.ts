@@ -8,7 +8,6 @@ import { ClientSecretCredential, OnBehalfOfCredential } from '@azure/identity';
 import { Client } from '@microsoft/microsoft-graph-client';
 import { TokenCredentialAuthenticationProvider } from '@microsoft/microsoft-graph-client/authProviders/azureTokenCredentials';
 import prisma from '../../../../shared/infrastructure/database/PrismaClientService';
-import { ServiceAccountManager } from '../../../../shared/infrastructure/services/ServiceAccountManager';
 
 // Mock Azure Identity
 jest.mock('@azure/identity', () => ({
@@ -61,7 +60,6 @@ describe('ChatService', () => {
   let mockCredential: any;
   let mockAppCredential: any;
   let mockAuthProvider: any;
-  let mockServiceAccountManager: jest.Mocked<ServiceAccountManager>;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -97,17 +95,7 @@ describe('ChatService', () => {
     (Client.initWithMiddleware as jest.Mock).mockReturnValue(mockGraphClient);
     (Client.init as jest.Mock).mockReturnValue(mockGraphClient);
 
-    mockServiceAccountManager = {
-      ensureServiceAccount: jest.fn().mockResolvedValue({
-        azureAdObjectId: 'SERVICE-OID',
-        userPrincipalName: 'service.account@test.local',
-        displayName: 'Service Notifications',
-        password: 'P@ssword123!'
-      }),
-      getDelegatedToken: jest.fn().mockResolvedValue('delegated-token')
-    } as any;
-
-    chatService = new ChatService(mockServiceAccountManager);
+    chatService = new ChatService();
   });
 
   describe('getContactManagersChatId', () => {
@@ -136,7 +124,6 @@ describe('ChatService', () => {
       expect(prisma.user.findMany).toHaveBeenCalledWith({
         where: { role: { in: ['SuperAdmin', 'Admin', 'ContactManager'] } }
       });
-    expect(mockServiceAccountManager.ensureServiceAccount).toHaveBeenCalled();
     });
 
     it('should throw when there are no SuperAdmins configured', async () => {
@@ -145,7 +132,6 @@ describe('ChatService', () => {
       await expect(chatService.getContactManagersChatId()).rejects.toThrow(
         'No users with roles [SuperAdmin, Admin, ContactManager] found to compose the Contact Managers chat'
       );
-    expect(mockServiceAccountManager.ensureServiceAccount).toHaveBeenCalled();
     });
   });
 
@@ -162,7 +148,7 @@ describe('ChatService', () => {
       const originalTenantId = process.env.AZURE_TENANT_ID;
       delete process.env.AZURE_TENANT_ID;
       
-      const service = new ChatService(mockServiceAccountManager);
+      const service = new ChatService();
       expect(service).toBeInstanceOf(ChatService);
       
       // Restore original value
@@ -173,7 +159,7 @@ describe('ChatService', () => {
       const originalClientId = process.env.AZURE_CLIENT_ID;
       delete process.env.AZURE_CLIENT_ID;
       
-      const service = new ChatService(mockServiceAccountManager);
+      const service = new ChatService();
       expect(service).toBeInstanceOf(ChatService);
       
       // Restore original value
@@ -184,7 +170,7 @@ describe('ChatService', () => {
       const originalClientSecret = process.env.AZURE_CLIENT_SECRET;
       delete process.env.AZURE_CLIENT_SECRET;
       
-      const service = new ChatService(mockServiceAccountManager);
+      const service = new ChatService();
       expect(service).toBeInstanceOf(ChatService);
       
       // Restore original value
@@ -264,7 +250,7 @@ describe('ChatService', () => {
     });
   });
 
-  describe('sendMessageAsServiceAccount', () => {
+  describe('sendMessageAsApp', () => {
     const mockChatId = 'chat-456';
     const mockMessage = { subject: 'Subject', data: {} };
 
@@ -272,13 +258,9 @@ describe('ChatService', () => {
       mockGraphClient.post.mockResolvedValue({});
     });
 
-    it('should obtain delegated token and post message', async () => {
-      await chatService.sendMessageAsServiceAccount(mockChatId, mockMessage);
+    it('should post message with app credentials', async () => {
+      await chatService.sendMessageAsApp(mockChatId, mockMessage);
 
-      expect(mockServiceAccountManager.getDelegatedToken).toHaveBeenCalledWith([
-        'https://graph.microsoft.com/Chat.ReadWrite',
-        'https://graph.microsoft.com/ChatMessage.Send'
-      ]);
       expect(Client.init).toHaveBeenCalled();
       expect(mockGraphClient.api).toHaveBeenCalledWith(`/chats/${mockChatId}/messages`);
     });

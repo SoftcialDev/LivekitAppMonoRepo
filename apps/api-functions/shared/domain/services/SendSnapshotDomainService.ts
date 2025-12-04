@@ -143,7 +143,7 @@ export class SendSnapshotDomainService {
     let chatId: string | undefined;
     try {
       chatId = await this.chatService.getSnapshotReportsChatId();
-      await this.chatService.sendMessageAsServiceAccount(chatId, {
+      await this.chatService.sendMessageAsApp(chatId, {
         type: 'snapshotReport',
         subject: details.subject,
         psoName: details.psoName,
