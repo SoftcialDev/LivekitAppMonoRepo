@@ -1,14 +1,10 @@
 /**
- * @fileoverview HTTP-triggered Azure Function for executing Prisma database schema synchronization.
+ * Endpoint HTTP para ejecutar migraciones de base de datos usando Prisma.
  * 
- * This function runs Prisma schema synchronization using `prisma db push` in a writable
- * temporary directory to work around Azure Functions' read-only file system restrictions.
- * Can be triggered from CI/CD pipelines when database is in VNet.
+ * Ejecuta `prisma db push` en un directorio temporal escribible para evitar
+ * las restricciones del sistema de archivos de solo lectura en Azure Functions.
  * 
- * SECURITY: This endpoint should be protected with:
- * - Function-level authentication (function key or Azure AD)
- * - IP restrictions in Azure Portal
- * - Only accessible from CI/CD agents or specific IPs
+ * Requiere autenticación mediante token JWT de Azure AD.
  */
 
 import { AzureFunction, Context, HttpRequest } from "@azure/functions";
@@ -31,12 +27,10 @@ const execAsync = promisify(exec);
 const MIGRATION_TIMEOUT_MS = 300000;
 
 /**
- * Resolves the absolute path to the Prisma schema file.
+ * Obtiene la ruta absoluta al archivo schema.prisma.
  * 
- * Attempts multiple path resolution strategies to handle different deployment contexts.
- * 
- * @returns Absolute path to schema.prisma file.
- * @throws {Error} If schema file cannot be located after all resolution attempts.
+ * Intenta múltiples estrategias de resolución de rutas para manejar diferentes
+ * contextos de despliegue (local, Azure Functions, etc).
  */
 function getPrismaSchemaPath(): string {
   const currentDir = __dirname;
@@ -59,27 +53,10 @@ function getPrismaSchemaPath(): string {
 const PRISMA_SCHEMA_PATH = getPrismaSchemaPath();
 
 /**
- * HTTP POST /api/RunMigrations
+ * Ejecuta migraciones de base de datos y seeding.
  * 
- * Triggers database migrations and seeding from CI/CD pipelines.
- * 
- * Security:
- * - Requires valid Azure AD JWT token in Authorization header (Bearer token)
- * - Token must be issued for the API's client ID
- * - Should be restricted by IP in Azure Portal (optional but recommended)
- * 
- * Usage from CI/CD:
- * ```bash
- * TOKEN=$(az account get-access-token --resource api://<API_CLIENT_ID> --query accessToken -o tsv)
- * curl -X POST \
- *   "https://<function-app>.azurewebsites.net/api/RunMigrations" \
- *   -H "Authorization: Bearer $TOKEN" \
- *   -H "Content-Type: application/json" \
- *   -d '{}'
- * ```
- * 
- * @param ctx - Azure Functions execution context
- * @param req - HTTP request
+ * Requiere token JWT válido de Azure AD en el header Authorization.
+ * Intenta primero sin pérdida de datos, y solo usa --force-reset si es necesario.
  */
 const runMigrationsHandler: AzureFunction = withErrorHandler(
   async (ctx: Context, req: HttpRequest) => {
@@ -89,7 +66,7 @@ const runMigrationsHandler: AzureFunction = withErrorHandler(
         return badRequest(ctx, "Only POST method is allowed");
       }
 
-      const { migrationCommand, workingDir } = preparePrismaRuntime();
+      const { migrationCommand: baseCommand, workingDir } = preparePrismaRuntime();
 
       try {
         const prismaEnginesDir = "/tmp/prisma-engines";
@@ -107,9 +84,7 @@ const runMigrationsHandler: AzureFunction = withErrorHandler(
         process.env.PRISMA_CLI_ALLOW_ENGINE_DOWNLOAD = "1";
         process.env.PRISMA_GENERATE_SKIP_AUTOINSTALL = "1";
 
-        ctx.log.info("[RunMigrations] Starting migration...");
-
-        const { stdout, stderr } = await execAsync(migrationCommand, {
+        const execOptions = {
           cwd: workingDir,
           env: {
             ...process.env,
@@ -122,29 +97,59 @@ const runMigrationsHandler: AzureFunction = withErrorHandler(
             PRISMA_ENGINES_TARGET_DIR: prismaEnginesDir,
           },
           timeout: MIGRATION_TIMEOUT_MS,
-        });
+        };
 
-        if (stdout) {
-          ctx.log.info(`[RunMigrations] ${stdout}`);
-        }
-        if (stderr) {
-          ctx.log.warn(`[RunMigrations] ${stderr}`);
-        }
+        ctx.log.info("[RunMigrations] Iniciando migración sin pérdida de datos");
+        let migrationCommand = baseCommand.replace(/--force-reset --accept-data-loss/g, '').trim();
+        
+        let stdout: string = '';
+        let stderr: string = '';
+        let migrationSucceeded = false;
 
-        ctx.log.info(`[RunMigrations] Migration completed successfully`);
-
-        // Run seeding
         try {
-          ctx.log.info(`[RunMigrations] Seeding default snapshot reasons...`);
-          await seedDefaultSnapshotReasons();
-          ctx.log.info(`[RunMigrations] Snapshot reasons seed completed successfully`);
-        } catch (seedError: unknown) {
-          ctx.log.error(`[RunMigrations] Failed to seed snapshot reasons: ${seedError instanceof Error ? seedError.message : String(seedError)}`);
-          if (seedError instanceof Error && seedError.stack) {
-            ctx.log.error(`[RunMigrations] Seed error stack: ${seedError.stack}`);
-          }
+          const result = await execAsync(migrationCommand, execOptions);
+          stdout = result.stdout || '';
+          stderr = result.stderr || '';
+          migrationSucceeded = true;
+        } catch (firstAttemptError: any) {
+          const errorMessage = firstAttemptError.message || '';
+          const errorOutput = (firstAttemptError.stdout || '') + (firstAttemptError.stderr || '');
           
-          // Log seed error to error table
+          const requiresDataLoss = 
+            errorMessage.includes('without a default value') ||
+            errorMessage.includes('cannot be executed') ||
+            errorMessage.includes('it is not possible') ||
+            errorOutput.includes('without a default value') ||
+            errorOutput.includes('cannot be executed') ||
+            errorOutput.includes('it is not possible') ||
+            process.env.MIGRATION_FORCE_RESET === "true";
+          
+          if (requiresDataLoss) {
+            ctx.log.warn("[RunMigrations] La migración requiere pérdida de datos, reintentando con --force-reset");
+            
+            migrationCommand = baseCommand;
+            if (!migrationCommand.includes('--force-reset')) {
+              migrationCommand = migrationCommand + ' --force-reset --accept-data-loss';
+            }
+            
+            const result = await execAsync(migrationCommand, execOptions);
+            stdout = result.stdout || '';
+            stderr = result.stderr || '';
+            migrationSucceeded = true;
+          } else {
+            throw firstAttemptError;
+          }
+        }
+
+        if (!migrationSucceeded) {
+          throw new Error("La migración falló después de todos los intentos");
+        }
+
+        try {
+          await seedDefaultSnapshotReasons();
+        } catch (seedError: unknown) {
+          ctx.log.error(`[RunMigrations] Error en seeding: ${seedError instanceof Error ? seedError.message : String(seedError)}`);
+          
           try {
             const serviceContainer = ServiceContainer.getInstance();
             serviceContainer.initialize();
@@ -161,9 +166,8 @@ const runMigrationsHandler: AzureFunction = withErrorHandler(
                 errorType: "seed_failure"
               }
             });
-            ctx.log.info(`[RunMigrations] Seed error logged to error table`);
           } catch (logError) {
-            ctx.log.error(`[RunMigrations] Failed to log seed error to table: ${logError}`);
+            ctx.log.error(`[RunMigrations] No se pudo registrar el error de seeding: ${logError}`);
           }
         }
 
@@ -174,23 +178,8 @@ const runMigrationsHandler: AzureFunction = withErrorHandler(
         });
 
       } catch (error: unknown) {
-        ctx.log.error(`[RunMigrations] Command failed: ${migrationCommand}`);
-        
-        if (error instanceof Error) {
-          ctx.log.error(`[RunMigrations] ${error.message}`);
-          ctx.log.error(`[RunMigrations] Stack: ${error.stack}`);
-        } else {
-          ctx.log.error(`[RunMigrations] ${String(error)}`);
-        }
+        ctx.log.error(`[RunMigrations] Error en migración: ${error instanceof Error ? error.message : String(error)}`);
 
-        if (error && typeof error === "object" && "stdout" in error) {
-          ctx.log.error(`[RunMigrations] stdout: ${String((error as any).stdout)}`);
-        }
-        if (error && typeof error === "object" && "stderr" in error) {
-          ctx.log.error(`[RunMigrations] stderr: ${String((error as any).stderr)}`);
-        }
-
-        // Log migration error to error table
         try {
           const serviceContainer = ServiceContainer.getInstance();
           serviceContainer.initialize();
@@ -203,16 +192,14 @@ const runMigrationsHandler: AzureFunction = withErrorHandler(
             error: error instanceof Error ? error : new Error(String(error)),
             context: {
               operation: "database_migration",
-              migrationCommand: migrationCommand,
               workingDir: workingDir,
               stdout: error && typeof error === "object" && "stdout" in error ? String((error as any).stdout) : undefined,
               stderr: error && typeof error === "object" && "stderr" in error ? String((error as any).stderr) : undefined,
               errorType: "migration_failure"
             }
           });
-          ctx.log.info(`[RunMigrations] Migration error logged to error table`);
         } catch (logError) {
-          ctx.log.error(`[RunMigrations] Failed to log migration error to table: ${logError}`);
+          ctx.log.error(`[RunMigrations] No se pudo registrar el error: ${logError}`);
         }
 
         throw error;
@@ -228,13 +215,11 @@ const runMigrationsHandler: AzureFunction = withErrorHandler(
 export default runMigrationsHandler;
 
 /**
- * Prepares a writable Prisma runtime environment in `/tmp/prisma-runtime`.
+ * Prepara un entorno de ejecución de Prisma escribible en `/tmp/prisma-runtime`.
  * 
- * Copies the Prisma CLI and `@prisma` packages from the read-only deployment
- * directory to a writable temporary directory. This allows Prisma to execute
- * migrations in Azure Functions where the deployment directory is read-only.
- * 
- * @returns Object containing the migration command and working directory path.
+ * Copia el CLI de Prisma y los paquetes `@prisma` desde el directorio de despliegue
+ * de solo lectura a un directorio temporal escribible. Esto permite ejecutar migraciones
+ * en Azure Functions donde el directorio de despliegue es de solo lectura.
  */
 function preparePrismaRuntime(): { migrationCommand: string; workingDir: string } {
   const runtimeRoot = "/tmp/prisma-runtime";
@@ -265,12 +250,8 @@ function preparePrismaRuntime(): { migrationCommand: string; workingDir: string 
     cpSync(sourceVendorDir, runtimeVendorDir, { recursive: true });
   }
 
-  // Check if force reset is requested
-  const forceReset = process.env.MIGRATION_FORCE_RESET === "true";
-  const resetFlag = forceReset ? "--force-reset --accept-data-loss" : "";
-
   return {
-    migrationCommand: `node "${runtimePrismaBuild}" db push --schema "${PRISMA_SCHEMA_PATH}" ${resetFlag}`.trim(),
+    migrationCommand: `node "${runtimePrismaBuild}" db push --schema "${PRISMA_SCHEMA_PATH}"`,
     workingDir: runtimeRoot,
   };
 }

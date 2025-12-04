@@ -37,13 +37,10 @@ jobs:
           set -euo pipefail
           cd "${{ env.FUNC_SRC }}"
           npm ci
-          # Ensure Prisma CLI is available
           test -f "node_modules/prisma/build/index.js" || test -f "node_modules/.bin/prisma" || (echo "Prisma CLI not found" && exit 1)
-          # Generate Prisma client (does not require DATABASE_URL)
           npm run prisma:generate
           test -d "node_modules/.prisma/client"
           npm run build
-          # Verify Prisma files are present after build
           test -f "node_modules/prisma/build/index.js" || (echo "Prisma CLI missing after build" && exit 1)
 
       - name: Package deployable ZIP
@@ -52,7 +49,6 @@ jobs:
           set -euo pipefail
           rm -f deploy.zip
           cd "${{ env.FUNC_SRC }}"
-          # Include Prisma binaries explicitly
           zip -r ../../deploy.zip . \
             -x "**/.git/**" \
             -x "**/__tests__/**" \
@@ -70,7 +66,6 @@ jobs:
           test -f "zip-temp/host.json"
           test ! -d "zip-temp/apps/api-functions"
           test -d "zip-temp/node_modules/.prisma/client"
-          # Validate Prisma CLI binaries are included
           test -f "zip-temp/node_modules/prisma/build/index.js" || test -f "zip-temp/node_modules/.bin/prisma"
           test -d "zip-temp/node_modules/prisma" || echo "Warning: Prisma binaries may be missing"
           rm -rf zip-temp
@@ -115,14 +110,8 @@ jobs:
         run: |
           set -euo pipefail
           
-          # Extract Application ID URI from scope URI (remove /access_as_user)
-          # Scope URI format: api://<tenant-id>/<app-name>-API/access_as_user
-          # Application ID URI format: api://<tenant-id>/<app-name>-API
           APP_ID_URI="${API_SCOPE_URI%/access_as_user}"
-          echo "Using Application ID URI: $APP_ID_URI"
           
-          # Get Azure AD access token for the API
-          # The resource URI must match the Application ID URI registered in Azure AD
           TOKEN=$(az account get-access-token \
             --resource "$APP_ID_URI" \
             --query accessToken -o tsv)
@@ -132,9 +121,7 @@ jobs:
             exit 1
           fi
           
-          # Invoke RunMigrations endpoint using VITE_API_URL
           MIGRATION_URL="${API_URL}/api/RunMigrations"
-          echo "Calling migration endpoint: $MIGRATION_URL"
           
           RESPONSE=$(curl -X POST \
             "$MIGRATION_URL" \
@@ -147,12 +134,10 @@ jobs:
           HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
           BODY=$(echo "$RESPONSE" | sed '$d')
           
-          echo "Migration response (HTTP $HTTP_CODE):"
-          echo "$BODY"
-          
           if [ "$HTTP_CODE" != "200" ]; then
             echo "Error: Migration failed with HTTP $HTTP_CODE"
+            echo "$BODY"
             exit 1
           fi
           
-          echo "✅ Migrations completed successfully"
+          echo "Migrations completed successfully"
