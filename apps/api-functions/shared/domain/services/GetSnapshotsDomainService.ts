@@ -50,7 +50,11 @@ export class GetSnapshotsDomainService {
       supervisorName: snapshot.supervisor.fullName,
       psoFullName: snapshot.pso.fullName,
       psoEmail: snapshot.pso.email,
-      reason: snapshot.reason,
+      reason: {
+        id: snapshot.reason.id,
+        label: snapshot.reason.label,
+        code: snapshot.reason.code
+      },
       description: snapshot.description,
       imageUrl: snapshot.imageUrl,
       takenAt: snapshot.takenAt.toISOString(),

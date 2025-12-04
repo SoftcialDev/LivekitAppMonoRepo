@@ -9,6 +9,7 @@ import { SendSnapshotResponse } from "../value-objects/SendSnapshotResponse";
 import { IUserRepository } from "../interfaces/IUserRepository";
 import { IBlobStorageService } from "../interfaces/IBlobStorageService";
 import { ISnapshotRepository } from "../interfaces/ISnapshotRepository";
+import { ISnapshotReasonRepository } from "../interfaces/ISnapshotReasonRepository";
 import { IChatService } from "../interfaces/IChatService";
 import { IErrorLogService } from "../interfaces/IErrorLogService";
 import { ImageUploadRequest } from "../value-objects/ImageUploadRequest";
@@ -32,6 +33,7 @@ export class SendSnapshotDomainService {
     private readonly userRepository: IUserRepository,
     private readonly blobStorageService: IBlobStorageService,
     private readonly snapshotRepository: ISnapshotRepository,
+    private readonly snapshotReasonRepository: ISnapshotReasonRepository,
     private readonly chatService: IChatService,
     private readonly errorLogService: IErrorLogService
   ) {}
@@ -56,28 +58,49 @@ export class SendSnapshotDomainService {
       throw new UserNotFoundError(`PSO with email ${request.psoEmail} not found or deleted`);
     }
 
-    // 3. Upload image to blob storage
+    // 3. Validate snapshot reason exists and is active
+    const reason = await this.snapshotReasonRepository.findById(request.reasonId);
+    if (!reason || !reason.isActive) {
+      throw new Error(`Snapshot reason with ID ${request.reasonId} not found or inactive`);
+    }
+
+    // Validate description for "OTHER" reason
+    if (reason.code === 'OTHER' && (!request.description || request.description.trim().length === 0)) {
+      throw new Error('Description is required when reason is "Other"');
+    }
+
+    // 4. Generate a temporary UUID for the snapshot to use in file naming
+    // This allows us to create descriptive file names before the snapshot is persisted
+    const { randomUUID } = await import('crypto');
+    const temporarySnapshotId = randomUUID();
+
+    // 5. Upload image to blob storage with descriptive file name
+    const psoName = pso.fullName ?? pso.email.split('@')[0];
     const imageUploadRequest = new ImageUploadRequest(
       request.imageBase64,
-      supervisor.id
+      supervisor.id,
+      psoName,
+      reason.code,
+      temporarySnapshotId
     );
     
     const imageUrl = await this.blobStorageService.uploadImage(imageUploadRequest);
 
-    // 4. Persist snapshot record
+    // 6. Persist snapshot record with the actual image URL using the same ID for consistency
     const snapshot = await this.snapshotRepository.create(
       supervisor.id,
       pso.id,
-      request.reason,
+      request.reasonId,
       request.description,
-      imageUrl
+      imageUrl,
+      temporarySnapshotId
     );
 
     await this.notifySnapshotReport({
       psoName: pso.fullName ?? pso.email,
       psoEmail: pso.email,
       capturedBy: supervisor.fullName ?? supervisor.email,
-      reason: request.reason,
+      reason: reason.label,
       imageUrl,
       capturedAt: formatCentralAmericaTime(getCentralAmericaTime()),
       subject: `Snapshot Report – ${pso.fullName ?? pso.email}`,

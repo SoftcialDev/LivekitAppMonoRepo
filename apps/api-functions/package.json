@@ -5,10 +5,12 @@
     "build": "tsc",
     "prisma:generate": "prisma generate",
     "migrate:deploy": "prisma db push",
+    "migrate:deploy:force": "prisma db push --force-reset --accept-data-loss",
     "prepare": "npm run prisma:generate",
     "postinstall": "npm run prepare",
     "postbuild": "npm run prepare",
     "start": "func start --script-root .",
+    "seed:snapshot-reasons": "ts-node scripts/seed-snapshot-reasons.ts",
     "test:unit": "jest",
     "test:unit:coverage": "jest --coverage"
   },

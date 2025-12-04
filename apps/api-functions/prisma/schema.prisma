@@ -45,6 +45,7 @@ enum Status {
 enum CommandType {
   START
   STOP
+  REFRESH
 }
 
 // Contact manager profiles with status tracking
@@ -267,20 +268,39 @@ model ServiceAccountCredential {
 }
 
 // Supervisor snapshots of PSOs
+model SnapshotReason {
+  id        String     @id @default(uuid()) @db.Uuid
+  label     String
+  code      String     @unique
+  isDefault Boolean    @default(false)
+  isActive  Boolean    @default(true)
+  order     Int        @default(0)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  snapshots Snapshot[]
+
+  @@index([isActive])
+  @@index([order])
+  @@map("snapshot_reasons")
+}
+
 model Snapshot {
-  id           String   @id @default(uuid()) @db.Uuid
-  supervisorId String   @db.Uuid
-  psoId        String   @db.Uuid
-  reason       String
+  id           String         @id @default(uuid()) @db.Uuid
+  supervisorId String         @db.Uuid
+  psoId        String         @db.Uuid
+  reasonId     String         @db.Uuid
   description  String?
   takenAt      DateTime
   imageUrl     String
 
-  supervisor   User     @relation("SupervisorSnapshots", fields: [supervisorId], references: [id], onDelete: Cascade)
-  pso          User     @relation("PsoSnapshots",        fields: [psoId],        references: [id], onDelete: Cascade)
+  supervisor   User           @relation("SupervisorSnapshots", fields: [supervisorId], references: [id], onDelete: Cascade)
+  pso          User           @relation("PsoSnapshots",        fields: [psoId],        references: [id], onDelete: Cascade)
+  reason       SnapshotReason @relation(fields: [reasonId], references: [id], onDelete: Restrict)
 
   @@index([supervisorId])
   @@index([psoId])
+  @@index([reasonId])
   @@map("snapshots")
 }
 

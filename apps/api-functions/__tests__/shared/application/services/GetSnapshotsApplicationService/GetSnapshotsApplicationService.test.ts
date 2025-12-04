@@ -58,7 +58,7 @@ describe('GetSnapshotsApplicationService', () => {
           supervisorName: 'Supervisor One',
           psoFullName: 'PSO One',
           psoEmail: 'pso1@example.com',
-          reason: 'Performance review',
+          reason: { id: 'reason-1', label: 'Performance review', code: 'PERFORMANCE' },
           imageUrl: 'https://example.com/snapshot1.jpg',
           takenAt: '2023-01-01T10:00:00Z'
         },
@@ -67,7 +67,7 @@ describe('GetSnapshotsApplicationService', () => {
           supervisorName: 'Supervisor Two',
           psoFullName: 'PSO Two',
           psoEmail: 'pso2@example.com',
-          reason: 'Training session',
+          reason: { id: 'reason-2', label: 'Training session', code: 'TRAINING' },
           imageUrl: 'https://example.com/snapshot2.jpg',
           takenAt: '2023-01-01T11:00:00Z'
         }
@@ -97,7 +97,7 @@ describe('GetSnapshotsApplicationService', () => {
           supervisorName: 'Supervisor Three',
           psoFullName: 'PSO Three',
           psoEmail: 'pso3@example.com',
-          reason: 'Quality check',
+          reason: { id: 'reason-3', label: 'Quality check', code: 'QUALITY' },
           imageUrl: 'https://example.com/snapshot3.jpg',
           takenAt: '2023-01-01T12:00:00Z'
         }
@@ -192,7 +192,7 @@ describe('GetSnapshotsApplicationService', () => {
           supervisorName: 'Supervisor Filtered',
           psoFullName: 'PSO Filtered',
           psoEmail: 'pso-filtered@example.com',
-          reason: 'Filtered test',
+          reason: { id: 'reason-4', label: 'Filtered test', code: 'FILTERED' },
           imageUrl: 'https://example.com/snapshot-filtered1.jpg',
           takenAt: '2023-01-15T10:00:00Z'
         }
@@ -268,7 +268,7 @@ describe('GetSnapshotsApplicationService', () => {
         supervisorName: `Supervisor ${i}`,
         psoFullName: `PSO ${i}`,
         psoEmail: `pso${i}@example.com`,
-        reason: `Test reason ${i}`,
+        reason: { id: `reason-${i}`, label: `Test reason ${i}`, code: `TEST_${i}` },
         imageUrl: `https://example.com/snapshot${i}.jpg`,
         takenAt: `2023-01-01T${10 + (i % 24)}:00:00Z`
       }));
@@ -294,7 +294,7 @@ describe('GetSnapshotsApplicationService', () => {
           supervisorName: 'Supervisor Complex',
           psoFullName: 'PSO Complex',
           psoEmail: 'pso-complex@example.com',
-          reason: 'Complex test',
+          reason: { id: 'reason-5', label: 'Complex test', code: 'COMPLEX' },
           imageUrl: 'https://example.com/snapshot-complex1.jpg',
           takenAt: '2023-01-15T10:00:00Z'
         }

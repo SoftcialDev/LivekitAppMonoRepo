@@ -145,33 +145,17 @@ const TalkSessionsReportPage: React.FC = () => {
       key: 'supervisorName',
       header: 'Supervisor',
       render: row => (
-        <div>
-          <div className="font-semibold">{row.supervisorName}</div>
-          <div className="text-sm text-gray-400">{row.supervisorEmail}</div>
-        </div>
+        <div className="font-semibold">{row.supervisorName}</div>
       ),
       cellClassName: 'max-w-[200px] break-words whitespace-normal'
-    },
-    {
-      key: 'supervisorEmail',
-      header: '',
-      cellClassName: 'hidden'
     },
     {
       key: 'psoName',
       header: 'PSO',
       render: row => (
-        <div>
-          <div className="font-semibold">{row.psoName}</div>
-          <div className="text-sm text-gray-400">{row.psoEmail}</div>
-        </div>
+        <div className="font-semibold">{row.psoName}</div>
       ),
       cellClassName: 'max-w-[200px] break-words whitespace-normal'
-    },
-    {
-      key: 'psoEmail',
-      header: '',
-      cellClassName: 'hidden'
     },
     {
       key: 'startedAt',

@@ -13,6 +13,7 @@ import { promisify } from "util";
 import { join, dirname } from "path";
 import { existsSync, mkdirSync, cpSync } from "fs";
 import { config } from "../shared/config";
+import { seedDefaultSnapshotReasons } from "../shared/infrastructure/seed/defaultSnapshotReasons";
 
 const execAsync = promisify(exec);
 
@@ -100,6 +101,19 @@ export default async function runMigrations(
     if (stderr) {
       ctx.log.warn(`[RunMigrations] ${stderr}`);
     }
+
+    ctx.log.info(`[RunMigrations] Migration completed successfully`);
+
+    try {
+      ctx.log.info(`[RunMigrations] Seeding default snapshot reasons...`);
+      await seedDefaultSnapshotReasons();
+      ctx.log.info(`[RunMigrations] Snapshot reasons seed completed successfully`);
+    } catch (seedError: unknown) {
+      ctx.log.error(`[RunMigrations] Failed to seed snapshot reasons: ${seedError instanceof Error ? seedError.message : String(seedError)}`);
+      if (seedError instanceof Error && seedError.stack) {
+        ctx.log.error(`[RunMigrations] Seed error stack: ${seedError.stack}`);
+      }
+    }
   } catch (error: unknown) {
     ctx.log.error(`[RunMigrations] Command failed: ${migrationCommand}`);
     
@@ -160,7 +174,7 @@ function preparePrismaRuntime(): { migrationCommand: string; workingDir: string 
   }
 
   return {
-    migrationCommand: `node "${runtimePrismaBuild}" db push --schema "${PRISMA_SCHEMA_PATH}" --accept-data-loss`,
+    migrationCommand: `node "${runtimePrismaBuild}" db push --schema "${PRISMA_SCHEMA_PATH}" --force-reset --accept-data-loss`,
     workingDir: runtimeRoot,
   };
 }

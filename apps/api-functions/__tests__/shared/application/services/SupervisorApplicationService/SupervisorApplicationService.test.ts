@@ -61,7 +61,8 @@ const mockAuthorizationService: jest.Mocked<IAuthorizationService> = {
   canAccessAdmin: jest.fn(),
   isUserActive: jest.fn(),
   authorizeCommandAcknowledgment: jest.fn(),
-  canAccessStreamingStatus: jest.fn()
+  canAccessStreamingStatus: jest.fn(),
+  authorizeAdminOrSuperAdmin: jest.fn()
 };
 
 const mockSupervisorRepository: jest.Mocked<ISupervisorRepository> = {

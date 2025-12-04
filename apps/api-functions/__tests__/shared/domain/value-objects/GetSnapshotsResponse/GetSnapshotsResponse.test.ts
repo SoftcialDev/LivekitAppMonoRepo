@@ -10,7 +10,7 @@ describe('GetSnapshotsResponse', () => {
           supervisorName: 'John Supervisor',
           psoFullName: 'Jane PSO',
           psoEmail: 'jane.pso@example.com',
-          reason: 'Safety check',
+          reason: { id: 'reason-1', label: 'Safety check', code: 'SAFETY' },
           imageUrl: 'https://example.com/snapshot1.jpg',
           takenAt: '2024-01-01T10:00:00Z'
         },
@@ -19,7 +19,7 @@ describe('GetSnapshotsResponse', () => {
           supervisorName: 'Bob Supervisor',
           psoFullName: 'Alice PSO',
           psoEmail: 'alice.pso@example.com',
-          reason: 'Incident report',
+          reason: { id: 'reason-2', label: 'Incident report', code: 'INCIDENT' },
           imageUrl: 'https://example.com/snapshot2.jpg',
           takenAt: '2024-01-01T11:00:00Z'
         }
@@ -45,7 +45,7 @@ describe('GetSnapshotsResponse', () => {
           supervisorName: 'Single Supervisor',
           psoFullName: 'Single PSO',
           psoEmail: 'single.pso@example.com',
-          reason: 'Single check',
+          reason: { id: 'reason-3', label: 'Single check', code: 'SINGLE' },
           imageUrl: 'https://example.com/single.jpg',
           takenAt: '2024-01-01T12:00:00Z'
         }
@@ -65,7 +65,7 @@ describe('GetSnapshotsResponse', () => {
           supervisorName: 'John Supervisor',
           psoFullName: 'Jane PSO',
           psoEmail: 'jane.pso@example.com',
-          reason: 'Safety check',
+          reason: { id: 'reason-1', label: 'Safety check', code: 'SAFETY' },
           imageUrl: 'https://example.com/snapshot1.jpg',
           takenAt: '2024-01-01T10:00:00Z'
         }
@@ -95,7 +95,7 @@ describe('GetSnapshotsResponse', () => {
           supervisorName: 'John Supervisor',
           psoFullName: 'Jane PSO',
           psoEmail: 'jane.pso@example.com',
-          reason: 'Safety check',
+          reason: { id: 'reason-1', label: 'Safety check', code: 'SAFETY' },
           imageUrl: 'https://example.com/snapshot1.jpg',
           takenAt: '2024-01-01T10:00:00Z'
         }
@@ -115,7 +115,7 @@ describe('GetSnapshotsResponse', () => {
           supervisorName: 'John Supervisor',
           psoFullName: 'Jane PSO',
           psoEmail: 'jane.pso@example.com',
-          reason: 'Safety check',
+          reason: { id: 'reason-1', label: 'Safety check', code: 'SAFETY' },
           imageUrl: 'https://example.com/snapshot1.jpg',
           takenAt: '2024-01-01T10:00:00Z'
         }
@@ -139,7 +139,7 @@ describe('GetSnapshotsResponse', () => {
           supervisorName: 'Supervisor "Special" & Co.',
           psoFullName: 'PSO with émojis 🚀',
           psoEmail: 'special@pso.com',
-          reason: 'Special: "Incident" & follow-up',
+          reason: { id: 'reason-4', label: 'Special: "Incident" & follow-up', code: 'SPECIAL' },
           imageUrl: 'https://example.com/special%20image.jpg',
           takenAt: '2024-01-01T10:00:00Z'
         }
@@ -157,7 +157,7 @@ describe('GetSnapshotsResponse', () => {
           supervisorName: 'Supervisor José',
           psoFullName: 'PSO María',
           psoEmail: 'maria@pso.com',
-          reason: 'Revisión de seguridad',
+          reason: { id: 'reason-5', label: 'Revisión de seguridad', code: 'REVISION' },
           imageUrl: 'https://example.com/unicode.jpg',
           takenAt: '2024-01-01T10:00:00Z'
         }
@@ -176,7 +176,7 @@ describe('GetSnapshotsResponse', () => {
           supervisorName: longText,
           psoFullName: longText,
           psoEmail: 'long@pso.com',
-          reason: longText,
+          reason: { id: 'reason-6', label: longText, code: 'LONG' },
           imageUrl: 'https://example.com/long.jpg',
           takenAt: '2024-01-01T10:00:00Z'
         }
@@ -194,7 +194,7 @@ describe('GetSnapshotsResponse', () => {
           supervisorName: 'John Supervisor',
           psoFullName: 'Jane PSO',
           psoEmail: 'jane.pso@example.com',
-          reason: 'Safety check',
+          reason: { id: 'reason-1', label: 'Safety check', code: 'SAFETY' },
           imageUrl: 'https://example.com/snapshot1.jpg',
           takenAt: '2024-01-01T10:00:00.000Z'
         },
@@ -203,7 +203,7 @@ describe('GetSnapshotsResponse', () => {
           supervisorName: 'Bob Supervisor',
           psoFullName: 'Alice PSO',
           psoEmail: 'alice.pso@example.com',
-          reason: 'Incident report',
+          reason: { id: 'reason-2', label: 'Incident report', code: 'INCIDENT' },
           imageUrl: 'https://example.com/snapshot2.jpg',
           takenAt: '2024-01-01T11:00:00Z'
         }
@@ -224,7 +224,7 @@ describe('GetSnapshotsResponse', () => {
           supervisorName: 'John Supervisor',
           psoFullName: 'Jane PSO',
           psoEmail: 'jane.pso@example.com',
-          reason: 'Safety check',
+          reason: { id: 'reason-1', label: 'Safety check', code: 'SAFETY' },
           imageUrl: 'https://example.com/snapshot1.jpg',
           takenAt: '2024-01-01T10:00:00Z'
         }
@@ -257,7 +257,7 @@ describe('GetSnapshotsResponse', () => {
           supervisorName: 'Single Supervisor',
           psoFullName: 'Single PSO',
           psoEmail: 'single.pso@example.com',
-          reason: 'Single check',
+          reason: { id: 'reason-3', label: 'Single check', code: 'SINGLE' },
           imageUrl: 'https://example.com/single.jpg',
           takenAt: '2024-01-01T12:00:00Z'
         }
@@ -275,7 +275,7 @@ describe('GetSnapshotsResponse', () => {
           supervisorName: 'John Supervisor',
           psoFullName: 'Jane PSO',
           psoEmail: 'jane.pso@example.com',
-          reason: 'Safety check',
+          reason: { id: 'reason-1', label: 'Safety check', code: 'SAFETY' },
           imageUrl: 'https://example.com/snapshot1.jpg',
           takenAt: '2024-01-01T10:00:00Z'
         },
@@ -284,7 +284,7 @@ describe('GetSnapshotsResponse', () => {
           supervisorName: 'Bob Supervisor',
           psoFullName: 'Alice PSO',
           psoEmail: 'alice.pso@example.com',
-          reason: 'Incident report',
+          reason: { id: 'reason-2', label: 'Incident report', code: 'INCIDENT' },
           imageUrl: 'https://example.com/snapshot2.jpg',
           takenAt: '2024-01-01T11:00:00Z'
         },
@@ -293,7 +293,7 @@ describe('GetSnapshotsResponse', () => {
           supervisorName: 'Charlie Supervisor',
           psoFullName: 'David PSO',
           psoEmail: 'david.pso@example.com',
-          reason: 'Routine inspection',
+          reason: { id: 'reason-7', label: 'Routine inspection', code: 'ROUTINE' },
           imageUrl: 'https://example.com/snapshot3.jpg',
           takenAt: '2024-01-01T12:00:00Z'
         }

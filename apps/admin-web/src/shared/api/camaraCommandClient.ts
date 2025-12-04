@@ -24,10 +24,18 @@ export class CameraCommandClient {
   }
 
   /**
+   * Instruct the backend to send a refresh command to this employee.
+   * @param employeeEmail – Employee's email.
+   */
+  public async refresh(employeeEmail: string): Promise<void> {
+    await this.send('REFRESH', employeeEmail);
+  }
+
+  /**
    * Send a camera command with timestamp.
    */
   private async send(
-    command: 'START' | 'STOP',
+    command: 'START' | 'STOP' | 'REFRESH',
     employeeEmail: string,
     reason?: string
   ): Promise<void> {

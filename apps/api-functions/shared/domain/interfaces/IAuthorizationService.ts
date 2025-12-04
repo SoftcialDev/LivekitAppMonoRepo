@@ -59,4 +59,12 @@ export interface IAuthorizationService {
    * @throws Error if not authorized
    */
   canAccessStreamingStatus(callerId: string): Promise<void>;
+
+  /**
+   * Authorizes if a user can access Admin or SuperAdmin functions
+   * @param callerId - Azure AD object ID of the caller
+   * @returns Promise that resolves when authorized
+   * @throws Error if not authorized
+   */
+  authorizeAdminOrSuperAdmin(callerId: string): Promise<void>;
 }

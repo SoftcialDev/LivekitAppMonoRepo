@@ -24,7 +24,7 @@ export class SendSnapshotRequest {
   constructor(
     public readonly callerId: string,
     public readonly psoEmail: string,
-    public readonly reason: string,
+    public readonly reasonId: string,
     public readonly description: string | undefined,
     public readonly imageBase64: string
   ) {}
@@ -39,7 +39,7 @@ export class SendSnapshotRequest {
     return new SendSnapshotRequest(
       callerId,
       params.psoEmail,
-      params.reason,
+      params.reasonId,
       params.description,
       params.imageBase64
     );

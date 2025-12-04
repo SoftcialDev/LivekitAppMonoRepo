@@ -7,6 +7,7 @@
 
 import { sendSnapshotReport } from '@/shared/api/snapshotsClient';
 import { useToast } from '@/shared/ui/ToastContext';
+import { useSnapshotReasons } from '@/shared/context/SnapshotReasonsContext';
 import { useState, useRef } from 'react';
 import { SnapshotReason } from '@/shared/types/snapshot';
 
@@ -58,6 +59,7 @@ export interface UseSnapshot {
 export function useSnapshot(psoEmail: string): UseSnapshot {
   const videoRef = useRef<HTMLVideoElement>(null);
   const { showToast } = useToast();
+  const { reasons } = useSnapshotReasons();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [screenshot, setScreenshot] = useState<string>('');
@@ -102,7 +104,8 @@ export function useSnapshot(psoEmail: string): UseSnapshot {
       return;
     }
 
-    if (reason === SnapshotReason.OTHER && !description.trim()) {
+    const selectedReason = reasons.find(r => r.id === reason.id);
+    if (selectedReason?.code === 'OTHER' && !description.trim()) {
       showToast('Description is required when reason is "Other"', 'error');
       return;
     }
@@ -112,8 +115,8 @@ export function useSnapshot(psoEmail: string): UseSnapshot {
       const base64 = screenshot.split(',')[1];
       await sendSnapshotReport({
         psoEmail,
-        reason,
-        description: reason === SnapshotReason.OTHER ? description : undefined,
+        reasonId: reason.id,
+        description: selectedReason?.code === 'OTHER' ? description : undefined,
         imageBase64: base64
       });
       showToast('Snapshot report sent successfully', 'success');

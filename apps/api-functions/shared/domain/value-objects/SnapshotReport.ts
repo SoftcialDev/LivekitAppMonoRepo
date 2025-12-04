@@ -23,7 +23,11 @@ export interface SnapshotReport {
   psoEmail: string;
   
   /** Reason for taking the snapshot */
-  reason: string;
+  reason: {
+    id: string;
+    label: string;
+    code: string;
+  };
   
   /** Optional description for the snapshot (required when reason is "OTHER") */
   description?: string | null;

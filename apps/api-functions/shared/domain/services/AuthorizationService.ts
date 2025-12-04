@@ -200,4 +200,15 @@ export class AuthorizationService implements IAuthorizationService {
       const user = await this.userRepository.findByAzureAdObjectId(callerId);
       return user ? (user.role === 'SuperAdmin') : false;
     }
+
+  /**
+   * Authorizes if a user can access Admin or SuperAdmin functions
+   * @param callerId - Azure AD object ID of the caller
+   * @returns Promise that resolves when authorized
+   * @throws AuthError if not authorized
+   */
+  async authorizeAdminOrSuperAdmin(callerId: string): Promise<void> {
+    const allowedRoles: UserRole[] = [UserRole.Admin, UserRole.SuperAdmin];
+    await this.validateUserWithRoles(callerId, allowedRoles, 'accessing Admin or SuperAdmin functions');
+  }
 }

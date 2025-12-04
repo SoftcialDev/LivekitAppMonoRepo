@@ -10,5 +10,6 @@
  */
 export enum CommandType {
   START = "START",
-  STOP = "STOP"
+  STOP = "STOP",
+  REFRESH = "REFRESH"
 }

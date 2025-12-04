@@ -70,6 +70,9 @@ export class ProcessCommandDomainService {
       await this.streamingSessionDomainService.stopStreamingSession(user.id, stopReason);
       // Broadcast STOP event to supervisors with reason
       await this.broadcastStreamEvent(user.email, 'stopped', request.reason);
+    } else if (request.command === CommandType.REFRESH) {
+      // REFRESH doesn't modify streaming sessions, just sends the command
+      // No broadcast needed for REFRESH
     }
 
     // 4. Attempt immediate delivery

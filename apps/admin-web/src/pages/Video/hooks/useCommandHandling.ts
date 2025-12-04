@@ -46,6 +46,9 @@ export function useCommandHandling({
       } else if (action === 'STOP') {
         console.log(`[WS Cmd] Calling onStopCommand with reason:`, cmd.reason);
         await onStopCommand(cmd.reason);
+      } else if (action === 'REFRESH') {
+        console.log(`[WS Cmd] Executing REFRESH command - reloading page`);
+        window.location.reload();
       } else {
         // Default to stop for unknown commands
         console.log(`[WS Cmd] Unknown command "${action}", defaulting to STOP`);

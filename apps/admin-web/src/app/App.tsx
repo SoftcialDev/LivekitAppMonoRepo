@@ -41,6 +41,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 
 import { AuthProvider } from '@/shared/auth/AuthContext';
 import { UserInfoProvider } from '@/shared/contexts/UserInfoContext';
+import { SnapshotReasonsProvider } from '@/shared/context/SnapshotReasonsContext';
 import { useAuth } from '@/shared/auth/useAuth';
 import { setTokenGetter } from '@/shared/api/apiClient';
 import { ProtectedRoute } from '@/shared/ui/ProtectedRoute';
@@ -91,9 +92,10 @@ function App(): JSX.Element {
   return (
     <AuthProvider>
       <UserInfoProvider>
-        <BrowserRouter>
-          <TokenInjector />
-          <ToastProvider>
+        <SnapshotReasonsProvider>
+          <BrowserRouter>
+            <TokenInjector />
+            <ToastProvider>
             <Routes>
               {/* Public */}
               <Route path="/login" element={<LoginPage />} />
@@ -228,9 +230,10 @@ function App(): JSX.Element {
 
             {/* Fallback */}
             <Route path="*" element={<Navigate to="/login" replace />} />
-          </Routes>
+            </Routes>
           </ToastProvider>
         </BrowserRouter>
+      </SnapshotReasonsProvider>
       </UserInfoProvider>
     </AuthProvider>
   );

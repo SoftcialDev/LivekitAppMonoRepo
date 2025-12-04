@@ -17,7 +17,7 @@ import TrashButton from '@/shared/ui/Buttons/TrashButton';
 import AddModal from '@/shared/ui/ModalComponent';
 import { Column, TableComponent } from '@/shared/ui/TableComponent';
 import { useToast } from '@/shared/ui/ToastContext';
-import { SnapshotReport as SnapshotDTO, SNAPSHOT_REASON_LABELS } from '@/shared/types/snapshot';
+import { SnapshotReport as SnapshotDTO } from '@/shared/types/snapshot';
 
 
 //////////////////////
@@ -124,40 +124,76 @@ const formatTakenAtUtc = (isoString: string | undefined) => {
     setPreviewOpen(true);
   };
 
-  /** Download via blob+<a download> (requires SAS & CORS) */
-/**
- * Downloads a remote image URL directly to the user's machine,
- * without opening a new tab.
- *
- * @param url  The full URL (including SAS token) of the snapshot JPEG.
- */
-const handleDownload = async (url: string) => {
-  try {
-    // 1) Fetch the image as a blob
-    const res = await fetch(url, { mode: 'cors' });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const blob = await res.blob();
+  /**
+   * Generates a descriptive file name for snapshot download
+   * @description Creates a human-readable file name with format: {psoName}_{reasonCode}_{date}_{time}_{shortId}.jpg
+   * @param report - Snapshot report containing PSO name, reason, and takenAt date
+   * @returns Formatted file name
+   */
+  const generateDownloadFileName = (report: SnapshotReport): string => {
+    // Sanitize PSO name (max 20 chars, replace spaces with underscores, remove special chars)
+    const sanitize = (str: string, maxLen: number = 50): string => {
+      if (!str) return 'unknown';
+      let sanitized = str.trim().replace(/\s+/g, '_').replace(/[^a-zA-Z0-9._-]/g, '');
+      sanitized = sanitized.replace(/_+/g, '_').replace(/^[._-]+|[._-]+$/g, '');
+      if (sanitized.length > maxLen) {
+        sanitized = sanitized.substring(0, maxLen).replace(/_+$/, '');
+      }
+      return sanitized || 'unknown';
+    };
 
-    // 2) Create an object URL for the blob
-    const blobUrl = URL.createObjectURL(blob);
+    const psoName = sanitize(report.psoFullName || report.psoEmail?.split('@')[0] || 'unknown', 20);
+    const reasonCode = sanitize(report.reason?.code || 'UNKNOWN', 15).toUpperCase();
+    
+    // Format date and time from takenAt
+    const takenAt = report.takenAt ? new Date(report.takenAt) : new Date();
+    const dateStr = takenAt.toISOString().slice(0, 10).replace(/-/g, '');
+    const hours = String(takenAt.getHours()).padStart(2, '0');
+    const minutes = String(takenAt.getMinutes()).padStart(2, '0');
+    const seconds = String(takenAt.getSeconds()).padStart(2, '0');
+    const timeStr = `${hours}${minutes}${seconds}`;
+    
+    // Get last 6 characters of snapshot ID for uniqueness
+    const shortId = report.id.slice(-6);
+    
+    return `snapshot_${psoName}_${reasonCode}_${dateStr}_${timeStr}_${shortId}.jpg`;
+  };
 
-    // 3) Create a temporary <a> with download attribute
-    const a = document.createElement('a');
-    a.href = blobUrl;
-    a.download = `snapshot-${Date.now()}.jpg`;  // suggest a filename
-    document.body.appendChild(a);
+  /**
+   * Downloads a remote image URL directly to the user's machine
+   * @description Fetches the image from blob storage and triggers a download with a descriptive file name
+   * @param report - Snapshot report containing image URL and metadata
+   */
+  const handleDownload = async (report: SnapshotReport) => {
+    try {
+      // 1) Fetch the image as a blob
+      const res = await fetch(report.imageUrl, { mode: 'cors' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const blob = await res.blob();
 
-    // 4) Trigger the download
-    a.click();
+      // 2) Create an object URL for the blob
+      const blobUrl = URL.createObjectURL(blob);
 
-    // 5) Clean up
-    document.body.removeChild(a);
-    URL.revokeObjectURL(blobUrl);
-  } catch (err) {
-    console.error('Download failed', err);
-    showToast('Download failed', 'error');
-  }
-};
+      // 3) Generate descriptive file name
+      const fileName = generateDownloadFileName(report);
+
+      // 4) Create a temporary <a> with download attribute
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = fileName;
+      document.body.appendChild(a);
+
+      // 5) Trigger the download
+      a.click();
+
+      // 6) Clean up
+      document.body.removeChild(a);
+      URL.revokeObjectURL(blobUrl);
+    } catch (err) {
+      console.error('Download failed', err);
+      showToast('Download failed', 'error');
+    }
+  };
 
 
   const columns: Column<SnapshotReport>[] = [
@@ -174,7 +210,7 @@ const handleDownload = async (url: string) => {
       header: 'Reason',
       cellClassName: 'whitespace-normal',
       render: (row) => {
-        const reasonText = SNAPSHOT_REASON_LABELS[row.reason] || row.reason;
+        const reasonText = row.reason?.label || '—';
         return (
           <div 
             className="break-words max-w-md" 
@@ -241,7 +277,7 @@ const handleDownload = async (url: string) => {
         <div className="flex space-x-2">
           <TrashButton onClick={() => openDeleteModal(row)} />
           <button
-            onClick={() => handleDownload(row.imageUrl)}
+            onClick={() => handleDownload(row)}
             className="p-1 hover:text-[var(--color-secondary)]"
           >
             📥

@@ -15,25 +15,29 @@ import prisma from '../database/PrismaClientService';
 export class SnapshotRepository implements ISnapshotRepository {
   /**
    * Creates a new snapshot record
+   * @description Creates a new snapshot record in the database with the provided metadata
    * @param supervisorId - The ID of the supervisor
    * @param psoId - The ID of the PSO
-   * @param reason - The reason for the snapshot
+   * @param reasonId - The ID of the snapshot reason
    * @param description - Optional description for the snapshot
    * @param imageUrl - The URL of the uploaded image
+   * @param snapshotId - Optional pre-generated UUID for the snapshot (for file naming consistency)
    * @returns Promise that resolves to the created snapshot record
    */
   async create(
     supervisorId: string,
     psoId: string,
-    reason: string,
+    reasonId: string,
     description: string | undefined,
-    imageUrl: string
+    imageUrl: string,
+    snapshotId?: string
   ): Promise<{ id: string }> {
     const snapshot = await prisma.snapshot.create({
       data: {
+        id: snapshotId, // Use provided ID if available, otherwise Prisma will generate one
         supervisorId,
         psoId,
-        reason,
+        reasonId,
         description: description || null,
         imageUrl,
         takenAt: getCentralAmericaTime(),
@@ -45,6 +49,7 @@ export class SnapshotRepository implements ISnapshotRepository {
 
   /**
    * Finds a snapshot by ID
+   * @description Retrieves a snapshot record by its unique identifier
    * @param snapshotId - The ID of the snapshot to find
    * @returns Promise that resolves to the snapshot or null
    */
@@ -59,6 +64,7 @@ export class SnapshotRepository implements ISnapshotRepository {
 
   /**
    * Deletes a snapshot by ID
+   * @description Removes a snapshot record from the database
    * @param snapshotId - The ID of the snapshot to delete
    * @returns Promise that resolves when deletion is complete
    */
@@ -70,11 +76,16 @@ export class SnapshotRepository implements ISnapshotRepository {
 
   /**
    * Finds all snapshots with supervisor and PSO relations
+   * @description Retrieves all snapshots with their related supervisor, PSO, and reason data
    * @returns Promise that resolves to Snapshot entities with relations
    */
   async findAllWithRelations(): Promise<Array<{
     id: string;
-    reason: string;
+    reason: {
+      id: string;
+      label: string;
+      code: string;
+    };
     description: string | null;
     imageUrl: string;
     takenAt: Date;
@@ -84,7 +95,13 @@ export class SnapshotRepository implements ISnapshotRepository {
     const snapshots = await prisma.snapshot.findMany({
       select: {
         id: true,
-        reason: true,
+        reason: {
+          select: {
+            id: true,
+            label: true,
+            code: true
+          }
+        },
         description: true,
         imageUrl: true,
         takenAt: true,

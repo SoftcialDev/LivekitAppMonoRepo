@@ -93,6 +93,16 @@ import { DeleteSnapshotDomainService } from '../../domain/services/DeleteSnapsho
 import { DeleteSnapshotApplicationService } from '../../application/services/DeleteSnapshotApplicationService';
 import { GetSnapshotsDomainService } from '../../domain/services/GetSnapshotsDomainService';
 import { GetSnapshotsApplicationService } from '../../application/services/GetSnapshotsApplicationService';
+import { GetSnapshotReasonsDomainService } from '../../domain/services/GetSnapshotReasonsDomainService';
+import { GetSnapshotReasonsApplicationService } from '../../application/services/GetSnapshotReasonsApplicationService';
+import { CreateSnapshotReasonDomainService } from '../../domain/services/CreateSnapshotReasonDomainService';
+import { CreateSnapshotReasonApplicationService } from '../../application/services/CreateSnapshotReasonApplicationService';
+import { UpdateSnapshotReasonDomainService } from '../../domain/services/UpdateSnapshotReasonDomainService';
+import { UpdateSnapshotReasonApplicationService } from '../../application/services/UpdateSnapshotReasonApplicationService';
+import { DeleteSnapshotReasonDomainService } from '../../domain/services/DeleteSnapshotReasonDomainService';
+import { DeleteSnapshotReasonApplicationService } from '../../application/services/DeleteSnapshotReasonApplicationService';
+import { UpdateSnapshotReasonsBatchDomainService } from '../../domain/services/UpdateSnapshotReasonsBatchDomainService';
+import { UpdateSnapshotReasonsBatchApplicationService } from '../../application/services/UpdateSnapshotReasonsBatchApplicationService';
 import { GetOrCreateChatDomainService } from '../../domain/services/GetOrCreateChatDomainService';
 import { GetOrCreateChatApplicationService } from '../../application/services/GetOrCreateChatApplicationService';
 import { WebSocketConnectionDomainService } from '../../domain/services/WebSocketConnectionDomainService';
@@ -106,6 +116,8 @@ import { GetPsosBySupervisorApplicationService } from '../../application/service
 import { GetSupervisorForPsoDomainService } from '../../domain/services/GetSupervisorForPsoDomainService';
 import { GetSupervisorForPsoApplicationService } from '../../application/services/GetSupervisorForPsoApplicationService';
 import { ISnapshotRepository } from '../../domain/interfaces/ISnapshotRepository';
+import { ISnapshotReasonRepository } from '../../domain/interfaces/ISnapshotReasonRepository';
+import { SnapshotReasonRepository } from '../repositories/SnapshotReasonRepository';
 import { SnapshotRepository } from '../repositories/SnapshotRepository';
 import { IAuditRepository } from '../../domain/interfaces/IAuditRepository';
 import { AuditRepository } from '../repositories/AuditRepository';
@@ -527,16 +539,22 @@ export class ServiceContainer {
           });
 
           // Register Send Snapshot services
+          this.register<ISnapshotReasonRepository>('ISnapshotReasonRepository', () => {
+            return new SnapshotReasonRepository();
+          });
+
           this.register<SendSnapshotDomainService>('SendSnapshotDomainService', () => {
             const userRepository = this.resolve<IUserRepository>('UserRepository');
             const blobStorageService = this.resolve<IBlobStorageService>('BlobStorageService');
             const snapshotRepository = this.resolve<ISnapshotRepository>('ISnapshotRepository');
+            const snapshotReasonRepository = this.resolve<ISnapshotReasonRepository>('ISnapshotReasonRepository');
             const chatService = this.resolve<IChatService>('ChatService');
             const errorLogService = this.resolve<IErrorLogService>('ErrorLogService');
             return new SendSnapshotDomainService(
               userRepository,
               blobStorageService,
               snapshotRepository,
+              snapshotReasonRepository,
               chatService,
               errorLogService
             );
@@ -573,6 +591,61 @@ export class ServiceContainer {
             const getSnapshotsDomainService = this.resolve<GetSnapshotsDomainService>('GetSnapshotsDomainService');
             const authorizationService = this.resolve<AuthorizationService>('AuthorizationService');
             return new GetSnapshotsApplicationService(getSnapshotsDomainService, authorizationService);
+          });
+
+          // Register Snapshot Reason services
+          this.register<GetSnapshotReasonsDomainService>('GetSnapshotReasonsDomainService', () => {
+            const snapshotReasonRepository = this.resolve<ISnapshotReasonRepository>('ISnapshotReasonRepository');
+            return new GetSnapshotReasonsDomainService(snapshotReasonRepository);
+          });
+
+          this.register<GetSnapshotReasonsApplicationService>('GetSnapshotReasonsApplicationService', () => {
+            const getSnapshotReasonsDomainService = this.resolve<GetSnapshotReasonsDomainService>('GetSnapshotReasonsDomainService');
+            return new GetSnapshotReasonsApplicationService(getSnapshotReasonsDomainService);
+          });
+
+          this.register<CreateSnapshotReasonDomainService>('CreateSnapshotReasonDomainService', () => {
+            const snapshotReasonRepository = this.resolve<ISnapshotReasonRepository>('ISnapshotReasonRepository');
+            return new CreateSnapshotReasonDomainService(snapshotReasonRepository);
+          });
+
+          this.register<CreateSnapshotReasonApplicationService>('CreateSnapshotReasonApplicationService', () => {
+            const createSnapshotReasonDomainService = this.resolve<CreateSnapshotReasonDomainService>('CreateSnapshotReasonDomainService');
+            const authorizationService = this.resolve<AuthorizationService>('AuthorizationService');
+            return new CreateSnapshotReasonApplicationService(createSnapshotReasonDomainService, authorizationService);
+          });
+
+          this.register<UpdateSnapshotReasonDomainService>('UpdateSnapshotReasonDomainService', () => {
+            const snapshotReasonRepository = this.resolve<ISnapshotReasonRepository>('ISnapshotReasonRepository');
+            return new UpdateSnapshotReasonDomainService(snapshotReasonRepository);
+          });
+
+          this.register<UpdateSnapshotReasonApplicationService>('UpdateSnapshotReasonApplicationService', () => {
+            const updateSnapshotReasonDomainService = this.resolve<UpdateSnapshotReasonDomainService>('UpdateSnapshotReasonDomainService');
+            const authorizationService = this.resolve<AuthorizationService>('AuthorizationService');
+            return new UpdateSnapshotReasonApplicationService(updateSnapshotReasonDomainService, authorizationService);
+          });
+
+          this.register<DeleteSnapshotReasonDomainService>('DeleteSnapshotReasonDomainService', () => {
+            const snapshotReasonRepository = this.resolve<ISnapshotReasonRepository>('ISnapshotReasonRepository');
+            return new DeleteSnapshotReasonDomainService(snapshotReasonRepository);
+          });
+
+          this.register<DeleteSnapshotReasonApplicationService>('DeleteSnapshotReasonApplicationService', () => {
+            const deleteSnapshotReasonDomainService = this.resolve<DeleteSnapshotReasonDomainService>('DeleteSnapshotReasonDomainService');
+            const authorizationService = this.resolve<AuthorizationService>('AuthorizationService');
+            return new DeleteSnapshotReasonApplicationService(deleteSnapshotReasonDomainService, authorizationService);
+          });
+
+          this.register<UpdateSnapshotReasonsBatchDomainService>('UpdateSnapshotReasonsBatchDomainService', () => {
+            const snapshotReasonRepository = this.resolve<ISnapshotReasonRepository>('ISnapshotReasonRepository');
+            return new UpdateSnapshotReasonsBatchDomainService(snapshotReasonRepository);
+          });
+
+          this.register<UpdateSnapshotReasonsBatchApplicationService>('UpdateSnapshotReasonsBatchApplicationService', () => {
+            const updateSnapshotReasonsBatchDomainService = this.resolve<UpdateSnapshotReasonsBatchDomainService>('UpdateSnapshotReasonsBatchDomainService');
+            const authorizationService = this.resolve<AuthorizationService>('AuthorizationService');
+            return new UpdateSnapshotReasonsBatchApplicationService(updateSnapshotReasonsBatchDomainService, authorizationService);
           });
 
           this.register<GetTalkSessionsDomainService>('GetTalkSessionsDomainService', () => {
