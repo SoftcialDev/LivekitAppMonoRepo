@@ -7,7 +7,6 @@
 import { Context, HttpRequest } from "@azure/functions";
 import { withAuth } from "../shared/middleware/auth";
 import { withErrorHandler } from "../shared/middleware/errorHandler";
-import { withCallerId } from "../shared/middleware/callerId";
 import { ok } from "../shared/utils/response";
 import { ServiceContainer } from "../shared/infrastructure/container/ServiceContainer";
 import { GetSnapshotReasonsApplicationService } from "../shared/application/services/GetSnapshotReasonsApplicationService";
@@ -25,16 +24,14 @@ import { GetSnapshotReasonsApplicationService } from "../shared/application/serv
 const getSnapshotReasonsHandler = withErrorHandler(
   async (ctx: Context, req: HttpRequest) => {
     await withAuth(ctx, async () => {
-      await withCallerId(ctx, async () => {
-        const serviceContainer = ServiceContainer.getInstance();
-        serviceContainer.initialize();
+      const serviceContainer = ServiceContainer.getInstance();
+      serviceContainer.initialize();
 
-        const applicationService = serviceContainer.resolve<GetSnapshotReasonsApplicationService>('GetSnapshotReasonsApplicationService');
-        const reasons = await applicationService.getSnapshotReasons();
+      const applicationService = serviceContainer.resolve<GetSnapshotReasonsApplicationService>('GetSnapshotReasonsApplicationService');
+      const reasons = await applicationService.getSnapshotReasons();
 
-        return ok(ctx, {
-          reasons: reasons.map(r => r.toJSON())
-        });
+      return ok(ctx, {
+        reasons: reasons.map(r => r.toJSON())
       });
     });
   },

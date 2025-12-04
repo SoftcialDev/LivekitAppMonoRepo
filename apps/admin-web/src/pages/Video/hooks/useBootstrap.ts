@@ -170,7 +170,7 @@ export function useBootstrap({
         return;
       }
 
-      if (msg?.command === 'START' || msg?.command === 'STOP') {
+      if (msg?.command === 'START' || msg?.command === 'STOP' || msg?.command === 'REFRESH') {
         console.log('[WebSocket] Processing command:', msg);
         void onHandleCommand(msg as PendingCommand);
       }

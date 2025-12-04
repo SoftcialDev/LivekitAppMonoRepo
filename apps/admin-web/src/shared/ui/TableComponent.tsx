@@ -151,25 +151,20 @@ export function TableComponent<T extends { azureAdObjectId?: string }>(
   };
 
   const filteredData = useMemo(
-    () =>
-      data.filter(row =>
+    () => {
+      // If search term is empty, return all data
+      if (!searchTerm.trim()) {
+        return data;
+      }
+      
+      // Otherwise, filter by search term
+      return data.filter(row =>
         columns.some(col => {
-          if (col.render) return false;
-          if (col.key && typeof col.key !== 'string') {
-            const cell = row[col.key as keyof T];
-            return (
-              cell != null &&
-              String(cell)
-                .toLowerCase()
-                .includes(searchTerm.toLowerCase())
-            );
-          }
-          if (
-            col.key &&
-            typeof col.key === 'string' &&
-            col.key in row
-          ) {
-            const cell = (row as any)[col.key];
+          // Try to search by key even if column has render function
+          if (col.key) {
+            const cell = typeof col.key === 'string' 
+              ? (row as any)[col.key]
+              : row[col.key as keyof T];
             return (
               cell != null &&
               String(cell)
@@ -179,7 +174,8 @@ export function TableComponent<T extends { azureAdObjectId?: string }>(
           }
           return false;
         })
-      ),
+      );
+    },
     [data, columns, searchTerm]
   );
 
@@ -331,7 +327,7 @@ export function TableComponent<T extends { azureAdObjectId?: string }>(
           {!loading && pagedData.length === 0 && (
             <tr>
               <td
-                colSpan={columns.length}
+                colSpan={(showRowCheckboxes ? 1 : 0) + columns.length}
                 className="px-6 py-4 text-center text-sm text-white"
               >
                 No results found.
