@@ -106,3 +106,46 @@ jobs:
             --resource-group livekit-agent-azure \
             --name in-contact-serverless-api \
             --src "./deploy.zip"
+
+      - name: Run Database Migrations
+        shell: bash
+        env:
+          API_URL: ${{ secrets.VITE_API_URL }}
+        run: |
+          set -euo pipefail
+          
+          # Get Azure AD access token for the API
+          # The resource URI should match your API's identifier URI (api://<client-id>)
+          TOKEN=$(az account get-access-token \
+            --resource api://${{ secrets.AZURE_API_CLIENT_ID }} \
+            --query accessToken -o tsv)
+          
+          if [ -z "$TOKEN" ]; then
+            echo "Error: Failed to obtain Azure AD token"
+            exit 1
+          fi
+          
+          # Invoke RunMigrations endpoint using VITE_API_URL
+          MIGRATION_URL="${API_URL}/api/RunMigrations"
+          echo "Calling migration endpoint: $MIGRATION_URL"
+          
+          RESPONSE=$(curl -X POST \
+            "$MIGRATION_URL" \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{}' \
+            -w "\n%{http_code}" \
+            -s)
+          
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+          
+          echo "Migration response (HTTP $HTTP_CODE):"
+          echo "$BODY"
+          
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "Error: Migration failed with HTTP $HTTP_CODE"
+            exit 1
+          fi
+          
+          echo "✅ Migrations completed successfully"

@@ -1,13 +1,21 @@
 {
   "bindings": [
     {
-      "name": "PrismaMigrationTrigger",
-      "type": "timerTrigger",
+      "authLevel": "anonymous",
+      "type": "httpTrigger",
       "direction": "in",
-      "schedule": "0 0 0 * * *",
-      "runOnStartup": true,
-      "useMonitor": true
+      "name": "req",
+      "methods": [
+        "post"
+      ],
+      "route": "RunMigrations"
+    },
+    {
+      "type": "http",
+      "direction": "out",
+      "name": "res"
     }
-  ]
+  ],
+  "scriptFile": "index.js"
 }
 
