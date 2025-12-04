@@ -6,6 +6,7 @@
 
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { SnapshotReasonsClient, SnapshotReason } from '../api/snapshotReasonsClient';
+import { useAuth } from '@/shared/auth/useAuth';
 
 interface SnapshotReasonsContextType {
   reasons: SnapshotReason[];
@@ -29,6 +30,7 @@ export function SnapshotReasonsProvider({ children }: SnapshotReasonsProviderPro
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const client = new SnapshotReasonsClient();
+  const { initialized, account } = useAuth();
 
   const loadReasons = async () => {
     setLoading(true);
@@ -45,8 +47,12 @@ export function SnapshotReasonsProvider({ children }: SnapshotReasonsProviderPro
   };
 
   useEffect(() => {
+    if (!initialized || !account) {
+      console.debug('[SnapshotReasonsContext] Auth not ready, skipping load');
+      return;
+    }
     loadReasons();
-  }, []);
+  }, [initialized, account]);
 
   return (
     <SnapshotReasonsContext.Provider value={{ reasons, loading, error, refresh: loadReasons }}>
