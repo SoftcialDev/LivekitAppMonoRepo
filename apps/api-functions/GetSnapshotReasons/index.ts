@@ -4,7 +4,7 @@
  * @description Handles GET requests to retrieve all active snapshot reasons
  */
 
-import { Context, HttpRequest } from "@azure/functions";
+import { AzureFunction, Context } from "@azure/functions";
 import { withAuth } from "../shared/middleware/auth";
 import { withErrorHandler } from "../shared/middleware/errorHandler";
 import { ok } from "../shared/utils/response";
@@ -18,11 +18,10 @@ import { GetSnapshotReasonsApplicationService } from "../shared/application/serv
  * Requires authentication.
  *
  * @param ctx - The Azure Functions execution context
- * @param req - The incoming HTTP request
  * @returns A 200 OK response with snapshot reasons, or an error response
  */
-const getSnapshotReasonsHandler = withErrorHandler(
-  async (ctx: Context, req: HttpRequest) => {
+const getSnapshotReasonsHandler: AzureFunction = withErrorHandler(
+  async (ctx: Context) => {
     await withAuth(ctx, async () => {
       const serviceContainer = ServiceContainer.getInstance();
       serviceContainer.initialize();
