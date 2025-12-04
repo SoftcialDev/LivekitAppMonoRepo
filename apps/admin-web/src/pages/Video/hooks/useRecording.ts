@@ -8,7 +8,7 @@ export function useRecording(roomName: string , name: string) {
   const { showToast } = useToast();
 
   const toggleRecording = useCallback(async () => {
-    if (loading) return;
+    if (loading || !roomName) return;
 
     try {
       setLoading(true);
@@ -28,7 +28,7 @@ export function useRecording(roomName: string , name: string) {
     } finally {
       setLoading(false);
     }
-  }, [isRecording, roomName, loading, showToast]);
+  }, [isRecording, roomName, name, loading, showToast]);
 
   return {
     isRecording,

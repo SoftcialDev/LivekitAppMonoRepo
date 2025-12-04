@@ -308,8 +308,7 @@ const cmFilterAdornment = useMemo(() => {
                 </NavLink>
               )}
 
-              {/* TEMPORALMENTE COMENTADO - Recording Report */}
-              {/* {isSuperAdmin && (
+              {isSuperAdmin && (
                 <NavLink
                   to="/recordingReport"
                   className={({ isActive }) =>
@@ -318,7 +317,7 @@ const cmFilterAdornment = useMemo(() => {
                 >
                   Recording Report
                 </NavLink>
-              )} */}
+              )}
 
               {(isAdmin || isSuperAdmin) && (
                 <NavLink

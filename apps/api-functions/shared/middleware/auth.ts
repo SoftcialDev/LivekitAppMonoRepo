@@ -146,5 +146,6 @@ export async function withAuth(
 
   // === Auth succeeded: attach user and pass control ===
   (ctx as any).bindings.user = decoded;
+  (ctx as any).bindings.accessToken = token; // Store original token for delegated operations
   await next();
 }

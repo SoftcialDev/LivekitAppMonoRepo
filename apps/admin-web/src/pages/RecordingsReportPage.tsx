@@ -16,6 +16,7 @@ import { useToast } from "@/shared/ui/ToastContext";
 import TrashButton from "@/shared/ui/Buttons/TrashButton";
 import AddModal from "@/shared/ui/ModalComponent";
 import { Column, TableComponent } from "@/shared/ui/TableComponent";
+import { Dropdown, DropdownOption } from "@/shared/ui/Dropdown";
 
 import {
   getRecordings,
@@ -55,8 +56,10 @@ const RecordingsReportPage: React.FC = () => {
   const { initialized } = useAuth();
   const { showToast } = useToast();
 
+  const [allRows, setAllRows] = useState<RecordingRow[]>([]);
   const [rows, setRows] = useState<RecordingRow[]>([]);
   const [loading, setLoading] = useState(false);
+  const [selectedRoomName, setSelectedRoomName] = useState<string>("All");
 
   // Preview modal
   const [preview, setPreview] = useState<RecordingRow | null>(null);
@@ -76,7 +79,6 @@ const RecordingsReportPage: React.FC = () => {
    * Loads recordings from the backend (includes SAS link for playback).
    */
   const fetchRecordings = async () => {
-
     setLoading(true);
     try {
       const data: ListRecordingsResponse = await getRecordings({
@@ -86,22 +88,43 @@ const RecordingsReportPage: React.FC = () => {
         order: "desc",
       });
 
-
-      setRows(data.items ?? []);
+      setAllRows(data.items ?? []);
     } catch (err) {
       console.error("[fetchRecordings] error:", err);
       showToast("Failed to load recordings", "error");
     } finally {
       setLoading(false);
-
     }
   };
 
   useEffect(() => {
-
     if (!initialized) return;
     fetchRecordings();
   }, [initialized]);
+
+  // Filter rows based on selected room name
+  useEffect(() => {
+    if (selectedRoomName === "All") {
+      setRows(allRows);
+    } else {
+      setRows(allRows.filter(r => r.roomName === selectedRoomName));
+    }
+  }, [selectedRoomName, allRows]);
+
+  // Extract unique room names from recordings for filter dropdown
+  const roomNameOptions: DropdownOption[] = [
+    { label: "All", value: "All" },
+    ...Array.from(new Set(allRows.map(r => r.roomName)))
+      .filter(roomName => roomName)
+      .sort()
+      .map(roomName => {
+        const recording = allRows.find(r => r.roomName === roomName);
+        return {
+          label: recording?.username || roomName,
+          value: roomName
+        };
+      })
+  ];
 
   /**
    * Opens delete confirmation modal for a given row.
@@ -233,6 +256,18 @@ const RecordingsReportPage: React.FC = () => {
   return (
     <>
       <div className="flex flex-col flex-1 min-h-0 bg-[var(--color-primary-dark)] p-4">
+        <div className="mb-4 flex items-center gap-4">
+          <label className="text-white text-sm font-medium">Filter by Subject:</label>
+          <Dropdown
+            value={selectedRoomName}
+            onSelect={(value) => setSelectedRoomName(String(value))}
+            options={roomNameOptions}
+            className="w-48"
+            label=""
+            buttonClassName="flex items-center justify-between px-4 py-2 bg-[var(--color-tertiary)] text-[var(--color-primary-dark)] rounded-lg focus:ring-0 focus:border-transparent"
+            menuBgClassName="bg-[var(--color-tertiary)] text-[var(--color-primary-dark)]"
+          />
+        </div>
         <TableComponent<RecordingRow>
           columns={columns}
           data={rows}

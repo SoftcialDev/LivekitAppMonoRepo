@@ -57,6 +57,7 @@ import { RecordingDomainService } from '../../domain/services/RecordingDomainSer
 import { GetLivekitRecordingsApplicationService } from '../../application/services/GetLivekitRecordingsApplicationService';
 import { ILivekitRecordingDomainService } from '../../domain/interfaces/ILivekitRecordingDomainService';
 import { LivekitRecordingDomainService } from '../../domain/services/LivekitRecordingDomainService';
+import { LiveKitRecordingService } from '../services/LiveKitRecordingService';
 import { DeleteRecordingApplicationService } from '../../application/services/DeleteRecordingApplicationService';
 import { DeleteRecordingDomainService } from '../../domain/services/DeleteRecordingDomainService';
 import { LiveKitTokenApplicationService } from '../../application/services/LiveKitTokenApplicationService';
@@ -372,6 +373,12 @@ export class ServiceContainer {
           });
 
           // Register LiveKit Recording services
+          this.register<LiveKitRecordingService>('LiveKitRecordingService', () => {
+            const recordingRepository = this.resolve<IRecordingSessionRepository>('RecordingSessionRepository');
+            const blobStorageService = this.resolve<IBlobStorageService>('BlobStorageService');
+            return new LiveKitRecordingService(recordingRepository, blobStorageService);
+          });
+
           this.register<ILivekitRecordingDomainService>('LivekitRecordingDomainService', () => {
             const recordingRepository = this.resolve<IRecordingSessionRepository>('RecordingSessionRepository');
             const userRepository = this.resolve<IUserRepository>('UserRepository');
@@ -660,7 +667,9 @@ export class ServiceContainer {
             const presenceDomainService = this.resolve<PresenceDomainService>('PresenceDomainService');
             const streamingSessionDomainService = this.resolve<StreamingSessionDomainService>('StreamingSessionDomainService');
             const webPubSubService = this.resolve<IWebPubSubService>('WebPubSubService');
-            return new WebSocketConnectionDomainService(presenceDomainService, streamingSessionDomainService, webPubSubService);
+            const userRepository = this.resolve<IUserRepository>('UserRepository');
+            const liveKitRecordingService = this.resolve<LiveKitRecordingService>('LiveKitRecordingService');
+            return new WebSocketConnectionDomainService(presenceDomainService, streamingSessionDomainService, webPubSubService, userRepository, liveKitRecordingService);
           });
 
           this.register<WebSocketConnectionApplicationService>('WebSocketConnectionApplicationService', () => {
