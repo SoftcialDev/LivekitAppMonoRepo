@@ -111,13 +111,20 @@ jobs:
         shell: bash
         env:
           API_URL: ${{ secrets.VITE_API_URL }}
+          API_SCOPE_URI: ${{ secrets.VITE_AZURE_AD_API_SCOPE_URI }}
         run: |
           set -euo pipefail
           
+          # Extract Application ID URI from scope URI (remove /access_as_user)
+          # Scope URI format: api://<tenant-id>/<app-name>-API/access_as_user
+          # Application ID URI format: api://<tenant-id>/<app-name>-API
+          APP_ID_URI="${API_SCOPE_URI%/access_as_user}"
+          echo "Using Application ID URI: $APP_ID_URI"
+          
           # Get Azure AD access token for the API
-          # The resource URI should match your API's identifier URI (api://<client-id>)
+          # The resource URI must match the Application ID URI registered in Azure AD
           TOKEN=$(az account get-access-token \
-            --resource api://${{ secrets.AZURE_API_CLIENT_ID }} \
+            --resource "$APP_ID_URI" \
             --query accessToken -o tsv)
           
           if [ -z "$TOKEN" ]; then
