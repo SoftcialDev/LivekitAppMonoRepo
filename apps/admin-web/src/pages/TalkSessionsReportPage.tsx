@@ -48,7 +48,7 @@ function getStopReasonLabel(reason: string | null): string {
 }
 
 /**
- * Formats a timestamp string to a readable date/time format.
+ * Formats a timestamp string to a readable date/time format using the exact date/time from the API.
  * @param isoString - ISO-8601 timestamp string.
  * @returns Formatted date/time string.
  */
@@ -56,10 +56,15 @@ function formatDateTime(isoString: string | null | undefined): string {
   if (!isoString) return '—';
   const dt = new Date(isoString);
   if (Number.isNaN(dt.getTime())) return isoString;
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(dt);
+  
+  // Format using UTC to preserve the exact date/time from the API
+  const year = dt.getUTCFullYear();
+  const month = String(dt.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(dt.getUTCDate()).padStart(2, '0');
+  const hours = String(dt.getUTCHours()).padStart(2, '0');
+  const minutes = String(dt.getUTCMinutes()).padStart(2, '0');
+  
+  return `${day}/${month}/${year} ${hours}:${minutes}`;
 }
 
 /**
