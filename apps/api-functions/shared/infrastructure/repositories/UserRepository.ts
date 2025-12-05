@@ -769,9 +769,29 @@ export class UserRepository implements IUserRepository {
 
     const codes = new Set<string>();
 
-    // RBAC permissions
+    // Permissions from explicit role assignments 
     for (const assignment of user.userRoleAssignments) {
       const rp = assignment.role?.rolePermissions || [];
+      for (const link of rp) {
+        if (link.permission && link.permission.isActive) {
+          codes.add(link.permission.code);
+        }
+      }
+    }
+
+    // Fallback: permissions from the legacy single-role enum on the user record.
+    if (user.role) {
+      const role = await prisma.role.findUnique({
+        where: { name: user.role },
+        include: {
+          rolePermissions: {
+            where: { granted: true },
+            include: { permission: true },
+          },
+        },
+      });
+
+      const rp = role?.rolePermissions || [];
       for (const link of rp) {
         if (link.permission && link.permission.isActive) {
           codes.add(link.permission.code);
