@@ -172,11 +172,18 @@ const VideoCard: React.FC<VideoCardProps & {
       }
     }
 
+    // Keep track of per-participant handlers to remove them on cleanup
+    const participantTrackHandlers = new Map<RemoteParticipant, (pub: any) => void>()
+
     const setupParticipant = (p: RemoteParticipant) => {
+      // Attach existing publications
       for (const pub of p.getTrackPublications().values()) {
         attachTrack(pub)
       }
-      p.on(ParticipantEvent.TrackSubscribed, attachTrack)
+      // Subscribe handler (stable reference) and remember it for cleanup
+      const handleTrackSubscribed = (pub: any) => attachTrack(pub)
+      participantTrackHandlers.set(p, handleTrackSubscribed)
+      p.on(ParticipantEvent.TrackSubscribed, handleTrackSubscribed)
     }
 
     const connectAndWatch = async (retryCount = 0) => {
@@ -205,17 +212,32 @@ const VideoCard: React.FC<VideoCardProps & {
         }
       })
       
-      room.on(RoomEvent.ParticipantConnected, p => {
+      const onParticipantConnected = (p: RemoteParticipant) => {
         if (p.identity === roomName) {
           setupParticipant(p)
         }
-      })
+      }
+      room.on(RoomEvent.ParticipantConnected, onParticipantConnected)
       
-      room.on(RoomEvent.TrackPublished, (publication, participant) => {
+      const onTrackPublished = (_publication: any, participant: RemoteParticipant) => {
         if (participant.identity === roomName) {
           setupParticipant(participant)
         }
-      })
+      }
+      room.on(RoomEvent.TrackPublished, onTrackPublished)
+
+      // Cleanup: remove listeners when effect cleans up
+      const cleanupListeners = () => {
+        room.off(RoomEvent.ParticipantConnected, onParticipantConnected)
+        room.off(RoomEvent.TrackPublished, onTrackPublished)
+        participantTrackHandlers.forEach((handler, participant) => {
+          participant.off(ParticipantEvent.TrackSubscribed, handler)
+        })
+        participantTrackHandlers.clear()
+      }
+
+      // Store cleanup on lkRoom for later
+      ;(room as any).__cleanupListeners = cleanupListeners
     }
 
     void connectAndWatch()
@@ -223,6 +245,11 @@ const VideoCard: React.FC<VideoCardProps & {
     return () => {
 
       canceled = true
+      // Remove per-room listeners before disconnect to avoid leaks
+      const roomCleanup = (lkRoom as any)?.__cleanupListeners as (() => void) | undefined
+      if (roomCleanup) {
+        roomCleanup()
+      }
       lkRoom?.disconnect()
       roomRef.current = null
 

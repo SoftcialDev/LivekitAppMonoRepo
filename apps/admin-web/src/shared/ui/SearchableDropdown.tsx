@@ -48,6 +48,8 @@ export interface SearchableDropdownProps<Value> {
   closeOnSelect?: boolean;
   /** Show "Select All" button in the dropdown footer. Defaults to false. */
   showSelectAll?: boolean;
+  /** Shows a loading state instead of options. */
+  isLoading?: boolean;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -103,6 +105,7 @@ export function SearchableDropdown<Value>({
   portalMinWidthPx,
   closeOnSelect = false,
   showSelectAll = false,
+  isLoading = false,
 }: SearchableDropdownProps<Value>): JSX.Element {
   const [isOpen, setIsOpen] = useState(false);
   const [term, setTerm] = useState('');
@@ -125,9 +128,11 @@ export function SearchableDropdown<Value>({
   }, [usePortal]);
 
   // Filter options by search term
-  const filtered = options.filter(opt =>
-    opt.label.toLowerCase().includes(term.toLowerCase())
-  );
+  const filtered = isLoading
+    ? []
+    : options.filter(opt =>
+        opt.label.toLowerCase().includes(term.toLowerCase())
+      );
 
   // Toggle inclusion of a value
   const toggle = (value: Value) => {
@@ -182,24 +187,31 @@ export function SearchableDropdown<Value>({
     >
       {/* Scrollable options container */}
       <div className="max-h-52 overflow-y-auto custom-scrollbar">
-        {filtered.map(opt => (
-          <div
-            key={String(opt.value)}
-            className={itemClassName}
-            onMouseDown={e => { e.preventDefault(); e.stopPropagation(); }} // Prevent blur and outside close
-            onClick={() => toggle(opt.value)}
-          >
-            <input
-              type="checkbox"
-              checked={selectedValues.includes(opt.value)}
-              readOnly
-              className="mr-5 appearance-none w-5 h-5 rounded border-2 border-[var(--color-primary)] bg-[var(--color-primary-light)] checked:bg-[var(--color-secondary)] checked:border-[var(--color-secondary)] focus:ring-0 focus:outline-none cursor-pointer transition-colors"
-            />
-            <span>{opt.label}</span>
+        {isLoading && (
+          <div className="px-4 py-2 text-xs text-white font-medium">
+            Loading...
           </div>
-        ))}
+        )}
 
-        {filtered.length === 0 && (
+        {!isLoading &&
+          filtered.map(opt => (
+            <div
+              key={String(opt.value)}
+              className={itemClassName}
+              onMouseDown={e => { e.preventDefault(); e.stopPropagation(); }} // Prevent blur and outside close
+              onClick={() => toggle(opt.value)}
+            >
+              <input
+                type="checkbox"
+                checked={selectedValues.includes(opt.value)}
+                readOnly
+                className="mr-5 appearance-none w-5 h-5 rounded border-2 border-[var(--color-primary)] bg-[var(--color-primary-light)] checked:bg-[var(--color-secondary)] checked:border-[var(--color-secondary)] focus:ring-0 focus:outline-none cursor-pointer transition-colors"
+              />
+              <span>{opt.label}</span>
+            </div>
+          ))}
+
+        {!isLoading && filtered.length === 0 && (
           <div className="px-4 py-2 text-xs text-white font-medium">
             No results found
           </div>

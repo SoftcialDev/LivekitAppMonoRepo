@@ -103,6 +103,16 @@ export interface IWebPubSubService {
   }>;
 
   /**
+   * Broadcasts supervisor list changes (add/remove) to presence group consumers.
+   */
+  broadcastSupervisorListChanged(payload: {
+    email: string;
+    fullName: string;
+    action: 'added' | 'removed';
+    azureAdObjectId?: string | null;
+  }): Promise<void>;
+
+  /**
    * Broadcasts supervisor change notifications to all users in the presence group
    * @param payload - The supervisor change notification data
    * @returns Promise that resolves when the broadcast is complete

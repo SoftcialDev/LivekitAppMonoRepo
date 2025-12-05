@@ -20,6 +20,7 @@ import { IAuthorizationService } from '../shared/domain/interfaces/IAuthorizatio
 import { IAuditService } from '../shared/domain/interfaces/IAuditService';
 import { IPresenceService } from '../shared/domain/interfaces/IPresenceService';
 import { UserDeletionApplicationService } from '../shared/application/services/UserDeletionApplicationService';
+import { IWebPubSubService } from 'shared/domain/interfaces/IWebPubSubService';
 
 /**
  * Azure Function: DeleteUser
@@ -80,12 +81,14 @@ const deleteUser: AzureFunction = withErrorHandler(
         const authorizationService = serviceContainer.resolve<IAuthorizationService>('AuthorizationService');
         const auditService = serviceContainer.resolve<IAuditService>('IAuditService');
         const presenceService = serviceContainer.resolve<IPresenceService>('PresenceService');
+        const webPubSubService = serviceContainer.resolve<IWebPubSubService>('WebPubSubService');
 
         const userDeletionApplicationService = new UserDeletionApplicationService(
           userRepository,
           authorizationService,
           auditService,
-          presenceService
+          presenceService,
+          webPubSubService
         );
 
         // Validate request body

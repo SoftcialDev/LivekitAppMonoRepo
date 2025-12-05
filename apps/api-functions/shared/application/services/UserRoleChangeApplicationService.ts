@@ -11,6 +11,7 @@ import { IUserRepository } from '../../domain/interfaces/IUserRepository';
 import { IAuthorizationService } from '../../domain/interfaces/IAuthorizationService';
 import { IAuditService } from '../../domain/interfaces/IAuditService';
 import { IPresenceService } from '../../domain/interfaces/IPresenceService';
+import { IWebPubSubService } from '../../domain/interfaces/IWebPubSubService';
 import { UserRoleChangeError } from '../../domain/errors/DomainError';
 import { UserRoleChangeErrorCode } from '../../domain/errors/ErrorCodes';
 import { ValidationUtils } from '../../domain/utils/ValidationUtils';
@@ -26,6 +27,7 @@ export class UserRoleChangeApplicationService {
   private authorizationService: IAuthorizationService;
   private auditService: IAuditService;
   private presenceService: IPresenceService;
+  private webPubSubService: IWebPubSubService;
 
   /**
    * Creates a new UserRoleChangeApplicationService instance
@@ -38,12 +40,14 @@ export class UserRoleChangeApplicationService {
     userRepository: IUserRepository,
     authorizationService: IAuthorizationService,
     auditService: IAuditService,
-    presenceService: IPresenceService
+    presenceService: IPresenceService,
+    webPubSubService: IWebPubSubService
   ) {
     this.userRepository = userRepository;
     this.authorizationService = authorizationService;
     this.auditService = auditService;
     this.presenceService = presenceService;
+    this.webPubSubService = webPubSubService;
   }
 
   /**
@@ -154,6 +158,23 @@ export class UserRoleChangeApplicationService {
     // Set user offline if assigned PSO role
     if (request.newRole === UserRole.PSO) {
       await this.presenceService.setUserOffline(request.userEmail);
+    }
+
+    // Broadcast supervisor list changes when a user is promoted/demoted from Supervisor
+    if (previousRole !== UserRole.Supervisor && request.newRole === UserRole.Supervisor) {
+      await this.webPubSubService.broadcastSupervisorListChanged({
+        email: updatedUser.email,
+        fullName: updatedUser.fullName,
+        azureAdObjectId: updatedUser.azureAdObjectId,
+        action: 'added',
+      });
+    } else if (previousRole === UserRole.Supervisor && request.newRole !== UserRole.Supervisor) {
+      await this.webPubSubService.broadcastSupervisorListChanged({
+        email: updatedUser.email,
+        fullName: updatedUser.fullName,
+        azureAdObjectId: updatedUser.azureAdObjectId,
+        action: 'removed',
+      });
     }
 
     return UserRoleChangeResult.roleChanged(

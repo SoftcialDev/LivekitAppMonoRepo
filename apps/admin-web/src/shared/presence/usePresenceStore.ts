@@ -30,20 +30,23 @@ export const usePresenceStore = create<PresenceState>((set, get) => {
     const { data } = msg;
     if (!data) return;
 
-    const { psoEmails, oldSupervisorEmail, newSupervisorEmail, newSupervisorId, psoNames, newSupervisorName } = data;
+    const { psoEmails = [], oldSupervisorEmail, newSupervisorEmail, newSupervisorId, psoNames, newSupervisorName } = data;
     
     // Get current user info from localStorage or context
-    const currentEmail = localStorage.getItem('currentEmail') || '';
+    const currentEmail = (localStorage.getItem('currentEmail') || '').toLowerCase();
     const currentRole = localStorage.getItem('userRole') || '';
+    const lowerPsoEmails = psoEmails.map((e: string) => e.toLowerCase());
     
     // Determine if this user should refresh their data
     // Always refresh for Admin/SuperAdmin, and for any Supervisor (they need to see updated PSO assignments)
+    const isAffectedPso = lowerPsoEmails.includes(currentEmail);
     const shouldRefresh = 
       currentRole === 'Admin' || 
       currentRole === 'SuperAdmin' ||
       currentRole === 'Supervisor' ||
-      currentEmail === oldSupervisorEmail ||
-      currentEmail === newSupervisorEmail;
+      isAffectedPso ||
+      currentEmail === (oldSupervisorEmail || '').toLowerCase() ||
+      currentEmail === (newSupervisorEmail || '').toLowerCase();
       
     if (shouldRefresh) {
       // Update supervisor information in the presence store
@@ -164,6 +167,13 @@ export const usePresenceStore = create<PresenceState>((set, get) => {
             // Handle supervisor change notifications
             if (msg?.type === 'supervisor_change_notification') {
               handleSupervisorChangeNotification(msg);
+              return;
+            }
+
+            // Handle supervisor list changes (add/remove supervisor users)
+            if (msg?.type === 'supervisor_list_changed' && msg?.data) {
+              const event = new CustomEvent('supervisorListChanged', { detail: msg.data });
+              window.dispatchEvent(event);
               return;
             }
           

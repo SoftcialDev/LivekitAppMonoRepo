@@ -20,6 +20,7 @@ import { IUserRepository } from "../shared/domain/interfaces/IUserRepository";
 import { IAuthorizationService } from "../shared/domain/interfaces/IAuthorizationService";
 import { IAuditService } from "../shared/domain/interfaces/IAuditService";
 import { IPresenceService } from "../shared/domain/interfaces/IPresenceService";
+import { IWebPubSubService } from "shared/domain/interfaces/IWebPubSubService";
 
 /**
  * Azure Function: ChangeUserRole
@@ -52,12 +53,14 @@ const changeUserRole: AzureFunction = withErrorHandler(
         const authorizationService = serviceContainer.resolve<IAuthorizationService>('AuthorizationService');
         const auditService = serviceContainer.resolve<IAuditService>('IAuditService');
         const presenceService = serviceContainer.resolve<IPresenceService>('PresenceService');
+        const webPubSubService = serviceContainer.resolve<IWebPubSubService>('WebPubSubService');
 
         const userRoleChangeApplicationService = new UserRoleChangeApplicationService(
           userRepository,
           authorizationService,
           auditService,
-          presenceService
+          presenceService,
+          webPubSubService
         );
 
         // Validate request body

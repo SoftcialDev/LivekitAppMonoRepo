@@ -4,16 +4,11 @@
  * @description Provides a dropdown interface that replaces only the supervisor part of the name display
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { SearchableDropdown, DropdownOption } from '@/shared/ui/SearchableDropdown';
-import { getUsersByRole, changeSupervisor, UserByRole, ChangeSupervisorPayload } from '@/shared/api/userClient';
+import { changeSupervisor, ChangeSupervisorPayload } from '@/shared/api/userClient';
 import { useToast } from '@/shared/ui/ToastContext';
-
-// Simple in-memory cache shared across all SupervisorSelector instances
-let supervisorsCache: UserByRole[] | null = null;
-let supervisorsPromise: Promise<UserByRole[]> | null = null;
-let supervisorsCachedAt = 0;
-const SUPERVISORS_TTL_MS = 5 * 60 * 1000; // 5 minutes
+import { useSupervisorsStore } from '@/shared/supervisors/useSupervisorsStore';
 
 /**
  * Props for SupervisorSelector component
@@ -61,8 +56,10 @@ export const SupervisorSelector: React.FC<SupervisorSelectorProps> = ({
   className = '',
   portalMinWidthPx
 }) => {
-  const [supervisors, setSupervisors] = useState<UserByRole[]>([]);
-  const [loading, setLoading] = useState(false);
+  const supervisors = useSupervisorsStore((state) => state.supervisors);
+  const supLoading = useSupervisorsStore((state) => state.loading);
+  const supError = useSupervisorsStore((state) => state.error);
+  const loadSupervisors = useSupervisorsStore((state) => state.loadSupervisors);
   const [error, setError] = useState<string | null>(null);
   const { showToast } = useToast();
 
@@ -75,40 +72,25 @@ export const SupervisorSelector: React.FC<SupervisorSelectorProps> = ({
     setSelectedName(currentSupervisorName || undefined);
   }, [currentSupervisorEmail, currentSupervisorName]);
 
-  /**
-   * Fetches the list of available supervisors
-   */
-  const loadSupervisors = useCallback(async () => {
-    // Serve from cache when available and fresh
-    const now = Date.now();
-    if (supervisorsCache && now - supervisorsCachedAt < SUPERVISORS_TTL_MS) {
-      setSupervisors(supervisorsCache);
-      return;
-    }
-
-    // Deduplicate concurrent requests across instances
-    if (!supervisorsPromise) {
-      supervisorsPromise = (async () => {
-        const response = await getUsersByRole('Supervisor');
-        supervisorsCache = response.users;
-        supervisorsCachedAt = Date.now();
-        return response.users;
-      })();
-    }
-
-    setLoading(true);
-    setError(null);
-    try {
-      const users = await supervisorsPromise;
-      setSupervisors(users);
-    } catch (err) {
-      setError('Failed to load supervisors');
-      console.error('Error fetching supervisors:', err);
-    } finally {
-      setLoading(false);
-      supervisorsPromise = null; // allow refresh after completion
-    }
+  // Load supervisors on mount and whenever called with force
+  useEffect(() => {
+    void loadSupervisors(true); // force initial fetch
+    // loadSupervisors is stable from zustand; omit from deps to avoid re-run on state changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Refetch supervisors when a supervisorChange WS event arrives (dispatched by presence store)
+  useEffect(() => {
+    const refetch = () => {
+      void loadSupervisors(true);
+    };
+    window.addEventListener('supervisorChange', refetch);
+    window.addEventListener('supervisorListChanged', refetch);
+    return () => {
+      window.removeEventListener('supervisorChange', refetch);
+      window.removeEventListener('supervisorListChanged', refetch);
+    };
+  }, [loadSupervisors]);
 
   /**
    * Handles supervisor selection change
@@ -147,22 +129,23 @@ export const SupervisorSelector: React.FC<SupervisorSelectorProps> = ({
   /**
    * Load supervisors on mount
    */
-  useEffect(() => {
-    void loadSupervisors();
-  }, []);
-
-  // Convert supervisors to dropdown options
-  const supervisorOptions: DropdownOption<string>[] = supervisors.map(supervisor => ({
-    label: `${supervisor.firstName} ${supervisor.lastName}`,
-    value: supervisor.email
-  }));
+  const supervisorOptions: DropdownOption<string>[] = useMemo(
+    () =>
+      supervisors.map((supervisor) => ({
+        label: `${supervisor.firstName} ${supervisor.lastName}`,
+        value: supervisor.email,
+      })),
+    [supervisors]
+  );
 
   // Current supervisor as selected value
   const selectedValues = selectedEmail ? [selectedEmail] : [];
 
   // Debug logs removed to reduce console spam
 
-  if (error) {
+  const effectiveError = error || supError;
+
+  if (effectiveError) {
     return (
       <div className={`text-red-400 text-sm ${className}`}>
         {psoName} — Supervisor: Error loading supervisors
@@ -205,6 +188,7 @@ export const SupervisorSelector: React.FC<SupervisorSelectorProps> = ({
           "
           usePortal={true}
           portalMinWidthPx={portalMinWidthPx}
+          isLoading={supLoading}
         />
       </div>
     </div>

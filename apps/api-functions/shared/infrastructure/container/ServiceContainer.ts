@@ -246,11 +246,13 @@ export class ServiceContainer {
             const authorizationService = this.resolve<IAuthorizationService>('AuthorizationService');
             const auditService = this.resolve<IAuditService>('IAuditService');
             const presenceService = this.resolve<IPresenceService>('PresenceService');
+            const webPubSubService = this.resolve<IWebPubSubService>('WebPubSubService');
             return new UserDeletionApplicationService(
               userRepository,
               authorizationService,
               auditService,
-              presenceService
+              presenceService,
+              webPubSubService
             );
           });
 

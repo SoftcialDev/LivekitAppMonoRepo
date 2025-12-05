@@ -11,6 +11,7 @@ import { IUserRepository } from '../../domain/interfaces/IUserRepository';
 import { IAuthorizationService } from '../../domain/interfaces/IAuthorizationService';
 import { IAuditService } from '../../domain/interfaces/IAuditService';
 import { IPresenceService } from '../../domain/interfaces/IPresenceService';
+import { IWebPubSubService } from '../../domain/interfaces/IWebPubSubService';
 import { UserDeletionError } from '../../domain/errors/DomainError';
 import { UserDeletionErrorCode } from '../../domain/errors/ErrorCodes';
 import { ValidationUtils } from '../../domain/utils/ValidationUtils';
@@ -25,6 +26,7 @@ export class UserDeletionApplicationService {
   private authorizationService: IAuthorizationService;
   private auditService: IAuditService;
   private presenceService: IPresenceService;
+  private webPubSubService: IWebPubSubService;
 
   /**
    * Creates a new UserDeletionApplicationService instance
@@ -37,12 +39,14 @@ export class UserDeletionApplicationService {
     userRepository: IUserRepository,
     authorizationService: IAuthorizationService,
     auditService: IAuditService,
-    presenceService: IPresenceService
+    presenceService: IPresenceService,
+    webPubSubService: IWebPubSubService
   ) {
     this.userRepository = userRepository;
     this.authorizationService = authorizationService;
     this.auditService = auditService;
     this.presenceService = presenceService;
+    this.webPubSubService = webPubSubService;
   }
 
   /**
@@ -132,6 +136,16 @@ export class UserDeletionApplicationService {
 
     // Set user offline
     await this.presenceService.setUserOffline(request.userEmail);
+
+    // Broadcast supervisor removal if applicable
+    if (existingUser.role === UserRole.Supervisor) {
+      await this.webPubSubService.broadcastSupervisorListChanged({
+        email: existingUser.email,
+        fullName: existingUser.fullName,
+        azureAdObjectId: existingUser.azureAdObjectId,
+        action: 'removed',
+      });
+    }
 
     // Log audit using centralized utility
     await AuditUtils.logUserDeletion(

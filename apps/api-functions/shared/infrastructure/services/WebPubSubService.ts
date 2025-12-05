@@ -386,6 +386,29 @@ export class WebPubSubService implements IWebPubSubService {
   }
 
   /**
+   * Broadcasts supervisor list changes (add/remove) to the presence group.
+   */
+  async broadcastSupervisorListChanged(payload: {
+    email: string;
+    fullName: string;
+    action: 'added' | 'removed';
+    azureAdObjectId?: string | null;
+  }): Promise<void> {
+    try {
+      const message = {
+        type: 'supervisor_list_changed',
+        data: payload,
+        timestamp: getCentralAmericaTime().toISOString(),
+      };
+      await this.client.group('presence').sendToAll(JSON.stringify(message));
+      console.log(`📡 [WebPubSubService] broadcastSupervisorListChanged: ${payload.action} ${payload.email}`);
+    } catch (error: any) {
+      console.error('📡 [WebPubSubService] Failed to broadcast supervisor list change:', error);
+      throw new Error(`Failed to broadcast supervisor list change: ${error.message}`);
+    }
+  }
+
+  /**
    * Broadcasts supervisor change notifications to all users in the presence group
    * @param payload - The supervisor change notification data
    * @returns Promise that resolves when the broadcast is complete

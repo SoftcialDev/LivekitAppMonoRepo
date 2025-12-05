@@ -30,6 +30,7 @@ import TrashButton from '@/shared/ui/Buttons/TrashButton';
 import AddModal from '@/shared/ui/ModalComponent';
 import { Column, TableComponent } from '@/shared/ui/TableComponent';
 import { useToast } from '@/shared/ui/ToastContext';
+import { useSupervisorsStore } from '@/shared/supervisors/useSupervisorsStore';
 
 
 export interface CandidateUser {
@@ -62,6 +63,8 @@ const SupervisorsPage: React.FC = () => {
   const navigate                 = useNavigate();
   const currentEmail             = account?.username ?? '';
   const { showToast }            = useToast();
+  const invalidateSupervisors = useSupervisorsStore((state) => state.invalidate);
+  const reloadSupervisors = useSupervisorsStore((state) => state.loadSupervisors);
 
   // Determine roles from database userInfo (not AAD token)
   const isAdmin      = userInfo?.role === 'Admin';
@@ -141,6 +144,8 @@ const SupervisorsPage: React.FC = () => {
       setModalOpen(false);
       await fetchSupervisors();
       await fetchCandidates(); // Refresh candidates list
+      invalidateSupervisors();
+      await reloadSupervisors(true);
       showToast(`${selectedEmails.length} supervisor(s) added`, 'success');
     } catch {
       showToast('Failed to add supervisors', 'error');
@@ -162,6 +167,8 @@ const SupervisorsPage: React.FC = () => {
     try {
       await deleteUser({ userEmail: email, reason: 'Supervisor role removed' });
       await fetchSupervisors();
+      invalidateSupervisors();
+      await reloadSupervisors(true);
       showToast(`Removed supervisor: ${email}`, 'success');
     } catch {
       showToast(`Failed to remove supervisor: ${email}`, 'error');
