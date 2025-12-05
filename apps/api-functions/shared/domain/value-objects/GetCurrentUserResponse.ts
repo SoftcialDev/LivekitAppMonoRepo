@@ -1,6 +1,6 @@
 /**
  * @fileoverview GetCurrentUserResponse - Value object for get current user responses
- * @description Encapsulates the response with current user information
+ * @description Encapsulates the response with current user information and permissions
  */
 
 import { UserRole } from '@prisma/client';
@@ -18,6 +18,7 @@ export class GetCurrentUserResponse {
    * @param role - User role
    * @param supervisorAdId - Supervisor Azure AD Object ID (optional)
    * @param supervisorName - Supervisor full name (optional)
+   * @param permissions - Effective permission codes for the user
    * @param isNewUser - Whether the user was just created
    */
   constructor(
@@ -28,6 +29,7 @@ export class GetCurrentUserResponse {
     public readonly role: UserRole | null,
     public readonly supervisorAdId?: string,
     public readonly supervisorName?: string,
+    public readonly permissions: string[] = [],
     public readonly isNewUser: boolean = false
   ) {}
 
@@ -44,6 +46,7 @@ export class GetCurrentUserResponse {
       role: this.role,
       supervisorAdId: this.supervisorAdId,
       supervisorName: this.supervisorName,
+      permissions: this.permissions,
       isNewUser: this.isNewUser
     };
   }

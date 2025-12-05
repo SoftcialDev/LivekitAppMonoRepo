@@ -13,9 +13,10 @@ export interface UserInfo {
   email: string;
   firstName: string;
   lastName: string;
-  role: 'Admin' | 'Supervisor' | 'Employee' | 'ContactManager' | 'SuperAdmin' | null;
+  role: 'Admin' | 'Supervisor' | 'PSO' | 'ContactManager' | 'SuperAdmin' | null;
   supervisorAdId?: string;
   supervisorName?: string;
+  permissions: string[];
 }
 
 /**

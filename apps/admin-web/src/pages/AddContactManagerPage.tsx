@@ -90,13 +90,13 @@ const AddContactManagerPage: React.FC = () => {
   };
 
   /**
-   * Fetches all Supervisors, Employees, Tenants and Admins,
+   * Fetches all Supervisors, PSOs, Tenants and Admins,
    * excluding the current signed-in account, and updates candidate list.
    */
   const fetchCandidates = async (): Promise<void> => {
     setLoadingCandidates(true);
     try {
-      const res = await getUsersByRole('Supervisor,Employee,Unassigned,Admin', 1, 1000);
+      const res = await getUsersByRole('Supervisor,PSO,Unassigned,Admin', 1, 1000);
       const allUsers: UserByRole[] = Array.isArray(res.users) ? res.users : [];
       const filtered = allUsers.filter(u =>
         u.email.toLowerCase() !== account?.username.toLowerCase()

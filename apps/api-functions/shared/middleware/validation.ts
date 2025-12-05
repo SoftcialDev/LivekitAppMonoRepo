@@ -10,11 +10,11 @@ import { UserRepository } from '../infrastructure/repositories/UserRepository';
  * Creates validation middleware for PSO target
  * @returns Middleware function that validates if target is a PSO
  */
-export function requireEmployeeTarget() {
+export function requirePSOTarget() {
   const userRepository = new UserRepository();
   
   return async (ctx: Context, targetEmail: string): Promise<void> => {
-    const isValidTarget = await userRepository.isEmployee(targetEmail);
+    const isValidTarget = await userRepository.isPSO(targetEmail);
     
     if (!isValidTarget) {
       throw new Error('Target user not found or not a PSO');

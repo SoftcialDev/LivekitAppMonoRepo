@@ -3,11 +3,11 @@ import apiClient from "./apiClient";
 
 /** Individual presence record returned by the paged API */
 interface PresenceItem {
-  email:      string
-  fullName:   string
-  status:     'online' | 'offline'
-  lastSeenAt: string
-  role?:         'Admin' | 'Supervisor' | 'Employee';
+  email: string;
+  fullName: string;
+  status: 'online' | 'offline';
+  lastSeenAt: string;
+  role?: 'Admin' | 'Supervisor' | 'PSO';
   supervisorId?: string | null;
   supervisorEmail?: string | null;
 }

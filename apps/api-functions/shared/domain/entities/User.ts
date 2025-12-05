@@ -85,7 +85,7 @@ export class User {
    * Checks if the user is a PSO
    * @returns True if user is a PSO
    */
-  isEmployee(): boolean {
+  isPSO(): boolean {
     return this.isActive() && this.role === UserRole.PSO;
   }
 

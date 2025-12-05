@@ -31,7 +31,7 @@ export class CommandAcknowledgmentService implements ICommandAcknowledgmentServi
     callerId: string
   ): Promise<AcknowledgeCommandResult> {
     // 1. Validate caller is a PSO
-    await this.validateEmployeeRole(callerId);
+    await this.validatePsoRole(callerId);
 
     // 2. Validate that all command IDs exist
     await this.validateCommandIds(request.commandIds);
@@ -47,7 +47,7 @@ export class CommandAcknowledgmentService implements ICommandAcknowledgmentServi
    * @param callerId - ID of the user making the request
    * @throws Error if user is not found, deleted, or not a PSO
    */
-  private async validateEmployeeRole(callerId: string): Promise<void> {
+  private async validatePsoRole(callerId: string): Promise<void> {
     const user = await this.userRepository.findByAzureAdObjectId(callerId);
     
     if (!user) {

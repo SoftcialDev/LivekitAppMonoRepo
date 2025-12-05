@@ -45,12 +45,12 @@ export class CommandApplicationService {
 
   /**
    * Validates if target user can receive commands
-   * @param employeeEmail - Email of the target PSO
+   * @param psoEmail - Email of the target PSO
    * @throws ValidationError if target is invalid
    */
-  async validateTargetEmployee(employeeEmail: string): Promise<void> {
-    const validatedEmail = ValidationUtils.validateEmailRequired(employeeEmail, 'PSO email');
-    await ValidationUtils.validateUserIsEmployee(this.userRepository, validatedEmail, 'Target user');
+  async validateTargetPSO(psoEmail: string): Promise<void> {
+    const validatedEmail = ValidationUtils.validateEmailRequired(psoEmail, 'PSO email');
+    await ValidationUtils.validateUserIsPSO(this.userRepository, validatedEmail, 'Target user');
   }
 
   /**

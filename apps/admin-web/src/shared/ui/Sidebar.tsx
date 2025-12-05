@@ -41,7 +41,7 @@ const ROLE_OPTIONS = [
   { label: "Admins", value: "Admin" },
   { label: "Super Admins", value: "SuperAdmin" },
   { label: "Supervisors", value: "Supervisor" },
-  { label: "PSOs", value: "Employee" },
+  { label: "PSOs", value: "PSO" },
   { label: "Contact Managers", value: "ContactManager" },
 ] as const;
 
@@ -51,7 +51,7 @@ const ROLE_OPTIONS = [
  * - Admin / Supervisor / SuperAdmin:
  *   - Shows the standard nav (“Manage”, “PSOs streaming”) and all presence users,
  *     with optional role filter & search.
- * - Employee:
+ * - PSO:
  *   - Narrows the list to **only their Contact Managers** (from `useContactManagerStatus`),
  *     tagging each CM as online/offline using the current presence `onlineUsers`.
  *   - Role dropdown is locked to “Contact Managers”.
@@ -76,23 +76,23 @@ const Sidebar: React.FC<SidebarProps> = ({
   const isSupervisor = userRole === "Supervisor";
   const isContactManager = userRole === "ContactManager";
   const isSuperAdmin = userRole === "SuperAdmin";
-  const isEmployee = userRole === "Employee";
+  const isPso = userRole === "PSO";
 
   /**
-   * Contact managers assigned to the current viewer (Employee-only).
+   * Contact managers assigned to the current viewer (PSO-only).
    * We’ll mark each CM as online/offline by intersecting with presence.
    */
   const { managers } = useContactManagerStatus(currentEmail);
 
-  /** Employee-only: is there at least one CM with domain-status "Available"? */
-const hasAvailableCM = useMemo(
-  () => isEmployee && managers.some(m => (m.status as ManagerStatus) === 'Available'),
-  [isEmployee, managers]
-);
+  /** PSO-only: is there at least one CM with domain-status "Available"? */
+  const hasAvailableCM = useMemo(
+    () => isPso && managers.some(m => (m.status as ManagerStatus) === 'Available'),
+    [isPso, managers]
+  );
 
 /** Small status dot for the dropdown trigger (green if any Available, else red). */
 const cmFilterAdornment = useMemo(() => {
-  if (!isEmployee) return null; // only Employees see the dot
+  if (!isPso) return null; // only PSOs see the dot
   return (
     <span
       aria-label={hasAvailableCM ? 'Contact managers available' : 'No contact managers available'}
@@ -104,7 +104,7 @@ const cmFilterAdornment = useMemo(() => {
       }`}
     />
   );
-}, [isEmployee, hasAvailableCM]);
+}, [isPso, hasAvailableCM]);
 
   /** Fast lookup set of presence-online emails (lowercased). */
   const onlineSet = useMemo(
@@ -113,15 +113,15 @@ const cmFilterAdornment = useMemo(() => {
   );
 
   /**
-   * Build the Employee’s “Contact Managers only” list as `UserStatus[]`.
+   * Build the PSO’s “Contact Managers only” list as `UserStatus[]`.
    *
    * Notes:
    * - Removes the invalid `isOnline` property to satisfy `UserStatus`.
    * - Provides required `azureAdObjectId`; if your `UserStatus` type requires
    *   a non-null string, change `null` to `""`.
    */
-  const employeeCMUsers = useMemo<UserStatus[]>(() => {
-    if (!isEmployee) return [];
+  const psoCMUsers = useMemo<UserStatus[]>(() => {
+    if (!isPso) return [];
 
     return managers
       .filter((m) => !!m.email) // keep it simple; no type predicate needed
@@ -142,22 +142,22 @@ const cmFilterAdornment = useMemo(() => {
 
         return user;
       });
-  }, [isEmployee, managers, onlineSet]);
+  }, [isPso, managers, onlineSet]);
 
   /**
    * Role filter UI:
-   * - For Employee viewers, lock the dropdown to “Contact Managers” and hide
+   * - For PSO viewers, lock the dropdown to “Contact Managers” and hide
    *   other roles by fixing the options to a single item.
    * - For Admin/Supervisor/SuperAdmin, use the full options.
    */
-  const effectiveRoleOptions = isEmployee
+  const effectiveRoleOptions = isPso
     ? [{ label: "Contact Managers", value: "ContactManager" }]
     : ROLE_OPTIONS;
 
   // Search / role filter
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>(
-    isEmployee ? "ContactManager" : ""
+    isPso ? "ContactManager" : ""
   );
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) =>
@@ -165,15 +165,15 @@ const cmFilterAdornment = useMemo(() => {
 
   /**
    * Source lists:
-   * - Employee → override presence lists with their CM list (partitioned by status)
+   * - PSO → override presence lists with their CM list (partitioned by status)
    * - Others   → use presence-provided lists directly
    */
-  const sourceOnline: UserStatus[] = isEmployee
-    ? employeeCMUsers.filter((u) => u.status === "online")
+  const sourceOnline: UserStatus[] = isPso
+    ? psoCMUsers.filter((u) => u.status === "online")
     : onlineUsers;
 
-  const sourceOffline: UserStatus[] = (isEmployee
-    ? employeeCMUsers.filter((u) => u.status === "offline")
+  const sourceOffline: UserStatus[] = (isPso
+    ? psoCMUsers.filter((u) => u.status === "offline")
     : offlineUsers).filter((u) => {
       // Exclude users with role "Unassigned" or null/undefined from offline list
       const role = u.role as string | null | undefined;
@@ -204,7 +204,7 @@ const cmFilterAdornment = useMemo(() => {
   /**
    * Disable the “video link” for certain rows:
    * - Always disable for Admin/Supervisor/ContactManager/SuperAdmin rows.
-   * - If the row is a PSO (Employee) and the viewer is a Supervisor,
+   * - If the row is a PSO and the viewer is a Supervisor,
    *   only enable if the PSO is assigned to the current supervisor.
    */
   const disableLinkFor = (u: UserStatus): boolean => {
@@ -216,7 +216,7 @@ const cmFilterAdornment = useMemo(() => {
     )
       return true;
 
-    if (u.role === "Employee" && isSupervisor) {
+    if (u.role === "PSO" && isSupervisor) {
       const supEmail = (u as any).supervisorEmail as string | undefined;
       return supEmail !== currentEmail;
     }
@@ -260,7 +260,7 @@ const cmFilterAdornment = useMemo(() => {
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto">
-        {/* Manage + Dashboard section (hidden for Employee) */}
+        {/* Manage + Dashboard section (hidden for PSO) */}
         {(isAdmin || isSupervisor || isSuperAdmin) && (
           <>
             {/* Manage section */}
@@ -400,7 +400,7 @@ const cmFilterAdornment = useMemo(() => {
           </>
         )}
 
-        {isEmployee && (
+        {isPso && (
   <div className="px-6 py-4 border-b border-black">
     <PsoDashboardForm
       psoEmail={psoEmail}

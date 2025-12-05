@@ -17,7 +17,7 @@ import { useToast } from '@/shared/ui/ToastContext';
 /**
  * Represents a user for PSO management.
  *
- * - `role === "Employee"` for current PSOs.
+ * - `role === "PSO"` for current PSOs.
  * - `role === null` for tenant-user candidates.
  */
 export interface CandidateUser {
@@ -25,7 +25,7 @@ export interface CandidateUser {
   email:           string;
   firstName:       string;
   lastName:        string;
-  role:            'Employee' | null;
+  role:            'PSO' | null;
   supervisorAdId?: string;
   supervisorName?: string;
 }
@@ -82,19 +82,19 @@ const PSOsListPage: React.FC = () => {
   });
 
   /**
-   * Fetch all PSOs (role=Employee) in one call (fetch-all).
+   * Fetch all PSOs (role=PSO) in one call (fetch-all).
    * The UI will paginate in-memory via TableComponent.
    */
   const fetchPsos = async (): Promise<void> => {
     setPsosLoading(true);
     try {
-      const res = await getUsersByRole('Employee', 1, API_PAGE_SIZE);
+      const res = await getUsersByRole('PSO', 1, API_PAGE_SIZE);
       const mappedAll: CandidateUser[] = res.users.map(u => ({
         azureAdObjectId: u.azureAdObjectId,
         email:           u.email,
         firstName:       u.firstName,
         lastName:        u.lastName,
-        role:            'Employee',
+        role:            'PSO',
         supervisorAdId:  u.supervisorAdId,
         supervisorName:  u.supervisorName,
       }));
@@ -181,14 +181,14 @@ const PSOsListPage: React.FC = () => {
   };
 
   /**
-   * Assign "Employee" role to selected users and refresh the list.
+   * Assign "PSO" role to selected users and refresh the list.
    */
   const handleConfirmAdd = async (): Promise<void> => {
     setPsosLoading(true);
     try {
       await Promise.all(
         selectedEmails.map(email =>
-          changeUserRole({ userEmail: email, newRole: 'Employee' })
+          changeUserRole({ userEmail: email, newRole: 'PSO' })
         )
       );
       setModalOpen(false);
@@ -207,7 +207,7 @@ const PSOsListPage: React.FC = () => {
   };
 
   /**
-   * Remove "Employee" role from a PSO and refresh.
+   * Remove "PSO" role from a PSO and refresh.
    */
   const handleRemovePso = async (email: string): Promise<void> => {
     if (email === currentEmail) {

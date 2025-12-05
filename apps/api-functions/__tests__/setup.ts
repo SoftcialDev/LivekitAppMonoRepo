@@ -141,7 +141,7 @@ jest.mock('@azure/web-pubsub', () => ({
     id: (global as any).TestUtils.generateUuid(),
     azureAdObjectId: (global as any).TestUtils.generateUuid(),
     email: (global as any).TestUtils.generateEmail(),
-    role: 'Employee',
+    role: 'PSO',
     deletedAt: null,
     createdAt: new Date(),
     updatedAt: new Date(),

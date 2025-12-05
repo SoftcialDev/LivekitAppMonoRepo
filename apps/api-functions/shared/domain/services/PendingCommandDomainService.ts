@@ -27,21 +27,21 @@ export class PendingCommandDomainService implements IPendingCommandDomainService
 
   /**
    * Creates a new pending command for an employee
-   * @param employeeId - The ID of the employee
+   * @param psoId - The ID of the PSO
    * @param command - The command type
    * @param timestamp - When the command was issued
    * @param reason - Optional reason for the command
    * @returns Promise that resolves to the created pending command
    * @throws Error if the operation fails
    */
-  async createPendingCommand(employeeId: string, command: string, timestamp: string | Date, reason?: string): Promise<{ id: string; employeeId: string; command: string; timestamp: Date; reason?: string }> {
+  async createPendingCommand(psoId: string, command: string, timestamp: string | Date, reason?: string): Promise<{ id: string; employeeId: string; command: string; timestamp: Date; reason?: string }> {
     const ts = typeof timestamp === 'string' ? new Date(timestamp) : timestamp;
     
-    // Delete any existing pending commands for this employee
-    await this.pendingCommandRepository.deletePendingCommandsForEmployee(employeeId);
+    // Delete any existing pending commands for this PSO
+    await this.pendingCommandRepository.deletePendingCommandsForPso(psoId);
     
     // Create new pending command
-    const pendingCommand = await this.pendingCommandRepository.createPendingCommand(employeeId, command as any, ts, reason);
+    const pendingCommand = await this.pendingCommandRepository.createPendingCommand(psoId, command as any, ts, reason);
     
     return {
       id: pendingCommand.id,
@@ -83,7 +83,7 @@ export class PendingCommandDomainService implements IPendingCommandDomainService
       }
 
       // Fetch all un-acknowledged commands for the user
-      const pendingCommandsData = await this.pendingCommandRepository.getPendingCommandsForEmployee(user.id);
+      const pendingCommandsData = await this.pendingCommandRepository.getPendingCommandsForPso(user.id);
       
       if (pendingCommandsData.length === 0) {
         return FetchPendingCommandsResponse.withNoPending();

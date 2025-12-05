@@ -62,7 +62,7 @@ export const paginationSchema = z.object({
  * @example
  * const schema = z.object({
  *   search: searchSchema.shape.query,
- *   role: z.enum(['Admin', 'Employee'])
+ *   role: z.enum(['Admin', 'PSO'])
  * });
  */
 export const searchSchema = z.object({

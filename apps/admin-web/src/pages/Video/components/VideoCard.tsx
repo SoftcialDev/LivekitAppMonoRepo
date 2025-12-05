@@ -19,6 +19,8 @@ import {
 import { useSnapshot } from '../hooks/useSnapshot'
 import { useAuth } from '@/shared/auth/useAuth'
 import { useUserInfo } from '@/shared/hooks/useUserInfo'
+import { usePermissions } from '@/shared/auth/usePermissions'
+import { Permission } from '@/shared/auth/permissions'
 import { VideoCardProps } from '@/shared/types/VideoCardProps'
 import AddModal from '@/shared/ui/ModalComponent'
 import { useRecording } from '../hooks/useRecording'
@@ -69,8 +71,21 @@ const VideoCard: React.FC<VideoCardProps & {
   const { account } = useAuth();
   const { userInfo } = useUserInfo();
   const { reasons: snapshotReasons } = useSnapshotReasons();
-  const isAdminOrSuperAdmin = userInfo?.role === 'Admin' || userInfo?.role === 'SuperAdmin';
-  const isSuperAdmin = userInfo?.role === 'SuperAdmin';
+  const { hasPermission, hasAnyPermission } = usePermissions();
+
+  const canTalkControl = hasAnyPermission([
+    Permission.TalkSessionsStart,
+    Permission.TalkSessionsStop,
+    Permission.TalkSessionsMute,
+    Permission.TalkSessionsUnmute,
+  ]);
+  const canSnapshot = hasPermission(Permission.SnapshotsCreate);
+  const canRecord = hasAnyPermission([
+    Permission.RecordingsStart,
+    Permission.RecordingsStop,
+    Permission.RecordingsDelete,
+    Permission.RecordingsRead,
+  ]);
   
   const roomRef = useRef<Room | null>(null)
   const audioRef = useRef<HTMLAudioElement>(null)
@@ -372,8 +387,8 @@ const VideoCard: React.FC<VideoCardProps & {
             {isAudioMuted ? 'Unmute' : 'Mute'}
           </button> */}
 
-          {/* Talkback - Solo visible para SuperAdmin y Admin */}
-          {isAdminOrSuperAdmin && (
+          {/* Talkback - permission gated */}
+          {canTalkControl && (
             <button
               onClick={async () => {
                 if (isCountdownActive) {
@@ -392,16 +407,18 @@ const VideoCard: React.FC<VideoCardProps & {
             </button>
           )}
 
-          <button
-            onClick={openModal}
-            disabled={snapshotDisabled}
-            className="flex-1 py-2 bg-yellow-400 rounded-xl disabled:opacity-50"
-            title={!mediaReady ? 'Snapshot is available only while streaming' : undefined}
-          >
-            Snapshot
-          </button>
+          {canSnapshot && (
+            <button
+              onClick={openModal}
+              disabled={snapshotDisabled}
+              className="flex-1 py-2 bg-yellow-400 rounded-xl disabled:opacity-50"
+              title={!mediaReady ? 'Snapshot is available only while streaming' : undefined}
+            >
+              Snapshot
+            </button>
+          )}
 
-          {isSuperAdmin && (
+          {canRecord && (
             <button
               onClick={toggleRecording}
               disabled={recordDisabled}

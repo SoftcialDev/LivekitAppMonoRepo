@@ -72,28 +72,28 @@ export function useStablePSOs(viewerEmail: string, viewerRole?: string, viewerAz
         return false;
       }
       
-      // Only show employees (including those with undefined role, assuming they are employees)
-      if (u.role !== 'Employee' && u.role !== undefined) {
+      // Only show PSO (including those with undefined role, assuming they are PSO)
+      if (u.role !== 'PSO' && u.role !== undefined) {
         return false;
       }
       
       // Role-based filtering
       if (viewerRole === 'Admin' || viewerRole === 'SuperAdmin') {
-        // Admins and SuperAdmins can see all employees
+        // Admins and SuperAdmins can see all PSOs
         return true;
       } else if (viewerRole === 'Supervisor') {
-        // Supervisors can only see employees assigned to them
+        // Supervisors can only see PSO assigned to them
         if (!viewerAzureAdObjectId) {
           console.warn('Supervisor role detected but no azureAdObjectId provided');
           return false;
         }
-        // Check if this employee is assigned to the current supervisor
+        // Check if this PSOS is assigned to the current supervisor
         // Compare by both supervisorId (Azure AD Object ID) and supervisorEmail
         return u.supervisorId === viewerAzureAdObjectId || 
                u.supervisorEmail === viewerEmail;
       }
       
-      // Default: show all employees (fallback for unknown roles)
+      // Default: show all PSOS (fallback for unknown roles)
       return true;
     });
 

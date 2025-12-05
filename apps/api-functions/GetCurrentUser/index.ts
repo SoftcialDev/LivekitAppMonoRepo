@@ -16,13 +16,13 @@ import { GetCurrentUserRequest } from "../shared/domain/value-objects/GetCurrent
  *
  * **HTTP GET** `/api/GetCurrentUser`
  *
- * Returns the current authenticated user's information from the database.
- * This endpoint is used by the frontend to get user roles and information
- * instead of relying on Azure AD token roles.
+ * Returns the current authenticated user's information from the database,
+ * including effective permissions resolved server-side. This endpoint is used
+ * by the frontend to get roles/permissions instead of relying on token roles.
  *
  * **Auto-provisioning:**
  * If the user doesn't exist in the database, they will be automatically created
- * with the Employee role using information from their Azure AD JWT token.
+ * with the PSO role using information from their Azure AD JWT token.
  *
  * **Response:**
  * ```json
@@ -31,7 +31,8 @@ import { GetCurrentUserRequest } from "../shared/domain/value-objects/GetCurrent
  *   "email": "user@example.com",
  *   "firstName": "John",
  *   "lastName": "Doe",
- *   "role": "Employee",
+ *   "role": "PSO",
+ *   "permissions": ["snapshots:create", "users:read", "..."],
  *   "supervisorAdId": "87654321-4321-4321-4321-210987654321",
  *   "supervisorName": "Jane Smith"
  * }
@@ -40,7 +41,7 @@ import { GetCurrentUserRequest } from "../shared/domain/value-objects/GetCurrent
  * **Authorization:**
  * - Requires valid Azure AD token
  * - Returns user information from database
- * - Creates new user with Employee role if not exists
+ * - Creates new user with PSO role if not exists
  *
  * **Error Codes:**
  * - 400: Bad request (email not found in token)

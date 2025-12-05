@@ -138,7 +138,7 @@ Three primary roles managed via Azure AD security groups:
 
 * **Admin** — Full system access & user management
 * **Supervisor** — Manage assigned employees & monitor streams
-* **Employee** — Personal dashboard & camera streaming
+* **PSO** — Personal dashboard & camera streaming
 
 Roles are enforced in both API and UI layers.
 

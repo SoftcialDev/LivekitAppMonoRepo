@@ -50,15 +50,15 @@ output "admins_group_id" {
   value       = module.aad_spa.admins_group_id
 }
 
-# Object ID of the Employees security group
-output "employees_group_id" {
-  description = "Object ID of the Employees group created in aad-spa module"
-  value       = module.aad_spa.employees_group_id
+# Object ID of the PSOs security group
+output "psos_group_id" {
+  description = "Object ID of the PSOs group created in aad-spa module"
+  value       = module.aad_spa.psos_group_id
 }
 
-# Object ID of the Employees security group
+# Object ID of the Contact Managers security group
 output "contact_manager_group_id" {
-  description = "Object ID of the Employees group created in aad-spa module"
+  description = "Object ID of the Contact Managers group created in aad-spa module"
   value       = module.aad_spa.contact_manager_group_id
 }
 

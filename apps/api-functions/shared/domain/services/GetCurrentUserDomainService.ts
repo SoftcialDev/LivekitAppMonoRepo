@@ -50,6 +50,9 @@ export class GetCurrentUserDomainService {
     // Split full name into first and last
     const { firstName, lastName } = this.splitName(user.fullName);
 
+    // Resolve effective permissions for the caller
+    const permissions = await this.userRepository.getEffectivePermissionCodesByAzureId(user.azureAdObjectId);
+
     return new GetCurrentUserResponse(
       user.azureAdObjectId,
       user.email,
@@ -58,6 +61,7 @@ export class GetCurrentUserDomainService {
       user.role,
       undefined, // supervisorAdId - would need to query supervisor
       undefined, // supervisorName - would need to query supervisor
+      permissions,
       isNewUser
     );
   }

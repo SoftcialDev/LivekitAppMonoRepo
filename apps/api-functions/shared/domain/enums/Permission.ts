@@ -29,6 +29,8 @@ export enum Permission {
   TalkSessionsRead = "talk_sessions:read",
   TalkSessionsStart = "talk_sessions:start",
   TalkSessionsStop = "talk_sessions:stop",
+  TalkSessionsMute = "talk_sessions:mute",
+  TalkSessionsUnmute = "talk_sessions:unmute",
 
   // Commands
   CommandsSend = "commands:send",
@@ -69,6 +71,9 @@ export enum Permission {
   // Streaming sessions
   StreamingSessionsRead = "streaming_sessions:read",
   StreamingSessionsReadHistory = "streaming_sessions:read_history",
+
+  // PSO dashboard
+  PsoDashboardRead = "pso_dashboard:read",
 
   // Migrations
   MigrationsRun = "migrations:run",

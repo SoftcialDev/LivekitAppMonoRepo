@@ -25,7 +25,7 @@ export interface LiveKitTokenResponse {
  *
  * If `roomName` is provided, returns a single-room token for that room.
  * Otherwise, returns one entry per room the caller is allowed to join
- * (e.g. Admin/Supervisor sees all other rooms; Employee sees only their own).
+ * (e.g. Admin/Supervisor sees all other rooms; PSO sees only their own).
  *
  * @param roomName - Optional LiveKit room identifier to scope token to.
  *                   When omitted, backend decides which rooms to return
@@ -36,7 +36,7 @@ export interface LiveKitTokenResponse {
  *
  * @example
  * ```ts
- * // Employee: returns [{ room: 'user-uuid', token: '…' }]
+ * // PSO: returns [{ room: 'user-uuid', token: '…' }]
  * const { rooms, livekitUrl } = await getLiveKitToken()
  *
  * // Admin fetching only one user’s room:

@@ -62,7 +62,7 @@ export class PendingCommandRepository implements IPendingCommandRepository {
    * @returns Promise that resolves to array of pending command entities
    * @throws Error if database operation fails
    */
-  async getPendingCommandsForEmployee(employeeId: string): Promise<Array<{
+  async getPendingCommandsForPso(psoId: string): Promise<Array<{
     id: string;
     employeeId: string;
     command: string;
@@ -72,7 +72,7 @@ export class PendingCommandRepository implements IPendingCommandRepository {
     try {
       const commands = await prisma.pendingCommand.findMany({
         where: {
-          employeeId: employeeId,
+          employeeId: psoId,
           acknowledged: false
         },
         orderBy: {
@@ -94,14 +94,14 @@ export class PendingCommandRepository implements IPendingCommandRepository {
 
   /**
    * Deletes all pending commands for a PSO
-   * @param employeeId - The ID of the PSO
+   * @param psoId - The ID of the PSO
    * @returns Promise that resolves when the operation completes
    * @throws Error if database operation fails
    */
-  async deletePendingCommandsForEmployee(employeeId: string): Promise<void> {
+  async deletePendingCommandsForPso(psoId: string): Promise<void> {
     try {
       await prisma.pendingCommand.deleteMany({
-        where: { employeeId }
+        where: { employeeId: psoId }
       });
     } catch (error: any) {
       throw new Error(`Failed to delete pending commands for PSO: ${error.message}`);
@@ -110,18 +110,18 @@ export class PendingCommandRepository implements IPendingCommandRepository {
 
   /**
    * Creates a new pending command
-   * @param employeeId - The ID of the employee
+   * @param psoId - The ID of the PSO
    * @param command - The command type
    * @param timestamp - When the command was issued
    * @param reason - Optional reason for the command
    * @returns Promise that resolves to the created pending command
    * @throws Error if database operation fails
    */
-  async createPendingCommand(employeeId: string, command: any, timestamp: Date, reason?: string): Promise<{ id: string; employeeId: string; command: string; timestamp: Date; reason?: string }> {
+  async createPendingCommand(psoId: string, command: any, timestamp: Date, reason?: string): Promise<{ id: string; employeeId: string; command: string; timestamp: Date; reason?: string }> {
     try {
       const pendingCommand = await prisma.pendingCommand.create({
         data: {
-          employeeId,
+          employeeId: psoId,
           command,
           timestamp,
           reason,

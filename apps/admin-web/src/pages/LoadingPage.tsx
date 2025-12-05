@@ -45,7 +45,7 @@ export const LoadingPage: React.FC = (): JSX.Element => {
     if (userInfo) {
       console.debug('LoadingPage: detected role from database:', userInfo.role);
 
-      if (userInfo.role === 'Employee') {
+      if (userInfo.role === 'PSO') {
         navigate('/psosDashboard', { replace: true });
       } else if (userInfo.role === 'ContactManager') {
         navigate('/contactManagerDashboard', { replace: true });

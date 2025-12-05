@@ -93,7 +93,7 @@ VITE_TALK_HANG_UP_SOUND=/sounds/hang-up.mp3
 * **User Management** (Admins, Supervisors, PSOs)
 * **Real-time Presence** via `@azure/web-pubsub-client`
 * **LiveKit Video Streams** via `livekit-client`
-* **Role-Based Access** (Admin, Supervisor, Employee)
+* **Role-Based Access** (Admin, Supervisor,  PSO)
 
 ---
 

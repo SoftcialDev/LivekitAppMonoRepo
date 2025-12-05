@@ -136,7 +136,7 @@ export class AuthorizationService implements IAuthorizationService {
    * @param callerId - Azure AD object ID of the caller
    * @returns Promise that resolves to true if authorized
    */
-  async canAccessEmployee(callerId: string): Promise<boolean> {
+  async canAccessPSO(callerId: string): Promise<boolean> {
     const allowedRoles: UserRole[] = [UserRole.PSO];
     return await this.userRepository.hasAnyRole(callerId, allowedRoles);
   }

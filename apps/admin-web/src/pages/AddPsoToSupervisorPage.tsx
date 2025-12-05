@@ -82,18 +82,18 @@ const SupervisorDetailPage: React.FC = () => {
     }
   }, [supervisorAdId, showToast]);
 
-  // Modal: list ALL employees, excluding those already assigned
+  // Modal: list ALL PSOs, excluding those already assigned
 const loadCandidates = useCallback(async () => {
   try {
     setCandidatesLoading(true);
     
-    // 1) Fetch employees
-    const empResp = await getUsersByRole('Employee', 1, 1000);
+    // 1) Fetch PSOs
+    const empResp = await getUsersByRole('PSO', 1, 1000);
 
-    // 2) Keep only employees NOT already assigned to this supervisor
-    const availableEmployees = empResp.users
+    // 2) Keep only PSOs NOT already assigned to this supervisor
+    const availablePSOs = empResp.users
       .filter(u =>
-        u.role === 'Employee' &&              // just to be safe
+        u.role === 'PSO' &&              // just to be safe
         u.supervisorAdId !== supervisorAdId   // not yet under this sup
       )
       .map(u => ({
@@ -104,11 +104,11 @@ const loadCandidates = useCallback(async () => {
         supervisorName:  u.supervisorName ?? '—',
       }));
 
-    // 3) Set only employees as candidates
-    setCandidates(availableEmployees);
+    // 3) Set only PSO as candidates
+    setCandidates(availablePSOs);
   } catch (err) {
     console.error('loadCandidates error', err);
-    showToast('Failed to load candidate employees', 'error');
+    showToast('Failed to load candidate psos', 'error');
   } finally {
     setCandidatesLoading(false); 
   }

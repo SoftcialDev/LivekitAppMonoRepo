@@ -29,7 +29,7 @@
  *     - `/psos`              → PSOsListPage
  *   - ContactManager-only
  *     - `/contactManagerDashboard` → ContactManagerDashboard
- *   - Employee-only
+ *   - PSO-only
  *     - `/psosDashboard`     → PsoDashboard  (**now inside Layout/Outlet**)
  *
  * - Fallback
@@ -41,10 +41,13 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 
 import { AuthProvider } from '@/shared/auth/AuthContext';
 import { UserInfoProvider } from '@/shared/contexts/UserInfoContext';
+import { PermissionProvider } from '@/shared/auth/PermissionContext';
 import { SnapshotReasonsProvider } from '@/shared/context/SnapshotReasonsContext';
 import { useAuth } from '@/shared/auth/useAuth';
 import { setTokenGetter } from '@/shared/api/apiClient';
 import { ProtectedRoute } from '@/shared/ui/ProtectedRoute';
+import { PermissionRoute } from '@/shared/ui/PermissionRoute';
+import { Permission } from '@/shared/auth/permissions';
 import { ToastProvider } from '@/shared/ui/ToastContext';
 
 import Layout from './layouts/DashboardLayout';
@@ -92,6 +95,7 @@ function App(): JSX.Element {
   return (
     <AuthProvider>
       <UserInfoProvider>
+        <PermissionProvider>
         <SnapshotReasonsProvider>
           <BrowserRouter>
             <TokenInjector />
@@ -103,37 +107,37 @@ function App(): JSX.Element {
 
             {/* All pages that use Dashboard layout (Header + Sidebar) */}
             <Route element={<Layout />}>
-              {/* Admin only */}
+              {/* Admin / SuperAdmin */}
               <Route
                 path="/admins"
                 element={
-                  <ProtectedRoute allowedRoles={['Admin', 'SuperAdmin']}>
+                  <PermissionRoute requiredPermissions={[Permission.UsersRead]}>
                     <AdminsPage />
-                  </ProtectedRoute>
+                  </PermissionRoute>
                 }
               />
               <Route
                 path="/snapshotReport"
                 element={
-                  <ProtectedRoute allowedRoles={['Admin', 'SuperAdmin']}>
+                  <PermissionRoute requiredPermissions={[Permission.SnapshotsRead]}>
                     <SnapshotsReportPage />
-                  </ProtectedRoute>
+                  </PermissionRoute>
                 }
               />
               <Route
                 path="/talkSessionsReport"
                 element={
-                  <ProtectedRoute allowedRoles={['Admin', 'SuperAdmin']}>
+                  <PermissionRoute requiredPermissions={[Permission.TalkSessionsRead]}>
                     <TalkSessionsReportPage />
-                  </ProtectedRoute>
+                  </PermissionRoute>
                 }
               />
               <Route
                 path="/contactManager"
                 element={
-                  <ProtectedRoute allowedRoles={['Admin', 'SuperAdmin']}>
+                  <PermissionRoute requiredPermissions={[Permission.ContactManagersCreate]}>
                     <AddContactManagerPage />
-                  </ProtectedRoute>
+                  </PermissionRoute>
                 }
               />
 
@@ -141,17 +145,17 @@ function App(): JSX.Element {
               <Route
                 path="/superAdmins"
                 element={
-                  <ProtectedRoute allowedRoles={['SuperAdmin']}>
+                  <PermissionRoute requiredPermissions={[Permission.SuperAdminsRead]}>
                     <AddSuperAdminPage />
-                  </ProtectedRoute>
+                  </PermissionRoute>
                 }
               />
               <Route
                 path="/recordingReport"
                 element={
-                  <ProtectedRoute allowedRoles={['SuperAdmin']}>
+                  <PermissionRoute requiredPermissions={[Permission.RecordingsRead]}>
                     <RecordingsReportPage />
-                  </ProtectedRoute>
+                  </PermissionRoute>
                 }
               />
 
@@ -159,41 +163,41 @@ function App(): JSX.Element {
               <Route
                 path="/supervisors"
                 element={
-                  <ProtectedRoute allowedRoles={['Admin', 'Supervisor', 'SuperAdmin']}>
+                  <PermissionRoute requiredPermissions={[Permission.UsersRead]}>
                     <SupervisorsPage />
-                  </ProtectedRoute>
+                  </PermissionRoute>
                 }
               />
               <Route
                 path="/supervisors/:id"
                 element={
-                  <ProtectedRoute allowedRoles={['Admin', 'Supervisor', 'SuperAdmin']}>
+                  <PermissionRoute requiredPermissions={[Permission.UsersRead]}>
                     <SupervisorDetailPage />
-                  </ProtectedRoute>
+                  </PermissionRoute>
                 }
               />
               <Route
                 path="/dashboard"
                 element={
-                  <ProtectedRoute allowedRoles={['Admin', 'Supervisor', 'SuperAdmin']}>
+                  <PermissionRoute requiredPermissions={[Permission.StreamingStatusRead]}>
                     <PSOsVideoPage />
-                  </ProtectedRoute>
+                  </PermissionRoute>
                 }
               />
               <Route
                 path="/videos/:email"
                 element={
-                  <ProtectedRoute allowedRoles={['Admin', 'Supervisor', 'SuperAdmin']}>
+                  <PermissionRoute requiredPermissions={[Permission.StreamingStatusRead]}>
                     <UserVideoPage />
-                  </ProtectedRoute>
+                  </PermissionRoute>
                 }
               />
               <Route
                 path="/psos"
                 element={
-                  <ProtectedRoute allowedRoles={['Admin', 'Supervisor', 'SuperAdmin']}>
+                  <PermissionRoute requiredPermissions={[Permission.UsersRead]}>
                     <PSOsListPage />
-                  </ProtectedRoute>
+                  </PermissionRoute>
                 }
               />
 
@@ -201,19 +205,19 @@ function App(): JSX.Element {
               <Route
                 path="/contactManagerDashboard"
                 element={
-                  <ProtectedRoute allowedRoles={['ContactManager']}>
+                  <PermissionRoute requiredPermissions={[Permission.ContactManagersRead]}>
                     <ContactManagerDashboard />
-                  </ProtectedRoute>
+                  </PermissionRoute>
                 }
               />
 
-              {/* Employee-only (now rendered inside Layout's Outlet) */}
+              {/* PSO-only (now rendered inside Layout's Outlet) */}
               <Route
                 path="/psosDashboard"
                 element={
-                  <ProtectedRoute allowedRoles={['Employee']}>
+                  <PermissionRoute requiredPermissions={[Permission.PsoDashboardRead]}>
                     <PsoDashboard />
-                  </ProtectedRoute>
+                  </PermissionRoute>
                 }
               />
 
@@ -234,6 +238,7 @@ function App(): JSX.Element {
           </ToastProvider>
         </BrowserRouter>
       </SnapshotReasonsProvider>
+      </PermissionProvider>
       </UserInfoProvider>
     </AuthProvider>
   );

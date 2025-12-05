@@ -54,6 +54,8 @@ const PERMISSIONS: SeedPermission[] = [
   { code: "talk_sessions:read", name: "Read talk sessions", resource: "talk_sessions", action: "read" },
   { code: "talk_sessions:start", name: "Start talk session", resource: "talk_sessions", action: "start" },
   { code: "talk_sessions:stop", name: "Stop talk session", resource: "talk_sessions", action: "stop" },
+  { code: "talk_sessions:mute", name: "Mute talk session", resource: "talk_sessions", action: "mute" },
+  { code: "talk_sessions:unmute", name: "Unmute talk session", resource: "talk_sessions", action: "unmute" },
 
   // Commands
   { code: "commands:send", name: "Send commands", resource: "commands", action: "send" },
@@ -95,6 +97,9 @@ const PERMISSIONS: SeedPermission[] = [
   { code: "streaming_sessions:read", name: "Read streaming sessions", resource: "streaming_sessions", action: "read" },
   { code: "streaming_sessions:read_history", name: "Read streaming session history", resource: "streaming_sessions", action: "read_history" },
 
+  // PSO dashboard
+  { code: "pso_dashboard:read", name: "Access PSO dashboard", resource: "pso_dashboard", action: "read" },
+
   // Migrations
   { code: "migrations:run", name: "Run migrations", resource: "migrations", action: "run" },
 
@@ -122,6 +127,8 @@ const ROLE_PERMISSIONS: RolePermissionMap = {
     "talk_sessions:read",
     "talk_sessions:start",
     "talk_sessions:stop",
+    "talk_sessions:mute",
+    "talk_sessions:unmute",
     "commands:send",
     "commands:read",
     "users:read",
@@ -152,6 +159,8 @@ const ROLE_PERMISSIONS: RolePermissionMap = {
     "users:delete",
     "talk_sessions:start",
     "talk_sessions:stop",
+    "talk_sessions:mute",
+    "talk_sessions:unmute",
     "streaming_status:read",
     "streaming_sessions:read_history",
     "streaming_sessions:read",
@@ -167,6 +176,7 @@ const ROLE_PERMISSIONS: RolePermissionMap = {
     "streaming_sessions:read_history",
     "contact_managers:read",
     "webpubsub:connect",
+    "pso_dashboard:read",
   ],
   ContactManager: [
     "streaming_status:read",

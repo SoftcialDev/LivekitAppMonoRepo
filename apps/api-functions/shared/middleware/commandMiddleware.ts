@@ -6,7 +6,7 @@
 import { Context } from '@azure/functions';
 import { unauthorized, badRequest } from '../utils/response';
 import { requireCommandPermission } from './authorization';
-import { requireEmployeeTarget } from './validation';
+import { requirePSOTarget } from './validation';
 import { extractCallerId } from '../utils/authHelpers';
 
 /**
@@ -24,7 +24,7 @@ export async function validateCommandRequest(ctx: Context, targetEmail: string):
     await requireCommandPermission()(ctx);
     
     // 3. Validate target PSO
-    await requireEmployeeTarget()(ctx, targetEmail);
+    await requirePSOTarget()(ctx, targetEmail);
     
   } catch (error: any) {
     if (error.message === 'Cannot determine caller identity') {

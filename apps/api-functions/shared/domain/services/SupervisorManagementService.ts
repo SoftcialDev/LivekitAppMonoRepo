@@ -124,7 +124,7 @@ export class SupervisorManagementService implements ISupervisorManagementService
         );
       }
 
-      if (!user.isEmployee()) {
+      if (!user.isPSO()) {
         // Skip non-PSOs (they will be skipped in the actual operation)
         continue;
       }
@@ -167,7 +167,7 @@ export class SupervisorManagementService implements ISupervisorManagementService
       
       // Extract name from email (fallback)
       const fullName = email.split('@')[0].replace(/[._]/g, ' ');
-      await this.userRepository.createEmployee(email, fullName, supervisorId);
+       await this.userRepository.createPSO(email, fullName, supervisorId);
     }
   }
 
@@ -195,7 +195,7 @@ export class SupervisorManagementService implements ISupervisorManagementService
     // Prepare all updates
     for (const email of userEmails) {
       const user = await this.userRepository.findByEmail(email);
-      if (user && user.isEmployee()) {
+    if (user && user.isPSO()) {
         // Only update if supervisor is actually changing
         if (user.supervisorId !== supervisorId) {
           updates.push({ email, supervisorId });

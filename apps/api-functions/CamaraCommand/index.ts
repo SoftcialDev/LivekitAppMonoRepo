@@ -74,7 +74,7 @@ export default withErrorHandler(async (ctx: Context) => {
 
         try {
           // Validate target PSO
-          await commandApplicationService.validateTargetEmployee(employeeEmail);
+          await commandApplicationService.validateTargetPSO(employeeEmail);
 
           // Create and send command
           const command = Command.fromRequest({ command: commandType, employeeEmail, reason });

@@ -130,9 +130,9 @@ export class UserRepository implements IUserRepository {
    * @param email - User email
    * @returns Promise that resolves to true if user is a PSO
    */
-  async isEmployee(email: string): Promise<boolean> {
+  async isPSO(email: string): Promise<boolean> {
     const user = await this.findByEmail(email);
-    return user ? user.isEmployee() : false;
+    return user ? user.isPSO() : false;
   }
 
   /**
@@ -158,7 +158,7 @@ export class UserRepository implements IUserRepository {
    * @param supervisorId - Supervisor ID (optional)
    * @returns Promise that resolves to created user entity
    */
-  async createEmployee(email: string, fullName: string, supervisorId: string | null = null): Promise<User> {
+  async createPSO(email: string, fullName: string, supervisorId: string | null = null): Promise<User> {
     const now = getCentralAmericaTime();
     const prismaUser = await prisma.user.create({
       data: {
@@ -675,7 +675,7 @@ export class UserRepository implements IUserRepository {
 
       console.log(`[DEBUG] Query where clause:`, baseWhere);
 
-      const employees = await prisma.user.findMany({
+      const psos = await prisma.user.findMany({
         where: baseWhere,
         select: {
           email: true,
@@ -685,11 +685,11 @@ export class UserRepository implements IUserRepository {
         }
       });
 
-      console.log(`[DEBUG] Found ${employees.length} employees for supervisor ${supervisorId}`);
+      console.log(`[DEBUG] Found ${psos.length} psos for supervisor ${supervisorId}`);
 
-      return employees.map(employee => ({
-        email: employee.email.toLowerCase(),
-        supervisorName: employee.supervisor?.fullName || ""
+      return psos.map(pso => ({
+        email: pso.email.toLowerCase(),
+        supervisorName: pso.supervisor?.fullName || ""
       }));
     } catch (error: any) {
       console.error(`[DEBUG] Error in getPsosBySupervisor:`, error);

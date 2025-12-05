@@ -26,7 +26,7 @@ interface ProtectedRouteProps {
  * 1. If not authenticated → redirect to "/login".  
  * 2. If no user info loaded → redirect to "/loading".
  * 3. Otherwise, inspect the user's role from database:
- *    - If role is "Employee" → redirect to "/psosDashboard".
+ *    - If role is "PSO" → redirect to "/psosDashboard".
  *    - Else if role is "Admin", "Supervisor", or "SuperAdmin" → redirect to "/dashboard".
  *    - Else if role is "ContactManager" → redirect to "/contactManagerDashboard".
  *    - Else → redirect to "/login".
@@ -64,7 +64,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     const hasAccess = allowedRoles.includes(userInfo.role || '');
     if (!hasAccess) {
       // Not permitted to see this route—send to their default landing
-      if (userInfo.role === 'Employee') {
+      if (userInfo.role === 'PSO') {
         return <Navigate to="/psosDashboard" replace />;
       }
       if (userInfo.role === 'Admin' || userInfo.role === 'Supervisor' || userInfo.role === 'SuperAdmin') {

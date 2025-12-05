@@ -63,7 +63,7 @@ export const EmailProtectedRoute: React.FC<EmailProtectedRouteProps> = ({
 
   if (!hasAccess) {
     // Not permitted - send to their default landing
-    if (userInfo.role === 'Employee') {
+    if (userInfo.role === 'PSO') {
       return <Navigate to="/psosDashboard" replace />;
     }
     if (userInfo.role === 'Admin' || userInfo.role === 'Supervisor' || userInfo.role === 'SuperAdmin') {

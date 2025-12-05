@@ -3,7 +3,7 @@
  * @description
  * Renders the Supervisors management interface:
  * - **Admins** see:
- *   - “Add Supervisor” button to promote Employees/Tenants to Supervisors  
+ *   - “Add Supervisor” button to promote PSO/Tenants to Supervisors  
  *   - Per-row Trash buttons to remove a Supervisor (except themselves)  
  * - **Supervisors** see:
  *   - Per-row “Transfer PSOs” buttons to reassign all of their PSOs to another Supervisor  
@@ -37,7 +37,7 @@ export interface CandidateUser {
   email:           string;
   firstName:       string;
   lastName:        string;
-  role:            'Admin' | 'Supervisor' | 'Employee' | null;
+  role:            'Admin' | 'Supervisor' | 'PSO' | null;
   supervisorAdId?: string;
   supervisorName?: string;
 }
@@ -103,7 +103,7 @@ const SupervisorsPage: React.FC = () => {
   const fetchCandidates = useCallback(async () => {
     setCandLoading(true);
     try {
-      const { users } = await getUsersByRole('Employee,Unassigned', 1, 1000);
+      const { users } = await getUsersByRole('PSO,Unassigned', 1, 1000);
       setCandidates(users);
     } catch {
       showToast('Failed to load candidate users', 'error');

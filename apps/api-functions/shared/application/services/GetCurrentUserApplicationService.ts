@@ -18,7 +18,7 @@ export class GetCurrentUserApplicationService {
 
   /**
    * Gets current authenticated user information
-   * Creates user automatically with Employee role if they don't exist
+   * Creates user automatically with PSO role if they don't exist
    * @param request - Get current user request
    * @param jwtPayload - JWT token payload from Azure AD
    * @returns Promise that resolves to GetCurrentUserResponse

@@ -120,7 +120,7 @@ const PSOsPage: React.FC = () => {
   const viewerAzureAdObjectId = userInfo?.azureAdObjectId;
   
   useEffect(() => {
-    if (account && (!userInfo || userInfo.role === 'Employee')) {
+    if (account && (!userInfo || userInfo.role === 'PSO')) {
       localStorage.removeItem('userInfo');
       loadUserInfo();
     }

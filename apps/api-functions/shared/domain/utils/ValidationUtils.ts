@@ -71,7 +71,7 @@ export class ValidationUtils {
    * @returns Promise that resolves to user if valid
    * @throws ValidationError if user is not a PSO
    */
-  static async validateUserIsEmployee(
+  static async validateUserIsPSO(
     userRepository: IUserRepository, 
     email: string, 
     fieldName: string = 'User'

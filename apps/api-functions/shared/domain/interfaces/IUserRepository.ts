@@ -69,7 +69,7 @@ export interface IUserRepository {
    * @param email - User email
    * @returns Promise that resolves to true if user is a PSO
    */
-  isEmployee(email: string): Promise<boolean>;
+  isPSO(email: string): Promise<boolean>;
 
   /**
    * Updates a user's supervisor assignment
@@ -86,7 +86,7 @@ export interface IUserRepository {
    * @param supervisorId - Supervisor ID (optional)
    * @returns Promise that resolves to created user
    */
-  createEmployee(email: string, fullName: string, supervisorId?: string | null): Promise<User>;
+    createPSO(email: string, fullName: string, supervisorId?: string | null): Promise<User>;
 
   /**
    * Updates multiple users' supervisor assignments in a transaction

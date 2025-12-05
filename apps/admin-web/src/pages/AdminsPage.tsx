@@ -15,7 +15,7 @@ export interface CandidateUser {
   email:           string;
   firstName:       string;
   lastName:        string;
-  role:            'Admin' | 'Supervisor' | 'Employee' | null;
+  role:            'Admin' | 'Supervisor' | 'PSO' | null;
   supervisorAdId?: string;
   supervisorName?: string;
 }
@@ -55,7 +55,7 @@ const AdminsPage: React.FC = () => {
   const fetchCandidates = async (): Promise<void> => {
     setCandidatesLoading(true);
     try {
-      const res = await getUsersByRole('Supervisor,Employee,Unassigned', 1, 1000);
+      const res = await getUsersByRole('Supervisor,PSO,Unassigned', 1, 1000);
       setCandidates(res.users);
     } catch (err: any) {
       showToast('Could not load candidate users', 'error');

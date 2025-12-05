@@ -8,7 +8,7 @@
  *      • `<role>` can be:
  *         - "Admin"      (only admins)
  *         - "Supervisor" (only supervisors)
- *         - "Employee"   (only employees)
+ *         - "PSO"   (only PSOs)
  *         - "Tenant"     (only users with no App Role)
  *         - "All"        (all users with any App Role)
  *         - Comma-separated list, e.g. "Supervisor,Tenant"
@@ -30,12 +30,12 @@ import apiClient from "./apiClient";
 export type UserRoleParam =
   | "Admin"
   | "Supervisor"
-  | "Employee"
+  | "PSO"
   | "Tenant"
   | "null"
   | "Unassigned"
   | "All"
-  | `${"Admin" | "Supervisor" | "Employee" | "Tenant" | "null" | "Unassigned"},${string}`;
+  | `${"Admin" | "Supervisor" | "PSO" | "Tenant" | "null" | "Unassigned"},${string}`;
 
 /**
  * Represents a user returned by GetUsersByRole.
@@ -51,9 +51,9 @@ export interface UserByRole {
   lastName: string;
   /**
    * Current App Role, or `null` for tenant users:
-   * - "Admin" | "Supervisor" | "Employee" | null
+   * - "Admin" | "Supervisor" | "PSO" | null
    */
-  role: "Admin" | "Supervisor" | "Employee" | null;
+  role: "Admin" | "Supervisor" | "PSO" | null;
   /** (Optional) Azure AD object ID of assigned supervisor */
   supervisorAdId?: string;
   /** (Optional) Display name of assigned supervisor */
@@ -74,7 +74,7 @@ export interface Supervisor {
 }
 
 /**
- * Represents a PSO (employee) together with their supervisor’s full name.
+ * Represents a PSO together with their supervisor’s full name.
  */
 export interface PsoWithSupervisor {
   /** The PSO’s email address, always lower‑cased. */
@@ -114,7 +114,7 @@ export interface ChangeUserRolePayload {
   /** Target user's email */
   userEmail: string;
   /** New role to assign */
-  newRole: "Admin" | "Supervisor" | "Employee";
+  newRole: "Admin" | "Supervisor" | "PSO";
 }
 
 /**
@@ -131,7 +131,7 @@ export interface DeleteUserPayload {
  * Payload for ChangeSupervisor.
  */
 export interface ChangeSupervisorPayload {
-  /** Array of employee emails to reassign */
+  /** Array of PSO emails to reassign */
   userEmails: string[];
   /** New supervisor’s email */
   newSupervisorEmail: string | null;  
@@ -148,7 +148,7 @@ export interface ChangeSupervisorPayload {
  *   One of:
  *    - `"Admin"`      → only admins
  *    - `"Supervisor"` → only supervisors
- *    - `"Employee"`   → only employees
+ *    - `"PSO"`   → only PSOs
  *    - `"null"`       → only users with no App Role
  *    - `"All"`        → all users with any App Role
  *    - Comma-separated list, e.g. `"Supervisor,null"`
@@ -236,9 +236,9 @@ export async function deleteUser(
 }
 
 /**
- * Reassigns one or more employees to a new supervisor.
+ * Reassigns one or more PSO to a new supervisor.
  *
- * @param payload.userEmails         - Array of employee emails.
+ * @param payload.userEmails         - Array of    PSO  emails.
  * @param payload.newSupervisorEmail - Supervisor’s email, or null to clear.
  * @returns Promise resolving to the number of records updated.
  */
@@ -254,8 +254,8 @@ export async function changeSupervisor(
 }
 
 /**
- * Fetches the list of PSOs (employees) the current user may view,
- * each annotated with that employee’s supervisor full name.
+ * Fetches the list of PSOs the current user may view,
+ * each annotated with that PSO’s supervisor full name.
  *
  * Calls GET `/api/MyPsos` (Azure Function) which returns:
  * ```json
