@@ -28,10 +28,10 @@ export enum UserRole {
   Supervisor = "Supervisor",
 
   /**
-   * Standard users who can stream video
+   * PSO (Public Safety Officer) - Standard users who can stream video
    * @description Can access streaming features and receive commands
    */
-  Employee = "Employee",
+  PSO = "PSO",
 
   /**
    * Contact Manager role

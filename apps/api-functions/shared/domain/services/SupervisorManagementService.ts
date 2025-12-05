@@ -42,8 +42,8 @@ export class SupervisorManagementService implements ISupervisorManagementService
     for (const email of assignment.userEmails) {
       const existing = await this.userRepository.findByEmail(email);
 
-      // Skip if user already exists with non-Employee role
-      if (existing && existing.role && existing.role !== UserRole.Employee) {
+      // Skip if user already exists with non-PSO role
+      if (existing && existing.role && existing.role !== UserRole.PSO) {
         skippedCount++;
         continue;
       }
@@ -112,7 +112,7 @@ export class SupervisorManagementService implements ISupervisorManagementService
       const user = await this.userRepository.findByEmail(email);
       
       if (!user) {
-        // User doesn't exist - will be created as Employee
+        // User doesn't exist - will be created as PSO
         validEmails.push(email);
         continue;
       }
@@ -125,7 +125,7 @@ export class SupervisorManagementService implements ISupervisorManagementService
       }
 
       if (!user.isEmployee()) {
-        // Skip non-employees (they will be skipped in the actual operation)
+        // Skip non-PSOs (they will be skipped in the actual operation)
         continue;
       }
 
@@ -156,7 +156,7 @@ export class SupervisorManagementService implements ISupervisorManagementService
       
       await this.userRepository.updateSupervisor(email, supervisorId);
     } else {
-      // Create new employee user
+      // Create new PSO user
       let supervisorId: string | null = null;
       if (supervisorEmail) {
         const supervisor = await this.supervisorRepository.findByEmail(supervisorEmail);

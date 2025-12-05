@@ -7,6 +7,8 @@
 import { AzureFunction, Context, HttpRequest } from "@azure/functions";
 import { withAuth } from "../shared/middleware/auth";
 import { withErrorHandler } from "../shared/middleware/errorHandler";
+import { requirePermission } from "../shared/middleware/permissions";
+import { Permission } from "../shared/domain/enums/Permission";
 import { ok } from "../shared/utils/response";
 import { ServiceContainer } from "../shared/infrastructure/container/ServiceContainer";
 import { GetSnapshotReasonsApplicationService } from "../shared/application/services/GetSnapshotReasonsApplicationService";
@@ -39,6 +41,7 @@ const getSnapshotReasonsHandler: AzureFunction = withErrorHandler(
     });
 
     await withAuth(ctx, async () => {
+      await requirePermission(Permission.SnapshotReasonsRead)(ctx);
       const serviceContainer = ServiceContainer.getInstance();
       serviceContainer.initialize();
 

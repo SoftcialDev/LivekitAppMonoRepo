@@ -4,9 +4,8 @@
  * @description Orchestrates snapshot reason deletion with authorization
  */
 
+import { AuthorizationService } from 'shared/domain/services/AuthorizationService';
 import { DeleteSnapshotReasonDomainService } from '../../domain/services/DeleteSnapshotReasonDomainService';
-import { AuthorizationService } from '../../domain/services/AuthorizationService';
-import { UserRole } from '../../domain/enums/UserRole';
 
 /**
  * Application service for snapshot reason deletion operations
@@ -30,7 +29,7 @@ export class DeleteSnapshotReasonApplicationService {
    * @returns Promise that resolves when deletion is complete
    */
   async deleteSnapshotReason(callerId: string, id: string): Promise<void> {
-    await this.authorizationService.authorizeUserWithRoles(callerId, [UserRole.Admin, UserRole.SuperAdmin], 'deleting snapshot reasons');
+    // Permission check is done at middleware level
     await this.deleteSnapshotReasonDomainService.deleteSnapshotReason(id);
   }
 }

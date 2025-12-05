@@ -14,7 +14,7 @@ import { IPresenceService } from '../../domain/interfaces/IPresenceService';
 import { UserDeletionError } from '../../domain/errors/DomainError';
 import { UserDeletionErrorCode } from '../../domain/errors/ErrorCodes';
 import { ValidationUtils } from '../../domain/utils/ValidationUtils';
-import { AuthorizationUtils } from '../../domain/utils/AuthorizationUtils';
+import { RoleValidationUtils } from '../../domain/utils/RoleValidationUtils';
 import { AuditUtils } from '../../domain/utils/AuditUtils';
 
 /**
@@ -46,26 +46,37 @@ export class UserDeletionApplicationService {
   }
 
   /**
-   * Authorizes if a user can delete users
-   * @param callerId - Azure AD object ID of the caller
-   * @throws UserDeletionError if user is not authorized
-   */
-  async authorizeUserDeletion(callerId: string): Promise<void> {
-    await AuthorizationUtils.validateCallerAuthorization(this.authorizationService, callerId, 'delete users');
-  }
-
-  /**
-   * Validates a user deletion request
+   * Validates a user deletion request and checks hierarchy
    * @param request - The user deletion request
+   * @param callerId - Azure AD object ID of the caller
    * @throws UserDeletionError if validation fails
    */
-  async validateDeletionRequest(request: UserDeletionRequest): Promise<void> {
+  async validateDeletionRequest(request: UserDeletionRequest, callerId: string): Promise<void> {
     // Validate email format
     ValidationUtils.validateEmailRequired(request.userEmail, 'User email');
 
     // Validate deletion type
     if (!Object.values(UserDeletionType).includes(request.deletionType)) {
       throw new UserDeletionError('Invalid deletion type', UserDeletionErrorCode.INVALID_DELETION_TYPE);
+    }
+
+    // Get caller and target user to validate hierarchy
+    const caller = await this.userRepository.findByAzureAdObjectId(callerId);
+    if (!caller) {
+      throw new UserDeletionError('Caller not found', UserDeletionErrorCode.USER_NOT_FOUND);
+    }
+
+    const targetUser = await this.userRepository.findByEmail(request.userEmail);
+    if (!targetUser) {
+      throw new UserDeletionError('User not found', UserDeletionErrorCode.USER_NOT_FOUND);
+    }
+
+    // Validate hierarchy: caller can only delete users with roles below their level
+    if (!RoleValidationUtils.canDeleteUser(caller.role, targetUser.role)) {
+      throw new UserDeletionError(
+        `Insufficient privileges to delete user with role ${targetUser.role}`,
+        UserDeletionErrorCode.INSUFFICIENT_PERMISSIONS
+      );
     }
   }
 

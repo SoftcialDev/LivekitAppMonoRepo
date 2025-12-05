@@ -24,7 +24,7 @@ describe('TransferPsosDomainService', () => {
     it('should transfer PSOs successfully', async () => {
       const mockCaller = { id: 'caller-123', role: UserRole.Supervisor, deletedAt: null };
       const mockTargetSupervisor = { id: 'target-123', role: UserRole.Supervisor, fullName: 'Target Supervisor', deletedAt: null };
-      const mockPsos = [{ id: 'pso-1', email: 'pso1@example.com', role: UserRole.Employee }];
+      const mockPsos = [{ id: 'pso-1', email: 'pso1@example.com', role: UserRole.PSO }];
       userRepository.findByAzureAdObjectId.mockResolvedValue(mockCaller as any);
       userRepository.findByEmail.mockResolvedValue(mockTargetSupervisor as any);
       userRepository.findBySupervisor.mockResolvedValue(mockPsos as any);
@@ -34,7 +34,7 @@ describe('TransferPsosDomainService', () => {
     });
 
     it('should throw error when caller not a Supervisor', async () => {
-      const mockCaller = { id: 'caller-123', role: UserRole.Employee, deletedAt: null };
+      const mockCaller = { id: 'caller-123', role: UserRole.PSO, deletedAt: null };
       userRepository.findByAzureAdObjectId.mockResolvedValue(mockCaller as any);
       const request = new TransferPsosRequest('caller-123', 'target@example.com');
       await expect(service.transferPsos(request)).rejects.toThrow('Only Supervisors may transfer PSOs');

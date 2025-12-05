@@ -14,7 +14,7 @@ import { IPresenceService } from '../../domain/interfaces/IPresenceService';
 import { UserRoleChangeError } from '../../domain/errors/DomainError';
 import { UserRoleChangeErrorCode } from '../../domain/errors/ErrorCodes';
 import { ValidationUtils } from '../../domain/utils/ValidationUtils';
-import { AuthorizationUtils } from '../../domain/utils/AuthorizationUtils';
+import { RoleValidationUtils } from '../../domain/utils/RoleValidationUtils';
 import { AuditUtils } from '../../domain/utils/AuditUtils';
 
 
@@ -47,21 +47,12 @@ export class UserRoleChangeApplicationService {
   }
 
   /**
-   * Authorizes if a user can change roles
-   * @param callerId - Azure AD object ID of the caller
-   * @param newRole - The new role being assigned
-   * @throws UserRoleChangeError if user is not authorized
-   */
-  async authorizeRoleChange(callerId: string, newRole: UserRole | null): Promise<void> {
-    await AuthorizationUtils.validateCanChangeRoles(this.authorizationService, callerId, newRole, this.userRepository);
-  }
-
-  /**
    * Validates the user role change request
    * @param request - The user role change request
+   * @param callerId - Azure AD object ID of the caller
    * @throws UserRoleChangeError if request is invalid
    */
-  async validateRoleChangeRequest(request: UserRoleChangeRequest): Promise<void> {
+  async validateRoleChangeRequest(request: UserRoleChangeRequest, callerId: string): Promise<void> {
     // Validate email format
     ValidationUtils.validateEmailFormat(request.userEmail, 'User email');
 
@@ -70,6 +61,25 @@ export class UserRoleChangeApplicationService {
       const validRoles = Object.values(UserRole);
       if (!validRoles.includes(request.newRole)) {
         throw new UserRoleChangeError('Invalid role assignment', UserRoleChangeErrorCode.INVALID_ROLE_ASSIGNMENT);
+      }
+
+      // Validate role hierarchy: get caller's role and check if they can assign the target role
+      const caller = await this.userRepository.findByAzureAdObjectId(callerId);
+      if (!caller) {
+        throw new UserRoleChangeError('Caller not found', UserRoleChangeErrorCode.INVALID_ROLE_ASSIGNMENT);
+      }
+
+      // Supervisors can only assign PSO role
+      if (caller.role === UserRole.Supervisor && request.newRole !== UserRole.PSO) {
+        throw new UserRoleChangeError('Supervisors may only assign PSO role', UserRoleChangeErrorCode.INVALID_ROLE_ASSIGNMENT);
+      }
+
+      // Admins can assign roles at or below their level (Supervisor, PSO, ContactManager, Unassigned)
+      // But not SuperAdmin
+      if (caller.role === UserRole.Admin) {
+        if (!RoleValidationUtils.canAssignRole(caller.role, request.newRole)) {
+          throw new UserRoleChangeError('Insufficient privileges to assign this role', UserRoleChangeErrorCode.INVALID_ROLE_ASSIGNMENT);
+        }
       }
     }
   }
@@ -141,8 +151,8 @@ export class UserRoleChangeApplicationService {
       updatedUser
     );
 
-    // Set user offline if assigned Employee role
-    if (request.newRole === UserRole.Employee) {
+    // Set user offline if assigned PSO role
+    if (request.newRole === UserRole.PSO) {
       await this.presenceService.setUserOffline(request.userEmail);
     }
 

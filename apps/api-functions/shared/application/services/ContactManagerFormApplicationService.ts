@@ -23,40 +23,27 @@ export class ContactManagerFormApplicationService {
    * Processes a contact manager form submission
    * @param request - Contact manager form request
    * @param callerId - ID of the user making the request
-   * @param token - Authentication token for chat notifications
    * @returns Promise that resolves to form processing result
-   * @throws Error if authorization or processing fails
+   * @throws Error if processing fails
    */
   async processForm(
     request: ContactManagerFormRequest,
     callerId: string
   ): Promise<ContactManagerFormResult> {
-    // 1. Authorize the operation
-    await this.authorizeFormSubmission(callerId);
-
-    // 2. Get user information
+    // Permission check is done at middleware level
+    // Get user information
     const user = await this.userRepository.findByAzureAdObjectId(callerId);
     if (!user) {
       throw new Error('User not found');
     }
 
-    // 3. Execute the domain service with user token
+    // Execute the domain service with user token
     return await this.contactManagerFormService.processForm(
       request,
       user.id,
       user.fullName,
       user.email
     );
-  }
-
-  /**
-   * Authorizes if a user can submit contact manager forms
-   * @param callerId - Azure AD object ID of the caller
-   * @throws Error if user is not authorized
-   */
-  private async authorizeFormSubmission(callerId: string): Promise<void> {
-    // Only Employees can submit contact manager forms
-    await this.authorizationService.authorizeCommandAcknowledgment(callerId);
   }
 
 }

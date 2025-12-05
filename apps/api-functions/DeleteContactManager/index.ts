@@ -9,7 +9,8 @@ import { AzureFunction, Context, HttpRequest } from "@azure/functions";
 import { withAuth } from "../shared/middleware/auth";
 import { withErrorHandler } from "../shared/middleware/errorHandler";
 import { withCallerId } from "../shared/middleware/callerId";
-import { requireAdminOrSuperAdminAccess } from "../shared/middleware/authorization";
+import { requirePermission } from "../shared/middleware/permissions";
+import { Permission } from "../shared/domain/enums/Permission";
 import { ok } from "../shared/utils/response";
 import { deleteContactManagerSchema } from "../shared/domain/schemas/DeleteContactManagerSchema";
 import { DeleteContactManagerRequest } from "../shared/domain/value-objects/DeleteContactManagerRequest";
@@ -41,7 +42,7 @@ const removeHandler: AzureFunction = withErrorHandler(
   async (ctx: Context, req: HttpRequest) => {
     await withAuth(ctx, async () => {
       await withCallerId(ctx, async () => {
-        await requireAdminOrSuperAdminAccess()(ctx);
+        await requirePermission(Permission.ContactManagersDelete)(ctx);
         
         // Validate path parameter
         const profileId = ctx.bindingData.id as string;

@@ -56,7 +56,7 @@ describe('AuthorizationService', () => {
     it('canAccessEmployee allows Employee', async () => {
       userRepository.hasAnyRole.mockResolvedValue(true);
       await expect(service.canAccessEmployee(callerId)).resolves.toBe(true);
-      expect(userRepository.hasAnyRole).toHaveBeenCalledWith(callerId, [UserRole.Employee]);
+      expect(userRepository.hasAnyRole).toHaveBeenCalledWith(callerId, [UserRole.PSO]);
     });
 
     it('canAccessContactManager allows Employee or ContactManager', async () => {
@@ -95,7 +95,7 @@ describe('AuthorizationService', () => {
     });
 
     it('throws INSUFFICIENT_PRIVILEGES when role not allowed', async () => {
-      userRepository.findByAzureAdObjectId.mockResolvedValue({ id: '1', role: UserRole.Employee, deletedAt: null } as any);
+      userRepository.findByAzureAdObjectId.mockResolvedValue({ id: '1', role: UserRole.PSO, deletedAt: null } as any);
       await expect(service.authorizeUserWithRoles(callerId, [UserRole.Admin], 'op')).rejects.toEqual(
         new AuthError('Insufficient permissions for op', AuthErrorCode.INSUFFICIENT_PRIVILEGES)
       );
@@ -114,7 +114,7 @@ describe('AuthorizationService', () => {
     });
 
     it('authorizeCommandAcknowledgment requires Employee', async () => {
-      userRepository.findByAzureAdObjectId.mockResolvedValue({ id: '1', role: UserRole.Employee, deletedAt: null } as any);
+      userRepository.findByAzureAdObjectId.mockResolvedValue({ id: '1', role: UserRole.PSO, deletedAt: null } as any);
       await expect(service.authorizeCommandAcknowledgment(callerId)).resolves.toBeUndefined();
     });
 

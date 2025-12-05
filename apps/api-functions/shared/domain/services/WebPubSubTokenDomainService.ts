@@ -66,8 +66,8 @@ export class WebPubSubTokenDomainService {
     const normalizedEmail = email.trim().toLowerCase();
     const groups: string[] = ["presence"]; // All users get presence group
 
-    // Employees get additional groups for commands and status updates
-    if (role === UserRole.Employee) {
+    // PSOs get additional groups for commands and status updates
+    if (role === UserRole.PSO) {
       groups.unshift(normalizedEmail); // Personal group for commands
       groups.push("cm-status-updates"); // Contact Manager status updates
     }

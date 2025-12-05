@@ -155,7 +155,7 @@ describe('AuthorizationUtils', () => {
     it('should validate can change roles successfully', async () => {
       // Arrange
       const callerId = 'test-caller-id';
-      const newRole = UserRole.Employee;
+      const newRole = UserRole.PSO;
       const caller = { id: 'user-123', role: UserRole.Admin } as User;
 
       mockAuthorizationService.isUserActive.mockResolvedValue(true);
@@ -178,7 +178,7 @@ describe('AuthorizationUtils', () => {
     it('should throw error when caller is not found', async () => {
       // Arrange
       const callerId = 'test-caller-id';
-      const newRole = UserRole.Employee;
+      const newRole = UserRole.PSO;
 
       mockAuthorizationService.isUserActive.mockResolvedValue(true);
       mockUserRepository.findByAzureAdObjectId.mockResolvedValue(null);

@@ -7,6 +7,7 @@ import { UserRole, ContactManagerStatus } from '@prisma/client';
 import { User } from '../entities/User';
 import { ContactManagerProfile } from '../entities/ContactManagerProfile';
 import { SuperAdminProfile } from '../entities/SuperAdminProfile';
+import { Role } from '../entities/Role';
 
 
 /**
@@ -64,9 +65,9 @@ export interface IUserRepository {
   hasAnyRole(azureAdObjectId: string, roles: UserRole[]): Promise<boolean>;
 
   /**
-   * Checks if a user is an employee
+   * Checks if a user is a PSO
    * @param email - User email
-   * @returns Promise that resolves to true if user is an employee
+   * @returns Promise that resolves to true if user is a PSO
    */
   isEmployee(email: string): Promise<boolean>;
 
@@ -79,7 +80,7 @@ export interface IUserRepository {
   updateSupervisor(email: string, supervisorId: string | null): Promise<void>;
 
   /**
-   * Creates a new employee user
+   * Creates a new PSO user
    * @param email - User email
    * @param fullName - User full name
    * @param supervisorId - Supervisor ID (optional)
@@ -266,4 +267,16 @@ export interface IUserRepository {
    * @returns Promise that resolves to array of raw Prisma users with supervisor info
    */
   findUsersWithUnassignedRoleWithSupervisor(): Promise<any[]>;
+
+  /**
+   * Gets active roles for a user (by Azure AD object id).
+   * @param azureAdObjectId Azure AD object id.
+   */
+  getActiveRolesByAzureId(azureAdObjectId: string): Promise<Role[]>;
+
+  /**
+   * Gets effective permission codes for a user (union of active roles).
+   * @param azureAdObjectId Azure AD object id.
+   */
+  getEffectivePermissionCodesByAzureId(azureAdObjectId: string): Promise<string[]>;
 }

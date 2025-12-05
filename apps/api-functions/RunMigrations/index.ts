@@ -17,6 +17,7 @@ import { join } from "path";
 import { existsSync, mkdirSync, cpSync } from "fs";
 import { config } from "../shared/config";
 import { seedDefaultSnapshotReasons } from "../shared/infrastructure/seed/defaultSnapshotReasons";
+import { seedDefaultRolesAndPermissions } from "../shared/infrastructure/seed/defaultRolesAndPermissions";
 import { ServiceContainer } from "../shared/infrastructure/container/ServiceContainer";
 import { IErrorLogService } from "../shared/domain/interfaces/IErrorLogService";
 import { ErrorSource } from "../shared/domain/enums/ErrorSource";
@@ -146,6 +147,7 @@ const runMigrationsHandler: AzureFunction = withErrorHandler(
         }
 
         try {
+          await seedDefaultRolesAndPermissions();
           await seedDefaultSnapshotReasons();
         } catch (seedError: unknown) {
           ctx.log.error(`[RunMigrations] Error en seeding: ${seedError instanceof Error ? seedError.message : String(seedError)}`);
@@ -161,7 +163,7 @@ const runMigrationsHandler: AzureFunction = withErrorHandler(
               functionName: "RunMigrations",
               error: seedError instanceof Error ? seedError : new Error(String(seedError)),
               context: {
-                operation: "seed_snapshot_reasons",
+                operation: "seed_roles_permissions_snapshot_reasons",
                 migrationCompleted: true,
                 errorType: "seed_failure"
               }

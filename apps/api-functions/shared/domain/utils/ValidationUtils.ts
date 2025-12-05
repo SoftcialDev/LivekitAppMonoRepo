@@ -64,12 +64,12 @@ export class ValidationUtils {
   }
 
   /**
-   * Validates if a user is an employee
+   * Validates if a user is a PSO
    * @param userRepository - User repository for data access
    * @param email - User email to validate
    * @param fieldName - Name of the field for error messages
    * @returns Promise that resolves to user if valid
-   * @throws ValidationError if user is not an employee
+   * @throws ValidationError if user is not a PSO
    */
   static async validateUserIsEmployee(
     userRepository: IUserRepository, 
@@ -77,8 +77,8 @@ export class ValidationUtils {
     fieldName: string = 'User'
   ): Promise<import('@prisma/client').User> {
     const user = await this.validateUserExists(userRepository, email, fieldName);
-    if (user.role !== UserRole.Employee) {
-      throw new ValidationError(`${fieldName} is not an employee`, ValidationErrorCode.TARGET_NOT_EMPLOYEE);
+    if (user.role !== UserRole.PSO) {
+      throw new ValidationError(`${fieldName} is not a PSO`, ValidationErrorCode.TARGET_NOT_EMPLOYEE);
     }
     return user;
   }

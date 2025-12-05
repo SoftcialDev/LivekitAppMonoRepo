@@ -12,7 +12,7 @@ import { extractCallerId } from '../utils/authHelpers';
 /**
  * Composite middleware for command operations
  * Handles authentication, authorization, and target validation
- * @param targetEmail - Email of the target employee
+ * @param targetEmail - Email of the target PSO
  * @returns Promise that resolves when all validations pass
  */
 export async function validateCommandRequest(ctx: Context, targetEmail: string): Promise<void> {
@@ -23,7 +23,7 @@ export async function validateCommandRequest(ctx: Context, targetEmail: string):
     // 2. Check command permissions
     await requireCommandPermission()(ctx);
     
-    // 3. Validate target employee
+    // 3. Validate target PSO
     await requireEmployeeTarget()(ctx, targetEmail);
     
   } catch (error: any) {
@@ -33,7 +33,7 @@ export async function validateCommandRequest(ctx: Context, targetEmail: string):
     if (error.message === 'Insufficient privileges') {
       throw unauthorized(ctx, error.message);
     }
-    if (error.message === 'Target user not found or not an Employee') {
+    if (error.message === 'Target user not found or not a PSO') {
       throw badRequest(ctx, error.message);
     }
     throw error;

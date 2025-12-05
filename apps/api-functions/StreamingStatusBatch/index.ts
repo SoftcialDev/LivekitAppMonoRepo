@@ -8,6 +8,8 @@ import { AzureFunction, Context, HttpRequest } from "@azure/functions";
 import { withAuth } from "../shared/middleware/auth";
 import { withErrorHandler } from "../shared/middleware/errorHandler";
 import { withCallerId } from "../shared/middleware/callerId";
+import { requirePermission } from "../shared/middleware/permissions";
+import { Permission } from "../shared/domain/enums/Permission";
 import { ok, badRequest } from "../shared/utils/response";
 import { StreamingStatusBatchApplicationService } from "../shared/application/services/StreamingStatusBatchApplicationService";
 import { serviceContainer } from "../shared/infrastructure/container/ServiceContainer";
@@ -38,6 +40,7 @@ const batchHandler: AzureFunction = withErrorHandler(
   async (ctx: Context, req: HttpRequest) => {
     await withAuth(ctx, async () => {
       await withCallerId(ctx, async () => {
+        await requirePermission(Permission.StreamingStatusRead)(ctx);
         serviceContainer.initialize();
         
         const applicationService = serviceContainer.resolve<StreamingStatusBatchApplicationService>('StreamingStatusBatchApplicationService');

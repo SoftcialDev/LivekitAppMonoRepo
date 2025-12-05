@@ -68,7 +68,7 @@ describe('UserRoleChangeApplicationService', () => {
     it('handles role assignment for existing user', async () => {
       const request = { userEmail: 'test@example.com', newRole: UserRole.Admin } as any;
       const callerId = 'caller123';
-      const existingUser = { id: '1', role: UserRole.Employee, azureAdObjectId: 'azure123', fullName: 'Test User' };
+      const existingUser = { id: '1', role: UserRole.PSO, azureAdObjectId: 'azure123', fullName: 'Test User' };
       const updatedUser = { id: '1', role: UserRole.Admin, azureAdObjectId: 'azure123', fullName: 'Test User' };
       
       mockUserRepository.findByEmail.mockResolvedValue(existingUser);
@@ -107,10 +107,10 @@ describe('UserRoleChangeApplicationService', () => {
     });
 
     it('sets user offline when assigned Employee role', async () => {
-      const request = { userEmail: 'test@example.com', newRole: UserRole.Employee } as any;
+      const request = { userEmail: 'test@example.com', newRole: UserRole.PSO } as any;
       const callerId = 'caller123';
       const existingUser = { id: '1', role: UserRole.Admin, azureAdObjectId: 'azure123', fullName: 'Test User' };
-      const updatedUser = { id: '1', role: UserRole.Employee, azureAdObjectId: 'azure123', fullName: 'Test User' };
+      const updatedUser = { id: '1', role: UserRole.PSO, azureAdObjectId: 'azure123', fullName: 'Test User' };
       
       mockUserRepository.findByEmail.mockResolvedValue(existingUser);
       mockUserRepository.upsertUser.mockResolvedValue(updatedUser);

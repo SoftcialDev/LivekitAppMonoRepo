@@ -89,7 +89,7 @@ describe('GetSupervisorForPsoApplicationService', () => {
         id: 'employee-123',
         azureAdObjectId: 'employee-123',
         email: 'employee@example.com',
-        role: 'Employee',
+        role: 'PSO',
         supervisorId: 'supervisor-456'
       };
 
@@ -118,7 +118,7 @@ describe('GetSupervisorForPsoApplicationService', () => {
         id: 'employee-123',
         azureAdObjectId: 'employee-123',
         email: 'employee@example.com',
-        role: 'Employee',
+        role: 'PSO',
         supervisorId: 'supervisor-456'
       };
 
@@ -147,7 +147,7 @@ describe('GetSupervisorForPsoApplicationService', () => {
         id: 'employee-123',
         azureAdObjectId: 'employee-123',
         email: 'employee@example.com',
-        role: 'Employee',
+        role: 'PSO',
         supervisorId: 'supervisor-456'
       };
 
@@ -174,7 +174,7 @@ describe('GetSupervisorForPsoApplicationService', () => {
         id: 'pso-456',
         azureAdObjectId: 'pso-456',
         email: 'pso@example.com',
-        role: 'Employee',
+        role: 'PSO',
         supervisorId: 'supervisor-123'
       };
 
@@ -212,7 +212,7 @@ describe('GetSupervisorForPsoApplicationService', () => {
         id: 'other-pso-456',
         azureAdObjectId: 'other-pso-456',
         email: 'other-pso@example.com',
-        role: 'Employee',
+        role: 'PSO',
         supervisorId: 'other-supervisor-789'
       };
 
@@ -316,7 +316,7 @@ describe('GetSupervisorForPsoApplicationService', () => {
         id: 'pso-456',
         azureAdObjectId: 'pso-456',
         email: 'pso@example.com',
-        role: 'Employee',
+        role: 'PSO',
         supervisorId: 'supervisor-123'
       };
 
@@ -355,7 +355,7 @@ describe('GetSupervisorForPsoApplicationService', () => {
         id: 'pso-456',
         azureAdObjectId: 'pso-456',
         email: 'pso@example.com',
-        role: 'Employee',
+        role: 'PSO',
         supervisorId: 'supervisor-123'
       };
 
@@ -419,7 +419,7 @@ describe('GetSupervisorForPsoApplicationService', () => {
         id: 'employee-123',
         azureAdObjectId: 'employee-123',
         email: 'employee@example.com',
-        role: 'Employee',
+        role: 'PSO',
         supervisorId: null
       };
 

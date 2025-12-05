@@ -10,7 +10,8 @@ import { withAuth } from "../shared/middleware/auth";
 import { withErrorHandler } from "../shared/middleware/errorHandler";
 import { withBodyValidation } from "../shared/middleware/validate";
 import { withCallerId } from "../shared/middleware/callerId";
-import { requireAdminOrSuperAdminAccess } from "../shared/middleware/authorization";
+import { requirePermission } from "../shared/middleware/permissions";
+import { Permission } from "../shared/domain/enums/Permission";
 import { ok } from "../shared/utils/response";
 import { createContactManagerSchema } from "../shared/domain/schemas/CreateContactManagerSchema";
 import { CreateContactManagerRequest } from "../shared/domain/value-objects/CreateContactManagerRequest";
@@ -43,7 +44,7 @@ const create: AzureFunction = withErrorHandler(
   async (ctx: Context, req: HttpRequest) => {
     await withAuth(ctx, async () => {
       await withCallerId(ctx, async () => {
-        await requireAdminOrSuperAdminAccess()(ctx);
+        await requirePermission(Permission.ContactManagersCreate)(ctx);
         await withBodyValidation(createContactManagerSchema)(ctx, async () => {
           serviceContainer.initialize();
 

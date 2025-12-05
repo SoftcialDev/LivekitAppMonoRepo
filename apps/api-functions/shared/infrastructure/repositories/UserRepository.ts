@@ -9,6 +9,7 @@ import { IUserRepository } from '../../domain/interfaces/IUserRepository';
 import { User } from '../../domain/entities/User';
 import { ContactManagerProfile } from '../../domain/entities/ContactManagerProfile';
 import { SuperAdminProfile } from '../../domain/entities/SuperAdminProfile';
+import { Role } from '../../domain/entities/Role';
 import { getCentralAmericaTime } from '../../utils/dateUtils';
 
 /**
@@ -81,8 +82,21 @@ export class UserRepository implements IUserRepository {
    * @returns Promise that resolves to true if user has the role
    */
   async hasRole(azureAdObjectId: string, role: UserRole): Promise<boolean> {
-    const user = await this.findByAzureAdObjectId(azureAdObjectId);
-    return user ? user.hasRole(role) : false;
+    const prismaUser = await prisma.user.findUnique({
+      where: { azureAdObjectId },
+      include: {
+        userRoleAssignments: {
+          where: { isActive: true },
+          include: { role: true },
+        },
+      },
+    });
+
+    if (!prismaUser) return false;
+
+    return prismaUser.userRoleAssignments.some(
+      (assignment) => assignment.role?.name === role
+    );
   }
 
   /**
@@ -92,14 +106,29 @@ export class UserRepository implements IUserRepository {
    * @returns Promise that resolves to true if user has any of the roles
    */
   async hasAnyRole(azureAdObjectId: string, roles: UserRole[]): Promise<boolean> {
-    const user = await this.findByAzureAdObjectId(azureAdObjectId);
-    return user ? user.hasAnyRole(roles) : false;
+    const prismaUser = await prisma.user.findUnique({
+      where: { azureAdObjectId },
+      include: {
+        userRoleAssignments: {
+          where: { isActive: true },
+          include: { role: true },
+        },
+      },
+    });
+
+    if (!prismaUser) return false;
+
+    const roleSet = new Set(roles);
+
+    return prismaUser.userRoleAssignments.some(
+      (assignment) => assignment.role && roleSet.has(assignment.role.name as UserRole)
+    );
   }
 
   /**
-   * Checks if a user is an employee
+   * Checks if a user is a PSO
    * @param email - User email
-   * @returns Promise that resolves to true if user is an employee
+   * @returns Promise that resolves to true if user is a PSO
    */
   async isEmployee(email: string): Promise<boolean> {
     const user = await this.findByEmail(email);
@@ -123,7 +152,7 @@ export class UserRepository implements IUserRepository {
   }
 
   /**
-   * Creates a new employee user
+   * Creates a new PSO user
    * @param email - User email
    * @param fullName - User full name
    * @param supervisorId - Supervisor ID (optional)
@@ -135,7 +164,7 @@ export class UserRepository implements IUserRepository {
       data: {
         email: email.toLowerCase(),
         fullName,
-        role: UserRole.Employee,
+        role: UserRole.PSO,
         supervisorId,
         azureAdObjectId: '', // Will be updated when user logs in
         createdAt: getCentralAmericaTime(),
@@ -635,7 +664,7 @@ export class UserRepository implements IUserRepository {
       }
 
       const baseWhere: Record<string, any> = {
-        role: "Employee",
+        role: "PSO",
         deletedAt: null,
       };
 
@@ -666,5 +695,90 @@ export class UserRepository implements IUserRepository {
       console.error(`[DEBUG] Error in getPsosBySupervisor:`, error);
       throw new Error(`Failed to get PSOs by supervisor: ${error.message}`);
     }
+  }
+
+  /**
+   * @description Returns active roles for a user by Azure AD object id.
+   * @param azureAdObjectId Azure AD object id.
+   */
+  async getActiveRolesByAzureId(azureAdObjectId: string): Promise<Role[]> {
+    const user = await prisma.user.findUnique({
+      where: { azureAdObjectId },
+      select: {
+        id: true,
+        role: true,
+        userRoleAssignments: {
+          where: { isActive: true },
+          include: { role: true },
+        },
+      },
+    });
+
+    if (!user) return [];
+
+    const roles: Role[] = [];
+
+    // RBAC roles (assignments)
+    for (const assignment of user.userRoleAssignments) {
+      if (assignment.role) {
+        roles.push(
+          new Role(
+            assignment.role.id,
+            assignment.role.name,
+            assignment.role.isSystem,
+            assignment.role.isActive,
+            assignment.role.createdAt,
+            assignment.role.updatedAt,
+            assignment.role.displayName ?? undefined,
+            assignment.role.description ?? undefined,
+            []
+          )
+        );
+      }
+    }
+
+    return roles;
+  }
+
+  /**
+   * @description Returns effective permission codes for a user (union of active roles).
+   * @param azureAdObjectId Azure AD object id.
+   */
+  async getEffectivePermissionCodesByAzureId(azureAdObjectId: string): Promise<string[]> {
+    const user = await prisma.user.findUnique({
+      where: { azureAdObjectId },
+      select: {
+        role: true,
+        userRoleAssignments: {
+          where: { isActive: true },
+          include: {
+            role: {
+              include: {
+                rolePermissions: {
+                  where: { granted: true },
+                  include: { permission: true },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!user) return [];
+
+    const codes = new Set<string>();
+
+    // RBAC permissions
+    for (const assignment of user.userRoleAssignments) {
+      const rp = assignment.role?.rolePermissions || [];
+      for (const link of rp) {
+        if (link.permission && link.permission.isActive) {
+          codes.add(link.permission.code);
+        }
+      }
+    }
+
+    return Array.from(codes);
   }
 }

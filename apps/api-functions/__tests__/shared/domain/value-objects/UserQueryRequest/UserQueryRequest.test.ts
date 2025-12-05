@@ -7,7 +7,7 @@ const UserRole = {
   SuperAdmin: 'SuperAdmin',
   Admin: 'Admin',
   Supervisor: 'Supervisor',
-  Employee: 'Employee',
+  PSO: 'PSO',
   ContactManager: 'ContactManager',
   Unassigned: 'Unassigned'
 } as const;
@@ -17,7 +17,7 @@ jest.mock('@prisma/client', () => ({
     SuperAdmin: 'SuperAdmin',
     Admin: 'Admin',
     Supervisor: 'Supervisor',
-    Employee: 'Employee',
+    PSO: 'PSO',
     ContactManager: 'ContactManager',
     Unassigned: 'Unassigned'
   }
@@ -36,7 +36,7 @@ describe('UserQueryRequest', () => {
     });
 
     it('should create request with null roles', () => {
-      const roles = [null, UserRole.Employee];
+      const roles = [null, UserRole.PSO];
       const request = new UserQueryRequest(roles, 1, 50);
 
       expect(request.roles).toEqual(roles);
@@ -75,8 +75,8 @@ describe('UserQueryRequest', () => {
     it('should handle different role combinations', () => {
       const roles1 = [UserRole.SuperAdmin];
       const roles2 = [UserRole.Admin, UserRole.Supervisor];
-      const roles3 = [UserRole.Employee, UserRole.ContactManager];
-      const roles4 = [null, UserRole.Employee];
+      const roles3 = [UserRole.PSO, UserRole.ContactManager];
+      const roles4 = [null, UserRole.PSO];
 
       const request1 = new UserQueryRequest(roles1, 1, 50);
       const request2 = new UserQueryRequest(roles2, 1, 50);
@@ -114,7 +114,7 @@ describe('UserQueryRequest', () => {
 
       const request = UserQueryRequest.fromQueryString(query);
 
-      expect(request.roles).toEqual([UserRole.Employee]);
+      expect(request.roles).toEqual([UserRole.PSO]);
       expect(request.page).toBe(1);
       expect(request.pageSize).toBe(50);
     });
@@ -152,7 +152,7 @@ describe('UserQueryRequest', () => {
 
       const request = UserQueryRequest.fromQueryString(query);
 
-      expect(request.roles).toEqual([UserRole.SuperAdmin, null, UserRole.Employee]);
+      expect(request.roles).toEqual([UserRole.SuperAdmin, null, UserRole.PSO]);
     });
 
     it('should handle empty page and pageSize with defaults', () => {
@@ -176,7 +176,7 @@ describe('UserQueryRequest', () => {
 
       const request = UserQueryRequest.fromQueryString(query);
 
-      expect(request.roles).toEqual([UserRole.SuperAdmin, UserRole.Admin, UserRole.Employee]);
+      expect(request.roles).toEqual([UserRole.SuperAdmin, UserRole.Admin, UserRole.PSO]);
     });
 
     it('should throw error for empty role parameter', () => {
@@ -270,12 +270,12 @@ describe('UserQueryRequest', () => {
     });
 
     it('should return all roles when no null roles', () => {
-      const roles = [UserRole.SuperAdmin, UserRole.Admin, UserRole.Employee];
+      const roles = [UserRole.SuperAdmin, UserRole.Admin, UserRole.PSO];
       const request = new UserQueryRequest(roles, 1, 50);
 
       const prismaRoles = request.getPrismaRoles();
 
-      expect(prismaRoles).toEqual([UserRole.SuperAdmin, UserRole.Admin, UserRole.Employee]);
+      expect(prismaRoles).toEqual([UserRole.SuperAdmin, UserRole.Admin, UserRole.PSO]);
     });
   });
 
@@ -294,7 +294,7 @@ describe('UserQueryRequest', () => {
     });
 
     it('should convert null roles to string "null"', () => {
-      const roles = [null, UserRole.Employee];
+      const roles = [null, UserRole.PSO];
       const request = new UserQueryRequest(roles, 1, 50);
 
       const payload = request.toPayload();
@@ -376,7 +376,7 @@ describe('UserQueryRequest', () => {
         UserRole.SuperAdmin,
         UserRole.Admin,
         UserRole.Supervisor,
-        UserRole.Employee,
+        UserRole.PSO,
         UserRole.ContactManager,
         UserRole.Unassigned
       ];
@@ -456,9 +456,9 @@ describe('UserQueryRequest', () => {
 
       const request = UserQueryRequest.fromQueryString(query);
 
-      expect(request.roles).toEqual([UserRole.SuperAdmin, null, UserRole.Employee]);
+      expect(request.roles).toEqual([UserRole.SuperAdmin, null, UserRole.PSO]);
       expect(request.hasNullRole()).toBe(true);
-      expect(request.getPrismaRoles()).toEqual([UserRole.SuperAdmin, UserRole.Employee]);
+      expect(request.getPrismaRoles()).toEqual([UserRole.SuperAdmin, UserRole.PSO]);
     });
 
     it('should handle pagination scenario', () => {

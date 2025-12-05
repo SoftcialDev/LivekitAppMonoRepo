@@ -36,7 +36,7 @@ describe('UserRoleChangeRequest', () => {
       );
       const request2 = new UserRoleChangeRequest(
         'user@example.com',
-        UserRole.Employee,
+        UserRole.PSO,
         timestamp
       );
       const request3 = new UserRoleChangeRequest(
@@ -46,7 +46,7 @@ describe('UserRoleChangeRequest', () => {
       );
 
       expect(request1.newRole).toBe(UserRole.Supervisor);
-      expect(request2.newRole).toBe(UserRole.Employee);
+      expect(request2.newRole).toBe(UserRole.PSO);
       expect(request3.newRole).toBe(UserRole.ContactManager);
     });
 
@@ -118,14 +118,14 @@ describe('UserRoleChangeRequest', () => {
       };
       const payload2 = {
         userEmail: 'user@example.com',
-        newRole: UserRole.Employee
+        newRole: UserRole.PSO
       };
 
       const request1 = UserRoleChangeRequest.fromRequest(payload1);
       const request2 = UserRoleChangeRequest.fromRequest(payload2);
 
       expect(request1.newRole).toBe(UserRole.Supervisor);
-      expect(request2.newRole).toBe(UserRole.Employee);
+      expect(request2.newRole).toBe(UserRole.PSO);
     });
 
     it('should generate timestamp automatically', () => {
@@ -374,13 +374,13 @@ describe('UserRoleChangeRequest', () => {
     it('should handle employee role change scenario', () => {
       const payload = {
         userEmail: 'employee@company.com',
-        newRole: UserRole.Employee
+        newRole: UserRole.PSO
       };
 
       const request = UserRoleChangeRequest.fromRequest(payload);
 
       expect(request.userEmail).toBe('employee@company.com');
-      expect(request.newRole).toBe(UserRole.Employee);
+      expect(request.newRole).toBe(UserRole.PSO);
     });
 
     it('should handle contact manager role change scenario', () => {

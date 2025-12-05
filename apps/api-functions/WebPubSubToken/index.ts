@@ -8,6 +8,8 @@ import { Context, HttpRequest } from "@azure/functions";
 import { withAuth } from "../shared/middleware/auth";
 import { withErrorHandler } from "../shared/middleware/errorHandler";
 import { withCallerId } from "../shared/middleware/callerId";
+import { requirePermission } from "../shared/middleware/permissions";
+import { Permission } from "../shared/domain/enums/Permission";
 import { ok } from "../shared/utils/response";
 import { ServiceContainer } from "../shared/infrastructure/container/ServiceContainer";
 import { WebPubSubTokenRequest } from "../shared/domain/value-objects/WebPubSubTokenRequest";
@@ -18,7 +20,7 @@ import { WebPubSubTokenApplicationService } from "../shared/application/services
  *
  * Based on the caller's role, the token will allow them to join:
  * - **All roles**: the `"presence"` group (so everyone's online/offline shows up)
- * - **Employees** additionally:
+ * - **PSOs** additionally:
  *    - their personal group (`user.email`)
  *    - the `"cm-status-updates"` group (to receive Contact-Manager status broadcasts)
  *
@@ -34,6 +36,7 @@ const webPubSubTokenHandler = withErrorHandler(
   async (ctx: Context, req: HttpRequest) => {
     await withAuth(ctx, async () => {
       await withCallerId(ctx, async () => {
+        await requirePermission(Permission.WebPubSubConnect)(ctx);
         const serviceContainer = ServiceContainer.getInstance();
         serviceContainer.initialize();
 

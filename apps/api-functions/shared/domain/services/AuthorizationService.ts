@@ -6,6 +6,7 @@
 import { UserRole } from '@prisma/client';
 import { IUserRepository } from '../interfaces/IUserRepository';
 import { IAuthorizationService } from '../interfaces/IAuthorizationService';
+import { Permission } from '../enums/Permission';
 import { AuthError } from '../errors/DomainError';
 import { AuthErrorCode } from '../errors/ErrorCodes';
 
@@ -21,6 +22,73 @@ export class AuthorizationService implements IAuthorizationService {
    */
   constructor(userRepository: IUserRepository) {
     this.userRepository = userRepository;
+  }
+
+  /**
+   * @description Checks if caller has a specific permission.
+   * @param callerId Azure AD object ID of the caller.
+   * @param permission Permission to check.
+   */
+  async hasPermission(callerId: string, permission: Permission): Promise<boolean> {
+    if (!callerId) return false;
+    const codes = await this.userRepository.getEffectivePermissionCodesByAzureId(callerId);
+    return codes.includes(permission);
+  }
+
+  /**
+   * @description Checks if caller has any permission in the provided list.
+   * @param callerId Azure AD object ID of the caller.
+   * @param permissions Permissions to check.
+   */
+  async hasAnyPermission(callerId: string, permissions: Permission[]): Promise<boolean> {
+    if (!callerId || permissions.length === 0) return false;
+    const codes = await this.userRepository.getEffectivePermissionCodesByAzureId(callerId);
+    return permissions.some((perm) => codes.includes(perm));
+  }
+
+  /**
+   * @description Checks if caller has all permissions in the provided list.
+   * @param callerId Azure AD object ID of the caller.
+   * @param permissions Permissions to check.
+   */
+  async hasAllPermissions(callerId: string, permissions: Permission[]): Promise<boolean> {
+    if (!callerId) return false;
+    const codes = await this.userRepository.getEffectivePermissionCodesByAzureId(callerId);
+    return permissions.every((perm) => codes.includes(perm));
+  }
+
+  /**
+   * @description Ensures caller has the given permission or throws.
+   * @param callerId Azure AD object ID of the caller.
+   * @param permission Permission to enforce.
+   * @param operationName Optional operation name for error message.
+   */
+  async authorizePermission(callerId: string, permission: Permission, operationName?: string): Promise<void> {
+    await this.validateUserActive(callerId);
+    const hasPerm = await this.hasPermission(callerId, permission);
+    if (!hasPerm) {
+      throw new AuthError(
+        `Insufficient permissions${operationName ? ` for ${operationName}` : ''} (required: ${permission})`,
+        AuthErrorCode.INSUFFICIENT_PRIVILEGES
+      );
+    }
+  }
+
+  /**
+   * @description Ensures caller has at least one of the given permissions or throws.
+   * @param callerId Azure AD object ID of the caller.
+   * @param permissions Permissions to enforce.
+   * @param operationName Optional operation name for error message.
+   */
+  async authorizeAnyPermission(callerId: string, permissions: Permission[], operationName?: string): Promise<void> {
+    await this.validateUserActive(callerId);
+    const hasAny = await this.hasAnyPermission(callerId, permissions);
+    if (!hasAny) {
+      throw new AuthError(
+        `Insufficient permissions${operationName ? ` for ${operationName}` : ''} (required any of: ${permissions.join(', ')})`,
+        AuthErrorCode.INSUFFICIENT_PRIVILEGES
+      );
+    }
   }
 
   /**
@@ -64,12 +132,12 @@ export class AuthorizationService implements IAuthorizationService {
   }
 
   /**
-   * Authorizes if a user can access Employee functions
+   * Authorizes if a user can access PSO functions
    * @param callerId - Azure AD object ID of the caller
    * @returns Promise that resolves to true if authorized
    */
   async canAccessEmployee(callerId: string): Promise<boolean> {
-    const allowedRoles: UserRole[] = [UserRole.Employee];
+    const allowedRoles: UserRole[] = [UserRole.PSO];
     return await this.userRepository.hasAnyRole(callerId, allowedRoles);
   }
 
@@ -80,7 +148,7 @@ export class AuthorizationService implements IAuthorizationService {
    * @throws AuthError if not authorized
    */
   async canAccessContactManager(callerId: string): Promise<void> {
-    const allowedRoles: UserRole[] = [UserRole.Employee, UserRole.ContactManager];
+    const allowedRoles: UserRole[] = [UserRole.PSO, UserRole.ContactManager];
     await this.validateUserWithRoles(callerId, allowedRoles, 'accessing Contact Manager functions');
   }
 
@@ -177,7 +245,7 @@ export class AuthorizationService implements IAuthorizationService {
    * @throws Error if user is not authorized
    */
   async authorizeCommandAcknowledgment(callerId: string): Promise<void> {
-    const allowedRoles: UserRole[] = [UserRole.Employee];
+    const allowedRoles: UserRole[] = [UserRole.PSO];
     await this.validateUserWithRoles(callerId, allowedRoles, 'acknowledging commands');
   }
 

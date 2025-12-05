@@ -58,7 +58,7 @@ export class TransferPsosDomainService {
 
     // 4. Get current PSOs assigned to caller
     const currentPsos = await this.userRepository.findBySupervisor(caller.id);
-    const employeePsos = currentPsos.filter(pso => pso.role === UserRole.Employee);
+    const employeePsos = currentPsos.filter(pso => pso.role === UserRole.PSO);
 
     if (employeePsos.length === 0) {
       return new TransferPsosResponse(0, "No PSOs to transfer");

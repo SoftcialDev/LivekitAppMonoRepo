@@ -49,7 +49,7 @@ describe('CommandAcknowledgmentService', () => {
       azureAdObjectId: mockCallerId,
       email: 'employee@example.com',
       fullName: 'Test Employee',
-      role: UserRole.Employee,
+      role: UserRole.PSO,
       deletedAt: null,
     };
 

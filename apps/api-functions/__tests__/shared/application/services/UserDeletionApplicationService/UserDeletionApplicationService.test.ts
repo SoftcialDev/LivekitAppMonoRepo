@@ -7,7 +7,7 @@ jest.mock('@prisma/client', () => ({
   UserRole: {
     Admin: 'Admin',
     Supervisor: 'Supervisor',
-    Employee: 'Employee',
+    PSO: 'PSO',
     Unassigned: 'Unassigned'
   }
 }));

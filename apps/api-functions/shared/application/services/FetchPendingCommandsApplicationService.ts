@@ -5,9 +5,7 @@
  */
 
 import { IPendingCommandDomainService } from '../../domain/interfaces/IPendingCommandDomainService';
-import { AuthorizationService } from '../../domain/services/AuthorizationService';
 import { FetchPendingCommandsResponse } from '../../domain/value-objects/FetchPendingCommandsResponse';
-import { PendingCommandAccessDeniedError } from '../../domain/errors/PendingCommandErrors';
 
 /**
  * Application service for fetching pending commands
@@ -15,27 +13,18 @@ import { PendingCommandAccessDeniedError } from '../../domain/errors/PendingComm
  */
 export class FetchPendingCommandsApplicationService {
   constructor(
-    private readonly pendingCommandDomainService: IPendingCommandDomainService,
-    private readonly authorizationService: AuthorizationService
+    private readonly pendingCommandDomainService: IPendingCommandDomainService
   ) {}
 
   /**
    * Fetches pending commands for the authenticated user
    * @param callerId - The Azure AD Object ID of the caller
    * @returns Promise that resolves to the response with pending commands
-   * @throws PendingCommandAccessDeniedError when user lacks permissions
    * @throws PendingCommandUserNotFoundError when user is not found or inactive
    * @throws PendingCommandFetchError when fetching commands fails
    */
   async fetchPendingCommands(callerId: string): Promise<FetchPendingCommandsResponse> {
-    // Check if user can access employee functions
-    const canAccess = await this.authorizationService.canAccessEmployee(callerId);
-    
-    if (!canAccess) {
-      throw new PendingCommandAccessDeniedError("Insufficient privileges to fetch pending commands");
-    }
-
-    // Delegate to domain service
+    // Permission check is done at middleware level
     return await this.pendingCommandDomainService.fetchPendingCommands(callerId);
   }
 }

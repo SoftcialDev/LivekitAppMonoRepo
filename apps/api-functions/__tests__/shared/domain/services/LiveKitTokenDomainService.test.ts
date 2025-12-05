@@ -21,7 +21,7 @@ describe('LiveKitTokenDomainService', () => {
 
   describe('generateTokenForUser', () => {
     it('should generate token for Employee with own room', async () => {
-      const mockUser = { id: 'user-123', email: 'employee@example.com', role: UserRole.Employee };
+      const mockUser = { id: 'user-123', email: 'employee@example.com', role: UserRole.PSO };
       userRepository.findByAzureAdObjectId.mockResolvedValue(mockUser as any);
       liveKitService.ensureRoom.mockResolvedValue(undefined);
       liveKitService.generateToken.mockResolvedValue('mock-token');

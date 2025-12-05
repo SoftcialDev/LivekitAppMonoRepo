@@ -115,8 +115,8 @@ export class AuthorizationUtils {
 
     // Use RoleValidationUtils for consistent validation
     if (!RoleValidationUtils.isValidRoleAssignment(caller.role, newRole)) {
-      if (caller.role === UserRole.Supervisor && newRole !== UserRole.Employee && newRole !== null) {
-        throw new AuthError('Supervisors may only assign Employee role', AuthErrorCode.INSUFFICIENT_PRIVILEGES);
+      if (caller.role === UserRole.Supervisor && newRole !== UserRole.PSO && newRole !== null) {
+        throw new AuthError('Supervisors may only assign PSO role', AuthErrorCode.INSUFFICIENT_PRIVILEGES);
       }
       if (newRole === null && !RoleValidationUtils.canManageUsers(caller.role)) {
         throw new AuthError('Only Admins can delete users', AuthErrorCode.INSUFFICIENT_PRIVILEGES);

@@ -270,7 +270,7 @@ describe('GetPsosBySupervisorApplicationService', () => {
       const caller = {
         id: 'employee-123',
         azureAdObjectId: callerId,
-        role: UserRole.Employee,
+        role: UserRole.PSO,
         email: 'employee@example.com',
         fullName: 'Employee Name'
       };

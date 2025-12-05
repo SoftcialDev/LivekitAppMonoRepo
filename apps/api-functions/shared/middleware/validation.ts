@@ -7,8 +7,8 @@ import { Context } from '@azure/functions';
 import { UserRepository } from '../infrastructure/repositories/UserRepository';
 
 /**
- * Creates validation middleware for employee target
- * @returns Middleware function that validates if target is an employee
+ * Creates validation middleware for PSO target
+ * @returns Middleware function that validates if target is a PSO
  */
 export function requireEmployeeTarget() {
   const userRepository = new UserRepository();
@@ -17,7 +17,7 @@ export function requireEmployeeTarget() {
     const isValidTarget = await userRepository.isEmployee(targetEmail);
     
     if (!isValidTarget) {
-      throw new Error('Target user not found or not an Employee');
+      throw new Error('Target user not found or not a PSO');
     }
   };
 }

@@ -7,8 +7,6 @@
 import { CreateSnapshotReasonDomainService } from '../../domain/services/CreateSnapshotReasonDomainService';
 import { CreateSnapshotReasonRequest } from '../../domain/value-objects/CreateSnapshotReasonRequest';
 import { SnapshotReasonResponse } from '../../domain/value-objects/SnapshotReasonResponse';
-import { AuthorizationService } from '../../domain/services/AuthorizationService';
-import { UserRole } from '../../domain/enums/UserRole';
 
 /**
  * Application service for snapshot reason creation operations
@@ -18,11 +16,9 @@ export class CreateSnapshotReasonApplicationService {
   /**
    * Creates a new CreateSnapshotReasonApplicationService instance
    * @param createSnapshotReasonDomainService - Domain service for snapshot reason creation
-   * @param authorizationService - Authorization service for permission checks
    */
   constructor(
-    private readonly createSnapshotReasonDomainService: CreateSnapshotReasonDomainService,
-    private readonly authorizationService: AuthorizationService
+    private readonly createSnapshotReasonDomainService: CreateSnapshotReasonDomainService
   ) {}
 
   /**
@@ -32,7 +28,7 @@ export class CreateSnapshotReasonApplicationService {
    * @returns Promise that resolves to the created snapshot reason response
    */
   async createSnapshotReason(callerId: string, request: CreateSnapshotReasonRequest): Promise<SnapshotReasonResponse> {
-    await this.authorizationService.authorizeUserWithRoles(callerId, [UserRole.Admin, UserRole.SuperAdmin], 'creating snapshot reasons');
+    // Permission check is done at middleware level
     return await this.createSnapshotReasonDomainService.createSnapshotReason(request);
   }
 }

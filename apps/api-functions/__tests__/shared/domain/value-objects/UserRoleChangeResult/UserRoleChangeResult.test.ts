@@ -12,7 +12,7 @@ describe('UserRoleChangeResult', () => {
     it('should create result with all properties', () => {
       const result = new UserRoleChangeResult(
         'user@example.com',
-        UserRole.Employee,
+        UserRole.PSO,
         UserRole.Supervisor,
         false,
         false,
@@ -21,7 +21,7 @@ describe('UserRoleChangeResult', () => {
       );
 
       expect(result.userEmail).toBe('user@example.com');
-      expect(result.previousRole).toBe(UserRole.Employee);
+      expect(result.previousRole).toBe(UserRole.PSO);
       expect(result.newRole).toBe(UserRole.Supervisor);
       expect(result.userCreated).toBe(false);
       expect(result.userDeleted).toBe(false);
@@ -53,7 +53,7 @@ describe('UserRoleChangeResult', () => {
       const result = new UserRoleChangeResult(
         'newuser@example.com',
         null,
-        UserRole.Employee,
+        UserRole.PSO,
         true,
         false,
         'azure-456',
@@ -62,7 +62,7 @@ describe('UserRoleChangeResult', () => {
 
       expect(result.userEmail).toBe('newuser@example.com');
       expect(result.previousRole).toBeNull();
-      expect(result.newRole).toBe(UserRole.Employee);
+      expect(result.newRole).toBe(UserRole.PSO);
       expect(result.userCreated).toBe(true);
       expect(result.userDeleted).toBe(false);
       expect(result.azureAdObjectId).toBe('azure-456');
@@ -94,7 +94,7 @@ describe('UserRoleChangeResult', () => {
     it('should create role change result', () => {
       const result = UserRoleChangeResult.roleChanged(
         'user@example.com',
-        UserRole.Employee,
+        UserRole.PSO,
         UserRole.Supervisor,
         'azure-123',
         'John Doe',
@@ -102,7 +102,7 @@ describe('UserRoleChangeResult', () => {
       );
 
       expect(result.userEmail).toBe('user@example.com');
-      expect(result.previousRole).toBe(UserRole.Employee);
+      expect(result.previousRole).toBe(UserRole.PSO);
       expect(result.newRole).toBe(UserRole.Supervisor);
       expect(result.userCreated).toBe(false);
       expect(result.userDeleted).toBe(false);
@@ -113,7 +113,7 @@ describe('UserRoleChangeResult', () => {
     it('should create role change result with default userCreated', () => {
       const result = UserRoleChangeResult.roleChanged(
         'user@example.com',
-        UserRole.Employee,
+        UserRole.PSO,
         UserRole.Supervisor,
         'azure-123',
         'John Doe'
@@ -126,7 +126,7 @@ describe('UserRoleChangeResult', () => {
       const result = UserRoleChangeResult.roleChanged(
         'user@example.com',
         null,
-        UserRole.Employee,
+        UserRole.PSO,
         'azure-123',
         'John Doe',
         true
@@ -139,7 +139,7 @@ describe('UserRoleChangeResult', () => {
     it('should handle different role transitions', () => {
       const psoToSupervisor = UserRoleChangeResult.roleChanged(
         'user1@example.com',
-        UserRole.Employee,
+        UserRole.PSO,
         UserRole.Supervisor,
         'azure-1',
         'User 1'
@@ -148,15 +148,15 @@ describe('UserRoleChangeResult', () => {
       const supervisorToPso = UserRoleChangeResult.roleChanged(
         'user2@example.com',
         UserRole.Supervisor,
-        UserRole.Employee,
+        UserRole.PSO,
         'azure-2',
         'User 2'
       );
 
-      expect(psoToSupervisor.previousRole).toBe(UserRole.Employee);
+      expect(psoToSupervisor.previousRole).toBe(UserRole.PSO);
       expect(psoToSupervisor.newRole).toBe(UserRole.Supervisor);
       expect(supervisorToPso.previousRole).toBe(UserRole.Supervisor);
-      expect(supervisorToPso.newRole).toBe(UserRole.Employee);
+      expect(supervisorToPso.newRole).toBe(UserRole.PSO);
     });
   });
 
@@ -194,7 +194,7 @@ describe('UserRoleChangeResult', () => {
     it('should handle deletion with different previous roles', () => {
       const psoDeletion = UserRoleChangeResult.userDeleted(
         'pso@example.com',
-        UserRole.Employee,
+        UserRole.PSO,
         'azure-1',
         'PSO User'
       );
@@ -206,7 +206,7 @@ describe('UserRoleChangeResult', () => {
         'Supervisor User'
       );
 
-      expect(psoDeletion.previousRole).toBe(UserRole.Employee);
+      expect(psoDeletion.previousRole).toBe(UserRole.PSO);
       expect(supervisorDeletion.previousRole).toBe(UserRole.Supervisor);
     });
   });
@@ -227,7 +227,7 @@ describe('UserRoleChangeResult', () => {
       const result = UserRoleChangeResult.roleChanged(
         'user@example.com',
         null,
-        UserRole.Employee,
+        UserRole.PSO,
         'azure-123',
         'John Doe',
         true
@@ -239,7 +239,7 @@ describe('UserRoleChangeResult', () => {
     it('should return role change summary for role change', () => {
       const result = UserRoleChangeResult.roleChanged(
         'user@example.com',
-        UserRole.Employee,
+        UserRole.PSO,
         UserRole.Supervisor,
         'azure-123',
         'John Doe'
@@ -252,7 +252,7 @@ describe('UserRoleChangeResult', () => {
       const result = UserRoleChangeResult.roleChanged(
         'user@example.com',
         null,
-        UserRole.Employee,
+        UserRole.PSO,
         'azure-123',
         'John Doe'
       );
@@ -265,7 +265,7 @@ describe('UserRoleChangeResult', () => {
     it('should return true when role actually changed', () => {
       const result = UserRoleChangeResult.roleChanged(
         'user@example.com',
-        UserRole.Employee,
+        UserRole.PSO,
         UserRole.Supervisor,
         'azure-123',
         'John Doe'
@@ -277,8 +277,8 @@ describe('UserRoleChangeResult', () => {
     it('should return false when role did not change', () => {
       const result = UserRoleChangeResult.roleChanged(
         'user@example.com',
-        UserRole.Employee,
-        UserRole.Employee,
+        UserRole.PSO,
+        UserRole.PSO,
         'azure-123',
         'John Doe'
       );
@@ -290,7 +290,7 @@ describe('UserRoleChangeResult', () => {
       const result = UserRoleChangeResult.roleChanged(
         'user@example.com',
         null,
-        UserRole.Employee,
+        UserRole.PSO,
         'azure-123',
         'John Doe'
       );
@@ -301,7 +301,7 @@ describe('UserRoleChangeResult', () => {
     it('should return true when previous role is not null and new role is null', () => {
       const result = new UserRoleChangeResult(
         'user@example.com',
-        UserRole.Employee,
+        UserRole.PSO,
         null,
         false,
         false,
@@ -329,7 +329,7 @@ describe('UserRoleChangeResult', () => {
       const result = UserRoleChangeResult.roleChanged(
         'user@example.com',
         null,
-        UserRole.Employee,
+        UserRole.PSO,
         'azure-123',
         'John Doe',
         true
@@ -341,7 +341,7 @@ describe('UserRoleChangeResult', () => {
     it('should return UPDATE for role change', () => {
       const result = UserRoleChangeResult.roleChanged(
         'user@example.com',
-        UserRole.Employee,
+        UserRole.PSO,
         UserRole.Supervisor,
         'azure-123',
         'John Doe'
@@ -353,8 +353,8 @@ describe('UserRoleChangeResult', () => {
     it('should return NO_CHANGE for no role change', () => {
       const result = UserRoleChangeResult.roleChanged(
         'user@example.com',
-        UserRole.Employee,
-        UserRole.Employee,
+        UserRole.PSO,
+        UserRole.PSO,
         'azure-123',
         'John Doe'
       );
@@ -367,7 +367,7 @@ describe('UserRoleChangeResult', () => {
     it('should have readonly properties', () => {
       const result = UserRoleChangeResult.roleChanged(
         'user@example.com',
-        UserRole.Employee,
+        UserRole.PSO,
         UserRole.Supervisor,
         'azure-123',
         'John Doe'
@@ -392,7 +392,7 @@ describe('UserRoleChangeResult', () => {
     it('should handle empty email', () => {
       const result = UserRoleChangeResult.roleChanged(
         '',
-        UserRole.Employee,
+        UserRole.PSO,
         UserRole.Supervisor,
         'azure-123',
         'John Doe'
@@ -405,7 +405,7 @@ describe('UserRoleChangeResult', () => {
       const longName = 'A'.repeat(1000);
       const result = UserRoleChangeResult.roleChanged(
         'user@example.com',
-        UserRole.Employee,
+        UserRole.PSO,
         UserRole.Supervisor,
         'azure-123',
         longName
@@ -417,7 +417,7 @@ describe('UserRoleChangeResult', () => {
     it('should handle special characters in email', () => {
       const result = UserRoleChangeResult.roleChanged(
         'user+test@example-domain.com',
-        UserRole.Employee,
+        UserRole.PSO,
         UserRole.Supervisor,
         'azure-123',
         'John Doe'
@@ -429,7 +429,7 @@ describe('UserRoleChangeResult', () => {
     it('should handle unicode characters in display name', () => {
       const result = UserRoleChangeResult.roleChanged(
         'user@example.com',
-        UserRole.Employee,
+        UserRole.PSO,
         UserRole.Supervisor,
         'azure-123',
         'José María'
@@ -444,7 +444,7 @@ describe('UserRoleChangeResult', () => {
       const psoResult = UserRoleChangeResult.roleChanged(
         'pso@example.com',
         null,
-        UserRole.Employee,
+        UserRole.PSO,
         'azure-1',
         'PSO User'
       );
@@ -457,7 +457,7 @@ describe('UserRoleChangeResult', () => {
         'Supervisor User'
       );
 
-      expect(psoResult.newRole).toBe(UserRole.Employee);
+      expect(psoResult.newRole).toBe(UserRole.PSO);
       expect(supervisorResult.newRole).toBe(UserRole.Supervisor);
     });
 

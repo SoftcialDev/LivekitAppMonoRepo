@@ -66,7 +66,7 @@ describe('UserRoleChangeApplicationService', () => {
   describe('authorizeRoleChange', () => {
     it('should authorize role change successfully', async () => {
       const callerId = 'test-caller-id';
-      const newRole = UserRole.Employee;
+      const newRole = UserRole.PSO;
 
       // Mock AuthorizationUtils.validateCanChangeRoles
       const { AuthorizationUtils } = require('../../../../shared/domain/utils/AuthorizationUtils');
@@ -84,7 +84,7 @@ describe('UserRoleChangeApplicationService', () => {
 
     it('should throw error when authorization fails', async () => {
       const callerId = 'test-caller-id';
-      const newRole = UserRole.Employee;
+      const newRole = UserRole.PSO;
       const authError = new Error('User not authorized');
 
       // Mock AuthorizationUtils.validateCanChangeRoles to throw error
@@ -105,7 +105,7 @@ describe('UserRoleChangeApplicationService', () => {
 
   describe('validateRoleChangeRequest', () => {
     it('should validate role change request successfully', async () => {
-      const request = new UserRoleChangeRequest('user@example.com', UserRole.Employee, new Date());
+      const request = new UserRoleChangeRequest('user@example.com', UserRole.PSO, new Date());
 
       // Mock ValidationUtils.validateEmailFormat
       const { ValidationUtils } = require('../../../../shared/domain/utils/ValidationUtils');
@@ -117,7 +117,7 @@ describe('UserRoleChangeApplicationService', () => {
     });
 
     it('should throw error for invalid email format', async () => {
-      const request = new UserRoleChangeRequest('invalid-email', UserRole.Employee, new Date());
+      const request = new UserRoleChangeRequest('invalid-email', UserRole.PSO, new Date());
       const validationError = new Error('Invalid email format');
 
       // Mock ValidationUtils.validateEmailFormat to throw error
@@ -161,7 +161,7 @@ describe('UserRoleChangeApplicationService', () => {
 
   describe('changeUserRole', () => {
     it('should change user role successfully', async () => {
-      const request = new UserRoleChangeRequest('user@example.com', UserRole.Employee, new Date());
+      const request = new UserRoleChangeRequest('user@example.com', UserRole.PSO, new Date());
       const callerId = 'test-caller-id';
 
       const existingUser = {
@@ -175,7 +175,7 @@ describe('UserRoleChangeApplicationService', () => {
       const updatedUser = {
         id: 'user-123',
         email: 'user@example.com',
-        role: UserRole.Employee,
+        role: UserRole.PSO,
         azureAdObjectId: 'azure-123',
         fullName: 'Test User',
       };
@@ -195,7 +195,7 @@ describe('UserRoleChangeApplicationService', () => {
         email: 'user@example.com',
         azureAdObjectId: 'azure-123',
         fullName: 'Test User',
-        role: UserRole.Employee,
+        role: UserRole.PSO,
       });
       expect(AuditUtils.logRoleChange).toHaveBeenCalledWith(
         mockAuditService,
@@ -209,13 +209,13 @@ describe('UserRoleChangeApplicationService', () => {
     });
 
     it('should create new user when user does not exist', async () => {
-      const request = new UserRoleChangeRequest('newuser@example.com', UserRole.Employee, new Date());
+      const request = new UserRoleChangeRequest('newuser@example.com', UserRole.PSO, new Date());
       const callerId = 'test-caller-id';
 
       const updatedUser = {
         id: 'user-456',
         email: 'newuser@example.com',
-        role: UserRole.Employee,
+        role: UserRole.PSO,
         azureAdObjectId: 'azure-456',
         fullName: 'newuser@example.com',
       };
@@ -235,7 +235,7 @@ describe('UserRoleChangeApplicationService', () => {
         email: 'newuser@example.com',
         azureAdObjectId: '',
         fullName: 'newuser@example.com',
-        role: UserRole.Employee,
+        role: UserRole.PSO,
       });
       expect(AuditUtils.logRoleChange).toHaveBeenCalledWith(
         mockAuditService,
@@ -255,7 +255,7 @@ describe('UserRoleChangeApplicationService', () => {
       const existingUser = {
         id: 'user-123',
         email: 'user@example.com',
-        role: UserRole.Employee,
+        role: UserRole.PSO,
         azureAdObjectId: 'azure-123',
         fullName: 'Test User',
       };
@@ -290,7 +290,7 @@ describe('UserRoleChangeApplicationService', () => {
       const existingUser = {
         id: 'user-123',
         email: 'user@example.com',
-        role: UserRole.Employee,
+        role: UserRole.PSO,
         azureAdObjectId: 'azure-123',
         fullName: 'Test User',
       };
@@ -317,7 +317,7 @@ describe('UserRoleChangeApplicationService', () => {
     });
 
     it('should propagate domain service errors', async () => {
-      const request = new UserRoleChangeRequest('user@example.com', UserRole.Employee, new Date());
+      const request = new UserRoleChangeRequest('user@example.com', UserRole.PSO, new Date());
       const callerId = 'test-caller-id';
 
       const domainError = new Error('Database error');
@@ -338,7 +338,7 @@ describe('UserRoleChangeApplicationService', () => {
       const existingUser = {
         id: 'user-123',
         email: 'user@example.com',
-        role: UserRole.Employee,
+        role: UserRole.PSO,
         azureAdObjectId: 'azure-123',
         fullName: 'Test User',
       };

@@ -20,7 +20,7 @@ export class SuperAdminApplicationService {
   ) {}
 
   /**
-   * Creates a new Super Admin with proper authorization.
+   * Creates a new Super Admin.
    * @param request - The Super Admin creation request
    * @param callerId - The ID of the user making the request
    * @returns Promise that resolves to the created Super Admin profile
@@ -29,13 +29,12 @@ export class SuperAdminApplicationService {
     request: CreateSuperAdminRequest,
     callerId: string
   ): Promise<SuperAdminProfile> {
-    await this.authorizationService.canAccessSuperAdmin(callerId);
-    
+    // Permission check is done at middleware level
     return await this.superAdminDomainService.createSuperAdmin(request);
   }
 
   /**
-   * Deletes a Super Admin with proper authorization.
+   * Deletes a Super Admin.
    * @param request - The Super Admin deletion request
    * @param callerId - The ID of the user making the request
    * @returns Promise that resolves when deletion is complete
@@ -44,8 +43,7 @@ export class SuperAdminApplicationService {
     request: DeleteSuperAdminRequest,
     callerId: string
   ): Promise<void> {
-    await this.authorizationService.canAccessSuperAdmin(callerId);
-    
+    // Permission check is done at middleware level
     await this.superAdminDomainService.deleteSuperAdmin(request);
   }
 

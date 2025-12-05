@@ -14,6 +14,8 @@ import { AzureFunction, Context, HttpRequest } from "@azure/functions";
 import { withAuth } from "../shared/middleware/auth";
 import { withErrorHandler } from "../shared/middleware/errorHandler";
 import { withQueryValidation } from "../shared/middleware/validate";
+import { requirePermission } from "../shared/middleware/permissions";
+import { Permission } from "../shared/domain/enums/Permission";
 import { UserQueryRequest } from "../shared/domain/value-objects/UserQueryRequest";
 import { userQuerySchema } from "../shared/domain/schemas/UserQuerySchema";
 import { serviceContainer } from "../shared/infrastructure/container/ServiceContainer";
@@ -39,6 +41,7 @@ const getUsersByRole: AzureFunction = withErrorHandler(
       );
 
       await withQueryValidation(userQuerySchema)(ctx, async () => {
+        await requirePermission(Permission.UsersRead)(ctx);
         const { role, page, pageSize } = ctx.bindings.validatedQuery;
         const callerId = getCallerAdId(ctx.bindings.user);
         if (!callerId) {

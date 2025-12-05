@@ -2,6 +2,8 @@ import { AzureFunction, Context, HttpRequest } from "@azure/functions";
 import { z } from "zod";
 import { withAuth } from "../shared/middleware/auth";
 import { withErrorHandler } from "../shared/middleware/errorHandler";
+import { requirePermission } from "../shared/middleware/permissions";
+import { Permission } from "../shared/domain/enums/Permission";
 import { ok, badRequest, unauthorized, forbidden } from "../shared/utils/response";
 import prisma from "../shared/infrastructure/database/PrismaClientService";
 import { JwtPayload } from "jsonwebtoken";
@@ -21,7 +23,7 @@ interface PresenceItem {
   fullName: string;
   /** Azure AD object ID */
   azureAdObjectId: string;
-  /** User role, e.g. "Admin", "Supervisor", or "Employee" */
+  /** User role, e.g. "Admin", "Supervisor", or "PSO" */
   role: string;
   /** Presence status, e.g. "online" or "offline" */
   status: string;
@@ -92,6 +94,7 @@ const getWebsocketPresenceStatuses: AzureFunction = withErrorHandler(
 
     // 2) Authenticate caller
     return withAuth(ctx, async () => {
+      await requirePermission(Permission.StreamingStatusRead)(ctx);
       const claims = (ctx as any).bindings.user as JwtPayload;
       const callerId = (claims.oid || claims.sub) as string;
       if (!callerId) {
@@ -148,8 +151,8 @@ const getWebsocketPresenceStatuses: AzureFunction = withErrorHandler(
           };
           
           // Debug supervisor info
-          if (u.role === 'Employee' && u.supervisor) {
-            console.log(`🔍 [GetWebsocketPresenceStatus] Employee ${u.email} has supervisor:`, {
+          if (u.role === 'PSO' && u.supervisor) {
+            console.log(`🔍 [GetWebsocketPresenceStatus] PSO ${u.email} has supervisor:`, {
               supervisorId: u.supervisor.id,
               supervisorEmail: u.supervisor.email,
               supervisorName: u.supervisor.fullName

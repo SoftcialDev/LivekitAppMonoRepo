@@ -59,15 +59,6 @@ export class SupervisorApplicationService {
   }
 
   /**
-   * Authorizes if a user can change supervisors
-   * @param callerId - Azure AD object ID of the caller
-   * @throws AuthError if user is not authorized
-   */
-  async authorizeSupervisorChange(callerId: string): Promise<void> {
-    await AuthorizationUtils.validateCanManageUsers(this.authorizationService, callerId);
-  }
-
-  /**
    * Validates supervisor assignment request
    * @param assignment - The supervisor assignment to validate
    * @throws ValidationError if assignment is invalid

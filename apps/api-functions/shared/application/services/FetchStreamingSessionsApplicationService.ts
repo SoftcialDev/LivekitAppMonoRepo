@@ -5,7 +5,6 @@
  */
 
 import { IStreamingSessionDomainService } from '../../domain/interfaces/IStreamingSessionDomainService';
-import { AuthorizationService } from '../../domain/services/AuthorizationService';
 import { FetchStreamingSessionsResponse } from '../../domain/value-objects/FetchStreamingSessionsResponse';
 
 /**
@@ -14,20 +13,16 @@ import { FetchStreamingSessionsResponse } from '../../domain/value-objects/Fetch
  */
 export class FetchStreamingSessionsApplicationService {
   constructor(
-    private readonly streamingSessionDomainService: IStreamingSessionDomainService,
-    private readonly authorizationService: AuthorizationService
+    private readonly streamingSessionDomainService: IStreamingSessionDomainService
   ) {}
 
   /**
    * Fetches streaming sessions for the authenticated user based on their role
    * @param callerId - The caller's Azure AD Object ID
    * @returns Promise that resolves to streaming sessions response
-   * @throws StreamingSessionAccessDeniedError when authorization fails
    */
   async fetchStreamingSessions(callerId: string): Promise<FetchStreamingSessionsResponse> {
-    // Use AuthorizationService to validate user exists and has appropriate role
-    await this.authorizationService.canSendCommands(callerId);
-
+    // Permission check is done at middleware level
     return await this.streamingSessionDomainService.getAllActiveSessions(callerId);
   }
 }

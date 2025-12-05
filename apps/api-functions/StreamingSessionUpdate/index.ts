@@ -3,6 +3,8 @@ import { withAuth } from "../shared/middleware/auth";
 import { withErrorHandler } from "../shared/middleware/errorHandler";
 import { withCallerId } from "../shared/middleware/callerId";
 import { withBodyValidation } from "../shared/middleware/validate";
+import { requirePermission } from "../shared/middleware/permissions";
+import { Permission } from "../shared/domain/enums/Permission";
 import { ok } from "../shared/utils/response";
 import { ServiceContainer } from "../shared/infrastructure/container/ServiceContainer";
 import { StreamingSessionUpdateRequest } from "../shared/domain/value-objects/StreamingSessionUpdateRequest";
@@ -32,6 +34,7 @@ export default withErrorHandler(
     await withAuth(ctx, async () => {
       await withCallerId(ctx, async () => {
         await withBodyValidation(streamingSessionUpdateSchema)(ctx, async () => {
+          await requirePermission(Permission.StreamingStatusRead)(ctx);
           const serviceContainer = ServiceContainer.getInstance();
           serviceContainer.initialize();
 

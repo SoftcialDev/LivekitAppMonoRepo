@@ -4,11 +4,47 @@
  */
 
 import { UserRole } from '@prisma/client';
+import { Permission } from '../enums/Permission';
 
 /**
  * Interface for authorization service operations
  */
 export interface IAuthorizationService {
+  /**
+   * Checks whether the caller has the given permission.
+   * @param callerId Azure AD object ID of the caller.
+   * @param permission Permission to check.
+   */
+  hasPermission(callerId: string, permission: Permission): Promise<boolean>;
+
+  /**
+   * Checks whether the caller has any of the given permissions.
+   * @param callerId Azure AD object ID of the caller.
+   * @param permissions Permissions to check.
+   */
+  hasAnyPermission(callerId: string, permissions: Permission[]): Promise<boolean>;
+
+  /**
+   * Checks whether the caller has all of the given permissions.
+   * @param callerId Azure AD object ID of the caller.
+   * @param permissions Permissions to check.
+   */
+  hasAllPermissions(callerId: string, permissions: Permission[]): Promise<boolean>;
+
+  /**
+   * Ensures the caller has the given permission or throws.
+   * @param callerId Azure AD object ID of the caller.
+   * @param permission Permission to enforce.
+   */
+  authorizePermission(callerId: string, permission: Permission, operationName?: string): Promise<void>;
+
+  /**
+   * Ensures the caller has at least one of the given permissions or throws.
+   * @param callerId Azure AD object ID of the caller.
+   * @param permissions Permissions to enforce.
+   */
+  authorizeAnyPermission(callerId: string, permissions: Permission[], operationName?: string): Promise<void>;
+
   /**
    * Authorizes if a user can send commands
    * @param callerId - Azure AD object ID of the caller

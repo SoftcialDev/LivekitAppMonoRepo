@@ -29,7 +29,7 @@ describe('User', () => {
     azureAdObjectId: 'azure123',
     email: 'test@example.com',
     fullName: 'Test User',
-    role: UserRole.Employee,
+    role: UserRole.PSO,
     createdAt: new Date('2023-01-01T10:00:00Z'),
     updatedAt: new Date('2023-01-01T11:00:00Z')
   };
@@ -42,7 +42,7 @@ describe('User', () => {
       expect(user.azureAdObjectId).toBe('azure123');
       expect(user.email).toBe('test@example.com');
       expect(user.fullName).toBe('Test User');
-      expect(user.role).toBe(UserRole.Employee);
+      expect(user.role).toBe(UserRole.PSO);
       expect(user.createdAt).toEqual(new Date('2023-01-01T10:00:00Z'));
       expect(user.updatedAt).toEqual(new Date('2023-01-01T11:00:00Z'));
     });
@@ -83,7 +83,7 @@ describe('User', () => {
         azureAdObjectId: 'azure123',
         email: 'test@example.com',
         fullName: 'Test User',
-        role: UserRole.Employee,
+        role: UserRole.PSO,
         roleChangedAt: new Date('2023-01-01T09:00:00Z'),
         supervisorId: 'supervisor123',
         assignedAt: new Date('2023-01-01T08:00:00Z'),
@@ -98,7 +98,7 @@ describe('User', () => {
       expect(user.azureAdObjectId).toBe('azure123');
       expect(user.email).toBe('test@example.com');
       expect(user.fullName).toBe('Test User');
-      expect(user.role).toBe(UserRole.Employee);
+      expect(user.role).toBe(UserRole.PSO);
     });
   });
 
@@ -119,7 +119,7 @@ describe('User', () => {
 
   describe('role checks', () => {
     it('isEmployee returns true for Employee role', () => {
-      const user = new User({ ...baseUserProps, role: UserRole.Employee });
+      const user = new User({ ...baseUserProps, role: UserRole.PSO });
       expect(user.isEmployee()).toBe(true);
     });
 
@@ -161,7 +161,7 @@ describe('User', () => {
     });
 
     it('canSendCommands returns false for Employee and ContactManager', () => {
-      const employee = new User({ ...baseUserProps, role: UserRole.Employee });
+      const employee = new User({ ...baseUserProps, role: UserRole.PSO });
       const contactManager = new User({ ...baseUserProps, role: UserRole.ContactManager });
       
       expect(employee.canSendCommands()).toBe(false);
@@ -187,7 +187,7 @@ describe('User', () => {
     });
 
     it('canBeAssignedToSupervisor returns true only for Employee', () => {
-      const employee = new User({ ...baseUserProps, role: UserRole.Employee });
+      const employee = new User({ ...baseUserProps, role: UserRole.PSO });
       const admin = new User({ ...baseUserProps, role: UserRole.Admin });
       
       expect(employee.canBeAssignedToSupervisor()).toBe(true);
@@ -232,7 +232,7 @@ describe('User', () => {
     });
 
     it('hasAnyRole returns false when user does not have any of the specified roles', () => {
-      const user = new User({ ...baseUserProps, role: UserRole.Employee });
+      const user = new User({ ...baseUserProps, role: UserRole.PSO });
       expect(user.hasAnyRole([UserRole.Admin, UserRole.Supervisor])).toBe(false);
     });
 
@@ -242,7 +242,7 @@ describe('User', () => {
     });
 
     it('hasRole returns false when user does not have the specified role', () => {
-      const user = new User({ ...baseUserProps, role: UserRole.Employee });
+      const user = new User({ ...baseUserProps, role: UserRole.PSO });
       expect(user.hasRole(UserRole.Admin)).toBe(false);
     });
   });

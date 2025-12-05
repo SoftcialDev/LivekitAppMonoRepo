@@ -9,6 +9,8 @@ import { withAuth } from "../shared/middleware/auth";
 import { withErrorHandler } from "../shared/middleware/errorHandler";
 import { withCallerId } from "../shared/middleware/callerId";
 import { withQueryValidation } from "../shared/middleware/queryValidation";
+import { requirePermission } from "../shared/middleware/permissions";
+import { Permission } from "../shared/domain/enums/Permission";
 import { ok } from "../shared/utils/response";
 import { GetLivekitRecordingsApplicationService } from "../shared/application/services/GetLivekitRecordingsApplicationService";
 import { GetLivekitRecordingsRequest } from "../shared/domain/value-objects/GetLivekitRecordingsRequest";
@@ -36,6 +38,7 @@ const getLivekitRecordingsHandler: AzureFunction = withErrorHandler(
     await withAuth(ctx, async () => {
       await withCallerId(ctx, async () => {
         await withQueryValidation(ctx, getLivekitRecordingsSchema, async (validatedQuery: any) => {
+          await requirePermission(Permission.RecordingsRead)(ctx);
           serviceContainer.initialize();
           
           const applicationService = serviceContainer.resolve<GetLivekitRecordingsApplicationService>('GetLivekitRecordingsApplicationService');

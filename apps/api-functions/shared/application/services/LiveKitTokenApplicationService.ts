@@ -7,7 +7,6 @@
 import { LiveKitTokenRequest } from "../../domain/value-objects/LiveKitTokenRequest";
 import { LiveKitTokenResponse } from "../../domain/value-objects/LiveKitTokenResponse";
 import { LiveKitTokenDomainService } from "../../domain/services/LiveKitTokenDomainService";
-import { AuthorizationService } from "../../domain/services/AuthorizationService";
 
 /**
  * Application service for handling LiveKit token operations
@@ -17,11 +16,9 @@ export class LiveKitTokenApplicationService {
   /**
    * Creates a new LiveKitTokenApplicationService instance
    * @param liveKitTokenDomainService - Domain service for LiveKit token business logic
-   * @param authorizationService - Service for handling authorization
    */
   constructor(
-    private readonly liveKitTokenDomainService: LiveKitTokenDomainService,
-    private readonly authorizationService: AuthorizationService
+    private readonly liveKitTokenDomainService: LiveKitTokenDomainService
   ) {}
 
   /**

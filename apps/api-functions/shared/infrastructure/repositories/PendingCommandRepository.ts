@@ -57,8 +57,8 @@ export class PendingCommandRepository implements IPendingCommandRepository {
   }
 
   /**
-   * Gets pending commands for an employee
-   * @param employeeId - The employee's database ID
+   * Gets pending commands for a PSO
+   * @param employeeId - The PSO's database ID
    * @returns Promise that resolves to array of pending command entities
    * @throws Error if database operation fails
    */
@@ -88,13 +88,13 @@ export class PendingCommandRepository implements IPendingCommandRepository {
         acknowledged: cmd.acknowledged
       }));
     } catch (error: any) {
-      throw new Error(`Failed to get pending commands for employee: ${error.message}`);
+      throw new Error(`Failed to get pending commands for PSO: ${error.message}`);
     }
   }
 
   /**
-   * Deletes all pending commands for an employee
-   * @param employeeId - The ID of the employee
+   * Deletes all pending commands for a PSO
+   * @param employeeId - The ID of the PSO
    * @returns Promise that resolves when the operation completes
    * @throws Error if database operation fails
    */
@@ -104,7 +104,7 @@ export class PendingCommandRepository implements IPendingCommandRepository {
         where: { employeeId }
       });
     } catch (error: any) {
-      throw new Error(`Failed to delete pending commands for employee: ${error.message}`);
+      throw new Error(`Failed to delete pending commands for PSO: ${error.message}`);
     }
   }
 

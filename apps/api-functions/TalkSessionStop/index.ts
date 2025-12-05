@@ -7,6 +7,8 @@ import { Context, HttpRequest } from "@azure/functions";
 import { withAuth } from "../shared/middleware/auth";
 import { withErrorHandler } from "../shared/middleware/errorHandler";
 import { withBodyValidation } from "../shared/middleware/validate";
+import { requirePermission } from "../shared/middleware/permissions";
+import { Permission } from "../shared/domain/enums/Permission";
 import { ok } from "../shared/utils/response";
 import { ServiceContainer } from "../shared/infrastructure/container/ServiceContainer";
 import { TalkSessionStopRequest } from "../shared/domain/value-objects/TalkSessionStopRequest";
@@ -34,6 +36,7 @@ export default withErrorHandler(
   async (ctx: Context, req: HttpRequest) => {
     await withAuth(ctx, async () => {
       await withBodyValidation(talkSessionStopSchema)(ctx, async () => {
+        await requirePermission(Permission.TalkSessionsStop)(ctx);
         const serviceContainer = ServiceContainer.getInstance();
         serviceContainer.initialize();
 

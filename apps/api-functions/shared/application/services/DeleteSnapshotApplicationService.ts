@@ -7,8 +7,6 @@
 import { DeleteSnapshotRequest } from "../../domain/value-objects/DeleteSnapshotRequest";
 import { DeleteSnapshotResponse } from "../../domain/value-objects/DeleteSnapshotResponse";
 import { DeleteSnapshotDomainService } from "../../domain/services/DeleteSnapshotDomainService";
-import { AuthorizationService } from "../../domain/services/AuthorizationService";
-import { UserRole } from "../../domain/enums/UserRole";
 
 /**
  * Application service for handling snapshot deletion operations
@@ -18,11 +16,9 @@ export class DeleteSnapshotApplicationService {
   /**
    * Creates a new DeleteSnapshotApplicationService instance
    * @param deleteSnapshotDomainService - Domain service for snapshot deletion business logic
-   * @param authorizationService - Authorization service for permission checks
    */
   constructor(
-    private readonly deleteSnapshotDomainService: DeleteSnapshotDomainService,
-    private readonly authorizationService: AuthorizationService
+    private readonly deleteSnapshotDomainService: DeleteSnapshotDomainService
   ) {}
 
   /**
@@ -30,18 +26,12 @@ export class DeleteSnapshotApplicationService {
    * @param callerId - The ID of the user making the request
    * @param request - The snapshot deletion request
    * @returns Promise that resolves to the snapshot deletion response
-   * @throws Error when caller is not authorized or deletion fails
+   * @throws Error when deletion fails
    * @example
    * const response = await deleteSnapshotApplicationService.deleteSnapshot(callerId, request);
    */
   async deleteSnapshot(callerId: string, request: DeleteSnapshotRequest): Promise<DeleteSnapshotResponse> {
-    // Only Admins and SuperAdmins can delete snapshots
-    await this.authorizationService.authorizeUserWithRoles(
-      callerId, 
-      [UserRole.Admin, UserRole.SuperAdmin], 
-      'deleting snapshots'
-    );
-
+    // Permission check is done at middleware level
     return await this.deleteSnapshotDomainService.deleteSnapshot(request);
   }
 }

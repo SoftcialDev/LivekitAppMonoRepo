@@ -44,26 +44,17 @@ export class CommandApplicationService {
   }
 
   /**
-   * Authorizes if a user can send commands
-   * @param callerId - Azure AD object ID of the caller
-   * @throws AuthError if user is not authorized
-   */
-  async authorizeCommandSender(callerId: string): Promise<void> {
-    await AuthorizationUtils.validateCanSendCommands(this.authorizationService, callerId);
-  }
-
-  /**
    * Validates if target user can receive commands
-   * @param employeeEmail - Email of the target employee
+   * @param employeeEmail - Email of the target PSO
    * @throws ValidationError if target is invalid
    */
   async validateTargetEmployee(employeeEmail: string): Promise<void> {
-    const validatedEmail = ValidationUtils.validateEmailRequired(employeeEmail, 'Employee email');
+    const validatedEmail = ValidationUtils.validateEmailRequired(employeeEmail, 'PSO email');
     await ValidationUtils.validateUserIsEmployee(this.userRepository, validatedEmail, 'Target user');
   }
 
   /**
-   * Sends a camera command to an employee
+   * Sends a camera command to a PSO
    * @param command - The command to send
    * @returns Promise that resolves to messaging result
    * @throws MessagingError if command delivery fails

@@ -20,7 +20,7 @@ export class CommandAcknowledgmentService implements ICommandAcknowledgmentServi
   ) {}
 
   /**
-   * Acknowledges multiple pending commands for an employee
+   * Acknowledges multiple pending commands for a PSO
    * @param request - Command acknowledgment request
    * @param callerId - ID of the user making the request
    * @returns Promise that resolves to acknowledgment result
@@ -30,7 +30,7 @@ export class CommandAcknowledgmentService implements ICommandAcknowledgmentServi
     request: AcknowledgeCommandRequest,
     callerId: string
   ): Promise<AcknowledgeCommandResult> {
-    // 1. Validate caller is an Employee
+    // 1. Validate caller is a PSO
     await this.validateEmployeeRole(callerId);
 
     // 2. Validate that all command IDs exist
@@ -43,9 +43,9 @@ export class CommandAcknowledgmentService implements ICommandAcknowledgmentServi
   }
 
   /**
-   * Validates that the caller is an Employee
+   * Validates that the caller is a PSO
    * @param callerId - ID of the user making the request
-   * @throws Error if user is not found, deleted, or not an Employee
+   * @throws Error if user is not found, deleted, or not a PSO
    */
   private async validateEmployeeRole(callerId: string): Promise<void> {
     const user = await this.userRepository.findByAzureAdObjectId(callerId);
@@ -58,8 +58,8 @@ export class CommandAcknowledgmentService implements ICommandAcknowledgmentServi
       throw new Error('User is deleted');
     }
 
-    if (user.role !== UserRole.Employee) {
-      throw new Error('Only employees may acknowledge commands');
+    if (user.role !== UserRole.PSO) {
+      throw new Error('Only PSOs may acknowledge commands');
     }
   }
 

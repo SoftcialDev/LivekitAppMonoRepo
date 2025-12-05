@@ -19,7 +19,7 @@ describe('UserDeletionResult', () => {
       const result = UserDeletionResult.success(
         'user@example.com',
         UserDeletionType.SOFT_DELETE,
-        UserRole.Employee,
+        UserRole.PSO,
         'azure-123',
         'John Doe',
         'User deleted successfully'
@@ -28,7 +28,7 @@ describe('UserDeletionResult', () => {
       expect(result.success).toBe(true);
       expect(result.userEmail).toBe('user@example.com');
       expect(result.deletionType).toBe(UserDeletionType.SOFT_DELETE);
-      expect(result.previousRole).toBe(UserRole.Employee);
+      expect(result.previousRole).toBe(UserRole.PSO);
       expect(result.azureAdObjectId).toBe('azure-123');
       expect(result.fullName).toBe('John Doe');
       expect(result.message).toBe('User deleted successfully');
@@ -58,7 +58,7 @@ describe('UserDeletionResult', () => {
       const softDeleteResult = UserDeletionResult.success(
         'user@example.com',
         UserDeletionType.SOFT_DELETE,
-        UserRole.Employee,
+        UserRole.PSO,
         'azure-123',
         'John Doe',
         'Soft deleted'
@@ -81,7 +81,7 @@ describe('UserDeletionResult', () => {
       const psoResult = UserDeletionResult.success(
         'pso@example.com',
         UserDeletionType.SOFT_DELETE,
-        UserRole.Employee,
+        UserRole.PSO,
         'azure-123',
         'PSO User',
         'PSO deleted'
@@ -96,7 +96,7 @@ describe('UserDeletionResult', () => {
         'Supervisor deleted'
       );
 
-      expect(psoResult.previousRole).toBe(UserRole.Employee);
+      expect(psoResult.previousRole).toBe(UserRole.PSO);
       expect(supervisorResult.previousRole).toBe(UserRole.Supervisor);
     });
   });
@@ -142,7 +142,7 @@ describe('UserDeletionResult', () => {
       const result = UserDeletionResult.success(
         'user@example.com',
         UserDeletionType.SOFT_DELETE,
-        UserRole.Employee,
+        UserRole.PSO,
         'azure-123',
         'John Doe',
         'Deleted'
@@ -155,13 +155,13 @@ describe('UserDeletionResult', () => {
       const result = UserDeletionResult.success(
         'user@example.com',
         UserDeletionType.SOFT_DELETE,
-        UserRole.Employee,
+        UserRole.PSO,
         'azure-123',
         'John Doe',
         'Deleted'
       );
 
-      expect(result.getPreviousRoleString()).toBe(UserRole.Employee);
+      expect(result.getPreviousRoleString()).toBe(UserRole.PSO);
     });
 
     it('should return null for previous role when not set', () => {
@@ -178,7 +178,7 @@ describe('UserDeletionResult', () => {
       const successResult = UserDeletionResult.success(
         'user@example.com',
         UserDeletionType.SOFT_DELETE,
-        UserRole.Employee,
+        UserRole.PSO,
         'azure-123',
         'John Doe',
         'Deleted'
@@ -198,7 +198,7 @@ describe('UserDeletionResult', () => {
       const result = UserDeletionResult.success(
         'user@example.com',
         UserDeletionType.SOFT_DELETE,
-        UserRole.Employee,
+        UserRole.PSO,
         'azure-123',
         'John Doe',
         'User deleted successfully'
@@ -213,7 +213,7 @@ describe('UserDeletionResult', () => {
       const result = UserDeletionResult.success(
         'user@example.com',
         UserDeletionType.SOFT_DELETE,
-        UserRole.Employee,
+        UserRole.PSO,
         'azure-123',
         'John Doe',
         'Deleted'
@@ -239,7 +239,7 @@ describe('UserDeletionResult', () => {
       const result = UserDeletionResult.success(
         '',
         UserDeletionType.SOFT_DELETE,
-        UserRole.Employee,
+        UserRole.PSO,
         'azure-123',
         'John Doe',
         'Deleted'
@@ -264,7 +264,7 @@ describe('UserDeletionResult', () => {
       const result = UserDeletionResult.success(
         'user+test@example-domain.com',
         UserDeletionType.SOFT_DELETE,
-        UserRole.Employee,
+        UserRole.PSO,
         'azure-123',
         'John Doe',
         'Deleted'
@@ -277,7 +277,7 @@ describe('UserDeletionResult', () => {
       const result = UserDeletionResult.success(
         'user@example.com',
         UserDeletionType.SOFT_DELETE,
-        UserRole.Employee,
+        UserRole.PSO,
         'azure-123',
         'José María',
         'Deleted'
@@ -292,7 +292,7 @@ describe('UserDeletionResult', () => {
       const softDeleteResult = UserDeletionResult.success(
         'user@example.com',
         UserDeletionType.SOFT_DELETE,
-        UserRole.Employee,
+        UserRole.PSO,
         'azure-123',
         'John Doe',
         'Deleted'
@@ -315,7 +315,7 @@ describe('UserDeletionResult', () => {
       const psoResult = UserDeletionResult.success(
         'pso@example.com',
         UserDeletionType.SOFT_DELETE,
-        UserRole.Employee,
+        UserRole.PSO,
         'azure-123',
         'PSO User',
         'Deleted'
@@ -330,7 +330,7 @@ describe('UserDeletionResult', () => {
         'Deleted'
       );
 
-      expect(psoResult.previousRole).toBe(UserRole.Employee);
+      expect(psoResult.previousRole).toBe(UserRole.PSO);
       expect(supervisorResult.previousRole).toBe(UserRole.Supervisor);
     });
   });

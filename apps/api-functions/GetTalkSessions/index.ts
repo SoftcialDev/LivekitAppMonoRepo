@@ -8,6 +8,8 @@ import { Context, HttpRequest } from "@azure/functions";
 import { withAuth } from "../shared/middleware/auth";
 import { withErrorHandler } from "../shared/middleware/errorHandler";
 import { withCallerId } from "../shared/middleware/callerId";
+import { requirePermission } from "../shared/middleware/permissions";
+import { Permission } from "../shared/domain/enums/Permission";
 import { ok, badRequest } from "../shared/utils/response";
 import { ServiceContainer } from "../shared/infrastructure/container/ServiceContainer";
 import { GetTalkSessionsApplicationService } from "../shared/application/services/GetTalkSessionsApplicationService";
@@ -35,6 +37,7 @@ const getTalkSessionsHandler = withErrorHandler(
   async (ctx: Context, req: HttpRequest) => {
     await withAuth(ctx, async () => {
       await withCallerId(ctx, async () => {
+        await requirePermission(Permission.TalkSessionsRead)(ctx);
         const serviceContainer = ServiceContainer.getInstance();
         serviceContainer.initialize();
 

@@ -21,7 +21,7 @@ describe('WebPubSubTokenDomainService', () => {
 
   describe('generateTokenForUser', () => {
     it('should generate token for Employee with correct groups', async () => {
-      const mockUser = { id: 'user-123', email: 'employee@example.com', role: UserRole.Employee, deletedAt: null };
+      const mockUser = { id: 'user-123', email: 'employee@example.com', role: UserRole.PSO, deletedAt: null };
       userRepository.findByAzureAdObjectId.mockResolvedValue(mockUser as any);
       webPubSubService.generateToken.mockResolvedValue('mock-token');
       const request = new WebPubSubTokenRequest('caller-123');

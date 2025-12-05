@@ -9,6 +9,8 @@ import { withAuth } from "../shared/middleware/auth";
 import { withErrorHandler } from "../shared/middleware/errorHandler";
 import { withCallerId } from "../shared/middleware/callerId";
 import { withBodyValidation } from "../shared/middleware/validate";
+import { requirePermission } from "../shared/middleware/permissions";
+import { Permission } from "../shared/domain/enums/Permission";
 import { ok } from "../shared/utils/response";
 import { ServiceContainer } from "../shared/infrastructure/container/ServiceContainer";
 import { TransferPsosRequest } from "../shared/domain/value-objects/TransferPsosRequest";
@@ -24,7 +26,7 @@ import { transferPsosSchema } from "../shared/domain/schemas/TransferPsosSchema"
  * - Caller must have role = "Supervisor".
  * - Expects JSON body: `{ newSupervisorEmail: string }`.
  * - Finds the caller's user record, then finds the target supervisor by email.
- * - Updates all Employee users with `supervisorId = caller.id`
+ * - Updates all PSO users with `supervisorId = caller.id`
  *   to have `supervisorId = newSupervisor.id`.
  * - Returns 200 with `{ movedCount: number }`.
  * - Returns 400 if request body is invalid or target supervisor not found.
@@ -38,6 +40,7 @@ const transferPsosHandler = withErrorHandler(
     await withAuth(ctx, async () => {
       await withCallerId(ctx, async () => {
         await withBodyValidation(transferPsosSchema)(ctx, async () => {
+          await requirePermission(Permission.UsersChangeSupervisor)(ctx);
           const serviceContainer = ServiceContainer.getInstance();
           serviceContainer.initialize();
 

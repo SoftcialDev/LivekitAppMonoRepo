@@ -132,6 +132,14 @@ import { TalkSessionDomainService } from '../../domain/services/TalkSessionDomai
 import { TalkSessionApplicationService } from '../../application/services/TalkSessionApplicationService';
 import { GetTalkSessionsDomainService } from '../../domain/services/GetTalkSessionsDomainService';
 import { GetTalkSessionsApplicationService } from '../../application/services/GetTalkSessionsApplicationService';
+import { IRoleRepository } from '../../domain/interfaces/IRoleRepository';
+import { IPermissionRepository } from '../../domain/interfaces/IPermissionRepository';
+import { IRolePermissionRepository } from '../../domain/interfaces/IRolePermissionRepository';
+import { IUserRoleAssignmentRepository } from '../../domain/interfaces/IUserRoleAssignmentRepository';
+import { RoleRepository } from '../repositories/RoleRepository';
+import { PermissionRepository } from '../repositories/PermissionRepository';
+import { RolePermissionRepository } from '../repositories/RolePermissionRepository';
+import { UserRoleAssignmentRepository } from '../repositories/UserRoleAssignmentRepository';
 
 /**
  * Service container for dependency injection
@@ -190,6 +198,10 @@ export class ServiceContainer {
     this.register<ISupervisorRepository>('SupervisorRepository', () => new SupervisorRepository());
     this.register<ISnapshotRepository>('ISnapshotRepository', () => new SnapshotRepository());
     this.register<ICameraStartFailureRepository>('CameraStartFailureRepository', () => new CameraStartFailureRepository());
+    this.register<IRoleRepository>('RoleRepository', () => new RoleRepository());
+    this.register<IPermissionRepository>('PermissionRepository', () => new PermissionRepository());
+    this.register<IRolePermissionRepository>('RolePermissionRepository', () => new RolePermissionRepository());
+    this.register<IUserRoleAssignmentRepository>('UserRoleAssignmentRepository', () => new UserRoleAssignmentRepository());
 
     // Register Audit services
     this.register<IAuditRepository>('IAuditRepository', () => new AuditRepository());
@@ -326,8 +338,7 @@ export class ServiceContainer {
 
           this.register<FetchPendingCommandsApplicationService>('FetchPendingCommandsApplicationService', () => {
             const pendingCommandDomainService = this.resolve<PendingCommandDomainService>('PendingCommandDomainService');
-            const authorizationService = this.resolve<AuthorizationService>('AuthorizationService');
-            return new FetchPendingCommandsApplicationService(pendingCommandDomainService, authorizationService);
+            return new FetchPendingCommandsApplicationService(pendingCommandDomainService);
           });
 
           // Register Streaming Session services
@@ -341,14 +352,12 @@ export class ServiceContainer {
 
           this.register<FetchStreamingSessionHistoryApplicationService>('FetchStreamingSessionHistoryApplicationService', () => {
             const streamingSessionDomainService = this.resolve<StreamingSessionDomainService>('StreamingSessionDomainService');
-            const authorizationService = this.resolve<AuthorizationService>('AuthorizationService');
-            return new FetchStreamingSessionHistoryApplicationService(streamingSessionDomainService, authorizationService);
+            return new FetchStreamingSessionHistoryApplicationService(streamingSessionDomainService);
           });
 
           this.register<FetchStreamingSessionsApplicationService>('FetchStreamingSessionsApplicationService', () => {
             const streamingSessionDomainService = this.resolve<StreamingSessionDomainService>('StreamingSessionDomainService');
-            const authorizationService = this.resolve<AuthorizationService>('AuthorizationService');
-            return new FetchStreamingSessionsApplicationService(streamingSessionDomainService, authorizationService);
+            return new FetchStreamingSessionsApplicationService(streamingSessionDomainService);
           });
 
           this.register<StreamingStatusBatchApplicationService>('StreamingStatusBatchApplicationService', () => {
@@ -402,8 +411,7 @@ export class ServiceContainer {
 
           this.register<DeleteRecordingApplicationService>('DeleteRecordingApplicationService', () => {
             const deleteRecordingDomainService = this.resolve<DeleteRecordingDomainService>('DeleteRecordingDomainService');
-            const authorizationService = this.resolve<AuthorizationService>('AuthorizationService');
-            return new DeleteRecordingApplicationService(deleteRecordingDomainService, authorizationService);
+            return new DeleteRecordingApplicationService(deleteRecordingDomainService);
           });
 
           // Register Config service
@@ -419,8 +427,7 @@ export class ServiceContainer {
 
           this.register<LiveKitTokenApplicationService>('LiveKitTokenApplicationService', () => {
             const liveKitTokenDomainService = this.resolve<LiveKitTokenDomainService>('LiveKitTokenDomainService');
-            const authorizationService = this.resolve<AuthorizationService>('AuthorizationService');
-            return new LiveKitTokenApplicationService(liveKitTokenDomainService, authorizationService);
+            return new LiveKitTokenApplicationService(liveKitTokenDomainService);
           });
 
           // Register Presence services
@@ -565,8 +572,7 @@ export class ServiceContainer {
 
           this.register<DeleteSnapshotApplicationService>('DeleteSnapshotApplicationService', () => {
             const deleteSnapshotDomainService = this.resolve<DeleteSnapshotDomainService>('DeleteSnapshotDomainService');
-            const authorizationService = this.resolve<AuthorizationService>('AuthorizationService');
-            return new DeleteSnapshotApplicationService(deleteSnapshotDomainService, authorizationService);
+            return new DeleteSnapshotApplicationService(deleteSnapshotDomainService);
           });
 
           // Register Get Snapshots services
@@ -600,8 +606,7 @@ export class ServiceContainer {
 
           this.register<CreateSnapshotReasonApplicationService>('CreateSnapshotReasonApplicationService', () => {
             const createSnapshotReasonDomainService = this.resolve<CreateSnapshotReasonDomainService>('CreateSnapshotReasonDomainService');
-            const authorizationService = this.resolve<AuthorizationService>('AuthorizationService');
-            return new CreateSnapshotReasonApplicationService(createSnapshotReasonDomainService, authorizationService);
+            return new CreateSnapshotReasonApplicationService(createSnapshotReasonDomainService);
           });
 
           this.register<UpdateSnapshotReasonDomainService>('UpdateSnapshotReasonDomainService', () => {
@@ -745,8 +750,7 @@ export class ServiceContainer {
 
           this.register<GetErrorLogsApplicationService>('GetErrorLogsApplicationService', () => {
             const getErrorLogsDomainService = this.resolve<GetErrorLogsDomainService>('GetErrorLogsDomainService');
-            const userRepository = this.resolve<IUserRepository>('UserRepository');
-            return new GetErrorLogsApplicationService(getErrorLogsDomainService, userRepository);
+            return new GetErrorLogsApplicationService(getErrorLogsDomainService);
           });
 
           // Register Delete Error Logs services

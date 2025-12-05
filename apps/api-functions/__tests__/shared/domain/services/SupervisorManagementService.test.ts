@@ -22,7 +22,7 @@ describe('SupervisorManagementService', () => {
 
   describe('changeUserSupervisor', () => {
     it('should update users with new supervisor', async () => {
-      const mockUser = { id: 'user-123', email: 'employee@example.com', role: UserRole.Employee };
+      const mockUser = { id: 'user-123', email: 'employee@example.com', role: UserRole.PSO };
       const mockSupervisor = { id: 'supervisor-123', email: 'supervisor@example.com', role: UserRole.Supervisor };
       userRepository.findByEmail.mockImplementation(async (email: string) => {
         if (email === 'employee@example.com') return mockUser as any;

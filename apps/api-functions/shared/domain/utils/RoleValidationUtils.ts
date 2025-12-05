@@ -16,8 +16,8 @@ export class RoleValidationUtils {
    * @returns True if assignment is valid
    */
   static isValidRoleAssignment(callerRole: UserRole, targetRole: UserRole | null): boolean {
-    // Supervisors can only assign Employee role
-    if (callerRole === UserRole.Supervisor && targetRole !== UserRole.Employee && targetRole !== null) {
+    // Supervisors can only assign PSO role
+    if (callerRole === UserRole.Supervisor && targetRole !== UserRole.PSO && targetRole !== null) {
       return false;
     }
 
@@ -64,7 +64,7 @@ export class RoleValidationUtils {
   static getRoleHierarchy(role: UserRole): number {
     const hierarchy: Record<UserRole, number> = {
       [UserRole.Unassigned]: 0,
-      [UserRole.Employee]: 1,
+      [UserRole.PSO]: 1,
       [UserRole.ContactManager]: 2,
       [UserRole.Supervisor]: 3,
       [UserRole.Admin]: 4,
@@ -125,5 +125,32 @@ export class RoleValidationUtils {
     }
 
     return true;
+  }
+
+  /**
+   * Checks if a caller can delete a user with a specific role based on hierarchy
+   * @param callerRole - Role of the caller
+   * @param targetRole - Role of the user being deleted
+   * @returns True if caller can delete the target user
+   */
+  static canDeleteUser(callerRole: UserRole, targetRole: UserRole): boolean {
+    // SuperAdmin can delete all users
+    if (callerRole === UserRole.SuperAdmin) {
+      return true;
+    }
+
+    // Admin can delete users with roles below their level (Supervisor, PSO, ContactManager, Unassigned)
+    // Cannot delete SuperAdmin or Admin
+    if (callerRole === UserRole.Admin) {
+      const targetLevel = this.getRoleHierarchy(targetRole);
+      return targetLevel < this.getRoleHierarchy(UserRole.Admin);
+    }
+
+    // Supervisor can only delete PSO
+    if (callerRole === UserRole.Supervisor) {
+      return targetRole === UserRole.PSO;
+    }
+
+    return false;
   }
 }

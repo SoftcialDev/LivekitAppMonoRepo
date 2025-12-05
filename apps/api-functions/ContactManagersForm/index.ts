@@ -8,6 +8,8 @@ import { withErrorHandler } from "../shared/middleware/errorHandler";
 import { withAuth } from "../shared/middleware/auth";
 import { withBodyValidation } from "../shared/middleware/validate";
 import { withCallerId } from "../shared/middleware/callerId";
+import { requirePermission } from "../shared/middleware/permissions";
+import { Permission } from "../shared/domain/enums/Permission";
 import { ok } from "../shared/utils/response";
 import { contactManagerFormSchema } from "../shared/domain/schemas/ContactManagerFormSchema";
 import { ContactManagerFormRequest } from "../shared/domain/value-objects/ContactManagerFormRequest";
@@ -40,6 +42,7 @@ const contactManagersFormFunction = withErrorHandler(
   async (ctx: Context, req: HttpRequest) => {
     await withAuth(ctx, async () => {
       await withCallerId(ctx, async () => {
+        await requirePermission(Permission.CommandsAcknowledge)(ctx);
         await withBodyValidation(contactManagerFormSchema)(ctx, async () => {
           serviceContainer.initialize();
 

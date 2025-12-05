@@ -3,6 +3,8 @@ import { withAuth } from "../shared/middleware/auth";
 import { withErrorHandler } from "../shared/middleware/errorHandler";
 import { withCallerId } from "../shared/middleware/callerId";
 import { withQueryValidation } from "../shared/middleware/queryValidation";
+import { requirePermission } from "../shared/middleware/permissions";
+import { Permission } from "../shared/domain/enums/Permission";
 import { ok } from "../shared/utils/response";
 import { ServiceContainer } from "../shared/infrastructure/container/ServiceContainer";
 import { LiveKitTokenRequest } from "../shared/domain/value-objects/LiveKitTokenRequest";
@@ -38,6 +40,7 @@ const liveKitTokenHandler = withErrorHandler(
     await withAuth(ctx, async () => {
       await withCallerId(ctx, async () => {
         await withQueryValidation(ctx, liveKitTokenSchema, async (validatedQuery) => {
+          await requirePermission(Permission.StreamingStatusRead)(ctx);
           // Initialize service container
           const serviceContainer = ServiceContainer.getInstance();
           serviceContainer.initialize();

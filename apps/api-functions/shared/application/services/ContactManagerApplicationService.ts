@@ -22,7 +22,7 @@ export class ContactManagerApplicationService {
   ) {}
 
   /**
-   * Creates a new contact manager with proper authorization.
+   * Creates a new contact manager.
    * @param request - The contact manager creation request
    * @param callerId - The ID of the user making the request
    * @returns Promise that resolves to the created contact manager profile
@@ -31,13 +31,12 @@ export class ContactManagerApplicationService {
     request: CreateContactManagerRequest,
     callerId: string
   ): Promise<ContactManagerProfile> {
-    await this.authorizationService.canAccessAdmin(callerId);
-    
+    // Permission check is done at middleware level
     return await this.contactManagerDomainService.createContactManager(request);
   }
 
   /**
-   * Deletes a contact manager with proper authorization.
+   * Deletes a contact manager.
    * @param request - The contact manager deletion request
    * @param callerId - The ID of the user making the request
    * @returns Promise that resolves when deletion is complete
@@ -46,8 +45,7 @@ export class ContactManagerApplicationService {
     request: DeleteContactManagerRequest,
     callerId: string
   ): Promise<void> {
-    await this.authorizationService.canAccessAdmin(callerId);
-    
+    // Permission check is done at middleware level
     await this.contactManagerDomainService.deleteContactManager(request);
   }
 

@@ -1,19 +1,21 @@
 /**
  * @fileoverview ChangeSupervisor - Azure Function for supervisor change handling
- * @description Allows authorized users to change supervisor assignments for employees
+ * @description Allows authorized users to change supervisor assignments for PSOs
  */
 
 import { AzureFunction, Context } from "@azure/functions";
 import { withAuth } from "../shared/middleware/auth";
 import { withErrorHandler } from "../shared/middleware/errorHandler";
 import { withBodyValidation } from "../shared/middleware/validate";
+import { withCallerId } from "../shared/middleware/callerId";
+import { requirePermission } from "../shared/middleware/permissions";
+import { Permission } from "../shared/domain/enums/Permission";
 import { ok } from "../shared/utils/response";
 import { SupervisorApplicationService } from "../shared/application/services/SupervisorApplicationService";
 import { SupervisorAssignment } from "../shared/domain/value-objects/SupervisorAssignment";
 import { supervisorAssignmentSchema } from "../shared/domain/schemas/SupervisorAssignmentSchema";
 import { serviceContainer } from "../shared/infrastructure/container/ServiceContainer";
 import { handleAnyError } from "../shared/utils/errorHandler";
-import { getCallerAdId } from "../shared/utils/authHelpers";
 import { IUserRepository } from "../shared/domain/interfaces/IUserRepository";
 import { IAuthorizationService } from "../shared/domain/interfaces/IAuthorizationService";
 import { ISupervisorRepository } from "../shared/domain/interfaces/ISupervisorRepository";
@@ -27,14 +29,14 @@ import { IWebPubSubService } from "../shared/domain/interfaces/IWebPubSubService
  *
  * **HTTP POST** `/api/ChangeSupervisor`
  *
- * Allows Admins and Supervisors to change supervisor assignments for employees.
+ * Allows Admins and Supervisors to change supervisor assignments for PSOs.
  *
  * @logic
  * 1. Authenticate caller via Azure AD (`withAuth`).
  * 2. Authorize only users with `Admin`, `Supervisor`, or `SuperAdmin` roles.
  * 3. Validate payload `{ userEmails, newSupervisorEmail }`.
  * 4. Verify the supervisor exists and has `Supervisor` role (if provided).
- * 5. Update supervisor assignments for all valid employees.
+ * 5. Update supervisor assignments for all valid PSOs.
  * 6. Send notifications to affected users.
  *
  * @param ctx Azure Functions execution context.
@@ -42,66 +44,62 @@ import { IWebPubSubService } from "../shared/domain/interfaces/IWebPubSubService
 const changeSupervisor: AzureFunction = withErrorHandler(
   async (ctx: Context) => {
     await withAuth(ctx, async () => {
-      // Initialize service container
-      serviceContainer.initialize();
+      await withCallerId(ctx, async () => {
+        await requirePermission(Permission.UsersChangeSupervisor)(ctx);
+        
+        // Initialize service container
+        serviceContainer.initialize();
 
-      // Resolve dependencies from container
-      const userRepository = serviceContainer.resolve<IUserRepository>('UserRepository');
-      const authorizationService = serviceContainer.resolve<IAuthorizationService>('AuthorizationService');
-      const supervisorRepository = serviceContainer.resolve<ISupervisorRepository>('SupervisorRepository');
-      const commandMessagingService = serviceContainer.resolve<ICommandMessagingService>('CommandMessagingService');
-      const supervisorManagementService = serviceContainer.resolve<ISupervisorManagementService>('SupervisorManagementService');
-      const webPubSubService = serviceContainer.resolve<IWebPubSubService>('WebPubSubService');
+        // Resolve dependencies from container
+        const userRepository = serviceContainer.resolve<IUserRepository>('UserRepository');
+        const authorizationService = serviceContainer.resolve<IAuthorizationService>('AuthorizationService');
+        const supervisorRepository = serviceContainer.resolve<ISupervisorRepository>('SupervisorRepository');
+        const commandMessagingService = serviceContainer.resolve<ICommandMessagingService>('CommandMessagingService');
+        const supervisorManagementService = serviceContainer.resolve<ISupervisorManagementService>('SupervisorManagementService');
+        const webPubSubService = serviceContainer.resolve<IWebPubSubService>('WebPubSubService');
 
-      const auditService = serviceContainer.resolve<IAuditService>('IAuditService');
+        const auditService = serviceContainer.resolve<IAuditService>('IAuditService');
 
-      const supervisorApplicationService = new SupervisorApplicationService(
-        userRepository,
-        authorizationService,
-        supervisorRepository,
-        commandMessagingService,
-        supervisorManagementService,
-        auditService,
-        webPubSubService
-      );
+        const supervisorApplicationService = new SupervisorApplicationService(
+          userRepository,
+          authorizationService,
+          supervisorRepository,
+          commandMessagingService,
+          supervisorManagementService,
+          auditService,
+          webPubSubService
+        );
 
-      // Validate request body
-      await withBodyValidation(supervisorAssignmentSchema)(ctx, async () => {
-        const { userEmails, newSupervisorEmail } = ctx.bindings.validatedBody;
-        const claims = ctx.bindings.user;
-        const callerId = getCallerAdId(claims);
+        // Validate request body
+        await withBodyValidation(supervisorAssignmentSchema)(ctx, async () => {
+          const { userEmails, newSupervisorEmail } = ctx.bindings.validatedBody;
+          const callerId = ctx.bindings.callerId as string;
 
-        if (!callerId) {
-          return handleAnyError(ctx, new Error("Cannot determine caller identity"), { userEmails, newSupervisorEmail });
-        }
+          try {
+            // Create supervisor assignment
+            const assignment = SupervisorAssignment.fromRequest({ userEmails, newSupervisorEmail });
 
-        try {
-          // Create supervisor assignment
-          const assignment = SupervisorAssignment.fromRequest({ userEmails, newSupervisorEmail });
+            // Validate supervisor assignment
+            await supervisorApplicationService.validateSupervisorAssignment(assignment);
 
-          // Authorize caller
-          await supervisorApplicationService.authorizeSupervisorChange(callerId);
+            // Execute supervisor change
+            const result = await supervisorApplicationService.changeSupervisor(assignment);
 
-          // Validate supervisor assignment
-          await supervisorApplicationService.validateSupervisorAssignment(assignment);
+            ctx.log.info(`ChangeSupervisor → updated ${result.updatedCount} row(s), skipped ${result.skippedCount} row(s).`);
+            return ok(ctx, { 
+              updatedCount: result.updatedCount,
+              skippedCount: result.skippedCount,
+              totalProcessed: result.totalProcessed
+            });
 
-          // Execute supervisor change
-          const result = await supervisorApplicationService.changeSupervisor(assignment);
-
-          ctx.log.info(`ChangeSupervisor → updated ${result.updatedCount} row(s), skipped ${result.skippedCount} row(s).`);
-          return ok(ctx, { 
-            updatedCount: result.updatedCount,
-            skippedCount: result.skippedCount,
-            totalProcessed: result.totalProcessed
-          });
-
-        } catch (error) {
-          return handleAnyError(ctx, error, {
-            callerId,
-            userEmails,
-            newSupervisorEmail
-          });
-        }
+          } catch (error) {
+            return handleAnyError(ctx, error, {
+              callerId,
+              userEmails,
+              newSupervisorEmail
+            });
+          }
+        });
       });
     });
   },

@@ -2,6 +2,8 @@ import { Context, HttpRequest } from "@azure/functions";
 import { withAuth } from "../shared/middleware/auth";
 import { withErrorHandler } from "../shared/middleware/errorHandler";
 import { withCallerId } from "../shared/middleware/callerId";
+import { requirePermission } from "../shared/middleware/permissions";
+import { Permission } from "../shared/domain/enums/Permission";
 import { withPathValidation } from "../shared/middleware/validate";
 import { ok } from "../shared/utils/response";
 import { ServiceContainer } from "../shared/infrastructure/container/ServiceContainer";
@@ -31,6 +33,7 @@ const deleteSnapshotFunction = withErrorHandler(
   async (ctx: Context, req: HttpRequest) => {
     await withAuth(ctx, async () => {
       await withCallerId(ctx, async () => {
+        await requirePermission(Permission.SnapshotsDelete)(ctx);
         await withPathValidation(deleteSnapshotSchema)(ctx, async () => {
           const serviceContainer = ServiceContainer.getInstance();
           serviceContainer.initialize();

@@ -5,9 +5,7 @@
  */
 
 import { IStreamingSessionDomainService } from '../../domain/interfaces/IStreamingSessionDomainService';
-import { AuthorizationService } from '../../domain/services/AuthorizationService';
 import { FetchStreamingSessionHistoryResponse } from '../../domain/value-objects/FetchStreamingSessionHistoryResponse';
-import { StreamingSessionAccessDeniedError } from '../../domain/errors/StreamingSessionErrors';
 
 /**
  * Application service for fetching streaming session history
@@ -15,20 +13,16 @@ import { StreamingSessionAccessDeniedError } from '../../domain/errors/Streaming
  */
 export class FetchStreamingSessionHistoryApplicationService {
   constructor(
-    private readonly streamingSessionDomainService: IStreamingSessionDomainService,
-    private readonly authorizationService: AuthorizationService
+    private readonly streamingSessionDomainService: IStreamingSessionDomainService
   ) {}
 
   /**
    * Fetches streaming session history for the authenticated user
    * @param callerId - The caller's Azure AD Object ID
    * @returns Promise that resolves to streaming session response
-   * @throws StreamingSessionAccessDeniedError when authorization fails
    */
   async fetchStreamingSessionHistory(callerId: string): Promise<FetchStreamingSessionHistoryResponse> {
-    // Use AuthorizationService to validate user exists and has Employee role
-    await this.authorizationService.canAccessContactManager(callerId);
-
+    // Permission check is done at middleware level
     return await this.streamingSessionDomainService.fetchLatestSessionForUser(callerId);
   }
 }

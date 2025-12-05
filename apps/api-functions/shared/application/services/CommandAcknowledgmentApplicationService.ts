@@ -18,20 +18,17 @@ export class CommandAcknowledgmentApplicationService {
   ) {}
 
   /**
-   * Acknowledges multiple pending commands for an employee
+   * Acknowledges multiple pending commands for a PSO
    * @param request - Command acknowledgment request
    * @param callerId - ID of the user making the request
    * @returns Promise that resolves to acknowledgment result
-   * @throws Error if authorization or business rules fail
+   * @throws Error if business rules fail
    */
   async acknowledgeCommands(
     request: AcknowledgeCommandRequest,
     callerId: string
   ): Promise<AcknowledgeCommandResult> {
-    // 1. Authorize the operation
-    await this.authorizationService.authorizeCommandAcknowledgment(callerId);
-
-    // 2. Execute the domain service
+    // Permission check is done at middleware level
     return await this.commandAcknowledgmentService.acknowledgeCommands(request, callerId);
   }
 }

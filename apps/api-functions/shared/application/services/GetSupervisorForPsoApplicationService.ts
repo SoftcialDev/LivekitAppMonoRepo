@@ -42,12 +42,12 @@ export class GetSupervisorForPsoApplicationService {
     }
 
     // 2. Authorization logic based on caller role
-    if (caller.role === UserRole.Employee) {
-      // Employees can only query their own supervisor
+    if (caller.role === UserRole.PSO) {
+      // PSOs can only query their own supervisor
       if (request.identifier !== caller.azureAdObjectId && 
           request.identifier !== caller.id && 
           request.identifier !== caller.email) {
-        throw new Error("Employees can only query their own supervisor information");
+        throw new Error("PSOs can only query their own supervisor information");
       }
     } else if (caller.role === UserRole.Supervisor) {
       // Supervisors can query supervisor information for their assigned PSOs

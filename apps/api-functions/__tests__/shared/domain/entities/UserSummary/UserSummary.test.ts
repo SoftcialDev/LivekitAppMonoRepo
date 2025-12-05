@@ -23,7 +23,7 @@ describe('UserSummary', () => {
     email: 'test@example.com',
     firstName: 'John',
     lastName: 'Doe',
-    role: UserRole.Employee
+    role: UserRole.PSO
   };
 
   describe('constructor', () => {
@@ -34,7 +34,7 @@ describe('UserSummary', () => {
       expect(userSummary.email).toBe('test@example.com');
       expect(userSummary.firstName).toBe('John');
       expect(userSummary.lastName).toBe('Doe');
-      expect(userSummary.role).toBe(UserRole.Employee);
+      expect(userSummary.role).toBe(UserRole.PSO);
     });
 
     it('creates user summary with optional supervisor properties', () => {
@@ -67,7 +67,7 @@ describe('UserSummary', () => {
         azureAdObjectId: 'azure123',
         email: 'test@example.com',
         fullName: 'John Doe',
-        role: UserRole.Employee
+        role: UserRole.PSO
       };
 
       const userSummary = UserSummary.fromPrismaUser(prismaUser);
@@ -76,7 +76,7 @@ describe('UserSummary', () => {
       expect(userSummary.email).toBe('test@example.com');
       expect(userSummary.firstName).toBe('John');
       expect(userSummary.lastName).toBe('Doe');
-      expect(userSummary.role).toBe(UserRole.Employee);
+      expect(userSummary.role).toBe(UserRole.PSO);
       expect(userSummary.supervisorAdId).toBeUndefined();
       expect(userSummary.supervisorName).toBeUndefined();
     });
@@ -86,7 +86,7 @@ describe('UserSummary', () => {
         azureAdObjectId: 'azure123',
         email: 'test@example.com',
         fullName: 'John Doe',
-        role: UserRole.Employee,
+        role: UserRole.PSO,
         supervisor: {
           azureAdObjectId: 'supervisor123',
           fullName: 'Supervisor Name'
@@ -104,7 +104,7 @@ describe('UserSummary', () => {
         azureAdObjectId: 'azure123',
         email: 'test@example.com',
         fullName: 'John',
-        role: UserRole.Employee
+        role: UserRole.PSO
       };
 
       const userSummary = UserSummary.fromPrismaUser(prismaUser);
@@ -118,7 +118,7 @@ describe('UserSummary', () => {
         azureAdObjectId: 'azure123',
         email: 'test@example.com',
         fullName: '',
-        role: UserRole.Employee
+        role: UserRole.PSO
       };
 
       const userSummary = UserSummary.fromPrismaUser(prismaUser);
@@ -132,7 +132,7 @@ describe('UserSummary', () => {
         azureAdObjectId: 'azure123',
         email: 'test@example.com',
         fullName: null,
-        role: UserRole.Employee
+        role: UserRole.PSO
       };
 
       const userSummary = UserSummary.fromPrismaUser(prismaUser);
@@ -146,7 +146,7 @@ describe('UserSummary', () => {
         azureAdObjectId: 'azure123',
         email: 'test@example.com',
         fullName: 'John   Michael   Doe',
-        role: UserRole.Employee
+        role: UserRole.PSO
       };
 
       const userSummary = UserSummary.fromPrismaUser(prismaUser);
@@ -160,7 +160,7 @@ describe('UserSummary', () => {
         azureAdObjectId: 'azure123',
         email: 'test@example.com',
         fullName: '   ',
-        role: UserRole.Employee
+        role: UserRole.PSO
       };
 
       const userSummary = UserSummary.fromPrismaUser(prismaUser);

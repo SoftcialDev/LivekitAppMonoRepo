@@ -14,7 +14,7 @@ generator client {
 enum UserRole {
   Supervisor
   Admin
-  Employee
+  PSO
   ContactManager
   SuperAdmin
   Unassigned
@@ -104,6 +104,9 @@ model User {
   auditLogs                    AuditLog[]                  @relation("UserAuditLogs")
 
   chatParticipants             ChatParticipant[]
+
+  // New RBAC: user-role assignments (supports multiple roles per user)
+  userRoleAssignments          UserRoleAssignment[]
 
   createdAt                    DateTime
   contactManagerForms          ContactManagerForm[]
@@ -291,6 +294,82 @@ model Snapshot {
   @@map("snapshots")
 }
 
+
+// Roles (RBAC)
+model Role {
+  id             String               @id @default(uuid()) @db.Uuid
+  name           String               @unique
+  displayName    String?
+  description    String?
+  isSystem       Boolean              @default(false)
+  isActive       Boolean              @default(true)
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  rolePermissions  RolePermission[]
+  userAssignments  UserRoleAssignment[]
+
+  @@index([isActive])
+  @@index([isSystem])
+  @@map("roles")
+}
+
+// Permissions (RBAC)
+model Permission {
+  id          String              @id @default(uuid()) @db.Uuid
+  code        String              @unique   // e.g., "error_logs:read"
+  name        String
+  description String?
+  resource    String
+  action      String
+  isActive    Boolean             @default(true)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  rolePermissions RolePermission[]
+
+  @@index([resource, action])
+  @@index([isActive])
+  @@map("permissions")
+}
+
+// Role-Permission link (supports overrides via granted)
+model RolePermission {
+  id           String      @id @default(uuid()) @db.Uuid
+  roleId       String      @db.Uuid
+  permissionId String      @db.Uuid
+  granted      Boolean     @default(true)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  role         Role        @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission  @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@index([roleId])
+  @@index([permissionId])
+  @@map("role_permissions")
+}
+
+// User-Role assignments (multi-role per user)
+model UserRoleAssignment {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @db.Uuid
+  roleId     String   @db.Uuid
+  assignedAt DateTime @default(now())
+  assignedBy String?  @db.Uuid
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role       Role     @relation(fields: [roleId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, roleId])
+  @@index([userId, isActive])
+  @@index([roleId])
+  @@map("user_roles")
+}
 
 // Contact manager form submissions
 model ContactManagerForm {

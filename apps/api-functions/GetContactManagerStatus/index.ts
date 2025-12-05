@@ -9,6 +9,8 @@ import { AzureFunction, Context, HttpRequest } from "@azure/functions";
 import { withAuth } from "../shared/middleware/auth";
 import { withErrorHandler } from "../shared/middleware/errorHandler";
 import { withCallerId } from "../shared/middleware/callerId";
+import { requirePermission } from "../shared/middleware/permissions";
+import { Permission } from "../shared/domain/enums/Permission";
 import { ok } from "../shared/utils/response";
 import { ContactManagerApplicationService } from "../shared/application/services/ContactManagerApplicationService";
 import { serviceContainer } from "../shared/infrastructure/container/ServiceContainer";
@@ -38,6 +40,7 @@ const getMyStatusFunction: AzureFunction = withErrorHandler(
 
     await withAuth(ctx, async () => {
       await withCallerId(ctx, async () => {
+        await requirePermission(Permission.ContactManagersRead)(ctx);
         serviceContainer.initialize();
 
         const applicationService = serviceContainer.resolve<ContactManagerApplicationService>('ContactManagerApplicationService');

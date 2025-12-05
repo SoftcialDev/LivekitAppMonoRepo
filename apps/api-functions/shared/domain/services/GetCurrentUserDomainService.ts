@@ -37,9 +37,9 @@ export class GetCurrentUserDomainService {
       user = await this.provisionNewUser(request.callerId, jwtPayload);
       isNewUser = true;
     } else if (user.role === UserRole.Unassigned) {
-      // Ensure users with Unassigned role are promoted to Employee
-      await this.userRepository.changeUserRole(user.id, UserRole.Employee);
-      user = { ...user, role: UserRole.Employee } as any;
+      // Ensure users with Unassigned role are promoted to PSO
+      await this.userRepository.changeUserRole(user.id, UserRole.PSO);
+      user = { ...user, role: UserRole.PSO } as any;
     }
 
     // Defensive: satisfy type-narrowing for linting/TS
@@ -63,7 +63,7 @@ export class GetCurrentUserDomainService {
   }
 
   /**
-   * Provisions a new user with Employee role
+   * Provisions a new user with PSO role
    * @param azureAdObjectId - Azure AD Object ID
    * @param jwtPayload - JWT token payload
    * @returns Promise that resolves to the created user
@@ -81,12 +81,12 @@ export class GetCurrentUserDomainService {
     // Extract or generate full name
     const fullName = (jwtPayload.name || email.split('@')[0]) as string;
 
-    // Create user with Employee role
+    // Create user with PSO role
     return await this.userRepository.upsertUser({
       email,
       azureAdObjectId,
       fullName,
-      role: UserRole.Employee
+      role: UserRole.PSO
     });
   }
 

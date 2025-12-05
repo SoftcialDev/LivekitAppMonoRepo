@@ -82,11 +82,11 @@ export class User {
   }
 
   /**
-   * Checks if the user is an employee
-   * @returns True if user is an employee
+   * Checks if the user is a PSO
+   * @returns True if user is a PSO
    */
   isEmployee(): boolean {
-    return this.isActive() && this.role === UserRole.Employee;
+    return this.isActive() && this.role === UserRole.PSO;
   }
 
   /**
@@ -158,7 +158,7 @@ export class User {
    * @returns True if user can be assigned to a supervisor
    */
   canBeAssignedToSupervisor(): boolean {
-    return this.isActive() && this.role === UserRole.Employee;
+    return this.isActive() && this.role === UserRole.PSO;
   }
 
   /**

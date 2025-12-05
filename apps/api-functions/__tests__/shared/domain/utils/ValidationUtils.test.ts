@@ -147,7 +147,7 @@ describe('ValidationUtils', () => {
     it('should return user when user is an employee', async () => {
       // Arrange
       const email = 'employee@example.com';
-      const user = { id: 'user-123', email, role: UserRole.Employee, deletedAt: null } as User;
+      const user = { id: 'user-123', email, role: UserRole.PSO, deletedAt: null } as User;
       mockUserRepository.findByEmail.mockResolvedValue(user);
 
       // Act
@@ -223,7 +223,7 @@ describe('ValidationUtils', () => {
     it('should throw error when user is not a supervisor', async () => {
       // Arrange
       const email = 'employee@example.com';
-      const user = { id: 'user-123', email, role: UserRole.Employee, deletedAt: null } as User;
+      const user = { id: 'user-123', email, role: UserRole.PSO, deletedAt: null } as User;
       mockSupervisorRepository.findByEmail.mockResolvedValue(user);
 
       // Act & Assert

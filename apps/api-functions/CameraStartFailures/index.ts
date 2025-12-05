@@ -8,6 +8,9 @@ import { Context } from "@azure/functions";
 import { withAuth } from "../shared/middleware/auth";
 import { withErrorHandler } from "../shared/middleware/errorHandler";
 import { withBodyValidation } from "../shared/middleware/validate";
+import { withCallerId } from "../shared/middleware/callerId";
+import { requirePermission } from "../shared/middleware/permissions";
+import { Permission } from "../shared/domain/enums/Permission";
 import { ok } from "../shared/utils/response";
 import { cameraStartFailureSchema } from "../shared/domain/schemas/CameraStartFailureSchema";
 import { serviceContainer } from "../shared/infrastructure/container/ServiceContainer";
@@ -16,24 +19,28 @@ import { ICameraFailureService } from "../shared/domain/interfaces/ICameraFailur
 
 const handler = withErrorHandler(async (ctx: Context) => {
   await withAuth(ctx, async () => {
-    serviceContainer.initialize();
+    await withCallerId(ctx, async () => {
+      await requirePermission(Permission.CameraFailuresCreate)(ctx);
+      
+      serviceContainer.initialize();
 
-    const failureService = serviceContainer.resolve<ICameraFailureService>(
-      "CameraFailureService"
-    );
+      const failureService = serviceContainer.resolve<ICameraFailureService>(
+        "CameraFailureService"
+      );
 
-    await withBodyValidation(cameraStartFailureSchema)(ctx, async () => {
-      const claims = (ctx as any).bindings?.user;
-      const userAdId = getCallerAdId(claims);
-      const userEmail = claims?.upn ?? claims?.preferred_username ?? undefined;
+      await withBodyValidation(cameraStartFailureSchema)(ctx, async () => {
+        const claims = (ctx as any).bindings?.user;
+        const userAdId = getCallerAdId(claims);
+        const userEmail = claims?.upn ?? claims?.preferred_username ?? undefined;
 
-      await failureService.logStartFailure({
-        userAdId,
-        userEmail,
-        ...(ctx as any).bindings.validatedBody,
+        await failureService.logStartFailure({
+          userAdId,
+          userEmail,
+          ...(ctx as any).bindings.validatedBody,
+        });
+
+        ok(ctx, { stored: true });
       });
-
-      ok(ctx, { stored: true });
     });
   });
 });

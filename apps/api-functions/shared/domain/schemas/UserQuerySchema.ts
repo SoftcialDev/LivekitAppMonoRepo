@@ -9,7 +9,7 @@ import { UserRole } from '@prisma/client';
 const validRoles = [
   UserRole.Admin,
   UserRole.Supervisor, 
-  UserRole.Employee,
+  UserRole.PSO,
   UserRole.ContactManager,
   UserRole.SuperAdmin,
   UserRole.Unassigned,

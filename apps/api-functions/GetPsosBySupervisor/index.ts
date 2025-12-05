@@ -3,6 +3,8 @@ import { withAuth } from "../shared/middleware/auth";
 import { withErrorHandler } from "../shared/middleware/errorHandler";
 import { withCallerId } from "../shared/middleware/callerId";
 import { withQueryValidation } from "../shared/middleware/validate";
+import { requirePermission } from "../shared/middleware/permissions";
+import { Permission } from "../shared/domain/enums/Permission";
 import { ok } from "../shared/utils/response";
 import { ServiceContainer } from "../shared/infrastructure/container/ServiceContainer";
 import { GetPsosBySupervisorRequest } from "../shared/domain/value-objects/GetPsosBySupervisorRequest";
@@ -27,6 +29,7 @@ const GetPsosBySupervisor: AzureFunction = withErrorHandler(
     await withAuth(ctx, async () => {
       await withCallerId(ctx, async () => {
         await withQueryValidation(getPsosBySupervisorSchema)(ctx, async () => {
+          await requirePermission(Permission.UsersRead)(ctx);
           const serviceContainer = ServiceContainer.getInstance();
           serviceContainer.initialize();
 

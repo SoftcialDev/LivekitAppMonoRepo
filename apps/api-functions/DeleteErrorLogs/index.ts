@@ -8,8 +8,10 @@ import { Context, HttpRequest } from "@azure/functions";
 import { withAuth } from "../shared/middleware/auth";
 import { withErrorHandler } from "../shared/middleware/errorHandler";
 import { withCallerId } from "../shared/middleware/callerId";
+import { requirePermission } from "../shared/middleware/permissions";
+import { Permission } from "../shared/domain/enums/Permission";
 import { withBodyValidation } from "../shared/middleware/validate";
-import { ok, badRequest } from "../shared/utils/response";
+import { ok } from "../shared/utils/response";
 import { ServiceContainer } from "../shared/infrastructure/container/ServiceContainer";
 import { DeleteErrorLogsApplicationService } from "../shared/application/services/DeleteErrorLogsApplicationService";
 import { DeleteErrorLogsRequest } from "../shared/domain/value-objects/DeleteErrorLogsRequest";
@@ -40,24 +42,16 @@ const deleteErrorLogsHandler = withErrorHandler(
   async (ctx: Context, req: HttpRequest) => {
     await withAuth(ctx, async () => {
       await withCallerId(ctx, async () => {
+        await requirePermission(Permission.ErrorLogsDelete)(ctx);
         await withBodyValidation(deleteErrorLogsSchema)(ctx, async () => {
           const serviceContainer = ServiceContainer.getInstance();
           serviceContainer.initialize();
 
           const applicationService = serviceContainer.resolve<DeleteErrorLogsApplicationService>('DeleteErrorLogsApplicationService');
-          const user = (ctx as any).bindings.user;
-          
-          // Extract email from JWT token (try multiple fields)
-          const callerEmail = (user?.upn || user?.email || user?.preferred_username || '').toLowerCase();
-          
-          if (!callerEmail) {
-            return badRequest(ctx, 'Email not found in authentication token');
-          }
-
           const validatedBody = (ctx as any).bindings.validatedBody;
           const request = DeleteErrorLogsRequest.fromBody(validatedBody);
 
-          await applicationService.deleteErrorLogs(callerEmail, request.ids);
+          await applicationService.deleteErrorLogs(request.ids);
 
           return ok(ctx, {
             message: `Successfully deleted ${request.ids.length} error log(s)`,
