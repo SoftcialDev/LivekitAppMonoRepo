@@ -4,10 +4,24 @@ const fs = require('fs');
 const dotenv = require('dotenv');
 
 /**
- * Loads environment variables.
- * Requires ELECTRON_REMOTE_URL to point to the hosted web app.
+ * Loads environment variables from .env located either next to the app
+ * during development (__dirname) or in resourcesPath when packaged.
  */
-dotenv.config({ path: path.join(__dirname, '.env') });
+function loadEnv() {
+  const candidates = [
+    path.join(__dirname, '.env'),
+    path.join(process.resourcesPath, '.env'),
+  ];
+  for (const p of candidates) {
+    if (fs.existsSync(p)) {
+      dotenv.config({ path: p });
+      return;
+    }
+  }
+  // If not found, keep process.env as-is; error is handled later.
+}
+
+loadEnv();
 
 let logFilePath = null;
 const logBuffer = [];
