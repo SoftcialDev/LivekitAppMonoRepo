@@ -5,16 +5,13 @@
   "author": "Softcial",
   "description": "In Contact Electron App for Collette Health",
   "scripts": {
-    "start": "concurrently \"npm:ui:dev\" \"wait-on http://localhost:5173 && electron .\"",
-    "ui:dev": "npm --prefix ../admin-web run dev",
-    "ui:build": "npm --prefix ../admin-web run build:electron",
-    "start:prod": "npm run ui:build && cross-env NODE_ENV=production electron .",
+    "start": "electron .",
     "postinstall": "electron . --install-service",
     "postuninstall": "electron . --uninstall-service",
-    "build": "npm run ui:build && electron-builder",
-    "dist:exe": "npm run ui:build && electron-builder --win nsis",
-    "dist:msi": "npm run ui:build && electron-builder --win msi",
-    "dist:win": "npm run ui:build && electron-builder --win nsis,msi"
+    "build": "electron-builder",
+    "dist:exe": "electron-builder --win nsis",
+    "dist:msi": "electron-builder --win msi",
+    "dist:win": "electron-builder --win nsis,msi"
   },
   "overrides": {
     "minimatch": "3.1.2"
@@ -27,6 +24,7 @@
     "wait-on": "^8.0.3"
   },
   "dependencies": {
+    "dotenv": "^16.4.5",
     "electron-store": "^10.1.0",
     "express": "^4.19.2",
     "livekit-client": "^2.13.8",
@@ -40,14 +38,11 @@
     "directories": {
       "output": "dist"
     },
-  "files": [
-    "main.js",
-    "preload.js",
-    "assets/**/*"
-  ],
-  "extraResources": [
-    { "from": "../admin-web/dist", "to": "admin-web", "filter": ["**/*"] }
-  ],
+    "files": [
+      "main.js",
+      "assets/**/*"
+    ],
+    "extraResources": [],
     "win": {
       "target": ["nsis", "msi"],
       "protocols": [

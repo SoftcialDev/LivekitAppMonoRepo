@@ -301,21 +301,21 @@ const formatTakenAtUtc = (isoString: string | undefined) => {
         />
       </div>
 
-      {/** Preview modal: only “X” header, no footer */}
+      {/** Preview modal: full image fit without cropping */}
       <AddModal
         open={previewOpen}
         title="Snapshot Preview"
         onClose={() => setPreviewOpen(false)}
         onConfirm={() => setPreviewOpen(false)}
         hideFooter={true}
-        className='w-fit'
+        className="w-[90vw] max-w-6xl"
       >
-        <div className="flex items-center justify-center min-h-[40vh]">
+        <div className="flex items-center justify-center min-h-[40vh] max-h-[85vh] overflow-auto p-2">
           {preview && (
             <img
               src={preview.imageUrl}
               alt="Full snapshot"
-              className="max-w-full max-h-[75vh] rounded"
+              className="max-w-full max-h-[80vh] w-auto h-auto object-contain rounded"
             />
           )}
         </div>
