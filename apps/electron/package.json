@@ -6,8 +6,6 @@
   "description": "In Contact Electron App for Collette Health",
   "scripts": {
     "start": "electron .",
-    "postinstall": "electron . --install-service",
-    "postuninstall": "electron . --uninstall-service",
     "build": "electron-builder",
     "dist:exe": "electron-builder --win nsis",
     "dist:msi": "electron-builder --win msi",
