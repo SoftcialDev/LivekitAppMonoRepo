@@ -13,6 +13,8 @@ import {
 } from '@/shared/api/snapshotsClient';
 import { useHeader } from '@/app/providers/HeaderContext';
 import { useAuth } from '@/shared/auth/useAuth';
+import { usePermissions } from '@/shared/auth/usePermissions';
+import { Permission } from '@/shared/auth/permissions';
 import TrashButton from '@/shared/ui/Buttons/TrashButton';
 import AddModal from '@/shared/ui/ModalComponent';
 import { Column, TableComponent } from '@/shared/ui/TableComponent';
@@ -43,9 +45,12 @@ export type SnapshotReport = SnapshotDTO & {
 const SnapshotsReportPage: React.FC = () => {
   const { initialized } = useAuth();
   const { showToast }   = useToast();
+  const { hasPermission } = usePermissions();
 
   const [reports, setReports] = useState<SnapshotReport[]>([]);
   const [loading, setLoading] = useState(false);
+
+  const canDeleteSnapshot = hasPermission(Permission.SnapshotsDelete);
 
 /**
  * Formats a timestamp string without applying a local timezone offset.
@@ -275,7 +280,9 @@ const formatTakenAtUtc = (isoString: string | undefined) => {
       header: 'Actions',
       render: row => (
         <div className="flex space-x-2">
-          <TrashButton onClick={() => openDeleteModal(row)} />
+          {canDeleteSnapshot && (
+            <TrashButton onClick={() => openDeleteModal(row)} />
+          )}
           <button
             onClick={() => handleDownload(row)}
             className="p-1 hover:text-[var(--color-secondary)]"
@@ -315,7 +322,7 @@ const formatTakenAtUtc = (isoString: string | undefined) => {
             <img
               src={preview.imageUrl}
               alt="Full snapshot"
-              className="max-w-full max-h-[80vh] w-auto h-auto object-contain rounded"
+              className="max-w-full w-fit h-auto object-contain rounded"
             />
           )}
         </div>

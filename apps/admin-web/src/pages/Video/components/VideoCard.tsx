@@ -475,7 +475,7 @@ const VideoCard: React.FC<VideoCardProps & {
             <img
               src={screenshot}
               alt="Snapshot preview"
-              className="w-full max-w-md h-48 object-cover rounded mx-auto"
+              className="max-w-full w-fit h-auto object-contain rounded mx-auto"
             />
           )}
           

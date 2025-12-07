@@ -18,7 +18,6 @@ function loadEnv() {
       return;
     }
   }
-  // If not found, keep process.env as-is; error is handled later.
 }
 
 loadEnv();
