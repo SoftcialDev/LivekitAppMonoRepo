@@ -246,7 +246,7 @@ export class LiveKitRecordingService {
     results: Array<{
       sessionId: string;
       egressId: string;
-      status: "Completed" | "Failed";
+      status: "Completed" | "Completed (disconnection)" | "Failed";
       blobPath?: string;
       blobUrl?: string;
       sasUrl?: string;
@@ -294,7 +294,7 @@ export class LiveKitRecordingService {
     results: Array<{
       sessionId: string;
       egressId: string;
-      status: "Completed" | "Failed";
+      status: "Completed" | "Completed (disconnection)" | "Failed";
       blobPath?: string;
       blobUrl?: string;
       sasUrl?: string;
@@ -321,7 +321,7 @@ export class LiveKitRecordingService {
     const results: Array<{
       sessionId: string;
       egressId: string;
-      status: "Completed" | "Failed";
+      status: "Completed" | "Completed (disconnection)" | "Failed";
       blobPath?: string;
       blobUrl?: string;
       sasUrl?: string;
@@ -369,7 +369,7 @@ export class LiveKitRecordingService {
           results.push({
             sessionId: session.id,
             egressId: session.egressId,
-            status: "Completed",
+            status: "Completed (disconnection)",
             blobPath: (session as any).blobPath ?? undefined,
             blobUrl: (session as any).blobPath ? buildBlobHttpsUrl((session as any).blobPath) : undefined,
             sasUrl: undefined,
