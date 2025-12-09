@@ -151,7 +151,10 @@ export class RecordingSessionRepository implements IRecordingSessionRepository {
     try {
       await prisma.recordingSession.update({
         where: { id: sessionId },
-        data: { status: RecordingStatus.Failed }
+        data: { 
+          status: RecordingStatus.Failed,
+          stoppedAt: getCentralAmericaTime(),
+        }
       });
     } catch (error: any) {
       throw new Error(`Failed to mark recording session as failed: ${error.message}`);
