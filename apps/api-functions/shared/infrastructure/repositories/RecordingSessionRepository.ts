@@ -153,7 +153,7 @@ export class RecordingSessionRepository implements IRecordingSessionRepository {
         where: { id: sessionId },
         data: { 
           status: RecordingStatus.Failed,
-          stoppedAt: getCentralAmericaTime(),
+          stoppedAt: getCentralAmericaTime().toISOString(),
         }
       });
     } catch (error: any) {
