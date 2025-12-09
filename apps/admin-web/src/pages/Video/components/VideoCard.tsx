@@ -96,6 +96,7 @@ const VideoCard: React.FC<VideoCardProps & {
     isRecording,
     loading: recordingLoading,
     toggleRecording,
+    stopRecordingIfActive,
   } = useRecording(roomName!, email!)
   const {
     isTalking,
@@ -281,7 +282,7 @@ const VideoCard: React.FC<VideoCardProps & {
     prevShouldRef.current = shouldStream
     if (prev && !shouldStream) {
       if (isRecording) {
-        void toggleRecording() // stop recording first
+        void stopRecordingIfActive() // stop recording first
       }
       if (isTalking) {
         void stopTalk()        // then stop talkback

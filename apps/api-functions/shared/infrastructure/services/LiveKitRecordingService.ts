@@ -114,8 +114,10 @@ export class LiveKitRecordingService {
   }
 
   /**
-   * Starts a Room-Composite egress and uploads directly to Azure Blob Storage
-   * @param roomName - LiveKit room identifier
+   * Starts a participant-only egress and uploads directly to Azure Blob Storage.
+   * Uses the room name as the participant identity to capture only the PSO feed.
+   *
+   * @param roomName - LiveKit room (and participant identity) to record
    * @param ownerLabel - Human-friendly label used to build the folder prefix
    * @returns Egress identifier and the relative blob path (object key)
    */
@@ -152,8 +154,8 @@ export class LiveKitRecordingService {
 
     const outputs: EncodedOutputs = { file: fileOutput };
 
-    const opts: RoomCompositeOptions = {
-      layout: "speaker-dark",
+    // Record only the participant whose identity matches roomName (the PSO)
+    const opts: Partial<RoomCompositeOptions> = {
       audioOnly: false,
       videoOnly: false,
       encodingOptions: new EncodingOptions({
@@ -166,7 +168,12 @@ export class LiveKitRecordingService {
       }),
     };
 
-    const info = await this.egressClient.startRoomCompositeEgress(roomName, outputs, opts);
+    const info = await this.egressClient.startParticipantEgress(
+      roomName,
+      roomName, // participant identity == roomName (PSO)
+      outputs,
+      opts as any
+    );
 
     if (!info.egressId) {
       throw new Error("LiveKit did not return an egressId.");
@@ -349,7 +356,30 @@ export class LiveKitRecordingService {
           initiatorUserId: session.userId,
           subjectUserId: (session as any).subjectUserId ?? null,
         });
-      } catch {
+      } catch (err: any) {
+        const message = err?.message?.toLowerCase?.() ?? "";
+        const notFound = message.includes("not found") || message.includes("no active egress");
+        if (notFound) {
+          // Treat already-stopped/not-found as completed (likely disconnected earlier)
+          await this.recordingRepository.complete(
+            session.id,
+            (session as any).blobPath ? buildBlobHttpsUrl((session as any).blobPath) : null,
+            getCentralAmericaTime().toISOString()
+          );
+          results.push({
+            sessionId: session.id,
+            egressId: session.egressId,
+            status: "Completed",
+            blobPath: (session as any).blobPath ?? undefined,
+            blobUrl: (session as any).blobPath ? buildBlobHttpsUrl((session as any).blobPath) : undefined,
+            sasUrl: undefined,
+            roomName: session.roomName,
+            initiatorUserId: session.userId,
+            subjectUserId: (session as any).subjectUserId ?? null,
+          });
+          continue;
+        }
+
         await this.recordingRepository.fail(session.id);
         results.push({
           sessionId: session.id,

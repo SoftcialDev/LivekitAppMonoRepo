@@ -49,6 +49,23 @@ const formatDuration = (totalSeconds: number) => {
 };
 
 /**
+ * Formats an ISO timestamp in UTC using the same logic as Snapshot report.
+ *
+ * @param isoString - ISO-8601 timestamp from the API.
+ * @returns Locale formatted date/time or the original string if parsing fails.
+ */
+const formatStartedAtUtc = (isoString?: string) => {
+  if (!isoString) return "—";
+  const dt = new Date(isoString);
+  if (Number.isNaN(dt.getTime())) return isoString;
+  return new Intl.DateTimeFormat(undefined, {
+    timeZone: "UTC",
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(dt);
+};
+
+/**
  * Recordings report page component.
  */
 const RecordingsReportPage: React.FC = () => {
@@ -189,9 +206,7 @@ const RecordingsReportPage: React.FC = () => {
     {
       key: "startedAt",
       header: "Date & Time",
-      render: (row) => {
-        return row.startedAt || "—";
-      },
+      render: (row) => formatStartedAtUtc(row.startedAt),
     },
     {
       key: "playback",
