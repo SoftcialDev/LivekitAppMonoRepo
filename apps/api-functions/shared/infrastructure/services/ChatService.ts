@@ -375,18 +375,6 @@ export class ChatService implements IChatService {
   }
 
   /**
-   * Creates a Graph client using an access token acquired elsewhere.
-   *
-   * @param accessToken - OAuth access token.
-   * @returns Graph client that uses the provided access token.
-   */
-  private initGraphClientWithAccessToken(accessToken: string): Client {
-    return Client.init({
-      authProvider: (done) => done(null, accessToken)
-    });
-  }
-
-  /**
    * Creates a Graph client authenticated as the application using client credentials.
    */
   private initGraphClientAsApp(): Client {
