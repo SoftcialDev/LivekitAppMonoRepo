@@ -11,6 +11,7 @@ import { WebSocketEventRequest } from "../shared/domain/value-objects/WebSocketE
 import { WebSocketConnectionApplicationService } from "../shared/application/services/WebSocketConnectionApplicationService";
 import { ContactManagerDisconnectApplicationService } from "../shared/application/services/ContactManagerDisconnectApplicationService";
 import { logWebPubSubErrorIfAny } from "../shared/utils/webPubSubErrorLogger";
+import { logWebPubSubEvent } from "../shared/utils/webPubSubEventLogger";
 
 /**
  * Azure Function: WebPubSubEvents
@@ -188,6 +189,10 @@ const webPubSubEvents: AzureFunction = withErrorHandler(
     
       await logWebPubSubErrorIfAny(response, request, eventName, serviceContainer, context, "handleConnection");
     
+    if (response.status === 200) {
+      await logWebPubSubEvent(eventName, request, serviceContainer, context);
+    }
+    
     context.res = { 
       status: response.status || 200,
       headers: { "Content-Type": "application/json" },
@@ -209,12 +214,8 @@ const webPubSubEvents: AzureFunction = withErrorHandler(
       const cmResponse = await cmService.handleContactManagerDisconnect(request);
       await logWebPubSubErrorIfAny(cmResponse, request, eventName, serviceContainer, context, "ContactManagerDisconnect");
 
-    try {
-
-      const webPubSubService = serviceContainer.resolve<any>("WebPubSubService");
-      await webPubSubService.syncAllUsersWithDatabase();
-    } catch (syncError: any) {
-      context.log.warn("[WebPubSubEvents] Sync error (non-critical)", syncError);
+    if (disconnectResponse.status === 200) {
+      await logWebPubSubEvent(eventName, request, serviceContainer, context);
     }
 
     context.res = { status: 200 };

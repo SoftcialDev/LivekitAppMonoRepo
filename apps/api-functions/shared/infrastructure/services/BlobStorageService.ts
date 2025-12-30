@@ -17,8 +17,16 @@ export class BlobStorageService implements IBlobStorageService {
     const connStr = process.env.AZURE_STORAGE_CONNECTION_STRING;
     const containerName = process.env.SNAPSHOT_CONTAINER_NAME;
     
-    if (!connStr || !containerName) {
-      throw new Error('Azure Storage connection string or container name is not defined in environment variables.');
+    if (!connStr && !containerName) {
+      throw new Error('Configuration error: Missing required environment variables. AZURE_STORAGE_CONNECTION_STRING and SNAPSHOT_CONTAINER_NAME are not defined.');
+    }
+    
+    if (!connStr) {
+      throw new Error('Configuration error: AZURE_STORAGE_CONNECTION_STRING environment variable is not defined.');
+    }
+    
+    if (!containerName) {
+      throw new Error('Configuration error: SNAPSHOT_CONTAINER_NAME environment variable is not defined.');
     }
     
     const blobServiceClient = BlobServiceClient.fromConnectionString(connStr);

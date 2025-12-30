@@ -445,6 +445,7 @@ enum ErrorSource {
   Database
   Authentication
   Validation
+  WebPubSub
   Recording
   Unknown
 }

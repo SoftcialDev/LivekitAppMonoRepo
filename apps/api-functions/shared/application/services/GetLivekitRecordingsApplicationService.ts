@@ -5,21 +5,17 @@
  */
 
 import { IRecordingDomainService } from '../../domain/interfaces/IRecordingDomainService';
-import { AuthorizationService } from '../../domain/services/AuthorizationService';
 import { GetLivekitRecordingsRequest } from '../../domain/value-objects/GetLivekitRecordingsRequest';
 import { GetLivekitRecordingsResponse } from '../../domain/value-objects/GetLivekitRecordingsResponse';
-import { RecordingAccessDeniedError } from '../../domain/errors/RecordingErrors';
 
 /**
  * Application service for GetLivekitRecordings operations
  * 
  * @param recordingDomainService - Domain service for recording operations
- * @param authorizationService - Service for user authorization
  */
 export class GetLivekitRecordingsApplicationService {
   constructor(
-    private readonly recordingDomainService: IRecordingDomainService,
-    private readonly authorizationService: AuthorizationService
+    private readonly recordingDomainService: IRecordingDomainService
   ) {}
 
   /**
@@ -27,16 +23,11 @@ export class GetLivekitRecordingsApplicationService {
    * @param callerId - Azure AD Object ID of the caller
    * @param request - Query parameters for listing recordings
    * @returns GetLivekitRecordingsResponse with recording data
-   * @throws RecordingAccessDeniedError when caller lacks permissions
+   * @remarks Authorization is handled by the middleware requirePermission(Permission.RecordingsRead)
    */
   async getLivekitRecordings(callerId: string, request: GetLivekitRecordingsRequest): Promise<GetLivekitRecordingsResponse> {
-    // Authorize caller - only Admin and SuperAdmin can access recordings
-    const isAuthorized = await this.authorizationService.canAccessAdmin(callerId);
-    
-    if (!isAuthorized) {
-      throw new RecordingAccessDeniedError("Insufficient privileges to access recordings");
-    }
-
+    // Authorization is already handled by requirePermission middleware in the handler
+    // No need for additional authorization check here
     return await this.recordingDomainService.listRecordings(request);
   }
 }
