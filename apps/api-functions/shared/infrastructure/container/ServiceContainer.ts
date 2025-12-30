@@ -381,7 +381,8 @@ export class ServiceContainer {
 
           this.register<GetLivekitRecordingsApplicationService>('GetLivekitRecordingsApplicationService', () => {
             const recordingDomainService = this.resolve<RecordingDomainService>('RecordingDomainService');
-            return new GetLivekitRecordingsApplicationService(recordingDomainService);
+            const authorizationService = this.resolve<AuthorizationService>('AuthorizationService');
+            return new GetLivekitRecordingsApplicationService(recordingDomainService, authorizationService);
           });
 
           // Register LiveKit Recording services
