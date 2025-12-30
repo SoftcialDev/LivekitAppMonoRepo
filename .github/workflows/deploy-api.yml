@@ -3,7 +3,7 @@ name: Deploy API Functions
 on:
   push:
     branches:
-      - main
+      - main 
     paths:
       - 'apps/api-functions/**'
       - '.github/workflows/deploy-api.yml'
