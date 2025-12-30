@@ -5,6 +5,7 @@ import React, {
   useRef,
   MouseEvent,
 } from 'react';
+import { createPortal } from 'react-dom';
 import AddButton from './Buttons/AddButton';
 import CancelButton from './Buttons/CancelButton';
 import CancelIcon from './Buttons/CancelIcon';
@@ -166,8 +167,6 @@ const AddModal: React.FC<AddModalProps> = ({
     };
   }, [dragging, offset]);
 
-  if (!open) return null;
-
   // Default container classes (preserved unless fully overridden)
   const defaultContainer =
     `
@@ -184,8 +183,8 @@ const AddModal: React.FC<AddModalProps> = ({
   const containerClass =
     classNameOverride?.trim() || `${defaultContainer} ${className || ''}`.trim();
 
-  return (
-    <div className="fixed inset-0 z-50">
+  const modalContent = (
+    <div className="fixed inset-0 z-[9999]">
       <div
         ref={modalRef}
         className={containerClass}
@@ -225,6 +224,10 @@ const AddModal: React.FC<AddModalProps> = ({
       </div>
     </div>
   );
+
+  if (!open) return null;
+
+  return createPortal(modalContent, document.body);
 };
 
 export default AddModal;

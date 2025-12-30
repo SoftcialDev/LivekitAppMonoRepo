@@ -5,10 +5,8 @@
       "type": "httpTrigger",
       "direction": "in",
       "name": "req",
-      "methods": [
-        "post"
-      ],
-      "route": "SyncTenantUsers"
+      "methods": ["get"],
+      "route": "health"
     },
     {
       "type": "http",

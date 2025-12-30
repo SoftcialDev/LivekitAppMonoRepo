@@ -89,6 +89,12 @@ export interface TableComponentProps<T> {
   onToggleAll?: (checked: boolean, visibleRowKeys: string[]) => void;
   /** Custom actions to render on the right side of the toolbar (next to search). */
   rightActions?: React.ReactNode;
+  /** External pagination: current page from parent (1-based) */
+  externalPage?: number;
+  /** External pagination: total pages from parent */
+  externalTotalPages?: number;
+  /** External pagination: callback when page changes */
+  onPageChange?: (page: number) => void;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -140,18 +146,32 @@ export function TableComponent<T extends { azureAdObjectId?: string }>(
     onToggleRow,
     onToggleAll,
     rightActions,
+    externalPage,
+    externalTotalPages,
+    onPageChange,
   }: TableComponentProps<T>
 ): JSX.Element {
   const [searchTerm, setSearchTerm] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
+  const [internalPage, setInternalPage] = useState(1);
+  
+  const isExternalPagination = externalPage !== undefined && externalTotalPages !== undefined && onPageChange !== undefined;
+  const currentPage = isExternalPagination ? externalPage : internalPage;
 
   const handleSearch = (e: ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value);
-    setCurrentPage(1);
+    if (!isExternalPagination) {
+      setInternalPage(1);
+    } else if (onPageChange) {
+      onPageChange(1);
+    }
   };
 
   const filteredData = useMemo(
     () => {
+      if (isExternalPagination) {
+        return data;
+      }
+      
       // If search term is empty, return all data
       if (!searchTerm.trim()) {
         return data;
@@ -176,18 +196,24 @@ export function TableComponent<T extends { azureAdObjectId?: string }>(
         })
       );
     },
-    [data, columns, searchTerm]
+    [data, columns, searchTerm, isExternalPagination]
   );
 
-  const totalPages = Math.max(1, Math.ceil(filteredData.length / pageSize));
+  const totalPages = isExternalPagination 
+    ? (externalTotalPages ?? 1)
+    : Math.max(1, Math.ceil(filteredData.length / pageSize));
 
   const pagedData = useMemo(
-    () =>
-      filteredData.slice(
+    () => {
+      if (isExternalPagination) {
+        return filteredData;
+      }
+      return filteredData.slice(
         (currentPage - 1) * pageSize,
         currentPage * pageSize
-      ),
-    [filteredData, currentPage, pageSize]
+      );
+    },
+    [filteredData, currentPage, pageSize, isExternalPagination]
   );
 
   const visibleRowKeys = useMemo(() =>
@@ -214,9 +240,21 @@ export function TableComponent<T extends { azureAdObjectId?: string }>(
     }
   }, [someVisibleSelected, visibleRowKeys.join(','), selectedKeys.join(',')]);
 
-  const goPrevious = () => setCurrentPage(p => Math.max(1, p - 1));
-  const goNext = () =>
-    setCurrentPage(p => Math.min(totalPages, p + 1));
+  const goPrevious = () => {
+    if (isExternalPagination && onPageChange) {
+      onPageChange(Math.max(1, currentPage - 1));
+    } else {
+      setInternalPage(p => Math.max(1, p - 1));
+    }
+  };
+  
+  const goNext = () => {
+    if (isExternalPagination && onPageChange) {
+      onPageChange(Math.min(totalPages, currentPage + 1));
+    } else {
+      setInternalPage(p => Math.min(totalPages, p + 1));
+    }
+  };
 
   return (
     <div className={`flex flex-col ${tablePadding} pt-10`}>

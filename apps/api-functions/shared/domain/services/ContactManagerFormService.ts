@@ -128,6 +128,7 @@ export class ContactManagerFormService implements IContactManagerFormService {
           functionName: 'sendNotificationAsync',
           error,
           userId: senderId,
+          userEmail: senderEmail,
           chatId,
           context: {
             formType: request.formType,

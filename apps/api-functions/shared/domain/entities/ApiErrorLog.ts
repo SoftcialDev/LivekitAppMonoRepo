@@ -21,6 +21,7 @@ export class ApiErrorLog {
   public readonly stackTrace: string | null;
   public readonly httpStatusCode: number | null;
   public readonly userId: string | null;
+  public readonly userEmail: string | null;
   public readonly requestId: string | null;
   public readonly context: Record<string, unknown> | null;
   public readonly resolved: boolean;
@@ -43,6 +44,7 @@ export class ApiErrorLog {
     stackTrace?: string | null;
     httpStatusCode?: number | null;
     userId?: string | null;
+    userEmail?: string | null;
     requestId?: string | null;
     context?: Record<string, unknown> | null;
     resolved?: boolean;
@@ -60,6 +62,7 @@ export class ApiErrorLog {
     this.stackTrace = props.stackTrace || null;
     this.httpStatusCode = props.httpStatusCode || null;
     this.userId = props.userId || null;
+    this.userEmail = props.userEmail || null;
     this.requestId = props.requestId || null;
     this.context = props.context || null;
     this.resolved = props.resolved || false;
@@ -85,6 +88,7 @@ export class ApiErrorLog {
       stackTrace: prismaErrorLog.stackTrace,
       httpStatusCode: prismaErrorLog.httpStatusCode,
       userId: prismaErrorLog.userId,
+      userEmail: prismaErrorLog.userEmail,
       requestId: prismaErrorLog.requestId,
       context: prismaErrorLog.context as Record<string, unknown> | null,
       resolved: prismaErrorLog.resolved,

@@ -6,8 +6,10 @@
 
 import { IErrorLogService } from '../interfaces/IErrorLogService';
 import { IErrorLogRepository } from '../interfaces/IErrorLogRepository';
+import { IUserRepository } from '../interfaces/IUserRepository';
 import { ErrorSeverity } from '../enums/ErrorSeverity';
 import { ErrorSource } from '../enums/ErrorSource';
+import { ServiceContainer } from '../../infrastructure/container/ServiceContainer';
 import { getCentralAmericaTime } from '../../utils/dateUtils';
 
 /**
@@ -24,6 +26,36 @@ export class ErrorLogService implements IErrorLogService {
   ) {}
 
   /**
+   * Gets user email from userId if not already provided
+   * @param userId - User ID to look up
+   * @param providedEmail - Email already provided (if any)
+   * @returns User email or undefined
+   */
+  private async getUserEmail(userId?: string, providedEmail?: string): Promise<string | undefined> {
+    if (providedEmail) {
+      return providedEmail;
+    }
+    
+    if (!userId) {
+      return undefined;
+    }
+
+    try {
+      const serviceContainer = ServiceContainer.getInstance();
+      if (!ServiceContainer.initialized) {
+        return undefined;
+      }
+      
+      const userRepository = serviceContainer.resolve<IUserRepository>("UserRepository");
+      const user = await userRepository.findById(userId);
+      return user?.email;
+    } catch (userError) {
+      console.warn('[ErrorLogService] Failed to fetch user email for error logging:', userError);
+      return undefined;
+    }
+  }
+
+  /**
    * Logs an error with full context information
    * @param data - Error logging data including severity, source, and error details
    * @returns Promise that resolves when the error is logged
@@ -35,6 +67,7 @@ export class ErrorLogService implements IErrorLogService {
     functionName?: string;
     error: Error | unknown;
     userId?: string;
+    userEmail?: string;
     requestId?: string;
     context?: Record<string, unknown>;
     httpStatusCode?: number;
@@ -42,6 +75,8 @@ export class ErrorLogService implements IErrorLogService {
     try {
       const { errorName, errorMessage, stackTrace } = this.extractErrorDetails(data.error);
       const severity = data.severity || this.determineSeverity(data.source, data.error);
+      
+      const userEmail = await this.getUserEmail(data.userId, data.userEmail);
 
       await this.errorLogRepository.create({
         severity,
@@ -53,6 +88,7 @@ export class ErrorLogService implements IErrorLogService {
         stackTrace: stackTrace || undefined,
         httpStatusCode: data.httpStatusCode,
         userId: data.userId,
+        userEmail: userEmail,
         requestId: data.requestId,
         context: data.context
       });
@@ -75,6 +111,7 @@ export class ErrorLogService implements IErrorLogService {
     functionName: string;
     error: Error | unknown;
     userId?: string;
+    userEmail?: string;
     chatId?: string;
     context?: Record<string, unknown>;
   }): Promise<void> {
@@ -84,6 +121,7 @@ export class ErrorLogService implements IErrorLogService {
       functionName: data.functionName,
       error: data.error,
       userId: data.userId,
+      userEmail: data.userEmail,
       context: {
         ...data.context,
         chatId: data.chatId

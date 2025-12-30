@@ -6,6 +6,7 @@
 
 import { ExpectedError } from "../../middleware/errorHandler";
 import { ErrorSeverity } from "../../domain/enums/ErrorSeverity";
+import { AuthError, ValidationError, MessagingError } from "../../domain/errors/DomainError";
 
 /**
  * Classification result for an error
@@ -29,6 +30,15 @@ export class ErrorTypeClassifier {
    */
   static classify(error: unknown): ErrorClassification {
     if (error instanceof ExpectedError) {
+      return {
+        type: 'expected',
+        statusCode: error.statusCode,
+        shouldLog: true,
+        severity: this.determineSeverity(error.statusCode)
+      };
+    }
+
+    if (error instanceof AuthError || error instanceof ValidationError || error instanceof MessagingError) {
       return {
         type: 'expected',
         statusCode: error.statusCode,

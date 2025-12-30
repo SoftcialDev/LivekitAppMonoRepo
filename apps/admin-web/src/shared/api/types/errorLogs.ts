@@ -22,6 +22,7 @@ export enum ErrorSource {
   Database = 'Database',
   Authentication = 'Authentication',
   Validation = 'Validation',
+  Recording = 'Recording',
   Unknown = 'Unknown',
 }
 

@@ -53,6 +53,7 @@ export class GetErrorLogsResponse {
       stackTrace: string | null;
       httpStatusCode: number | null;
       userId: string | null;
+      userEmail: string | null;
       requestId: string | null;
       context: Record<string, unknown> | null;
       resolved: boolean;
@@ -78,6 +79,7 @@ export class GetErrorLogsResponse {
         stackTrace: log.stackTrace,
         httpStatusCode: log.httpStatusCode,
         userId: log.userId,
+        userEmail: log.userEmail,
         requestId: log.requestId,
         context: log.context,
         resolved: log.resolved,
@@ -110,6 +112,7 @@ export class GetErrorLogsResponse {
     stackTrace: string | null;
     httpStatusCode: number | null;
     userId: string | null;
+    userEmail: string | null;
     requestId: string | null;
     context: Record<string, unknown> | null;
     resolved: boolean;
@@ -132,6 +135,7 @@ export class GetErrorLogsResponse {
       stackTrace: log.stackTrace,
       httpStatusCode: log.httpStatusCode,
       userId: log.userId,
+      userEmail: log.userEmail,
       requestId: log.requestId,
       context: log.context,
       resolved: log.resolved,

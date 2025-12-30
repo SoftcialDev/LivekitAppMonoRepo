@@ -105,7 +105,7 @@ jobs:
       - name: Run Database Migrations
         shell: bash
         env:
-          API_URL: ${{ secrets.VITE_API_URL }}
+          API_URL: ${{ secrets.API_URL }}
           API_SCOPE_URI: ${{ secrets.VITE_AZURE_AD_API_SCOPE_URI }}
         run: |
           set -euo pipefail

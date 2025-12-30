@@ -21,6 +21,7 @@ export interface ErrorLog {
   stackTrace?: string;
   httpStatusCode?: number;
   userId?: string;
+  userEmail?: string;
   requestId?: string;
   context?: Record<string, any>;
   resolved: boolean;
@@ -59,7 +60,8 @@ export interface GetErrorLogsResponse {
  * Request body for DELETE /api/error-logs
  */
 export interface DeleteErrorLogsRequest {
-  ids: string | string[];
+  ids?: string | string[];
+  deleteAll?: boolean;
 }
 
 /**
@@ -67,7 +69,8 @@ export interface DeleteErrorLogsRequest {
  */
 export interface DeleteErrorLogsResponse {
   message: string;
-  deletedIds: string[];
+  deletedIds?: string[];
+  deletedAll?: boolean;
 }
 
 /**
@@ -149,6 +152,23 @@ export async function deleteErrorLogs(
     return response.data;
   } catch (error: any) {
     const errorMessage = error.response?.data?.error || error.message || 'Failed to delete error logs';
+    throw new Error(errorMessage);
+  }
+}
+
+/**
+ * Deletes all error logs
+ * @returns Promise that resolves to deletion response
+ * @throws Error if the request fails
+ */
+export async function deleteAllErrorLogs(): Promise<DeleteErrorLogsResponse> {
+  try {
+    const response = await apiClient.delete<DeleteErrorLogsResponse>('/api/error-logs', {
+      data: { deleteAll: true }
+    });
+    return response.data;
+  } catch (error: any) {
+    const errorMessage = error.response?.data?.error || error.message || 'Failed to delete all error logs';
     throw new Error(errorMessage);
   }
 }

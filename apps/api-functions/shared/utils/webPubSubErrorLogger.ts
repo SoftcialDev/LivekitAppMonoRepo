@@ -44,6 +44,7 @@ export async function logWebPubSubErrorIfAny(
 
     try {
       const errorLogService = serviceContainer.resolve<IErrorLogService>("ErrorLogService");
+      
       await errorLogService.logError({
         severity: response.status >= 500 ? ErrorSeverity.Critical : ErrorSeverity.Medium,
         source: ErrorSource.WebPubSub,

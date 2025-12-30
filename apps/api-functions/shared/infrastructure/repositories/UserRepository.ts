@@ -264,6 +264,27 @@ export class UserRepository implements IUserRepository {
   }
 
   /**
+   * Finds active users by a specific role (excludes deleted users)
+   * @param role - User role to search for
+   * @returns Promise that resolves to array of users with id, email, and fullName
+   */
+  async findActiveUsersByRole(role: UserRole): Promise<Array<{ id: string; email: string; fullName: string }>> {
+    const prismaUsers = await prisma.user.findMany({
+      where: {
+        role,
+        deletedAt: null
+      },
+      select: {
+        id: true,
+        email: true,
+        fullName: true
+      }
+    });
+
+    return prismaUsers;
+  }
+
+  /**
    * Finds users by roles
    * @param roles - Array of user roles
    * @returns Promise that resolves to array of users

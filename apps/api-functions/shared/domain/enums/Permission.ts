@@ -39,6 +39,7 @@ export enum Permission {
 
   // Camera failures
   CameraFailuresCreate = "camera_failures:create",
+  CameraFailuresRead = "camera_failures:read",
 
   // Users
   UsersRead = "users:read",

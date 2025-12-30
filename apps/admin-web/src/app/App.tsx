@@ -67,6 +67,7 @@ import PsoDashboard from '@/pages/PsoDashboardPage';
 import RecordingsReportPage from '@/pages/RecordingsReportPage';
 import AddSuperAdminPage from '@/pages/AddSuperAdminManagerPage';
 import ErrorLogsPage from '@/pages/ErrorLogsPage';
+import CameraFailuresPage from '@/pages/CameraFailuresPage';
 import { EmailProtectedRoute } from '@/shared/ui/EmailProtectedRoute';
 
 /**
@@ -227,6 +228,16 @@ function App(): JSX.Element {
                 element={
                   <EmailProtectedRoute emailPattern="shanty.cerdas">
                     <ErrorLogsPage />
+                  </EmailProtectedRoute>
+                }
+              />
+
+              {/* Camera Failures - Only for users with email "shanty.cerdas" */}
+              <Route
+                path="/cameraFailures"
+                element={
+                  <EmailProtectedRoute emailPattern="shanty.cerdas">
+                    <CameraFailuresPage />
                   </EmailProtectedRoute>
                 }
               />

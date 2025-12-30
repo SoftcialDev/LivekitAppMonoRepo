@@ -29,5 +29,15 @@ export class DeleteErrorLogsApplicationService {
     // Permission check is done at middleware level
     await this.deleteErrorLogsDomainService.deleteErrorLogs(ids);
   }
+
+  /**
+   * Deletes all error logs from the database
+   * @returns Promise that resolves when the deletion is complete
+   * @throws Error if the deletion operation fails
+   */
+  async deleteAll(): Promise<void> {
+    // Permission check is done at middleware level
+    await this.deleteErrorLogsDomainService.deleteAll();
+  }
 }
 

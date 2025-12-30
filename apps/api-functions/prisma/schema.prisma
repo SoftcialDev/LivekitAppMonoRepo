@@ -445,6 +445,7 @@ enum ErrorSource {
   Database
   Authentication
   Validation
+  Recording
   Unknown
 }
 
@@ -484,6 +485,7 @@ model ApiErrorLog {
   httpStatusCode  Int?
   userId          String?       @db.Uuid
   user            User?         @relation("UserApiErrorLogs", fields: [userId], references: [id], onDelete: SetNull)
+  userEmail       String?       @db.VarChar(255)
   requestId       String?       @db.VarChar(100)
   context         Json?
   resolved        Boolean       @default(false)

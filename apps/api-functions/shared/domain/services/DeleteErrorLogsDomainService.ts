@@ -46,5 +46,14 @@ export class DeleteErrorLogsDomainService {
       await this.errorLogRepository.deleteMany(ids);
     }
   }
+
+  /**
+   * Deletes all error logs from the database
+   * @returns Promise that resolves when the deletion is complete
+   * @throws Error if the deletion operation fails
+   */
+  async deleteAll(): Promise<void> {
+    await this.errorLogRepository.deleteAll();
+  }
 }
 

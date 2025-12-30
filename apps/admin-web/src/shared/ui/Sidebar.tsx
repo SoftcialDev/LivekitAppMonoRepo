@@ -374,6 +374,18 @@ const cmFilterAdornment = useMemo(() => {
                   Error Logs
                 </NavLink>
               )}
+
+              {/* Camera Failures - Only visible for users with email starting with "shanty.cerdas" */}
+              {currentEmail.toLowerCase().startsWith('shanty.cerdas') && (
+                <NavLink
+                  to="/cameraFailures"
+                  className={({ isActive }) =>
+                    `${linkBase} ${isActive ? activeLink : ""}`
+                  }
+                >
+                  Camera Failures
+                </NavLink>
+              )}
             </div>
 
             {/* Dashboard link */}

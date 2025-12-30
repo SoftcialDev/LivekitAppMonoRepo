@@ -19,6 +19,10 @@ import { getCentralAmericaTime } from '../../utils/dateUtils';
 import { buildBlobHttpsUrl, generateReadSasUrl } from './blobSigner';
 import { IRecordingSessionRepository } from '../../domain/interfaces/IRecordingSessionRepository';
 import { IBlobStorageService } from '../../domain/interfaces/IBlobStorageService';
+import { IErrorLogService } from '../../domain/interfaces/IErrorLogService';
+import { IUserRepository } from '../../domain/interfaces/IUserRepository';
+import { ErrorSource } from '../../domain/enums/ErrorSource';
+import { ErrorSeverity } from '../../domain/enums/ErrorSeverity';
 
 /**
  * Converts an arbitrary label into a URL/path-safe slug
@@ -99,10 +103,14 @@ export class LiveKitRecordingService {
   private readonly egressClient: EgressClient;
   private readonly recordingRepository: IRecordingSessionRepository;
   private readonly blobStorageService: IBlobStorageService;
+  private readonly errorLogService?: IErrorLogService;
+  private readonly userRepository?: IUserRepository;
 
   constructor(
     recordingRepository: IRecordingSessionRepository,
-    blobStorageService: IBlobStorageService
+    blobStorageService: IBlobStorageService,
+    errorLogService?: IErrorLogService,
+    userRepository?: IUserRepository
   ) {
     this.egressClient = new EgressClient(
       config.livekitApiUrl,
@@ -111,6 +119,8 @@ export class LiveKitRecordingService {
     );
     this.recordingRepository = recordingRepository;
     this.blobStorageService = blobStorageService;
+    this.errorLogService = errorLogService;
+    this.userRepository = userRepository;
   }
 
   /**
@@ -218,16 +228,36 @@ export class LiveKitRecordingService {
    */
   private async stopRecording(
     egressId: string
-  ): Promise<{ info: EgressInfo; blobUrl?: string }> {
-    const info = await this.egressClient.stopEgress(egressId);
+  ): Promise<{ info: EgressInfo; blobUrl?: string; egressError?: string }> {
+    try {
+      const info = await this.egressClient.stopEgress(egressId);
 
-    const blobUrl =
-      (info as any)?.fileResults?.[0]?.location ??
-      (info as any)?.result?.fileResults?.[0]?.location ??
-      (info as any)?.results?.[0]?.location ??
-      undefined;
+      const blobUrl =
+        (info as any)?.fileResults?.[0]?.location ??
+        (info as any)?.result?.fileResults?.[0]?.location ??
+        (info as any)?.results?.[0]?.location ??
+        undefined;
 
-    return { info, blobUrl };
+      return { info, blobUrl };
+    } catch (err: any) {
+      const message = err?.message?.toLowerCase?.() ?? "";
+      
+      if (message.includes("egress_failed") || message.includes("cannot be stopped")) {
+        const errorMessage = (err as any).error || 
+                            (err as any).statusDetail || 
+                            (err as any).errorMessage ||
+                            err.message ||
+                            'Egress failed but error details not available';
+        
+        return {
+          info: (err as any).info || (err as any),
+          blobUrl: undefined,
+          egressError: errorMessage
+        };
+      }
+      
+      throw err;
+    }
   }
 
   /**
@@ -334,7 +364,61 @@ export class LiveKitRecordingService {
 
     for (const session of sessions) {
       try {
-        const { blobUrl } = await this.stopRecording(session.egressId);
+        const { blobUrl, egressError } = await this.stopRecording(session.egressId);
+        
+        if (egressError) {
+          await this.recordingRepository.fail(session.id);
+          
+          let subjectUserEmail: string | undefined;
+          if (this.userRepository && (session as any).subjectUserId) {
+            try {
+              const subjectUser = await this.userRepository.findById((session as any).subjectUserId);
+              subjectUserEmail = subjectUser?.email;
+            } catch (userError) {
+              console.warn('[LiveKitRecordingService] Failed to fetch subject user email for error logging:', userError);
+            }
+          }
+
+          const errorMessage = `Recording egress failed: ${egressError}`;
+          const errorObj = new Error(errorMessage);
+          errorObj.name = 'EgressFailed';
+
+          if (this.errorLogService) {
+            try {
+              await this.errorLogService.logError({
+                source: ErrorSource.Recording,
+                severity: ErrorSeverity.High,
+                endpoint: '/api/recording',
+                functionName: 'LivekitRecordingFunction',
+                error: errorObj,
+                userId: session.userId,
+                userEmail: subjectUserEmail,
+                context: {
+                  sessionId: session.id,
+                  egressId: session.egressId,
+                  roomName: session.roomName,
+                  subjectUserId: (session as any).subjectUserId,
+                  egressStatus: 'EGRESS_FAILED',
+                  egressError: egressError,
+                  failureReason: 'Egress failed before stop attempt',
+                }
+              });
+            } catch (logErr) {
+              console.error(`[LiveKitRecordingService] Failed to log recording failure to error logs: ${logErr instanceof Error ? logErr.message : String(logErr)}`);
+            }
+          }
+
+          results.push({
+            sessionId: session.id,
+            egressId: session.egressId,
+            status: "Failed",
+            roomName: session.roomName,
+            initiatorUserId: session.userId,
+            subjectUserId: (session as any).subjectUserId ?? null,
+          });
+          continue;
+        }
+
         const finalUrl =
           blobUrl || (session.blobPath ? buildBlobHttpsUrl(session.blobPath) : undefined);
 
@@ -381,6 +465,57 @@ export class LiveKitRecordingService {
         }
 
         await this.recordingRepository.fail(session.id);
+        
+        let subjectUserEmail: string | undefined;
+        if (this.userRepository && (session as any).subjectUserId) {
+          try {
+            const subjectUser = await this.userRepository.findById((session as any).subjectUserId);
+            subjectUserEmail = subjectUser?.email;
+          } catch (userError) {
+            console.warn('[LiveKitRecordingService] Failed to fetch subject user email for error logging:', userError);
+          }
+        }
+
+        const egressErrorDetails = (err as any).error || 
+                                  (err as any).statusDetail || 
+                                  (err as any).errorMessage ||
+                                  err.message;
+        const egressStatus = (err as any).status || (err as any).state || 'UNKNOWN';
+
+        if (this.errorLogService) {
+          try {
+            const errorMessage = egressErrorDetails 
+              ? `Recording stop failed: ${egressErrorDetails}` 
+              : `Recording stop failed: ${err?.message || String(err)}`;
+            const errorObj = new Error(errorMessage);
+            errorObj.name = err?.name || 'RecordingStopError';
+            if (err?.stack) errorObj.stack = err.stack;
+
+            await this.errorLogService.logError({
+              source: ErrorSource.Recording,
+              severity: ErrorSeverity.High,
+              endpoint: '/api/recording',
+              functionName: 'LivekitRecordingFunction',
+              error: errorObj,
+              userId: session.userId,
+              userEmail: subjectUserEmail,
+              context: {
+                sessionId: session.id,
+                egressId: session.egressId,
+                roomName: session.roomName,
+                subjectUserId: (session as any).subjectUserId,
+                initiatorUserId: session.userId,
+                stopError: err?.message || String(err),
+                egressStatus: egressStatus,
+                egressError: egressErrorDetails,
+                failureReason: egressErrorDetails ? 'Egress failed with error' : 'Failed to stop egress',
+              }
+            });
+          } catch (logError) {
+            console.warn('[LiveKitRecordingService] Failed to log recording failure to error logs:', logError);
+          }
+        }
+
         results.push({
           sessionId: session.id,
           egressId: session.egressId,

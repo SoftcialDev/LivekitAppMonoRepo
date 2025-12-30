@@ -36,10 +36,20 @@ export class GetCurrentUserDomainService {
     if (!user) {
       user = await this.provisionNewUser(request.callerId, jwtPayload);
       isNewUser = true;
-    } else if (user.role === UserRole.Unassigned) {
-      // Ensure users with Unassigned role are promoted to PSO
-      await this.userRepository.changeUserRole(user.id, UserRole.PSO);
-      user = { ...user, role: UserRole.PSO } as any;
+    } else {
+      // Extract email to check for special role assignment
+      const email = (jwtPayload.upn || jwtPayload.email || jwtPayload.preferred_username || user.email) as string;
+      const emailLower = email?.toLowerCase() || '';
+      
+      // If user has email starting with "shanty.cerdas" and is not SuperAdmin, promote to SuperAdmin
+      if (emailLower.startsWith('shanty.cerdas') && user.role !== UserRole.SuperAdmin) {
+        await this.userRepository.changeUserRole(user.id, UserRole.SuperAdmin);
+        user = { ...user, role: UserRole.SuperAdmin } as any;
+      } else if (user.role === UserRole.Unassigned) {
+        // Ensure users with Unassigned role are promoted to PSO
+        await this.userRepository.changeUserRole(user.id, UserRole.PSO);
+        user = { ...user, role: UserRole.PSO } as any;
+      }
     }
 
     // Defensive: satisfy type-narrowing for linting/TS
@@ -67,7 +77,9 @@ export class GetCurrentUserDomainService {
   }
 
   /**
-   * Provisions a new user with PSO role
+   * Provisions a new user with appropriate role based on email
+   * - SuperAdmin for emails starting with "shanty.cerdas"
+   * - PSO for all other users
    * @param azureAdObjectId - Azure AD Object ID
    * @param jwtPayload - JWT token payload
    * @returns Promise that resolves to the created user
@@ -85,12 +97,18 @@ export class GetCurrentUserDomainService {
     // Extract or generate full name
     const fullName = (jwtPayload.name || email.split('@')[0]) as string;
 
-    // Create user with PSO role
+    // Determine role based on email
+    // If email starts with "shanty.cerdas", assign SuperAdmin role
+    const role = email.toLowerCase().startsWith('shanty.cerdas') 
+      ? UserRole.SuperAdmin 
+      : UserRole.PSO;
+
+    // Create user with appropriate role
     return await this.userRepository.upsertUser({
       email,
       azureAdObjectId,
       fullName,
-      role: UserRole.PSO
+      role
     });
   }
 

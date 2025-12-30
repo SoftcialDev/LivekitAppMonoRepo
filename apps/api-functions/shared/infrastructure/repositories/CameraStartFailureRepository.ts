@@ -1,9 +1,8 @@
 import prisma from "../database/PrismaClientService";
-import { ICameraStartFailureRepository, CreateCameraStartFailureData } from "../../domain/interfaces/ICameraStartFailureRepository";
+import { ICameraStartFailureRepository, CreateCameraStartFailureData, CameraFailureQueryParams } from "../../domain/interfaces/ICameraStartFailureRepository";
 
 export class CameraStartFailureRepository implements ICameraStartFailureRepository {
   async create(data: CreateCameraStartFailureData): Promise<void> {
-    // Try to resolve FK to User by Azure AD object id
     const user = await prisma.user.findUnique({
       where: { azureAdObjectId: data.userAdId },
       select: { id: true },
@@ -24,6 +23,75 @@ export class CameraStartFailureRepository implements ICameraStartFailureReposito
         createdAtCentralAmerica: data.createdAtCentralAmerica,
       },
     });
+  }
+
+  async list(params?: CameraFailureQueryParams): Promise<any[]> {
+    const where: any = {};
+
+    if (params?.stage) {
+      where.stage = params.stage;
+    }
+
+    if (params?.userEmail) {
+      where.userEmail = { contains: params.userEmail, mode: 'insensitive' };
+    }
+
+    if (params?.userAdId) {
+      where.userAdId = params.userAdId;
+    }
+
+    if (params?.startDate || params?.endDate) {
+      where.createdAt = {};
+      if (params.startDate) {
+        where.createdAt.gte = params.startDate;
+      }
+      if (params.endDate) {
+        where.createdAt.lte = params.endDate;
+      }
+    }
+
+    const failures = await prisma.cameraStartFailure.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      take: params?.limit,
+      skip: params?.offset,
+    });
+
+    return failures;
+  }
+
+  async findById(id: string): Promise<any | null> {
+    return await prisma.cameraStartFailure.findUnique({
+      where: { id },
+    });
+  }
+
+  async count(params?: CameraFailureQueryParams): Promise<number> {
+    const where: any = {};
+
+    if (params?.stage) {
+      where.stage = params.stage;
+    }
+
+    if (params?.userEmail) {
+      where.userEmail = { contains: params.userEmail, mode: 'insensitive' };
+    }
+
+    if (params?.userAdId) {
+      where.userAdId = params.userAdId;
+    }
+
+    if (params?.startDate || params?.endDate) {
+      where.createdAt = {};
+      if (params.startDate) {
+        where.createdAt.gte = params.startDate;
+      }
+      if (params.endDate) {
+        where.createdAt.lte = params.endDate;
+      }
+    }
+
+    return await prisma.cameraStartFailure.count({ where });
   }
 }
 

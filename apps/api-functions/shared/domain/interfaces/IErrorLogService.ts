@@ -23,6 +23,7 @@ export interface IErrorLogService {
     functionName?: string;
     error: Error | unknown;
     userId?: string;
+    userEmail?: string;
     requestId?: string;
     context?: Record<string, unknown>;
     httpStatusCode?: number;
@@ -40,6 +41,7 @@ export interface IErrorLogService {
     functionName: string;
     error: Error | unknown;
     userId?: string;
+    userEmail?: string;
     chatId?: string;
     context?: Record<string, unknown>;
   }): Promise<void>;

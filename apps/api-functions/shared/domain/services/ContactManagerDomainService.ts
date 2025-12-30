@@ -98,11 +98,34 @@ export class ContactManagerDomainService {
 
   /**
    * Lists all Contact Managers.
+   * Ensures all users with ContactManager role have profiles before returning the list.
    * @returns Promise that resolves to the list of Contact Managers
    */
   async listContactManagers(): Promise<ContactManagerListResponse> {
+    await this.ensureAllContactManagersHaveProfiles();
     const profiles = await this.userRepository.findAllContactManagers();
     return ContactManagerListResponse.fromProfiles(profiles);
+  }
+
+  /**
+   * Ensures all users with ContactManager role have corresponding profiles.
+   * Creates missing profiles with Unavailable status.
+   */
+  private async ensureAllContactManagersHaveProfiles(): Promise<void> {
+    const usersWithRole = await this.userRepository.findActiveUsersByRole(UserRole.ContactManager);
+    const existingProfiles = await this.userRepository.findAllContactManagers();
+
+    const existingUserIds = new Set(existingProfiles.map(p => p.userId));
+    const missingUsers = usersWithRole.filter(u => !existingUserIds.has(u.id));
+
+    if (missingUsers.length === 0) {
+      return;
+    }
+
+    const now = getCentralAmericaTime();
+    for (const user of missingUsers) {
+      await this.createContactManagerProfile(user.id, ContactManagerStatus.Unavailable);
+    }
   }
 
   /**

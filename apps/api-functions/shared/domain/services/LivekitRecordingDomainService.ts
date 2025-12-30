@@ -7,6 +7,7 @@
 import { ILivekitRecordingDomainService } from '../interfaces/ILivekitRecordingDomainService';
 import { IRecordingSessionRepository } from '../interfaces/IRecordingSessionRepository';
 import { IUserRepository } from '../interfaces/IUserRepository';
+import { IErrorLogService } from '../interfaces/IErrorLogService';
 import { RecordingCommand } from '../entities/RecordingCommand';
 import { LivekitRecordingResponse } from '../value-objects/LivekitRecordingResponse';
 import { RecordingResultItem } from '../value-objects/LivekitRecordingResponse';
@@ -23,6 +24,7 @@ import { LiveKitRecordingService } from '../../infrastructure/services/LiveKitRe
  * 
  * @param recordingRepository - Repository for recording session data access
  * @param userRepository - Repository for user data access
+ * @param errorLogService - Service for error logging
  */
 export class LivekitRecordingDomainService implements ILivekitRecordingDomainService {
   private readonly liveKitRecordingService: LiveKitRecordingService;
@@ -30,9 +32,15 @@ export class LivekitRecordingDomainService implements ILivekitRecordingDomainSer
   constructor(
     private readonly recordingRepository: IRecordingSessionRepository,
     private readonly userRepository: IUserRepository,
-    private readonly blobStorageService: any // IBlobStorageService
+    private readonly blobStorageService: any, // IBlobStorageService
+    private readonly errorLogService?: IErrorLogService
   ) {
-    this.liveKitRecordingService = new LiveKitRecordingService(recordingRepository, blobStorageService);
+    this.liveKitRecordingService = new LiveKitRecordingService(
+      recordingRepository,
+      blobStorageService,
+      errorLogService,
+      userRepository
+    );
   }
 
   /**

@@ -22,7 +22,9 @@ import { GetCurrentUserRequest } from "../shared/domain/value-objects/GetCurrent
  *
  * **Auto-provisioning:**
  * If the user doesn't exist in the database, they will be automatically created
- * with the PSO role using information from their Azure AD JWT token.
+ * with an appropriate role using information from their Azure AD JWT token:
+ * - SuperAdmin role for emails starting with "shanty.cerdas"
+ * - PSO role for all other users
  *
  * **Response:**
  * ```json
@@ -41,7 +43,7 @@ import { GetCurrentUserRequest } from "../shared/domain/value-objects/GetCurrent
  * **Authorization:**
  * - Requires valid Azure AD token
  * - Returns user information from database
- * - Creates new user with PSO role if not exists
+ * - Creates new user with appropriate role (SuperAdmin or PSO) if not exists
  *
  * **Error Codes:**
  * - 400: Bad request (email not found in token)

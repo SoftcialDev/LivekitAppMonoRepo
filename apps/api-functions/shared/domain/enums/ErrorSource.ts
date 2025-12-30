@@ -19,6 +19,8 @@ export enum ErrorSource {
   Validation = 'Validation',
   /** Errors originating from WebPubSub/WebSocket operations */
   WebPubSub = 'WebPubSub',
+  /** Errors originating from LiveKit recording operations */
+  Recording = 'Recording',
   /** Unknown or unclassified error source */
   Unknown = 'Unknown'
 }

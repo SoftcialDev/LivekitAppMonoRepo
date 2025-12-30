@@ -20,6 +20,7 @@ export interface CreateErrorLogData {
   stackTrace?: string;
   httpStatusCode?: number;
   userId?: string;
+  userEmail?: string;
   requestId?: string;
   context?: Record<string, unknown>;
 }
@@ -90,6 +91,13 @@ export interface IErrorLogRepository {
    * @throws Error if the database operation fails
    */
   deleteMany(ids: string[]): Promise<void>;
+
+  /**
+   * Deletes all error logs from the database
+   * @returns Promise that resolves when the deletion is complete
+   * @throws Error if the database operation fails
+   */
+  deleteAll(): Promise<void>;
 
   /**
    * Counts error logs matching the specified query parameters (without pagination)

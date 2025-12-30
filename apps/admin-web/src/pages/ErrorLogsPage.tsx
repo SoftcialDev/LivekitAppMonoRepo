@@ -8,16 +8,16 @@ import { useAuth } from '@/shared/auth/useAuth';
 import { useHeader } from '@/app/providers/HeaderContext';
 import { useToast } from '@/shared/ui/ToastContext';
 import { Column, TableComponent } from '@/shared/ui/TableComponent';
-import TrashButton from '@/shared/ui/Buttons/TrashButton';
-import AddButton from '@/shared/ui/Buttons/AddButton';
 import {
   getErrorLogs,
   getErrorLogById,
   resolveErrorLog,
   deleteErrorLogs,
+  deleteAllErrorLogs,
   ErrorLog,
   ErrorLogQueryParams,
 } from '@/shared/api/errorLogsClient';
+import { runMigrations } from '@/shared/api/migrationsClient';
 import { ErrorSeverity } from '@/shared/api/types/errorLogs';
 import managementIcon from '@/shared/assets/manage_icon_sidebar.png';
 import { parseIsoAsCRWallClock } from '@/shared/utils/time';
@@ -104,6 +104,53 @@ const ErrorLogsPage: React.FC = () => {
   };
 
   /**
+   * Handles deletion of all error logs
+   */
+  const handleDeleteAll = async (): Promise<void> => {
+    if (!confirm('Are you sure you want to delete ALL error logs? This action cannot be undone.')) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await deleteAllErrorLogs();
+      showToast('Successfully deleted all error logs', 'success');
+      setSelectedIds([]);
+      setFilters({ limit: 100, offset: 0 });
+      await fetchErrorLogs();
+    } catch (err: any) {
+      console.error('Failed to delete all error logs:', err);
+      showToast('Failed to delete all error logs', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
+   * Handles running database migrations
+   */
+  const handleRunMigrations = async (): Promise<void> => {
+    if (!confirm('Are you sure you want to run database migrations? This will update the database schema and seed permissions.')) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const result = await runMigrations();
+      if (result.success) {
+        showToast(result.message || 'Migrations completed successfully', 'success');
+      } else {
+        showToast(result.message || 'Migrations failed', 'error');
+      }
+    } catch (err: any) {
+      console.error('Failed to run migrations:', err);
+      showToast('Failed to run migrations', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
    * Handles resolving a single error log
    */
   const handleResolve = async (id: string): Promise<void> => {
@@ -132,6 +179,7 @@ Severity: ${errorLog.severity}
 Source: ${errorLog.source}
 Error: ${errorLog.errorName}
 Message: ${errorLog.errorMessage}
+User Email: ${errorLog.userEmail || 'N/A'}
 Endpoint: ${errorLog.endpoint || 'N/A'}
 Function: ${errorLog.functionName || 'N/A'}
 Status Code: ${errorLog.httpStatusCode || 'N/A'}
@@ -222,6 +270,11 @@ ${errorLog.stackTrace ? `\nStack Trace:\n${errorLog.stackTrace}` : ''}
       ),
     },
     {
+      key: 'userEmail',
+      header: 'User Email',
+      render: (row) => row.userEmail || 'N/A',
+    },
+    {
       key: 'endpoint',
       header: 'Endpoint',
       render: (row) => row.endpoint || 'N/A',
@@ -270,12 +323,13 @@ ${errorLog.stackTrace ? `\nStack Trace:\n${errorLog.stackTrace}` : ''}
   ];
 
   /**
-   * Left controls with delete button
+   * Left controls with delete buttons and migrations button
    */
   const leftControls = (
     <div className="flex items-center gap-2">
       <button
         onClick={handleDeleteSelected}
+        disabled={selectedIds.length === 0}
         className="
           inline-flex items-center space-x-2
           px-4 py-2
@@ -285,9 +339,41 @@ ${errorLog.stackTrace ? `\nStack Trace:\n${errorLog.stackTrace}` : ''}
           hover:bg-red-700
           transition-colors
           cursor-pointer
+          disabled:opacity-50
+          disabled:cursor-not-allowed
         "
       >
         <span>Delete Selected</span>
+      </button>
+      <button
+        onClick={handleDeleteAll}
+        className="
+          inline-flex items-center space-x-2
+          px-4 py-2
+          bg-red-800
+          text-white font-semibold
+          rounded-full
+          hover:bg-red-900
+          transition-colors
+          cursor-pointer
+        "
+      >
+        <span>Delete All</span>
+      </button>
+      <button
+        onClick={handleRunMigrations}
+        className="
+          inline-flex items-center space-x-2
+          px-4 py-2
+          bg-blue-600
+          text-white font-semibold
+          rounded-full
+          hover:bg-blue-700
+          transition-colors
+          cursor-pointer
+        "
+      >
+        <span>Run Migrations</span>
       </button>
     </div>
   );
@@ -351,7 +437,7 @@ ${errorLog.stackTrace ? `\nStack Trace:\n${errorLog.stackTrace}` : ''}
       <TableComponent<ErrorLog & { azureAdObjectId?: string }>
         columns={columns}
         data={errorLogs.map(log => ({ ...log, azureAdObjectId: log.id }))}
-        pageSize={10}
+        pageSize={Math.max(errorLogs.length, 100)}
         addButton={leftControls}
         loading={loading}
         loadingAction="Loading error logs"

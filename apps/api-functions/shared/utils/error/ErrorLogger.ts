@@ -8,6 +8,7 @@ import { IErrorLogService } from "../../domain/interfaces/IErrorLogService";
 import { ErrorSource } from "../../domain/enums/ErrorSource";
 import { ErrorContext } from "./ErrorContextExtractor";
 import { ErrorClassification } from "./ErrorTypeClassifier";
+import { AuthError, ValidationError, MessagingError } from "../../domain/errors/DomainError";
 
 /**
  * Handles error logging to database
@@ -39,11 +40,12 @@ export class ErrorLogger {
     }
 
     try {
+      const normalizedError = this.normalizeError(error);
       await this.errorLogService.logError({
-        source: this.determineErrorSource(classification.type),
+        source: this.determineErrorSource(classification.type, error),
         endpoint: context.endpoint,
         functionName: context.functionName,
-        error: this.normalizeError(error),
+        error: normalizedError,
         userId: context.userId,
         httpStatusCode: classification.statusCode,
         severity: classification.severity,
@@ -64,9 +66,19 @@ export class ErrorLogger {
   /**
    * Determines error source based on error type
    * @param errorType - Type of error (expected, unexpected, unknown)
+   * @param error - The actual error object to inspect
    * @returns Error source enum value
    */
-  private determineErrorSource(errorType: string): ErrorSource {
+  private determineErrorSource(errorType: string, error?: unknown): ErrorSource {
+    if (error instanceof AuthError) {
+      return ErrorSource.Authentication;
+    }
+    if (error instanceof ValidationError) {
+      return ErrorSource.Validation;
+    }
+    if (error instanceof MessagingError) {
+      return ErrorSource.WebPubSub;
+    }
     if (errorType === 'expected') {
       return ErrorSource.Validation;
     }

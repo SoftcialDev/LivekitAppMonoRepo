@@ -60,12 +60,15 @@ const getSnapshotReasonsHandler: AzureFunction = withErrorHandler(
         const serviceContainer = ServiceContainer.getInstance();
         serviceContainer.initialize();
         const errorLogService = serviceContainer.resolve<IErrorLogService>("ErrorLogService");
+        const callerId = (ctx as any).bindings?.callerId;
+
         await errorLogService.logError({
           severity: ErrorSeverity.Medium,
           source: ErrorSource.Authentication,
           endpoint: "/api/GetSnapshotReasons",
           functionName: "GetSnapshotReasons",
           error: new Error("Authentication failed: Missing or invalid Authorization header"),
+          userId: callerId,
           context: {
             hasCtxReq: !!ctx.req,
             hasReq: !!req,

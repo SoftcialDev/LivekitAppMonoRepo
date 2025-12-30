@@ -110,7 +110,6 @@ const TalkSessionsReportPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
   const [limit] = useState(10);
-  const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
 
   useHeader({
@@ -130,7 +129,6 @@ const TalkSessionsReportPage: React.FC = () => {
       }));
       console.log('[TalkSessionsReportPage] Mapped sessions:', sessionsWithId);
       setSessions(sessionsWithId);
-      setTotal(response.total);
       setTotalPages(response.totalPages);
     } catch (err: any) {
       console.error('[TalkSessionsReportPage] Error fetching sessions:', err);
@@ -196,39 +194,14 @@ const TalkSessionsReportPage: React.FC = () => {
       <TableComponent<TalkSessionReport>
         columns={columns}
         data={sessions}
-        pageSize={Math.max(sessions.length, 10)}
+        pageSize={limit}
         loading={loading}
         loadingAction="Loading talk sessions..."
         addButton={null}
+        externalPage={page}
+        externalTotalPages={totalPages}
+        onPageChange={setPage}
       />
-      
-      {/* Pagination controls */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between mt-4 text-white">
-          <div>
-            Showing {(page - 1) * limit + 1} to {Math.min(page * limit, total)} of {total} sessions
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setPage(p => Math.max(1, p - 1))}
-              disabled={page === 1 || loading}
-              className="px-4 py-2 bg-[var(--color-secondary)] text-[var(--color-primary-dark)] rounded disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Previous
-            </button>
-            <span className="px-4 py-2">
-              Page {page} of {totalPages}
-            </span>
-            <button
-              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-              disabled={page === totalPages || loading}
-              className="px-4 py-2 bg-[var(--color-secondary)] text-[var(--color-primary-dark)] rounded disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Next
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

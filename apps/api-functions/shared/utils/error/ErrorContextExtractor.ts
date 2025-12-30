@@ -5,6 +5,8 @@
  */
 
 import { Context } from "@azure/functions";
+import { getCallerAdId } from "../authHelpers";
+import type { JwtPayload } from "jsonwebtoken";
 
 /**
  * Error context information extracted from Azure Functions context
@@ -96,7 +98,17 @@ export class ErrorContextExtractor {
    * @returns User ID or undefined if not available
    */
   private static extractUserId(ctx: Context): string | undefined {
-    return (ctx as any).bindings?.callerId || undefined;
+    const callerId = (ctx as any).bindings?.callerId;
+    if (callerId) {
+      return callerId;
+    }
+
+    const userClaims = (ctx as any).bindings?.user as JwtPayload | undefined;
+    if (userClaims) {
+      return getCallerAdId(userClaims);
+    }
+
+    return undefined;
   }
 }
 

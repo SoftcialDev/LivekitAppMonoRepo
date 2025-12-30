@@ -64,6 +64,7 @@ const PERMISSIONS: SeedPermission[] = [
 
   // Camera failures
   { code: "camera_failures:create", name: "Create camera failure report", resource: "camera_failures", action: "create" },
+  { code: "camera_failures:read", name: "Read camera failure logs", resource: "camera_failures", action: "read" },
 
   // Users
   { code: "users:read", name: "Read users", resource: "users", action: "read" },

@@ -35,6 +35,7 @@ export class ErrorLogRepository implements IErrorLogRepository {
           stackTrace: data.stackTrace,
           httpStatusCode: data.httpStatusCode,
           userId: data.userId,
+          userEmail: data.userEmail,
           requestId: data.requestId,
           context: data.context as any,
           resolved: false,
@@ -172,6 +173,19 @@ export class ErrorLogRepository implements IErrorLogRepository {
       });
     } catch (error: any) {
       throw new Error(`Failed to delete error logs: ${error.message}`);
+    }
+  }
+
+  /**
+   * Deletes all error logs from the database
+   * @returns Promise that resolves when the deletion is complete
+   * @throws Error if the database operation fails
+   */
+  async deleteAll(): Promise<void> {
+    try {
+      await (prisma as any).apiErrorLog.deleteMany({});
+    } catch (error: any) {
+      throw new Error(`Failed to delete all error logs: ${error.message}`);
     }
   }
 

@@ -124,6 +124,8 @@ import { ErrorLogRepository } from '../repositories/ErrorLogRepository';
 import { ErrorLogService } from '../../domain/services/ErrorLogService';
 import { GetErrorLogsDomainService } from '../../domain/services/GetErrorLogsDomainService';
 import { GetErrorLogsApplicationService } from '../../application/services/GetErrorLogsApplicationService';
+import { GetCameraFailuresDomainService } from '../../domain/services/GetCameraFailuresDomainService';
+import { GetCameraFailuresApplicationService } from '../../application/services/GetCameraFailuresApplicationService';
 import { DeleteErrorLogsDomainService } from '../../domain/services/DeleteErrorLogsDomainService';
 import { DeleteErrorLogsApplicationService } from '../../application/services/DeleteErrorLogsApplicationService';
 import { ITalkSessionRepository } from '../../domain/interfaces/ITalkSessionRepository';
@@ -379,8 +381,7 @@ export class ServiceContainer {
 
           this.register<GetLivekitRecordingsApplicationService>('GetLivekitRecordingsApplicationService', () => {
             const recordingDomainService = this.resolve<RecordingDomainService>('RecordingDomainService');
-            const authorizationService = this.resolve<AuthorizationService>('AuthorizationService');
-            return new GetLivekitRecordingsApplicationService(recordingDomainService, authorizationService);
+            return new GetLivekitRecordingsApplicationService(recordingDomainService);
           });
 
           // Register LiveKit Recording services
@@ -394,7 +395,8 @@ export class ServiceContainer {
             const recordingRepository = this.resolve<IRecordingSessionRepository>('RecordingSessionRepository');
             const userRepository = this.resolve<IUserRepository>('UserRepository');
             const blobStorageService = this.resolve<IBlobStorageService>('BlobStorageService');
-            return new LivekitRecordingDomainService(recordingRepository, userRepository, blobStorageService);
+            const errorLogService = this.resolve<IErrorLogService>('ErrorLogService');
+            return new LivekitRecordingDomainService(recordingRepository, userRepository, blobStorageService, errorLogService);
           });
 
           this.register<LivekitRecordingApplicationService>('LivekitRecordingApplicationService', () => {
@@ -753,6 +755,16 @@ export class ServiceContainer {
           this.register<GetErrorLogsApplicationService>('GetErrorLogsApplicationService', () => {
             const getErrorLogsDomainService = this.resolve<GetErrorLogsDomainService>('GetErrorLogsDomainService');
             return new GetErrorLogsApplicationService(getErrorLogsDomainService);
+          });
+
+          this.register<GetCameraFailuresDomainService>('GetCameraFailuresDomainService', () => {
+            const cameraFailureRepository = this.resolve<ICameraStartFailureRepository>('CameraStartFailureRepository');
+            return new GetCameraFailuresDomainService(cameraFailureRepository);
+          });
+
+          this.register<GetCameraFailuresApplicationService>('GetCameraFailuresApplicationService', () => {
+            const getCameraFailuresDomainService = this.resolve<GetCameraFailuresDomainService>('GetCameraFailuresDomainService');
+            return new GetCameraFailuresApplicationService(getCameraFailuresDomainService);
           });
 
           // Register Delete Error Logs services
