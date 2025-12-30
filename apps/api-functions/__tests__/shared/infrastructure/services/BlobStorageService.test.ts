@@ -56,14 +56,22 @@ describe('BlobStorageService', () => {
       delete process.env.AZURE_STORAGE_CONNECTION_STRING;
       
       expect(() => new BlobStorageService())
-        .toThrow('Azure Storage connection string or container name is not defined in environment variables.');
+        .toThrow('Configuration error: AZURE_STORAGE_CONNECTION_STRING environment variable is not defined.');
     });
 
     it('should throw error if container name is missing', () => {
       delete process.env.SNAPSHOT_CONTAINER_NAME;
       
       expect(() => new BlobStorageService())
-        .toThrow('Azure Storage connection string or container name is not defined in environment variables.');
+        .toThrow('Configuration error: SNAPSHOT_CONTAINER_NAME environment variable is not defined.');
+    });
+
+    it('should throw error if both variables are missing', () => {
+      delete process.env.AZURE_STORAGE_CONNECTION_STRING;
+      delete process.env.SNAPSHOT_CONTAINER_NAME;
+      
+      expect(() => new BlobStorageService())
+        .toThrow('Configuration error: Missing required environment variables. AZURE_STORAGE_CONNECTION_STRING and SNAPSHOT_CONTAINER_NAME are not defined.');
     });
 
     it('should initialize container client correctly', () => {
