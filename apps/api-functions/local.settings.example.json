@@ -33,7 +33,6 @@
 
     "WEBPUBSUB_ENDPOINT":   "https://your-webpubsub.webpubsub.azure.com",
     "WEBPUBSUB_KEY":        "your-webpubsub-key",
-    "WEBPUBSUB_NAME":       "your-webpubsub-name",
     "WEBPUBSUB_HUB":        "your-hub-name",
     "WEBPUBSUB_CONNECTION": "Endpoint=https://your-webpubsub.webpubsub.azure.com;AccessKey=your-key;Version=1.0;",
 

@@ -8,7 +8,7 @@ export const config = {
   serviceBusConnection: process.env.SERVICE_BUS_CONNECTION!,
   webPubSubEndpoint: process.env.WEBPUBSUB_ENDPOINT!,
   webPubSubKey: process.env.WEBPUBSUB_KEY!,
-  webPubSubHubName: process.env.WEBPUBSUB_NAME!,
+  webPubSubHubName: process.env.WEBPUBSUB_HUB!,
   azureTenantId: process.env.AZURE_TENANT_ID!,
   azureClientId: process.env.AZURE_CLIENT_ID!,
   azureClientSecret: process.env.AZURE_CLIENT_SECRET!,
@@ -37,7 +37,7 @@ if (!config.azureTenantId) throw new Error("AZURE_TENANT_ID is required");
 if (!config.azureClientId) throw new Error("AZURE_CLIENT_ID is required");
 if (!config.azureClientSecret) throw new Error("AZURE_CLIENT_SECRET is required");
 if (!config.serviceBusTopicName) throw new Error("SERVICE_BUS_TOPIC_NAME is required");
-if (!config.webPubSubHubName) throw new Error("WEBPUBSUB_NAME is required");
+if (!config.webPubSubHubName) throw new Error("WEBPUBSUB_HUB is required");
 if (!config.node_env) throw new Error("NODE_ENV is required");
 if (!config.adminsGroupId) throw new Error("ADMINS_GROUP_ID is required");
 if (!config.azureAdApiIdentifierUri) throw new Error("AZURE_AD_API_IDENTIFIER_URI is required");

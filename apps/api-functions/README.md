@@ -111,7 +111,6 @@ Edit `local.settings.json` with your actual values. Here's how to get each value
 #### Azure Web PubSub
 - **WEBPUBSUB_ENDPOINT**: Your Web PubSub endpoint URL
 - **WEBPUBSUB_KEY**: Web PubSub access key
-- **WEBPUBSUB_NAME**: Web PubSub instance name
 - **WEBPUBSUB_HUB**: Hub name for WebSocket connections
 - **WEBPUBSUB_CONNECTION**: Full Web PubSub connection string
 

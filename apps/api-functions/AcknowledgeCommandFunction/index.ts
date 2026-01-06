@@ -1,5 +1,5 @@
 /**
- * @fileoverview AcknowledgeCommandFunction - Azure Function for acknowledging pending commands 
+ * @fileoverview AcknowledgeCommandFunction - Azure Function for acknowledging pending commands
  * @description Allows authenticated PSOs to acknowledge receipt of pending camera commands
  */
 

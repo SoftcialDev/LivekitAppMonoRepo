@@ -66,7 +66,7 @@ export default async function HealthFunction(ctx: Context): Promise<void> {
     "SERVICE_BUS_CONNECTION",
     "WEBPUBSUB_ENDPOINT",
     "WEBPUBSUB_KEY",
-    "WEBPUBSUB_NAME",
+    "WEBPUBSUB_HUB",
     "AZURE_TENANT_ID",
     "AZURE_CLIENT_ID",
     "AZURE_CLIENT_SECRET",
