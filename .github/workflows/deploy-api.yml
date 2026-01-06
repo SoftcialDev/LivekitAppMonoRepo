@@ -3,7 +3,7 @@ name: Deploy API Functions
 on:
   push:
     branches:
-      - main 
+      - main
     paths:
       - 'apps/api-functions/**'
       - '.github/workflows/deploy-api.yml'
@@ -102,7 +102,7 @@ jobs:
             --name in-contact-serverless-api \
             --src "./deploy.zip"
 
-      - name: Run Database Migrations
+      - name: Run Database Migrations and Sync Tenant Users
         shell: bash
         env:
           API_URL: ${{ secrets.API_URL }}
@@ -122,6 +122,7 @@ jobs:
           fi
           
           MIGRATION_URL="${API_URL}/api/RunMigrations"
+          echo "Calling migration endpoint: $MIGRATION_URL"
           
           RESPONSE=$(curl -X POST \
             "$MIGRATION_URL" \
@@ -141,3 +142,25 @@ jobs:
           fi
           
           echo "Migrations completed successfully"
+          
+          SYNC_URL="${API_URL}/api/SyncTenantUsers"
+          echo "Calling sync tenant users endpoint: $SYNC_URL"
+          
+          RESPONSE=$(curl -X POST \
+            "$SYNC_URL" \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{}' \
+            -w "\n%{http_code}" \
+            -s)
+          
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+          
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "Error: Sync tenant users failed with HTTP $HTTP_CODE"
+            echo "$BODY"
+            exit 1
+          fi
+          
+          echo "Tenant users sync completed successfully"
