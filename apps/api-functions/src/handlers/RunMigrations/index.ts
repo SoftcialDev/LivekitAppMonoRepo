@@ -49,12 +49,20 @@ const PRISMA_SCHEMA_PATH = getPrismaSchemaPath();
  */
 const runMigrationsHandler: AzureFunction = withErrorHandler(
   async (ctx: Context, req: HttpRequest) => {
-    await withAuth(ctx, async () => {
-      if (req.method !== "POST") {
-        return badRequest(ctx, "Only POST method is allowed");
-      }
+    ctx.log.info("[RunMigrations] Handler execution started");
+    ctx.log.verbose("[RunMigrations] __dirname:", __dirname);
+    ctx.log.verbose("[RunMigrations] process.cwd():", process.cwd());
+    
+    try {
+      await withAuth(ctx, async () => {
+        ctx.log.info("[RunMigrations] Authentication successful");
+        
+        if (req.method !== "POST") {
+          return badRequest(ctx, "Only POST method is allowed");
+        }
 
-      const { migrationCommand: baseCommand, workingDir } = preparePrismaRuntime();
+        const { migrationCommand: baseCommand, workingDir } = preparePrismaRuntime();
+        ctx.log.info(`[RunMigrations] Prisma runtime prepared. Working dir: ${workingDir}`);
 
       try {
         const prismaEnginesDir = "/tmp/prisma-engines";
@@ -68,6 +76,10 @@ const runMigrationsHandler: AzureFunction = withErrorHandler(
           cpSync(packagedEnginesDir, prismaEnginesDir, { recursive: true });
         }
         
+        /**
+         * Configure Prisma engine environment variables for execution
+         * These are runtime-specific and must be set in process.env for Prisma CLI
+         */
         process.env.PRISMA_ENGINES_TARGET_DIR = prismaEnginesDir;
         process.env.PRISMA_CLI_ALLOW_ENGINE_DOWNLOAD = "1";
         process.env.PRISMA_GENERATE_SKIP_AUTOINSTALL = "1";
@@ -110,7 +122,7 @@ const runMigrationsHandler: AzureFunction = withErrorHandler(
             errorOutput.includes('without a default value') ||
             errorOutput.includes('cannot be executed') ||
             errorOutput.includes('it is not possible') ||
-            process.env.MIGRATION_FORCE_RESET === "true";
+            config.migrationForceReset === "true";
           
           if (requiresDataLoss) {
             ctx.log.warn("[RunMigrations] Migration requires data loss, retrying with --force-reset");
@@ -193,7 +205,14 @@ const runMigrationsHandler: AzureFunction = withErrorHandler(
 
         throw error;
       }
-    });
+      });
+    } catch (outerError: unknown) {
+      ctx.log.error(`[RunMigrations] Outer error catch: ${outerError instanceof Error ? outerError.message : String(outerError)}`);
+      if (outerError instanceof Error && outerError.stack) {
+        ctx.log.error(`[RunMigrations] Stack trace: ${outerError.stack}`);
+      }
+      throw outerError;
+    }
   },
   {
     genericMessage: "Migration execution failed",

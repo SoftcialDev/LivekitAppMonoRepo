@@ -171,21 +171,30 @@ function logExpectedError(ctx: Context, error: ExpectedError): void {
 
 function logUnexpectedError(ctx: Context, error: unknown): void {
   if (error instanceof Error) {
+    const errorDetails: Record<string, unknown> = {
+      event: "UnhandledError",
+      message: error.message,
+      name: error.name,
+      stack: error.stack,
+    };
+    
+    // Access cause property safely (ES2022+ feature)
+    if ('cause' in error && error.cause !== undefined) {
+      errorDetails.cause = error.cause;
+    }
+    
     ctx.log.error(
-      {
-        event: "UnhandledError",
-        message: error.message,
-        stack: error.stack,
-      },
-      "Unhandled exception in function"
+      errorDetails,
+      `Unhandled exception in function: ${error.message}`
     );
   } else {
     ctx.log.error(
       {
         event: "UnhandledNonError",
         error: String(error),
+        type: typeof error,
       },
-      "Non-Error thrown in function"
+      `Non-Error thrown in function: ${String(error)}`
     );
   }
 }

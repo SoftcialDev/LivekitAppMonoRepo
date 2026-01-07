@@ -80,7 +80,16 @@ jobs:
           
           # Wrapper for handler imports (../index -> root/index.js -> dist/index.js)
           echo '"use strict";' > "$TEMP_DIR/index.js"
-          echo 'module.exports = require("./dist/index");' >> "$TEMP_DIR/index.js"
+          echo 'try {' >> "$TEMP_DIR/index.js"
+          echo '  module.exports = require("./dist/index");' >> "$TEMP_DIR/index.js"
+          echo '} catch (error) {' >> "$TEMP_DIR/index.js"
+          echo '  console.error("[Root index.js] Failed to load dist/index");' >> "$TEMP_DIR/index.js"
+          echo '  console.error("Error message:", error?.message || String(error));' >> "$TEMP_DIR/index.js"
+          echo '  console.error("Error stack:", error?.stack || "No stack trace");' >> "$TEMP_DIR/index.js"
+          echo '  console.error("Error name:", error?.name || "Unknown");' >> "$TEMP_DIR/index.js"
+          echo '  if (error?.code) console.error("Error code:", error.code);' >> "$TEMP_DIR/index.js"
+          echo '  throw error;' >> "$TEMP_DIR/index.js"
+          echo '}' >> "$TEMP_DIR/index.js"
           
           mkdir -p "$TEMP_DIR/dist"
           find dist -mindepth 1 -maxdepth 1 ! -name handlers -exec cp -r {} "$TEMP_DIR/dist/" \;
