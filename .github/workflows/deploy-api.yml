@@ -62,8 +62,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          rm -f deploy.zip
           cd "${{ env.FUNC_SRC }}"
+          DEPLOY_ZIP_PATH="$(pwd)/../../deploy.zip"
+          rm -f "$DEPLOY_ZIP_PATH"
           # Create temporary directory structure for Azure Functions
           # Azure Functions expects functions at root level, not in dist/
           TEMP_DIR=$(mktemp -d)
@@ -79,7 +80,7 @@ jobs:
           cp -r prisma "$TEMP_DIR/"
           # Create ZIP from temporary directory
           cd "$TEMP_DIR"
-          zip -r ../../deploy.zip . \
+          zip -r "$DEPLOY_ZIP_PATH" . \
             -x "**/.git/**" \
             -x "**/__tests__/**" \
             -x "**/*.test.ts" \
