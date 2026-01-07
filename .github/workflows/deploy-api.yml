@@ -68,12 +68,17 @@ jobs:
           if [ -d "dist/handlers" ]; then
             for handler_dir in dist/handlers/*/; do
               if [ -d "$handler_dir" ]; then
-                cp -r "$handler_dir" "$TEMP_DIR/$(basename "$handler_dir")"
+                handler_name=$(basename "$handler_dir")
+                cp -r "$handler_dir" "$TEMP_DIR/$handler_name"
+                # Fix imports: ../../index -> ../index (handlers moved from dist/handlers/ to root)
+                if [ -f "$TEMP_DIR/$handler_name/index.js" ]; then
+                  sed -i 's|require("../../index")|require("../index")|g' "$TEMP_DIR/$handler_name/index.js"
+                fi
               fi
             done
           fi
           
-          # Wrapper for handler imports (../../index -> root/index.js -> dist/index.js)
+          # Wrapper for handler imports (../index -> root/index.js -> dist/index.js)
           echo '"use strict";' > "$TEMP_DIR/index.js"
           echo 'module.exports = require("./dist/index");' >> "$TEMP_DIR/index.js"
           
