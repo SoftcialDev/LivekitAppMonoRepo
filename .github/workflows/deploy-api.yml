@@ -63,7 +63,8 @@ jobs:
         run: |
           set -euo pipefail
           cd "${{ env.FUNC_SRC }}"
-          DEPLOY_ZIP_PATH="$(pwd)/../../deploy.zip"
+          FUNC_SRC_ABS="$(pwd)"
+          DEPLOY_ZIP_PATH="$FUNC_SRC_ABS/../../deploy.zip"
           rm -f "$DEPLOY_ZIP_PATH"
           # Create temporary directory structure for Azure Functions
           # Azure Functions expects functions at root level, not in dist/
@@ -92,7 +93,6 @@ jobs:
             -x "**/jest.config.*"
           # Cleanup
           rm -rf "$TEMP_DIR"
-          cd "${{ env.FUNC_SRC }}"
 
       - name: Validate ZIP contents
         shell: bash
