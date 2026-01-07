@@ -19,6 +19,7 @@ permissions:
 
 jobs:
   build:
+    name: 1 - Build and Package
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -31,17 +32,31 @@ jobs:
           cache: npm
           cache-dependency-path: ${{ env.FUNC_SRC }}/package-lock.json
 
-      - name: Install deps, generate Prisma client, build
+      - name: Install dependencies
         shell: bash
         run: |
           set -euo pipefail
           cd "${{ env.FUNC_SRC }}"
           npm ci
           test -f "node_modules/prisma/build/index.js" || test -f "node_modules/.bin/prisma" || (echo "Prisma CLI not found" && exit 1)
+
+      - name: Generate Prisma client
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "${{ env.FUNC_SRC }}"
           npm run prisma:generate
-          test -d "node_modules/.prisma/client"
+          test -d "prisma/generated/prisma" || (echo "Prisma client not generated" && exit 1)
+
+      - name: Build TypeScript
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "${{ env.FUNC_SRC }}"
           npm run build
-          test -f "node_modules/prisma/build/index.js" || (echo "Prisma CLI missing after build" && exit 1)
+          test -d "dist/handlers" || (echo "dist/handlers directory not found after build" && exit 1)
+          test -f "dist/handlers/Health/function.json" || (echo "function.json not copied to dist" && exit 1)
+          test -f "dist/handlers/Health/index.js" || (echo "index.js not found in dist/handlers/Health" && exit 1)
 
       - name: Package deployable ZIP
         shell: bash
@@ -49,12 +64,26 @@ jobs:
           set -euo pipefail
           rm -f deploy.zip
           cd "${{ env.FUNC_SRC }}"
-          zip -r ../../deploy.zip . \
+          # Create ZIP with required structure:
+          # - host.json, package.json at root
+          # - dist/ with compiled code and function.json files
+          # - node_modules/ and prisma/ at root
+          zip -r ../../deploy.zip \
+            host.json \
+            package.json \
+            package-lock.json \
+            dist/ \
+            node_modules/ \
+            prisma/ \
             -x "**/.git/**" \
             -x "**/__tests__/**" \
             -x "**/*.test.ts" \
             -x "**/*.test.js" \
-            -x "**/coverage/**"
+            -x "**/coverage/**" \
+            -x "**/src/**" \
+            -x "**/tsconfig.json" \
+            -x "**/.eslintrc*" \
+            -x "**/jest.config.*"
 
       - name: Validate ZIP contents
         shell: bash
@@ -63,11 +92,20 @@ jobs:
           rm -rf zip-temp
           mkdir -p zip-temp
           unzip -q deploy.zip -d zip-temp
-          test -f "zip-temp/host.json"
-          test ! -d "zip-temp/apps/api-functions"
-          test -d "zip-temp/node_modules/.prisma/client"
-          test -f "zip-temp/node_modules/prisma/build/index.js" || test -f "zip-temp/node_modules/.bin/prisma"
-          test -d "zip-temp/node_modules/prisma" || echo "Warning: Prisma binaries may be missing"
+          # Validate root structure
+          test -f "zip-temp/host.json" || (echo "host.json missing at root" && exit 1)
+          test -f "zip-temp/package.json" || (echo "package.json missing at root" && exit 1)
+          # Validate dist structure
+          test -d "zip-temp/dist" || (echo "dist directory missing" && exit 1)
+          test -d "zip-temp/dist/handlers" || (echo "dist/handlers directory missing" && exit 1)
+          test -f "zip-temp/dist/handlers/Health/function.json" || (echo "function.json missing in dist/handlers/Health" && exit 1)
+          test -f "zip-temp/dist/handlers/Health/index.js" || (echo "index.js missing in dist/handlers/Health" && exit 1)
+          # Validate dependencies
+          test -d "zip-temp/prisma/generated/prisma" || (echo "Prisma client missing" && exit 1)
+          test -f "zip-temp/node_modules/prisma/build/index.js" || test -f "zip-temp/node_modules/.bin/prisma" || (echo "Prisma CLI missing" && exit 1)
+          # Ensure src is not included
+          test ! -d "zip-temp/src" || (echo "src directory should not be in ZIP" && exit 1)
+          echo "ZIP validation passed"
           rm -rf zip-temp
 
       - uses: actions/upload-artifact@v4
@@ -76,6 +114,7 @@ jobs:
           path: deploy.zip
 
   deploy:
+    name: 2 - Deploy to Azure Functions
     runs-on: ubuntu-latest
     needs: build
     permissions:
@@ -93,7 +132,7 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Deploy ZIP to Azure Function
+      - name: Deploy ZIP to Azure Function App
         shell: bash
         run: |
           set -euo pipefail
@@ -101,8 +140,23 @@ jobs:
             --resource-group livekit-agent-azure \
             --name in-contact-serverless-api \
             --src "./deploy.zip"
+          echo "Deployment completed successfully"
 
-      - name: Run Database Migrations and Sync Tenant Users
+  migrations:
+    name: 3 - Run Database Migrations
+    runs-on: ubuntu-latest
+    needs: deploy
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_API_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Run Database Migrations
         shell: bash
         env:
           API_URL: ${{ secrets.API_URL }}
@@ -142,6 +196,40 @@ jobs:
           fi
           
           echo "Migrations completed successfully"
+          echo "$BODY"
+
+  sync-tenant-users:
+    name: 4 - Sync Tenant Users
+    runs-on: ubuntu-latest
+    needs: migrations
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_API_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Sync Tenant Users
+        shell: bash
+        env:
+          API_URL: ${{ secrets.API_URL }}
+          API_SCOPE_URI: ${{ secrets.VITE_AZURE_AD_API_SCOPE_URI }}
+        run: |
+          set -euo pipefail
+          
+          APP_ID_URI="${API_SCOPE_URI%/access_as_user}"
+          
+          TOKEN=$(az account get-access-token \
+            --resource "$APP_ID_URI" \
+            --query accessToken -o tsv)
+          
+          if [ -z "$TOKEN" ]; then
+            echo "Error: Failed to obtain Azure AD token"
+            exit 1
+          fi
           
           SYNC_URL="${API_URL}/api/SyncTenantUsers"
           echo "Calling sync tenant users endpoint: $SYNC_URL"
@@ -164,3 +252,4 @@ jobs:
           fi
           
           echo "Tenant users sync completed successfully"
+          echo "$BODY"
