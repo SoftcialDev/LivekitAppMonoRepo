@@ -51,3 +51,6 @@ apps/api-functions/local.settings.json
 coverage/
 *.lcov
 *.lcov.info
+
+# Prisma generated files
+prisma/generated/

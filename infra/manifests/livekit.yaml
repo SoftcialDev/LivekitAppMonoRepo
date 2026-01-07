@@ -265,16 +265,6 @@ spec:
           env:
             - name: EGRESS_CONFIG_FILE
               value: /config/config.yaml
-            - name: AZURE_STORAGE_ACCOUNT
-              valueFrom:
-                secretKeyRef:
-                  name: livekit-blobstorage-secret
-                  key: AZURE_STORAGE_ACCOUNT
-            - name: AZURE_STORAGE_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: livekit-blobstorage-secret
-                  key: AZURE_STORAGE_KEY
           securityContext:
             capabilities:
               add: ["SYS_ADMIN"]

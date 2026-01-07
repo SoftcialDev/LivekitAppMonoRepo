@@ -2,7 +2,9 @@
   "compilerOptions": {
     "target": "ES2020",
     "module": "commonjs",
-    "baseUrl": ".",
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "baseUrl": "./src",
     "paths": {
       "@config/*":     ["config/*"],
       "@middleware/*": ["middleware/*"],
@@ -11,8 +13,11 @@
     },
     "strict": true,
     "esModuleInterop": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "sourceMap": true,
+    "declaration": false,
+    "removeComments": true
   },
-  "include": ["**/*.ts"],
-  "exclude": ["node_modules", "__tests__"]
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "__tests__", "dist", "**/*.test.ts"]
 }
