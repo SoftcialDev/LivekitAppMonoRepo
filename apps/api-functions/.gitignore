@@ -14,6 +14,8 @@ override.tf.json
 *_override.tf
 *_override.tf.json
 *.js
+# Exception: build scripts should be versioned
+!scripts/*.js
 
 # Ignore CLI configuration files
 .terraformrc
