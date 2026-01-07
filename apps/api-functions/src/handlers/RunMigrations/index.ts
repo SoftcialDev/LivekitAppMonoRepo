@@ -53,16 +53,15 @@ const runMigrationsHandler: AzureFunction = withErrorHandler(
     ctx.log.verbose("[RunMigrations] __dirname:", __dirname);
     ctx.log.verbose("[RunMigrations] process.cwd():", process.cwd());
     
-    try {
-      await withAuth(ctx, async () => {
-        ctx.log.info("[RunMigrations] Authentication successful");
-        
-        if (req.method !== "POST") {
-          return badRequest(ctx, "Only POST method is allowed");
-        }
+    await withAuth(ctx, async () => {
+      ctx.log.info("[RunMigrations] Authentication successful");
+      
+      if (req.method !== "POST") {
+        return badRequest(ctx, "Only POST method is allowed");
+      }
 
-        const { migrationCommand: baseCommand, workingDir } = preparePrismaRuntime();
-        ctx.log.info(`[RunMigrations] Prisma runtime prepared. Working dir: ${workingDir}`);
+      const { migrationCommand: baseCommand, workingDir } = preparePrismaRuntime();
+      ctx.log.info(`[RunMigrations] Prisma runtime prepared. Working dir: ${workingDir}`);
 
       try {
         const prismaEnginesDir = "/tmp/prisma-engines";
@@ -205,14 +204,7 @@ const runMigrationsHandler: AzureFunction = withErrorHandler(
 
         throw error;
       }
-      });
-    } catch (outerError: unknown) {
-      ctx.log.error(`[RunMigrations] Outer error catch: ${outerError instanceof Error ? outerError.message : String(outerError)}`);
-      if (outerError instanceof Error && outerError.stack) {
-        ctx.log.error(`[RunMigrations] Stack trace: ${outerError.stack}`);
-      }
-      throw outerError;
-    }
+    });
   },
   {
     genericMessage: "Migration execution failed",
