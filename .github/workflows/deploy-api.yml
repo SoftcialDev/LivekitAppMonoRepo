@@ -64,17 +64,22 @@ jobs:
           set -euo pipefail
           rm -f deploy.zip
           cd "${{ env.FUNC_SRC }}"
-          # Create ZIP with required structure:
-          # - host.json, package.json at root
-          # - dist/ with compiled code and function.json files
-          # - node_modules/ and prisma/ at root
-          zip -r ../../deploy.zip \
-            host.json \
-            package.json \
-            package-lock.json \
-            dist/ \
-            node_modules/ \
-            prisma/ \
+          # Create temporary directory structure for Azure Functions
+          # Azure Functions expects functions at root level, not in dist/
+          TEMP_DIR=$(mktemp -d)
+          # Copy root files
+          cp host.json package.json package-lock.json "$TEMP_DIR/"
+          # Copy handlers to root (Azure Functions requirement)
+          cp -r dist/handlers "$TEMP_DIR/"
+          # Copy other dist files (shared code) to dist/
+          mkdir -p "$TEMP_DIR/dist"
+          find dist -mindepth 1 -maxdepth 1 ! -name handlers -exec cp -r {} "$TEMP_DIR/dist/" \;
+          # Copy dependencies
+          cp -r node_modules "$TEMP_DIR/"
+          cp -r prisma "$TEMP_DIR/"
+          # Create ZIP from temporary directory
+          cd "$TEMP_DIR"
+          zip -r ../../deploy.zip . \
             -x "**/.git/**" \
             -x "**/__tests__/**" \
             -x "**/*.test.ts" \
@@ -84,6 +89,9 @@ jobs:
             -x "**/tsconfig.json" \
             -x "**/.eslintrc*" \
             -x "**/jest.config.*"
+          # Cleanup
+          rm -rf "$TEMP_DIR"
+          cd "${{ env.FUNC_SRC }}"
 
       - name: Validate ZIP contents
         shell: bash
@@ -95,11 +103,12 @@ jobs:
           # Validate root structure
           test -f "zip-temp/host.json" || (echo "host.json missing at root" && exit 1)
           test -f "zip-temp/package.json" || (echo "package.json missing at root" && exit 1)
-          # Validate dist structure
-          test -d "zip-temp/dist" || (echo "dist directory missing" && exit 1)
-          test -d "zip-temp/dist/handlers" || (echo "dist/handlers directory missing" && exit 1)
-          test -f "zip-temp/dist/handlers/Health/function.json" || (echo "function.json missing in dist/handlers/Health" && exit 1)
-          test -f "zip-temp/dist/handlers/Health/index.js" || (echo "index.js missing in dist/handlers/Health" && exit 1)
+          # Validate function structure (functions should be at root, not in dist/)
+          test -d "zip-temp/handlers" || (echo "handlers directory missing at root" && exit 1)
+          test -f "zip-temp/handlers/Health/function.json" || (echo "function.json missing in handlers/Health" && exit 1)
+          test -f "zip-temp/handlers/Health/index.js" || (echo "index.js missing in handlers/Health" && exit 1)
+          test -f "zip-temp/handlers/RunMigrations/function.json" || (echo "function.json missing in handlers/RunMigrations" && exit 1)
+          test -f "zip-temp/handlers/RunMigrations/index.js" || (echo "index.js missing in handlers/RunMigrations" && exit 1)
           # Validate dependencies
           test -d "zip-temp/node_modules/@prisma/client" || test -d "zip-temp/node_modules/.prisma/client" || (echo "Prisma client missing" && exit 1)
           test -f "zip-temp/node_modules/prisma/build/index.js" || test -f "zip-temp/node_modules/.bin/prisma" || (echo "Prisma CLI missing" && exit 1)
