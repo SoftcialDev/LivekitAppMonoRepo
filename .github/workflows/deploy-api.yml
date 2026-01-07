@@ -46,7 +46,7 @@ jobs:
           set -euo pipefail
           cd "${{ env.FUNC_SRC }}"
           npm run prisma:generate
-          test -d "prisma/generated/prisma" || (echo "Prisma client not generated" && exit 1)
+          test -d "node_modules/.prisma/client" || test -f "node_modules/@prisma/client/index.js" || (echo "Prisma client not generated" && exit 1)
 
       - name: Build TypeScript
         shell: bash
@@ -101,7 +101,7 @@ jobs:
           test -f "zip-temp/dist/handlers/Health/function.json" || (echo "function.json missing in dist/handlers/Health" && exit 1)
           test -f "zip-temp/dist/handlers/Health/index.js" || (echo "index.js missing in dist/handlers/Health" && exit 1)
           # Validate dependencies
-          test -d "zip-temp/prisma/generated/prisma" || (echo "Prisma client missing" && exit 1)
+          test -d "zip-temp/node_modules/@prisma/client" || test -d "zip-temp/node_modules/.prisma/client" || (echo "Prisma client missing" && exit 1)
           test -f "zip-temp/node_modules/prisma/build/index.js" || test -f "zip-temp/node_modules/.bin/prisma" || (echo "Prisma CLI missing" && exit 1)
           # Ensure src is not included
           test ! -d "zip-temp/src" || (echo "src directory should not be in ZIP" && exit 1)

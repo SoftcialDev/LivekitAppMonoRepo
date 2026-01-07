@@ -4,8 +4,7 @@ datasource db {
 }
 
 generator client {
-  provider = "prisma-client"
-  output   = "./generated/prisma"
+  provider = "prisma-client-js"
 }
 
 // User roles in the system
