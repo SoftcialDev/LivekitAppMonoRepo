@@ -63,23 +63,42 @@ jobs:
         run: |
           set -euo pipefail
           cd "${{ env.FUNC_SRC }}"
-          FUNC_SRC_ABS="$(pwd)"
-          DEPLOY_ZIP_PATH="$FUNC_SRC_ABS/../../deploy.zip"
+          DEPLOY_ZIP_PATH="$(pwd)/../../deploy.zip"
           rm -f "$DEPLOY_ZIP_PATH"
-          # Create temporary directory structure for Azure Functions
-          # Azure Functions expects functions at root level, not in dist/
           TEMP_DIR=$(mktemp -d)
+          
           # Copy root files
           cp host.json package.json package-lock.json "$TEMP_DIR/"
-          # Copy handlers to root (Azure Functions requirement)
-          cp -r dist/handlers "$TEMP_DIR/"
-          # Copy other dist files (shared code) to dist/
+          
+          # Copy each handler folder from dist/handlers/ to root of ZIP
+          # Azure Functions requires each function in its own subdirectory at root
+          if [ -d "dist/handlers" ]; then
+            for handler_dir in dist/handlers/*/; do
+              if [ -d "$handler_dir" ]; then
+                handler_name=$(basename "$handler_dir")
+                echo "Copying handler: $handler_name"
+                cp -r "$handler_dir" "$TEMP_DIR/$handler_name"
+              fi
+            done
+          fi
+          
+          # Create index.js wrapper at root that re-exports from dist/index
+          # This allows handlers in root (with imports like ../../index) to resolve correctly
+          # Handlers have require("../../index") which from root/HandlerName/ resolves to root/index.js
+          echo '"use strict";' > "$TEMP_DIR/index.js"
+          echo '// Wrapper to re-export from dist/index.js' >> "$TEMP_DIR/index.js"
+          echo '// This allows handlers at root level to import from ../../index' >> "$TEMP_DIR/index.js"
+          echo 'module.exports = require("./dist/index");' >> "$TEMP_DIR/index.js"
+          
+          # Copy other dist contents (domain, infrastructure, etc.) to dist/
           mkdir -p "$TEMP_DIR/dist"
           find dist -mindepth 1 -maxdepth 1 ! -name handlers -exec cp -r {} "$TEMP_DIR/dist/" \;
-          # Copy dependencies
+          
+          # Copy node_modules and prisma
           cp -r node_modules "$TEMP_DIR/"
           cp -r prisma "$TEMP_DIR/"
-          # Create ZIP from temporary directory
+          
+          # Create ZIP from temp directory
           cd "$TEMP_DIR"
           zip -r "$DEPLOY_ZIP_PATH" . \
             -x "**/.git/**" \
@@ -91,7 +110,7 @@ jobs:
             -x "**/tsconfig.json" \
             -x "**/.eslintrc*" \
             -x "**/jest.config.*"
-          # Cleanup
+          
           rm -rf "$TEMP_DIR"
 
       - name: Validate ZIP contents
@@ -104,18 +123,24 @@ jobs:
           # Validate root structure
           test -f "zip-temp/host.json" || (echo "host.json missing at root" && exit 1)
           test -f "zip-temp/package.json" || (echo "package.json missing at root" && exit 1)
-          # Validate function structure (functions should be at root, not in dist/)
-          test -d "zip-temp/handlers" || (echo "handlers directory missing at root" && exit 1)
-          test -f "zip-temp/handlers/Health/function.json" || (echo "function.json missing in handlers/Health" && exit 1)
-          test -f "zip-temp/handlers/Health/index.js" || (echo "index.js missing in handlers/Health" && exit 1)
-          test -f "zip-temp/handlers/RunMigrations/function.json" || (echo "function.json missing in handlers/RunMigrations" && exit 1)
-          test -f "zip-temp/handlers/RunMigrations/index.js" || (echo "index.js missing in handlers/RunMigrations" && exit 1)
+          test -f "zip-temp/index.js" || (echo "index.js missing at root (needed for handler imports)" && exit 1)
+          # Validate handlers are at root (Azure Functions requirement)
+          test -d "zip-temp/Health" || (echo "Health handler missing at root" && exit 1)
+          test -f "zip-temp/Health/function.json" || (echo "function.json missing in Health handler" && exit 1)
+          test -f "zip-temp/Health/index.js" || (echo "index.js missing in Health handler" && exit 1)
+          test -d "zip-temp/RunMigrations" || (echo "RunMigrations handler missing at root" && exit 1)
+          test -f "zip-temp/RunMigrations/function.json" || (echo "function.json missing in RunMigrations handler" && exit 1)
+          test -f "zip-temp/RunMigrations/index.js" || (echo "index.js missing in RunMigrations handler" && exit 1)
+          # Validate dist structure (shared code)
+          test -d "zip-temp/dist" || (echo "dist directory missing" && exit 1)
+          test -f "zip-temp/dist/index.js" || (echo "dist/index.js missing" && exit 1)
           # Validate dependencies
           test -d "zip-temp/node_modules/@prisma/client" || test -d "zip-temp/node_modules/.prisma/client" || (echo "Prisma client missing" && exit 1)
           test -f "zip-temp/node_modules/prisma/build/index.js" || test -f "zip-temp/node_modules/.bin/prisma" || (echo "Prisma CLI missing" && exit 1)
-          # Ensure src is not included
+          # Ensure src and dist/handlers are not included (handlers moved to root)
           test ! -d "zip-temp/src" || (echo "src directory should not be in ZIP" && exit 1)
-          echo "ZIP validation passed"
+          test ! -d "zip-temp/dist/handlers" || (echo "dist/handlers should not be in ZIP (handlers moved to root)" && exit 1)
+          echo "ZIP validation passed - handlers at root, shared code in dist/"
           rm -rf zip-temp
 
       - uses: actions/upload-artifact@v4
