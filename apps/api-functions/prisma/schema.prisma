@@ -1,0 +1,499 @@
+// Database configuration
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// User roles in the system
+enum UserRole {
+  Supervisor
+  Admin
+  PSO
+  ContactManager
+  SuperAdmin
+  Unassigned
+}
+
+// Contact manager availability states
+enum ContactManagerStatus {
+  Unavailable
+  Available
+  OnBreak
+  OnAnotherTask
+}
+
+// Form types for contact manager submissions
+enum FormType {
+  Disconnections
+  Admissions
+  Assistance
+}
+
+// User connection status
+enum Status {
+  online
+  offline
+}
+
+// Commands for employee streaming control
+enum CommandType {
+  START
+  STOP
+  REFRESH
+}
+
+// Contact manager profiles with status tracking
+model ContactManagerProfile {
+  id         String                           @id @default(uuid()) @db.Uuid
+  userId     String                           @unique @db.Uuid
+  user       User                             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status     ContactManagerStatus
+  createdAt  DateTime
+  updatedAt  DateTime
+  history    ContactManagerStatusHistory[]
+
+  @@map("contact_manager_profiles")
+}
+
+// Status change history for contact managers
+model ContactManagerStatusHistory {
+  id             String                   @id @default(uuid()) @db.Uuid
+  profileId      String                   @db.Uuid
+  profile        ContactManagerProfile    @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  previousStatus ContactManagerStatus
+  newStatus      ContactManagerStatus
+  changedById    String                   @db.Uuid
+  changedBy      User                     @relation(fields: [changedById], references: [id], onDelete: Cascade)
+  timestamp      DateTime
+
+  @@map("contact_manager_status_history")
+}
+// Main user entity with role-based access
+model User {
+  id                           String                      @id @default(uuid()) @db.Uuid
+  azureAdObjectId              String                      @unique
+  email                        String                      @unique
+  fullName                     String
+  role                         UserRole
+  roleChangedAt                DateTime?
+  supervisorId                 String?                     @db.Uuid
+  assignedAt                   DateTime?
+
+  contactProfile               ContactManagerProfile?      @relation
+
+  recordingSessionsSubjectOf   RecordingSession[]          @relation("RecordingSubjectUser")
+
+  supervisor                   User?                       @relation("SupervisorToEmployees", fields: [supervisorId], references: [id], onDelete: SetNull)
+  employees                    User[]                      @relation("SupervisorToEmployees")
+
+  supervisorSnapshots          Snapshot[]                  @relation("SupervisorSnapshots")
+  psoSnapshots                 Snapshot[]                  @relation("PsoSnapshots")
+
+  presence                     Presence?
+  presenceHistory              PresenceHistory[]
+  recordingSessions            RecordingSession[]
+  commands                     PendingCommand[]            @relation("EmployeeCommands")
+
+  streamingSessions            StreamingSessionHistory[]
+  auditLogs                    AuditLog[]                  @relation("UserAuditLogs")
+
+  chatParticipants             ChatParticipant[]
+
+  // New RBAC: user-role assignments (supports multiple roles per user)
+  userRoleAssignments          UserRoleAssignment[]
+
+  createdAt                    DateTime
+  contactManagerForms          ContactManagerForm[]
+
+  updatedAt                    DateTime
+  deletedAt                    DateTime?
+
+  supervisorTalkSessions       TalkSessionHistory[]       @relation("SupervisorTalkSessions")
+  psoTalkSessions              TalkSessionHistory[]       @relation("PsoTalkSessions")
+
+  ContactManagerStatusHistory  ContactManagerStatusHistory[]
+
+  // Camera start failures (optional relation)
+  cameraStartFailures         CameraStartFailure[]        @relation("UserCameraStartFailures")
+
+  // API error logs (optional relation)
+  apiErrorLogs                ApiErrorLog[]               @relation("UserApiErrorLogs")
+
+  @@index([supervisorId])
+}
+
+// Real-time user presence tracking
+model Presence {
+  userId     String   @id @db.Uuid
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status     Status
+  lastSeenAt DateTime
+  updatedAt  DateTime
+
+  @@index([status])
+}
+
+// Historical presence data
+model PresenceHistory {
+  id             String   @id @default(uuid()) @db.Uuid
+  userId         String   @db.Uuid
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  connectedAt    DateTime
+  disconnectedAt DateTime?
+  updatedAt      DateTime
+
+  @@index([userId])
+  @@index([connectedAt])
+}
+
+// Commands sent to employees for streaming control
+model PendingCommand {
+  id              String      @id @default(uuid()) @db.Uuid
+  employeeId      String      @db.Uuid
+  employee        User        @relation("EmployeeCommands", fields: [employeeId], references: [id], onDelete: Cascade)
+  command         CommandType
+  timestamp       DateTime
+  reason          String?
+  published       Boolean     @default(false)
+  publishedAt     DateTime?
+  acknowledged    Boolean     @default(false)
+  acknowledgedAt  DateTime?
+  attemptCount    Int         @default(0)
+  expiresAt       DateTime?
+  createdAt       DateTime
+  updatedAt       DateTime
+
+  @@index([employeeId, acknowledged])
+  @@index([expiresAt])
+}
+
+// Streaming session history per user
+model StreamingSessionHistory {
+  id            String    @id @default(uuid()) @db.Uuid
+  userId        String    @db.Uuid
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  startedAt     DateTime
+  stoppedAt     DateTime?
+  stopReason    String?
+  createdAt     DateTime
+  updatedAt     DateTime
+
+  @@index([userId])
+  @@index([startedAt])
+}
+
+// Talk session history between supervisor and PSO
+model TalkSessionHistory {
+  id            String          @id @default(uuid()) @db.Uuid
+  supervisorId  String          @db.Uuid
+  supervisor    User            @relation("SupervisorTalkSessions", fields: [supervisorId], references: [id], onDelete: Cascade)
+  psoId         String          @db.Uuid
+  pso           User            @relation("PsoTalkSessions", fields: [psoId], references: [id], onDelete: Cascade)
+  startedAt     DateTime
+  stoppedAt     DateTime?
+  stopReason    TalkStopReason?
+  createdAt     DateTime
+  updatedAt     DateTime
+
+  @@index([supervisorId])
+  @@index([psoId])
+  @@index([startedAt])
+}
+
+// Talk session stop reasons
+enum TalkStopReason {
+  USER_STOP
+  PSO_DISCONNECTED
+  SUPERVISOR_DISCONNECTED
+  BROWSER_REFRESH
+  CONNECTION_ERROR
+  UNKNOWN
+}
+
+// System audit trail
+model AuditLog {
+  id           String   @id @default(uuid()) @db.Uuid
+  entity       String
+  entityId     String
+  action       String
+  changedById  String   @db.Uuid
+  changedBy    User     @relation("UserAuditLogs", fields: [changedById], references: [id], onDelete: Cascade)
+  timestamp    DateTime
+  dataBefore   Json?
+  dataAfter    Json?
+
+  @@index([entity, entityId])
+  @@index([changedById])
+  @@index([timestamp])
+}
+
+// Teams/Graph chat conversations
+model Chat {
+  id        String         @id @db.VarChar(100)
+  topic     String?
+  createdAt DateTime
+  updatedAt DateTime
+  members   ChatParticipant[]
+
+  @@map("chats")
+}
+
+// Chat participation records
+model ChatParticipant {
+  chatId      String   @db.VarChar(100)
+  userId      String   @db.Uuid
+  joinedAt    DateTime
+
+  chat        Chat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([chatId, userId])
+  @@map("chat_participants")
+}
+
+// Supervisor snapshots of PSOs
+model SnapshotReason {
+  id        String     @id @default(uuid()) @db.Uuid
+  label     String
+  code      String     @unique
+  isDefault Boolean    @default(false)
+  isActive  Boolean    @default(true)
+  order     Int        @default(0)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  snapshots Snapshot[]
+
+  @@index([isActive])
+  @@index([order])
+  @@map("snapshot_reasons")
+}
+
+model Snapshot {
+  id           String         @id @default(uuid()) @db.Uuid
+  supervisorId String         @db.Uuid
+  psoId        String         @db.Uuid
+  reasonId     String         @db.Uuid
+  description  String?
+  takenAt      DateTime
+  imageUrl     String
+
+  supervisor   User           @relation("SupervisorSnapshots", fields: [supervisorId], references: [id], onDelete: Cascade)
+  pso          User           @relation("PsoSnapshots",        fields: [psoId],        references: [id], onDelete: Cascade)
+  reason       SnapshotReason @relation(fields: [reasonId], references: [id], onDelete: Restrict)
+
+  @@index([supervisorId])
+  @@index([psoId])
+  @@index([reasonId])
+  @@map("snapshots")
+}
+
+
+// Roles (RBAC)
+model Role {
+  id             String               @id @default(uuid()) @db.Uuid
+  name           String               @unique
+  displayName    String?
+  description    String?
+  isSystem       Boolean              @default(false)
+  isActive       Boolean              @default(true)
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  rolePermissions  RolePermission[]
+  userAssignments  UserRoleAssignment[]
+
+  @@index([isActive])
+  @@index([isSystem])
+  @@map("roles")
+}
+
+// Permissions (RBAC)
+model Permission {
+  id          String              @id @default(uuid()) @db.Uuid
+  code        String              @unique   // e.g., "error_logs:read"
+  name        String
+  description String?
+  resource    String
+  action      String
+  isActive    Boolean             @default(true)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  rolePermissions RolePermission[]
+
+  @@index([resource, action])
+  @@index([isActive])
+  @@map("permissions")
+}
+
+// Role-Permission link (supports overrides via granted)
+model RolePermission {
+  id           String      @id @default(uuid()) @db.Uuid
+  roleId       String      @db.Uuid
+  permissionId String      @db.Uuid
+  granted      Boolean     @default(true)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  role         Role        @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission  @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@index([roleId])
+  @@index([permissionId])
+  @@map("role_permissions")
+}
+
+// User-Role assignments (multi-role per user)
+model UserRoleAssignment {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @db.Uuid
+  roleId     String   @db.Uuid
+  assignedAt DateTime @default(now())
+  assignedBy String?  @db.Uuid
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role       Role     @relation(fields: [roleId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, roleId])
+  @@index([userId, isActive])
+  @@index([roleId])
+  @@map("user_roles")
+}
+
+// Contact manager form submissions
+model ContactManagerForm {
+  id        String    @id @default(uuid()) @db.Uuid
+  formType  FormType
+  senderId  String    @db.Uuid
+  sender    User      @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  imageUrl  String?
+  data      Json
+  createdAt DateTime
+  updatedAt DateTime
+}
+
+// LiveKit recording sessions
+model RecordingSession {
+  id         String   @id @default(uuid()) @db.Uuid
+  roomName   String
+  roomId     String?
+  egressId   String   @unique
+  blobUrl    String?
+  blobPath   String?  @db.Text
+  userId     String   @db.Uuid
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subjectUserId String?  @db.Uuid
+  subjectUser    User?   @relation("RecordingSubjectUser", fields: [subjectUserId], references: [id], onDelete: SetNull)
+  subjectLabel String?
+  status     RecordingStatus @default(Active)
+  startedAt  String?
+  stoppedAt  String?
+  createdAt  DateTime
+  updatedAt  DateTime
+
+  @@index([roomName])
+  @@index([userId])
+  @@index([subjectUserId])
+}
+
+// Recording session status
+enum RecordingStatus {
+  Active
+  Completed
+  Failed
+}
+
+// Recording control commands
+enum RecordingCommandType {
+  START
+  STOP
+}
+
+// Camera start failure aggregation (logged only when start flow fails)
+enum CameraFailureStage {
+  Permission      // getUserMedia denied (NotAllowedError)
+  Enumerate       // enumerateDevices failed / returned 0
+  TrackCreate     // createLocalVideoTrack failed (e.g., NotReadableError)
+  LiveKitConnect  // LiveKit room connection failed
+  Publish         // Publishing track failed
+  Unknown
+}
+
+// Error severity levels for API error logging
+enum ErrorSeverity {
+  Low
+  Medium
+  High
+  Critical
+}
+
+// Error source identification for API error logging
+enum ErrorSource {
+  ChatService
+  BlobStorage
+  Database
+  Authentication
+  Validation
+  WebPubSub
+  Recording
+  Unknown
+}
+
+model CameraStartFailure {
+  id                        String             @id @default(cuid())
+  userId                    String?            @db.Uuid
+  user                      User?              @relation("UserCameraStartFailures", fields: [userId], references: [id], onDelete: SetNull)
+  userAdId                  String
+  userEmail                 String?
+
+  stage                     CameraFailureStage
+  errorName                 String?            @db.VarChar(100)
+  errorMessage              String?            @db.VarChar(1000)
+
+  deviceCount               Int?
+  devicesSnapshot           Json?
+  attempts                  Json?
+
+  metadata                  Json?
+  createdAt                 DateTime           @default(now())
+  createdAtCentralAmerica   String?
+
+  @@index([userAdId, createdAt])
+  @@index([stage, createdAt])
+}
+
+// API error logging for tracking and debugging application errors
+model ApiErrorLog {
+  id              String        @id @default(uuid()) @db.Uuid
+  severity        ErrorSeverity @default(Medium)
+  source          ErrorSource
+  endpoint        String?       @db.VarChar(200)
+  functionName    String?       @db.VarChar(200)
+  errorName       String?       @db.VarChar(200)
+  errorMessage    String        @db.Text
+  stackTrace      String?       @db.Text
+  httpStatusCode  Int?
+  userId          String?       @db.Uuid
+  user            User?         @relation("UserApiErrorLogs", fields: [userId], references: [id], onDelete: SetNull)
+  userEmail       String?       @db.VarChar(255)
+  requestId       String?       @db.VarChar(100)
+  context         Json?
+  resolved        Boolean       @default(false)
+  resolvedAt      DateTime?
+  resolvedBy      String?       @db.Uuid
+  createdAt       DateTime      @default(now())
+
+  @@index([source, createdAt])
+  @@index([endpoint, createdAt])
+  @@index([severity, createdAt])
+  @@index([resolved, createdAt])
+  @@map("api_error_logs")
+}

@@ -1,0 +1,17 @@
+{
+  "bindings": [
+    {
+      "authLevel": "anonymous",
+      "type": "httpTrigger",
+      "direction": "in",
+      "name": "req",
+      "route": "contact-managers/me/status",
+      "methods": [ "options", "post", "patch" ]
+    },
+    {
+      "type": "http",
+      "direction": "out",
+      "name": "res"             
+    }
+  ]
+}
