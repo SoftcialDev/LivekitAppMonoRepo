@@ -48,9 +48,9 @@ import { logWebPubSubEvent } from '../../utils/webPubSubEventLogger';
 const webPubSubEvents: AzureFunction = withErrorHandler(
   async (
     context: Context,
-    req: HttpRequest,
-    webPubSubContext: any
+    req: HttpRequest
   ): Promise<void> => {
+    const webPubSubContext = context.bindingData?.webPubSubContext || null;
   if (req.method === "OPTIONS") {
     context.res = {
       status: 200,

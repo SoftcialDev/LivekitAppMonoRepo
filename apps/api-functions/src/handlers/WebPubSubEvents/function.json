@@ -12,12 +12,6 @@
       "type": "http",
       "direction": "out",
       "name": "res"
-    },
-    {
-      "type": "webPubSubContext",
-      "direction": "in",
-      "name": "webPubSubContext",
-      "connection": "WEBPUBSUB_CONNECTION"
     }
   ],
   "scriptFile": "index.js"
