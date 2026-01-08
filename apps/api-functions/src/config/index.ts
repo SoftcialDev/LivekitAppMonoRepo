@@ -1,5 +1,7 @@
 ﻿import * as process from "process";
 import { z } from 'zod';
+import { createLazySingletonProxy } from '../infrastructure/utils/LazySingletonProxy';
+import { ConfigurationError } from '../domain/errors/InfrastructureErrors';
 
 /**
  * Zod schema for configuration validation
@@ -71,7 +73,34 @@ const rawConfig = {
 };
 
 /**
- * Validated configuration object
- * Throws descriptive error if validation fails
+ * Factory function to create and validate configuration
+ * @returns Validated configuration object
+ * @throws ConfigurationError with detailed list of missing/invalid variables
  */
-export const config = configSchema.parse(rawConfig);
+function createConfig(): z.infer<typeof configSchema> {
+  try {
+    return configSchema.parse(rawConfig);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      const missingFields = error.errors
+        .map(e => {
+          const path = e.path.length > 0 ? e.path.join('.') : 'root';
+          return `  - ${path}: ${e.message}`;
+        })
+        .join('\n');
+      throw new ConfigurationError(
+        `Missing or invalid environment variables:\n${missingFields}\n\n` +
+        `Please ensure all required environment variables are set in your Azure Function App settings.`
+      );
+    }
+    throw error;
+  }
+}
+
+/**
+ * Validated configuration object
+ * Uses lazy initialization to avoid module load failures
+ * Only validates when first accessed, allowing handlers to load even if config is incomplete
+ * @throws ConfigurationError with detailed list of missing/invalid variables when accessed
+ */
+export const config = createLazySingletonProxy(createConfig);
