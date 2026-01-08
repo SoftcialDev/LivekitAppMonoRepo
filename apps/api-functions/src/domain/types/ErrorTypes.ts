@@ -60,3 +60,34 @@ export interface AxiosErrorResponse {
   data?: unknown;
 }
 
+/**
+ * Error context information extracted from Azure Functions context
+ * @description Represents contextual information extracted from Azure Functions execution context for error logging
+ */
+export interface ErrorContext {
+  /**
+   * Endpoint path from the request URL
+   */
+  endpoint?: string;
+  /**
+   * Function name extracted from execution context or URL
+   */
+  functionName: string;
+  /**
+   * User ID extracted from context bindings
+   */
+  userId?: string;
+  /**
+   * HTTP method from the request
+   */
+  method?: string;
+  /**
+   * Full request URL
+   */
+  url?: string;
+  /**
+   * Azure Functions invocation ID
+   */
+  invocationId?: string;
+}
+

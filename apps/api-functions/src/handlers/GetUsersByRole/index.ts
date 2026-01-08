@@ -44,7 +44,7 @@ const getUsersByRole: AzureFunction = withErrorHandler(
 
       await withQueryValidation(userQuerySchema)(ctx, async () => {
         await requirePermission(Permission.UsersRead)(ctx);
-        const extendedCtx = ctx as ExtendedContext;
+        const extendedCtx = ensureBindings(ctx);
         const { role, page, pageSize } = extendedCtx.bindings.validatedQuery as { role?: string; page?: string; pageSize?: string };
         
         if (!extendedCtx.bindings.user) {

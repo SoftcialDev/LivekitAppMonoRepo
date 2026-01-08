@@ -7,19 +7,7 @@
 import { Context } from "@azure/functions";
 import { getCallerAdId } from "../authHelpers";
 import type { JwtPayload } from "jsonwebtoken";
-import { ensureBindings } from "../../index";
-
-/**
- * Error context information extracted from Azure Functions context
- */
-export interface ErrorContext {
-  endpoint?: string;
-  functionName: string;
-  userId?: string;
-  method?: string;
-  url?: string;
-  invocationId?: string;
-}
+import { ensureBindings, ErrorContext } from "../../index";
 
 /**
  * Extracts error context information from Azure Functions context

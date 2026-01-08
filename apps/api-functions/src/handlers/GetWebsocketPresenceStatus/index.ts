@@ -30,7 +30,7 @@ const getWebsocketPresenceStatuses: AzureFunction = withErrorHandler(
     await withAuth(ctx, async () => {
       await requirePermission(Permission.StreamingStatusRead)(ctx);
 
-      const extendedCtx = ctx as ExtendedContext;
+      const extendedCtx = ensureBindings(ctx);
       if (!extendedCtx.bindings.user) {
         return unauthorized(ctx, "Unable to determine caller identity: user not found in context");
       }

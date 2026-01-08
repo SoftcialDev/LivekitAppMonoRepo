@@ -4,11 +4,7 @@
  * @description Provides a single responsibility for error logging operations
  */
 
-import { IErrorLogService } from '../../index';
-import { ErrorSource } from '../../index';
-import { ErrorContext } from "./ErrorContextExtractor";
-import { ErrorClassification } from '../../domain/types/ErrorTypes';
-import { AuthError, ValidationError, MessagingError } from '../../index';
+import { IErrorLogService, ErrorSource, ErrorContext, ErrorClassification, AuthError, ValidationError, MessagingError } from '../../index';
 
 /**
  * Handles error logging to database

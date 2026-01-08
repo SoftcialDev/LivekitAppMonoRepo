@@ -33,7 +33,7 @@ const getLivekitRecordingsHandler: AzureFunction = withErrorHandler(
           await requirePermission(Permission.RecordingsRead)(ctx);
           serviceContainer.initialize();
           
-          const extendedCtx = ctx as ExtendedContext;
+          const extendedCtx = ensureBindings(ctx);
           const applicationService = serviceContainer.resolve<GetLivekitRecordingsApplicationService>('GetLivekitRecordingsApplicationService');
           const callerId = extendedCtx.bindings.callerId as string;
           

@@ -67,7 +67,7 @@ const changeUserRole: AzureFunction = withErrorHandler(
 
         // Validate request body
         await withBodyValidation(userRoleChangeSchema)(ctx, async () => {
-          const extendedCtx = ctx as ExtendedContext;
+          const extendedCtx = ensureBindings(ctx);
           const validatedBody = extendedCtx.bindings.validatedBody as UserRoleChangeSchemaType;
           const { userEmail, newRole } = validatedBody;
           const callerId = extendedCtx.bindings.callerId as string;

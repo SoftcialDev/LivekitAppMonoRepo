@@ -94,7 +94,7 @@ const deleteUser: AzureFunction = withErrorHandler(
 
         // Validate request body
         await withBodyValidation(userDeletionSchema)(ctx, async () => {
-          const extendedCtx = ctx as ExtendedContext;
+          const extendedCtx = ensureBindings(ctx);
           const { userEmail, reason } = extendedCtx.bindings.validatedBody as { userEmail: string; reason?: string };
           const callerId = extendedCtx.bindings.callerId as string;
 
