@@ -171,16 +171,37 @@ const VideoCard: React.FC<VideoCardProps & {
 
     const attachTrack = (pub: any) => {
       const { track, kind, isSubscribed } = pub
-      if (!isSubscribed || !track) return
+      if (!isSubscribed || !track) {
+        console.log('[VideoCard] Track not ready:', { kind, isSubscribed, hasTrack: !!track })
+        return
+      }
 
       if (kind === 'video') {
         (track as RemoteVideoTrack).attach(videoRef.current!)
         
       } else if (kind === 'audio') {
+
         (track as RemoteAudioTrack).attach(audioRef.current!)
         if (audioRef.current) {
           audioRef.current.muted = isAudioMuted
-          audioRef.current.play?.().catch(() => {})
+          audioRef.current.volume = 1.0
+          // Force play with retry logic
+          const playAudio = () => {
+            if (audioRef.current && typeof audioRef.current.play === 'function') {
+              const playPromise = audioRef.current.play()
+              if (playPromise) {
+                playPromise.then(() => {
+                  console.log('[VideoCard] Audio playing successfully')
+                }).catch((err) => {
+                  console.warn('[VideoCard] Play failed, retrying:', err)
+                  setTimeout(() => {
+                    playAudio()
+                  }, 300)
+                })
+              }
+            }
+          }
+          playAudio()
         }
       }
     }
@@ -194,7 +215,18 @@ const VideoCard: React.FC<VideoCardProps & {
         attachTrack(pub)
       }
       // Subscribe handler (stable reference) and remember it for cleanup
-      const handleTrackSubscribed = (pub: any) => attachTrack(pub)
+      const handleTrackSubscribed = (pub: any) => {
+        attachTrack(pub)
+        // Force play audio when subscribed to ensure it starts
+        if (pub.kind === 'audio' && audioRef.current && typeof audioRef.current.play === 'function') {
+          const playPromise = audioRef.current.play()
+          if (playPromise) {
+            playPromise.catch((err) => {
+              console.warn('[VideoCard] Failed to play audio after subscription:', err)
+            })
+          }
+        }
+      }
       participantTrackHandlers.set(p, handleTrackSubscribed)
       p.on(ParticipantEvent.TrackSubscribed, handleTrackSubscribed)
     }
@@ -232,10 +264,41 @@ const VideoCard: React.FC<VideoCardProps & {
       }
       room.on(RoomEvent.ParticipantConnected, onParticipantConnected)
       
-      const onTrackPublished = (publication: any, participant: RemoteParticipant) => {
+      const onTrackPublished = async (publication: any, participant: RemoteParticipant) => {
         if (participant.identity === roomName) {
-          // LiveKit automatically subscribes to tracks, so we just need to wait for TrackSubscribed event
+          console.log('[VideoCard] Track published:', { kind: publication.kind, isSubscribed: publication.isSubscribed, trackSid: publication.trackSid })
+          
+          // Setup participant to handle the track when it gets subscribed
           setupParticipant(participant)
+          
+          // If track is already subscribed, attach it immediately
+          if (publication.isSubscribed && publication.track) {
+            attachTrack(publication)
+          } else if (publication.kind === 'audio') {
+            // For audio tracks that aren't subscribed yet, set up a polling mechanism
+            // to check when they become subscribed (LiveKit auto-subscribes but may have a delay)
+            // This handles the case where PSO publishes audio after admin is already connected
+            let checkCount = 0
+            const maxChecks = 20 // Check for up to 10 seconds (20 * 500ms)
+            const checkInterval = setInterval(() => {
+              checkCount++
+              const currentPub = participant.getTrackPublication(publication.trackSid)
+              if (currentPub && currentPub.isSubscribed && currentPub.track) {
+                console.log('[VideoCard] Audio track became subscribed after polling, attaching now')
+                clearInterval(checkInterval)
+                attachTrack(currentPub)
+              } else if (checkCount >= maxChecks) {
+                console.warn('[VideoCard] Audio track did not become subscribed after polling')
+                clearInterval(checkInterval)
+              }
+            }, 500)
+            
+            // Store interval for cleanup
+            if (!(room as any).__audioPollIntervals) {
+              (room as any).__audioPollIntervals = new Set()
+            }
+            (room as any).__audioPollIntervals.add(checkInterval)
+          }
         }
       }
       room.on(RoomEvent.TrackPublished, onTrackPublished)
@@ -248,6 +311,14 @@ const VideoCard: React.FC<VideoCardProps & {
           participant.off(ParticipantEvent.TrackSubscribed, handler)
         })
         participantTrackHandlers.clear()
+        
+        // Cleanup audio polling intervals
+        if ((room as any).__audioPollIntervals) {
+          (room as any).__audioPollIntervals.forEach((interval: NodeJS.Timeout) => {
+            clearInterval(interval)
+          })
+          ;(room as any).__audioPollIntervals.clear()
+        }
       }
 
       // Store cleanup on lkRoom for later
