@@ -33,6 +33,10 @@ import { Dropdown } from '@/shared/ui/Dropdown'
 import { SnapshotReason } from '@/shared/types/snapshot'
 import { useSnapshotReasons } from '@/shared/context/SnapshotReasonsContext'
 import { RefreshButton } from './RefreshButton'
+import { useAudioPlay } from '../hooks/useAudioPlay'
+import { useTalkSessionStatus } from '../hooks/useTalkSessionStatus'
+import { TalkSessionClient } from '@/shared/api/talkSessionClient'
+import { TalkStopReason } from '@/shared/types/talkSession'
 const VideoCard: React.FC<VideoCardProps & { 
   livekitUrl?: string;
   psoName?: string;
@@ -91,7 +95,17 @@ const VideoCard: React.FC<VideoCardProps & {
   const audioRef = useRef<HTMLAudioElement>(null)
 
   const [isAudioMuted, setIsAudioMuted] = useState(false)
-
+  const { playAudio: playAudioSafely } = useAudioPlay({ maxRetries: 2, retryDelay: 300 })
+  
+  // Check if there's an active talk session for this PSO
+  const { hasActiveSession, sessionId: activeSessionId } = useTalkSessionStatus({
+    psoEmail: email || null,
+    enabled: !!email,
+    pollInterval: 5000
+  })
+  
+  const talkSessionClientRef = useRef(new TalkSessionClient())
+  
   const {
     isRecording,
     loading: recordingLoading,
@@ -180,28 +194,21 @@ const VideoCard: React.FC<VideoCardProps & {
         (track as RemoteVideoTrack).attach(videoRef.current!)
         
       } else if (kind === 'audio') {
-
+        // Only attach audio if there's an active talk session
+        if (!hasActiveSession) {
+          console.log('[VideoCard] Ignoring audio track - no active talk session')
+          return
+        }
+        
         (track as RemoteAudioTrack).attach(audioRef.current!)
         if (audioRef.current) {
           audioRef.current.muted = isAudioMuted
           audioRef.current.volume = 1.0
-          // Force play with retry logic
-          const playAudio = () => {
-            if (audioRef.current && typeof audioRef.current.play === 'function') {
-              const playPromise = audioRef.current.play()
-              if (playPromise) {
-                playPromise.then(() => {
-                  console.log('[VideoCard] Audio playing successfully')
-                }).catch((err) => {
-                  console.warn('[VideoCard] Play failed, retrying:', err)
-                  setTimeout(() => {
-                    playAudio()
-                  }, 300)
-                })
-              }
-            }
-          }
-          playAudio()
+          // Use safe audio play with limited retries
+          playAudioSafely(audioRef.current).catch((err) => {
+            // Error already logged in useAudioPlay
+            // NotAllowedError means user interaction is required
+          })
         }
       }
     }
@@ -217,14 +224,11 @@ const VideoCard: React.FC<VideoCardProps & {
       // Subscribe handler (stable reference) and remember it for cleanup
       const handleTrackSubscribed = (pub: any) => {
         attachTrack(pub)
-        // Force play audio when subscribed to ensure it starts
-        if (pub.kind === 'audio' && audioRef.current && typeof audioRef.current.play === 'function') {
-          const playPromise = audioRef.current.play()
-          if (playPromise) {
-            playPromise.catch((err) => {
-              console.warn('[VideoCard] Failed to play audio after subscription:', err)
-            })
-          }
+        // Attempt to play audio when subscribed (with safe retry logic)
+        if (pub.kind === 'audio' && audioRef.current) {
+          playAudioSafely(audioRef.current).catch((err) => {
+            // Error already logged in useAudioPlay
+          })
         }
       }
       participantTrackHandlers.set(p, handleTrackSubscribed)
@@ -263,6 +267,21 @@ const VideoCard: React.FC<VideoCardProps & {
         }
       }
       room.on(RoomEvent.ParticipantConnected, onParticipantConnected)
+      
+      const onParticipantDisconnected = (participant: RemoteParticipant) => {
+        if (participant.identity === roomName) {
+          console.log('[VideoCard] PSO disconnected from LiveKit')
+          // PSO se desconectó - cerrar talk session si está activa
+          if (hasActiveSession && activeSessionId) {
+            talkSessionClientRef.current
+              .stop(activeSessionId, TalkStopReason.PSO_DISCONNECTED)
+              .catch((err: unknown) => {
+                console.error('[VideoCard] Failed to stop talk session on PSO disconnect:', err)
+              })
+          }
+        }
+      }
+      room.on(RoomEvent.ParticipantDisconnected, onParticipantDisconnected)
       
       const onTrackPublished = async (publication: any, participant: RemoteParticipant) => {
         if (participant.identity === roomName) {
@@ -328,8 +347,17 @@ const VideoCard: React.FC<VideoCardProps & {
     void connectAndWatch()
 
     return () => {
-
       canceled = true
+      
+      // Close talk session if active when component unmounts
+      if (hasActiveSession && activeSessionId) {
+        talkSessionClientRef.current
+          .stop(activeSessionId, TalkStopReason.SUPERVISOR_DISCONNECTED)
+          .catch((err: unknown) => {
+            console.error('[VideoCard] Failed to stop talk session on cleanup:', err)
+          })
+      }
+      
       // Remove per-room listeners before disconnect to avoid leaks
       const roomCleanup = (lkRoom as any)?.__cleanupListeners as (() => void) | undefined
       if (roomCleanup) {
@@ -354,6 +382,8 @@ const VideoCard: React.FC<VideoCardProps & {
     roomName,
     livekitUrl,
     email,
+    hasActiveSession,
+    activeSessionId,
   ])
 
   /**

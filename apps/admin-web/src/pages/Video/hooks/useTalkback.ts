@@ -154,6 +154,23 @@ export function useTalkback(options: UseTalkbackOptions): UseTalkback {
       if (!room) throw new Error('useTalkback.start(): room is not connected')
 
       if (psoEmail) {
+        // Check if PSO already has an active talk session
+        try {
+          const activeSession = await talkSessionClientRef.current.checkActiveSession(psoEmail)
+          if (activeSession.hasActiveSession) {
+            throw new Error(
+              `PSO already has an active talk session with ${activeSession.supervisorEmail || 'another supervisor'}. Please wait for it to end.`
+            )
+          }
+        } catch (checkError: any) {
+          // If the error is about active session, propagate it
+          if (checkError.message?.includes('already has an active talk session')) {
+            throw checkError
+          }
+          // Other errors (network, etc.) we ignore and continue
+          console.warn('[useTalkback] Failed to check active session, continuing anyway:', checkError)
+        }
+        
         const response = await talkSessionClientRef.current.start(psoEmail)
         talkSessionIdRef.current = response.talkSessionId
       }

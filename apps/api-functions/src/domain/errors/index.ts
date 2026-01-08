@@ -25,4 +25,5 @@ export { ConfigurationError, BlobStorageUploadError, BlobStorageDownloadError, B
 export { DatabaseQueryError, EntityNotFoundError, EntityCreationError, EntityUpdateError, EntityDeletionError, PsoFetchError, SupervisorFetchError, StreamingSessionFetchError } from './RepositoryErrors';
 export { CallerIdNotFoundError, TargetUserNotFoundError, TargetUserInactiveError, TargetNotPsoError, InsufficientPrivilegesError, AdminAccessRequiredError, SuperAdminAccessRequiredError } from './MiddlewareErrors';
 export { RecordingSessionNotFoundError, ApplicationServiceOperationError } from './ApplicationServiceErrors';
+export { TalkSessionAlreadyActiveError } from './TalkSessionErrors';
 

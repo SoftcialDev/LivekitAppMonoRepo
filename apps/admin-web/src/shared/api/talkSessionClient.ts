@@ -92,6 +92,30 @@ export class TalkSessionClient {
 
     return response.data;
   }
+
+  /**
+   * Checks if there is an active talk session for a PSO
+   * @param psoEmail - Email address of the PSO to check
+   * @returns Promise resolving to active session information
+   * @throws {Error} If the API request fails
+   */
+  public async checkActiveSession(psoEmail: string): Promise<{
+    hasActiveSession: boolean;
+    sessionId?: string;
+    supervisorEmail?: string;
+    supervisorName?: string;
+    startedAt?: string;
+  }> {
+    const response = await apiClient.get<{
+      hasActiveSession: boolean;
+      sessionId?: string;
+      supervisorEmail?: string;
+      supervisorName?: string;
+      startedAt?: string;
+    }>(`/api/GetActiveTalkSession?psoEmail=${encodeURIComponent(psoEmail.toLowerCase().trim())}`);
+
+    return response.data;
+  }
 }
 
 /**

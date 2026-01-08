@@ -51,6 +51,7 @@ const PERMISSIONS: SeedPermission[] = [
 
   // Talk sessions
   { code: "talk_sessions:read", name: "Read talk sessions", resource: "talk_sessions", action: "read" },
+  { code: "talk_sessions:check_active", name: "Check active talk session", resource: "talk_sessions", action: "check_active" },
   { code: "talk_sessions:start", name: "Start talk session", resource: "talk_sessions", action: "start" },
   { code: "talk_sessions:stop", name: "Stop talk session", resource: "talk_sessions", action: "stop" },
   { code: "talk_sessions:mute", name: "Mute talk session", resource: "talk_sessions", action: "mute" },
@@ -124,6 +125,7 @@ const ROLE_PERMISSIONS: RolePermissionMap = {
     "snapshots:read",
     "snapshots:create",
     "talk_sessions:read",
+    "talk_sessions:check_active",
     "talk_sessions:start",
     "talk_sessions:stop",
     "talk_sessions:mute",
@@ -156,6 +158,7 @@ const ROLE_PERMISSIONS: RolePermissionMap = {
     "users:change_role",
     "users:change_supervisor",
     "users:delete",
+    "talk_sessions:check_active",
     "talk_sessions:start",
     "talk_sessions:stop",
     "talk_sessions:mute",

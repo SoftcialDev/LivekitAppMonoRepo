@@ -83,6 +83,7 @@ import { GetCameraFailuresDomainService } from '../../domain/services/GetCameraF
 import { DeleteErrorLogsDomainService } from '../../domain/services/DeleteErrorLogsDomainService';
 import { TalkSessionDomainService } from '../../domain/services/TalkSessionDomainService';
 import { GetTalkSessionsDomainService } from '../../domain/services/GetTalkSessionsDomainService';
+import { GetActiveTalkSessionDomainService } from '../../domain/services/GetActiveTalkSessionDomainService';
 import { ErrorLogService } from '../../domain/services/ErrorLogService';
 
 // Application Services
@@ -128,6 +129,7 @@ import { GetCameraFailuresApplicationService } from '../../application/services/
 import { DeleteErrorLogsApplicationService } from '../../application/services/DeleteErrorLogsApplicationService';
 import { TalkSessionApplicationService } from '../../application/services/TalkSessionApplicationService';
 import { GetTalkSessionsApplicationService } from '../../application/services/GetTalkSessionsApplicationService';
+import { GetActiveTalkSessionApplicationService } from '../../application/services/GetActiveTalkSessionApplicationService';
 
 // Repositories (local)
 import { CameraStartFailureRepository } from '../repositories/CameraStartFailureRepository';
@@ -709,6 +711,18 @@ export class ServiceContainer {
             return new GetTalkSessionsApplicationService(getTalkSessionsDomainService, authorizationService, userRepository);
           });
 
+          // Register GetActiveTalkSession services
+          this.register<GetActiveTalkSessionDomainService>('GetActiveTalkSessionDomainService', () => {
+            const talkSessionRepository = this.resolve<ITalkSessionRepository>('TalkSessionRepository');
+            const userRepository = this.resolve<IUserRepository>('UserRepository');
+            return new GetActiveTalkSessionDomainService(talkSessionRepository, userRepository);
+          });
+
+          this.register<GetActiveTalkSessionApplicationService>('GetActiveTalkSessionApplicationService', () => {
+            const getActiveTalkSessionDomainService = this.resolve<GetActiveTalkSessionDomainService>('GetActiveTalkSessionDomainService');
+            return new GetActiveTalkSessionApplicationService(getActiveTalkSessionDomainService);
+          });
+
           // Register Get Or Create Chat services
           this.register<GetOrCreateChatDomainService>('GetOrCreateChatDomainService', () => {
             const userRepository = this.resolve<IUserRepository>('UserRepository');
@@ -729,7 +743,17 @@ export class ServiceContainer {
             const webPubSubService = this.resolve<IWebPubSubService>('WebPubSubService');
             const userRepository = this.resolve<IUserRepository>('UserRepository');
             const liveKitRecordingService = this.resolve<LiveKitRecordingService>('LiveKitRecordingService');
-            return new WebSocketConnectionDomainService(presenceDomainService, streamingSessionDomainService, webPubSubService, userRepository, liveKitRecordingService);
+            const talkSessionRepository = this.resolve<ITalkSessionRepository>('TalkSessionRepository');
+            const talkSessionDomainService = this.resolve<TalkSessionDomainService>('TalkSessionDomainService');
+            return new WebSocketConnectionDomainService(
+              presenceDomainService,
+              streamingSessionDomainService,
+              webPubSubService,
+              userRepository,
+              liveKitRecordingService,
+              talkSessionRepository,
+              talkSessionDomainService
+            );
           });
 
           this.register<WebSocketConnectionApplicationService>('WebSocketConnectionApplicationService', () => {

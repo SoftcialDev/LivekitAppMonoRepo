@@ -27,6 +27,7 @@ export enum Permission {
 
   // Talk sessions
   TalkSessionsRead = "talk_sessions:read",
+  TalkSessionsCheckActive = "talk_sessions:check_active",
   TalkSessionsStart = "talk_sessions:start",
   TalkSessionsStop = "talk_sessions:stop",
   TalkSessionsMute = "talk_sessions:mute",

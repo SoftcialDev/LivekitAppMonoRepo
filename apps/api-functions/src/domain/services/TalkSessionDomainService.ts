@@ -12,6 +12,7 @@ import { TalkSessionStartResponse } from '../value-objects/TalkSessionStartRespo
 import { TalkSessionStopRequest } from '../value-objects/TalkSessionStopRequest';
 import { TalkSessionStopResponse } from '../value-objects/TalkSessionStopResponse';
 import { UserNotFoundError } from '../errors/UserErrors';
+import { TalkSessionAlreadyActiveError } from '../errors/TalkSessionErrors';
 import { getCentralAmericaTime } from '../../utils/dateUtils';
 
 /**
@@ -36,10 +37,23 @@ export class TalkSessionDomainService {
    * @param request - The talk session start request
    * @returns Promise that resolves to the talk session start response
    * @throws UserNotFoundError when supervisor or PSO is not found
+   * @throws TalkSessionAlreadyActiveError when PSO already has an active talk session
    */
   async startTalkSession(request: TalkSessionStartRequest): Promise<TalkSessionStartResponse> {
     const supervisor = await this.findUserByAzureAdObjectId(request.callerId);
     const pso = await this.findUserByEmail(request.psoEmail);
+
+    // Check if PSO already has an active talk session
+    const activeSessions = await this.talkSessionRepository.getActiveTalkSessionsForPso(pso.id);
+    if (activeSessions.length > 0) {
+      const activeSession = activeSessions[0];
+      const supervisorInfo = await this.userRepository.findById(activeSession.supervisorId);
+      const supervisorEmail = supervisorInfo?.email || 'another supervisor';
+      throw new TalkSessionAlreadyActiveError(
+        `PSO already has an active talk session with ${supervisorEmail}`,
+        activeSession.id
+      );
+    }
 
     const startedAt = getCentralAmericaTime();
     const talkSession = await this.talkSessionRepository.createTalkSession({
@@ -153,9 +167,9 @@ export class TalkSessionDomainService {
   /**
    * Broadcasts talk stopped event to PSO via WebSocket
    * @param psoEmail - The PSO's email
-   * @private
+   * @public - Made public so WebSocketConnectionDomainService can use it
    */
-  private async broadcastTalkStoppedEvent(psoEmail: string): Promise<void> {
+  async broadcastTalkStoppedEvent(psoEmail: string): Promise<void> {
     try {
       const message = {
         type: 'talk_session_stop',

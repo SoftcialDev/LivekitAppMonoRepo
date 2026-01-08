@@ -74,6 +74,8 @@ export * from './TalkSessionStartRequest';
 export * from './TalkSessionStartResponse';
 export * from './TalkSessionStopRequest';
 export * from './TalkSessionStopResponse';
+export * from './GetActiveTalkSessionRequest';
+export * from './GetActiveTalkSessionResponse';
 export * from './TransferPsosRequest';
 export * from './TransferPsosResponse';
 export * from './UpdateContactManagerStatusRequest';

@@ -28,6 +28,7 @@ export * from './GetSupervisorByIdentifierSchema';
 export * from './GetSupervisorForPsoSchema';
 export * from './GetUserDebugSchema';
 export * from './GetTalkSessionsSchema';
+export * from './GetActiveTalkSessionSchema';
 export * from './GetWebsocketPresenceStatusSchema';
 export * from './LivekitRecordingSchema';
 export * from './LiveKitTokenSchema';

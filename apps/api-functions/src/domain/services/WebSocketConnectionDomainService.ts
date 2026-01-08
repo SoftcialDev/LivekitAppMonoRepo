@@ -10,6 +10,10 @@ import { PresenceDomainService } from "./PresenceDomainService";
 import { StreamingSessionDomainService } from "./StreamingSessionDomainService";
 import { IWebPubSubService } from "../interfaces/IWebPubSubService";
 import { IUserRepository } from "../interfaces/IUserRepository";
+import { ITalkSessionRepository } from "../interfaces/ITalkSessionRepository";
+import { TalkSessionDomainService } from "./TalkSessionDomainService";
+import { TalkStopReason } from "../enums/TalkStopReason";
+import { UserRole } from "../enums/UserRole";
 import { LiveKitRecordingService } from '../../infrastructure/services/LiveKitRecordingService';
 import { logError } from '../../utils/logger';
 import { extractErrorMessage } from '../../utils/error/ErrorHelpers';
@@ -27,13 +31,17 @@ export class WebSocketConnectionDomainService {
    * @param webPubSubService - Service for WebPubSub operations and sync
    * @param userRepository - Repository for user data access
    * @param liveKitRecordingService - Service for LiveKit recording operations
+   * @param talkSessionRepository - Repository for talk session data access
+   * @param talkSessionDomainService - Domain service for talk session operations
    */
   constructor(
     private readonly presenceDomainService: PresenceDomainService,
     private readonly streamingSessionDomainService: StreamingSessionDomainService,
     private readonly webPubSubService: IWebPubSubService,
     private readonly userRepository: IUserRepository,
-    private readonly liveKitRecordingService: LiveKitRecordingService
+    private readonly liveKitRecordingService: LiveKitRecordingService,
+    private readonly talkSessionRepository: ITalkSessionRepository,
+    private readonly talkSessionDomainService: TalkSessionDomainService
   ) {}
 
   /**
@@ -86,36 +94,16 @@ export class WebSocketConnectionDomainService {
     try {
       if (!request.userId) return WebSocketEventResponse.error("Missing userId in disconnection event");
 
-      // 1. Stop active recordings for the disconnected user
-      try {
-        const user = await this.userRepository.findByEmail(request.userId);
-        if (user) {
-          const stopResult = await this.liveKitRecordingService.stopAllForUser(user.id);
-          if (stopResult.total > 0 && context) {
-            context.log.info(`[WebSocketDisconnection] Stopped ${stopResult.completed}/${stopResult.total} active recording(s) for user ${request.userId}`);
-          }
-        }
-      } catch (recordingError: unknown) {
-        if (context) {
-          const errorMessage = extractErrorMessage(recordingError);
-          context.log.warn(`[WebSocketDisconnection] Failed to stop recording on disconnect: ${errorMessage}`);
-        }
+      const user = await this.userRepository.findByEmail(request.userId);
+      if (!user) {
+        return WebSocketEventResponse.error(`User not found: ${request.userId}`);
       }
 
-      // 2. Set user offline and stop streaming session
-      const contextRecord = context ? { invocationId: context.invocationId } as Record<string, unknown> : undefined;
-      await this.presenceDomainService.setUserOffline(request.userId, contextRecord);
-      await this.streamingSessionDomainService.stopStreamingSession(request.userId, 'DISCONNECT', contextRecord);
+      await this.closeActiveTalkSessions(user.id, user.role as UserRole, request.userId, context);
+      await this.stopActiveRecordings(user.id, request.userId, context);
+      await this.updatePresenceAndStreaming(request.userId, context);
+      await this.syncUsersWithDatabase(context);
 
-      // 3. Sync presence
-      try {
-        await this.webPubSubService.syncAllUsersWithDatabase();
-      } catch (e: unknown) {
-        if (context) {
-          logError(context, e instanceof Error ? e : new Error(String(e)), { operation: 'syncAllUsersWithDatabase', event: 'disconnection' });
-        }
-      }
-      
       return WebSocketEventResponse.success(`User ${request.userId} disconnected successfully`);
     } catch (error: unknown) {
       if (context) {
@@ -123,6 +111,117 @@ export class WebSocketConnectionDomainService {
       }
       const errorMessage = extractErrorMessage(error);
       return WebSocketEventResponse.error(`Failed to handle disconnection: ${errorMessage}`);
+    }
+  }
+
+  /**
+   * Closes all active talk sessions for a disconnected user
+   * @param userId - The user's database ID
+   * @param userRole - The user's role
+   * @param userEmail - The user's email (for logging)
+   * @param context - Optional Azure Functions context for logging
+   * @private
+   */
+  private async closeActiveTalkSessions(
+    userId: string,
+    userRole: UserRole,
+    userEmail: string,
+    context?: Context
+  ): Promise<void> {
+    try {
+      const isSupervisorOrAdmin = userRole === UserRole.Supervisor || 
+                                  userRole === UserRole.Admin || 
+                                  userRole === UserRole.SuperAdmin;
+      
+      let supervisorSessionsCount = 0;
+      if (isSupervisorOrAdmin) {
+        const supervisorSessions = await this.talkSessionRepository.getActiveTalkSessionsForSupervisor(userId);
+        supervisorSessionsCount = supervisorSessions.length;
+        for (const session of supervisorSessions) {
+          await this.talkSessionRepository.stopTalkSession(
+            session.id,
+            TalkStopReason.SUPERVISOR_DISCONNECTED
+          );
+          const pso = await this.userRepository.findById(session.psoId);
+          if (pso) {
+            await this.talkSessionDomainService.broadcastTalkStoppedEvent(pso.email);
+          }
+        }
+      }
+
+      const psoSessions = await this.talkSessionRepository.getActiveTalkSessionsForPso(userId);
+      for (const session of psoSessions) {
+        await this.talkSessionRepository.stopTalkSession(
+          session.id,
+          TalkStopReason.PSO_DISCONNECTED
+        );
+        await this.talkSessionDomainService.broadcastTalkStoppedEvent(userEmail);
+      }
+
+      const totalSessions = supervisorSessionsCount + psoSessions.length;
+      if (totalSessions > 0 && context) {
+        context.log.info(`[WebSocketDisconnection] Closed ${totalSessions} active talk session(s) for user ${userEmail}`);
+      }
+    } catch (error: unknown) {
+      if (context) {
+        const errorMessage = extractErrorMessage(error);
+        context.log.warn(`[WebSocketDisconnection] Failed to close talk sessions: ${errorMessage}`);
+      }
+    }
+  }
+
+  /**
+   * Stops all active recordings for a disconnected user
+   * @param userId - The user's database ID
+   * @param userEmail - The user's email (for logging)
+   * @param context - Optional Azure Functions context for logging
+   * @private
+   */
+  private async stopActiveRecordings(
+    userId: string,
+    userEmail: string,
+    context?: Context
+  ): Promise<void> {
+    try {
+      const stopResult = await this.liveKitRecordingService.stopAllForUser(userId);
+      if (stopResult.total > 0 && context) {
+        context.log.info(`[WebSocketDisconnection] Stopped ${stopResult.completed}/${stopResult.total} active recording(s) for user ${userEmail}`);
+      }
+    } catch (error: unknown) {
+      if (context) {
+        const errorMessage = extractErrorMessage(error);
+        context.log.warn(`[WebSocketDisconnection] Failed to stop recording on disconnect: ${errorMessage}`);
+      }
+    }
+  }
+
+  /**
+   * Updates user presence and stops streaming session
+   * @param userEmail - The user's email
+   * @param context - Optional Azure Functions context for logging
+   * @private
+   */
+  private async updatePresenceAndStreaming(
+    userEmail: string,
+    context?: Context
+  ): Promise<void> {
+    const contextRecord = context ? { invocationId: context.invocationId } as Record<string, unknown> : undefined;
+    await this.presenceDomainService.setUserOffline(userEmail, contextRecord);
+    await this.streamingSessionDomainService.stopStreamingSession(userEmail, 'DISCONNECT', contextRecord);
+  }
+
+  /**
+   * Syncs all users with database
+   * @param context - Optional Azure Functions context for logging
+   * @private
+   */
+  private async syncUsersWithDatabase(context?: Context): Promise<void> {
+    try {
+      await this.webPubSubService.syncAllUsersWithDatabase();
+    } catch (error: unknown) {
+      if (context) {
+        logError(context, error instanceof Error ? error : new Error(String(error)), { operation: 'syncAllUsersWithDatabase', event: 'disconnection' });
+      }
     }
   }
 }

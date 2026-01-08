@@ -246,3 +246,10 @@ export enum ApplicationServiceErrorCode {
   RECORDING_SESSION_NOT_FOUND = 404,
   OPERATION_FAILED = 500
 }
+
+/**
+ * Talk session error codes
+ */
+export enum TalkSessionErrorCode {
+  TALK_SESSION_ALREADY_ACTIVE = 409
+}
