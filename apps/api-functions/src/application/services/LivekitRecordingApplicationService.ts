@@ -11,6 +11,7 @@ import { LivekitRecordingRequest } from '../../domain/value-objects/LivekitRecor
 import { LivekitRecordingResponse } from '../../domain/value-objects/LivekitRecordingResponse';
 import { RecordingCommand } from '../../domain/entities/RecordingCommand';
 import { RecordingUserNotFoundError } from '../../domain/errors/RecordingErrors';
+import { User } from '../../domain/entities/User';
 
 /**
  * Application service for LiveKit recording operations
@@ -71,7 +72,7 @@ export class LivekitRecordingApplicationService {
    * @returns Resolved user entity
    * @throws RecordingUserNotFoundError when subject cannot be resolved
    */
-  private async resolveSubjectUser(roomName: string, fallbackUser: any): Promise<any> {
+  private async resolveSubjectUser(roomName: string, fallbackUser: User): Promise<User> {
     try {
       // Try to find user by room name (common mapping: roomName === user.id)
       const subject = await this.userRepository.findById(roomName);

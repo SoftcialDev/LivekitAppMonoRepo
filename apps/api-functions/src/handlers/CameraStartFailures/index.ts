@@ -17,6 +17,7 @@ import { serviceContainer } from '../../infrastructure/container/ServiceContaine
 import { getCallerAdId } from '../../utils/authHelpers';
 import { ICameraFailureService } from '../../domain/interfaces/ICameraFailureService';
 import { ensureBindings } from '../../domain/types/ContextBindings';
+import { CallerIdNotFoundError } from '../../domain/errors/MiddlewareErrors';
 
 
 const handler = withErrorHandler(async (ctx: Context) => {
@@ -38,7 +39,7 @@ const handler = withErrorHandler(async (ctx: Context) => {
         const validatedBody = extendedCtx.bindings.validatedBody as CameraStartFailureRequest;
 
         if (!userAdId) {
-          throw new Error('User ID not found in claims');
+          throw new CallerIdNotFoundError('User ID not found in claims');
         }
 
         await failureService.logStartFailure({

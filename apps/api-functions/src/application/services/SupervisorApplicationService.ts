@@ -6,6 +6,7 @@
 import { SupervisorAssignment } from '../../domain/value-objects/SupervisorAssignment';
 import { SupervisorChangeResult } from '../../domain/value-objects/SupervisorChangeResult';
 import { IUserRepository } from '../../domain/interfaces/IUserRepository';
+import { User } from '../../domain/entities/User';
 import { IAuthorizationService } from '../../domain/interfaces/IAuthorizationService';  
 import { ISupervisorRepository } from '../../domain/interfaces/ISupervisorRepository';
 import { ICommandMessagingService } from '../../domain/interfaces/ICommandMessagingService';
@@ -149,8 +150,8 @@ export class SupervisorApplicationService {
         assignment.userEmails.map(email => this.userRepository.findByEmail(email))
       );
       const psoNames = psoUsers
-        .filter(user => user !== null)
-        .map((pso: any) => pso.fullName);
+        .filter((user): user is User => user !== null)
+        .map((pso) => pso.fullName);
 
       // Get the new supervisor's Azure AD Object ID
       const newSupervisor = assignment.newSupervisorEmail 

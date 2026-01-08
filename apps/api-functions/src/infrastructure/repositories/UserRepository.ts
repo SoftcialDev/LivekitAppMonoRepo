@@ -652,7 +652,7 @@ export class UserRepository implements IUserRepository {
    */
   async getPsosBySupervisor(supervisorId?: string): Promise<Array<{ email: string; supervisorName: string }>> {
     try {
-      let supervisor: any = null;
+      let supervisor: { id: string; email: string; fullName: string | null; role: string; azureAdObjectId: string } | null = null;
       
       // First, check if supervisor exists
       if (supervisorId) {

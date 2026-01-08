@@ -10,6 +10,7 @@ import { TalkStopReason } from '../../domain/enums/TalkStopReason';
 import { getCentralAmericaTime } from '../../utils/dateUtils';
 import { wrapEntityCreationError, wrapEntityUpdateError, wrapDatabaseQueryError } from '../../utils/error/ErrorHelpers';
 import prisma from '../database/PrismaClientService';
+import { TalkSessionHistory } from '@prisma/client';
 
 /**
  * Repository for talk session data access operations
@@ -256,7 +257,7 @@ export class TalkSessionRepository implements ITalkSessionRepository {
    * @param prismaSession - Prisma talk session model
    * @returns TalkSession entity
    */
-  private mapToTalkSession(prismaSession: any): TalkSession {
+  private mapToTalkSession(prismaSession: TalkSessionHistory): TalkSession {
     return {
       id: prismaSession.id,
       supervisorId: prismaSession.supervisorId,

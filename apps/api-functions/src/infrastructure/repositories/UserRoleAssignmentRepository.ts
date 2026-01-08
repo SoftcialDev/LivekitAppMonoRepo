@@ -7,13 +7,15 @@ import { IUserRoleAssignmentRepository } from '../../domain/interfaces/IUserRole
 import { RoleAssignmentData } from '../../domain/types/UserDebugTypes';
 import { Role } from '../../domain/entities/Role';
 import { wrapDatabaseQueryError } from '../../utils/error/ErrorHelpers';
+import { Role as PrismaRole } from '@prisma/client';
+import { EntityNotFoundError } from '../../domain/errors/RepositoryErrors';
 
 export class UserRoleAssignmentRepository implements IUserRoleAssignmentRepository {
   /**
    * @description Maps a Prisma role to a domain Role.
    * @param r Prisma role.
    */
-  private toRole(r: any): Role {
+  private toRole(r: PrismaRole): Role {
     return new Role(
       r.id,
       r.name,
@@ -63,7 +65,7 @@ export class UserRoleAssignmentRepository implements IUserRoleAssignmentReposito
         .filter((a) => a.role !== null)
         .map((a) => {
           if (!a.role) {
-            throw new Error('Role is null in assignment');
+            throw new EntityNotFoundError('Role not found in assignment');
           }
           return {
             roleId: a.role.id,

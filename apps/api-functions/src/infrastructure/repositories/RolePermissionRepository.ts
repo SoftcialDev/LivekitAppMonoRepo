@@ -5,13 +5,14 @@
 import prisma from "../database/PrismaClientService";
 import { IRolePermissionRepository } from '../../domain/interfaces/IRolePermissionRepository';
 import { PermissionEntity } from '../../domain/entities';
+import { Permission as PrismaPermission } from '@prisma/client';
 
 export class RolePermissionRepository implements IRolePermissionRepository {
   /**
    * @description Maps a Prisma permission to a domain Permission.
    * @param p Prisma permission.
    */
-  private toPermission(p: any): PermissionEntity {
+  private toPermission(p: PrismaPermission): PermissionEntity {
     return new PermissionEntity(
       p.id,
       p.code,

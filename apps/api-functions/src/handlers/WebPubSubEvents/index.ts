@@ -123,7 +123,7 @@ const webPubSubEvents: AzureFunction = withErrorHandler(
   }
 
   if (!eventName && req.body) {
-    let bodyData: any = req.body;
+    let bodyData: unknown = req.body;
     if (typeof req.body === "string") {
       try {
         bodyData = JSON.parse(req.body);
@@ -132,11 +132,17 @@ const webPubSubEvents: AzureFunction = withErrorHandler(
       }
     }
 
-    if (bodyData && typeof bodyData === "object") {
-      eventName = eventName || bodyData.eventName || bodyData.event?.name || bodyData.type || "";
-      hub = hub || bodyData.hub || "";
-      connectionId = connectionId || bodyData.connectionId || "";
-      userId = userId || bodyData.userId || bodyData.user?.id || bodyData.claims?.userId || "";
+    if (bodyData && typeof bodyData === "object" && bodyData !== null) {
+      const data = bodyData as Record<string, unknown>;
+      eventName = eventName || (typeof data.eventName === "string" ? data.eventName : "") || 
+                  (typeof data.event === "object" && data.event !== null && "name" in data.event && typeof data.event.name === "string" ? data.event.name : "") || 
+                  (typeof data.type === "string" ? data.type : "") || "";
+      hub = hub || (typeof data.hub === "string" ? data.hub : "") || "";
+      connectionId = connectionId || (typeof data.connectionId === "string" ? data.connectionId : "") || "";
+      const userIdFromData = typeof data.userId === "string" ? data.userId : 
+                            (typeof data.user === "object" && data.user !== null && "id" in data.user && typeof data.user.id === "string" ? data.user.id : "") ||
+                            (typeof data.claims === "object" && data.claims !== null && "userId" in data.claims && typeof data.claims.userId === "string" ? data.claims.userId : "");
+      userId = userId || userIdFromData || "";
     }
   }
 
