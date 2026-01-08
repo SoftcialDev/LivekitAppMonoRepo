@@ -121,6 +121,8 @@ export class WebPubSubClientService {
   private reconnectTimer: any = null;
   private backoffMs = 1000;            // initial backoff
   private readonly maxBackoffMs = 30_000;
+  private firstConnectionAttemptTime: number | null = null; // Track first connection attempt for refresh logic
+  private refreshTimer: any = null; // Timer for page refresh after 10 seconds
 
   // === Group memory (rejoin on every connect) ===
   private joinedGroups = new Set<string>();
@@ -184,10 +186,19 @@ export class WebPubSubClientService {
 
 
     this.connecting = true;
+    
+    // Track first connection attempt time for refresh logic
+    if (this.firstConnectionAttemptTime === null) {
+      this.firstConnectionAttemptTime = Date.now();
+      this.scheduleRefreshIfNeeded();
+    }
+    
     this.connectPromise = (async () => {
       try {
         await this.startFreshClient();   // creates client, hooks events, and starts
         this.resetBackoff();
+        this.clearRefreshTimer(); // Clear refresh timer on successful connection
+        this.firstConnectionAttemptTime = null; // Reset on success
       } catch (err) {
         // First connection failed → schedule retry
         this.connected = false;
@@ -229,6 +240,8 @@ export class WebPubSubClientService {
 
     this.shouldReconnect = false;
     this.clearReconnectTimer();
+    this.clearRefreshTimer();
+    this.firstConnectionAttemptTime = null;
 
     if (this.onlineListener) {
       window.removeEventListener("online", this.onlineListener);
@@ -366,6 +379,8 @@ export class WebPubSubClientService {
 
       this.connected = true;
       this.clearReconnectTimer();
+      this.clearRefreshTimer(); // Clear refresh timer on successful connection
+      this.firstConnectionAttemptTime = null; // Reset on success
       this.resetBackoff();
 
       // Ensure default groups exist in memory
@@ -405,7 +420,19 @@ export class WebPubSubClientService {
     });
 
     // Start the client (handshake). Control returns once the socket is ready.
-    await wsClient.start();
+    try {
+      await wsClient.start();
+    } catch (error) {
+      console.error('[WebPubSub] Failed to start WebSocket client:', error);
+      // If start fails, schedule refresh if needed
+      if (this.firstConnectionAttemptTime !== null) {
+        const elapsed = Date.now() - this.firstConnectionAttemptTime;
+        if (elapsed >= 10000) {
+          this.scheduleRefreshIfNeeded();
+        }
+      }
+      throw error;
+    }
   }
 
   /**
@@ -450,6 +477,16 @@ export class WebPubSubClientService {
   private scheduleReconnect(reason: string, immediate = false): void {
     this.clearReconnectTimer();
 
+    // Check if 10 seconds have passed since first connection attempt
+    if (this.firstConnectionAttemptTime !== null) {
+      const elapsed = Date.now() - this.firstConnectionAttemptTime;
+      if (elapsed >= 10000) {
+        // Schedule refresh if we're on PSO dashboard
+        this.scheduleRefreshIfNeeded();
+        return; // Don't continue with reconnect attempts
+      }
+    }
+
     const jitter = Math.floor(Math.random() * 400);
     const delay = immediate ? 0 : Math.min(this.backoffMs + jitter, this.maxBackoffMs);
 
@@ -480,6 +517,36 @@ export class WebPubSubClientService {
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
+    }
+  }
+
+  /**
+   * Schedules a page refresh if connection hasn't been established within 10 seconds.
+   * Only applies to PSO dashboard scenarios where WebSocket is critical.
+   */
+  private scheduleRefreshIfNeeded(): void {
+    this.clearRefreshTimer();
+    
+    // Schedule refresh after 10 seconds if still not connected
+    this.refreshTimer = setTimeout(() => {
+      if (!this.connected && this.shouldReconnect && this.firstConnectionAttemptTime !== null) {
+        const elapsed = Date.now() - this.firstConnectionAttemptTime;
+        if (elapsed >= 10000) {
+          console.warn('[WebPubSub] WebSocket connection failed after 10 seconds, refreshing page...');
+          // Only refresh if we're on the PSO dashboard (check URL or other indicator)
+          if (window.location.pathname.includes('psosDashboard') || window.location.pathname.includes('pso')) {
+            window.location.reload();
+          }
+        }
+      }
+    }, 10000);
+  }
+
+  /** Clears the refresh timer. */
+  private clearRefreshTimer(): void {
+    if (this.refreshTimer) {
+      clearTimeout(this.refreshTimer);
+      this.refreshTimer = null;
     }
   }
 }

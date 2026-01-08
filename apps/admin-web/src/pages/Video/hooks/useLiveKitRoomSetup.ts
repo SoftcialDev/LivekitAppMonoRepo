@@ -61,10 +61,53 @@ export function useLiveKitRoomSetup({
     // Participant events
     room.on('participantConnected', (participant) => {
       console.log('[LiveKit] Participant connected:', participant.identity);
+      // Attach audio for newly connected participants (exclude self)
+      // attachParticipantAudio will be called via setupAudioRouting
     });
     
     room.on('participantDisconnected', (participant) => {
       console.log('[LiveKit] Participant disconnected:', participant.identity);
+    });
+    
+    // Listen for tracks published after we're already connected (e.g., admin publishes audio during talk session)
+    room.on(RoomEvent.TrackPublished, (publication, participant) => {
+      if (participant.sid === room.localParticipant.sid) {
+        return; // Skip our own tracks
+      }
+      
+      if (publication.kind === 'audio') {
+        console.log('[LiveKit] Remote audio track published by', participant.identity, 'trackSid:', publication.trackSid);
+        
+        // If track is already subscribed, attach it immediately
+        if (publication.isSubscribed && publication.audioTrack && audioRef.current) {
+          console.log('[LiveKit] Audio track already subscribed, attaching immediately');
+          (publication.audioTrack as RemoteAudioTrack).attach(audioRef.current);
+          audioRef.current.muted = false;
+          audioRef.current.play?.().catch((err) => {
+            console.warn('[LiveKit] Failed to play audio track:', err);
+          });
+        } else {
+          // Wait for track to be subscribed
+          // Also listen for subscription event on this participant
+          const onSubscribed = (track: any) => {
+            if (track.kind === 'audio' && audioRef.current) {
+              // Check if this is the track we're waiting for
+              const trackPub = participant.getTrackPublications().find((pub: any) => pub.trackSid === publication.trackSid);
+              if (trackPub && trackPub.isSubscribed && trackPub.audioTrack) {
+                console.log('[LiveKit] Audio track subscribed via event, attaching now');
+                (trackPub.audioTrack as RemoteAudioTrack).attach(audioRef.current);
+                audioRef.current.muted = false;
+                audioRef.current.play?.().catch((err) => {
+                  console.warn('[LiveKit] Failed to play audio track:', err);
+                });
+                participant.off(ParticipantEvent.TrackSubscribed, onSubscribed);
+              }
+            }
+          };
+          
+          participant.on(ParticipantEvent.TrackSubscribed, onSubscribed);
+        }
+      }
     });
     
     // Video track monitoring
@@ -81,7 +124,7 @@ export function useLiveKitRoomSetup({
         }
       }
     });
-  }, [streamingRef, manualStopRef, onDisconnected, onTrackEnded]);
+  }, [streamingRef, manualStopRef, onDisconnected, onTrackEnded, audioRef]);
 
   /**
    * Attaches remote participant audio to the audio element

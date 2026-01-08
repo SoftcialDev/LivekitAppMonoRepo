@@ -97,17 +97,6 @@ const VideoCard: React.FC<VideoCardProps & {
   const [isAudioMuted, setIsAudioMuted] = useState(false)
   const { playAudio: playAudioSafely } = useAudioPlay({ maxRetries: 2, retryDelay: 300 })
   
-  // Check if there's an active talk session for this PSO
-  // Used to prevent multiple sessions and verify the session belongs to this admin
-  const { hasActiveSession, sessionId: activeSessionId, supervisorEmail: activeSupervisorEmail } = useTalkSessionStatus({
-    psoEmail: email || null,
-    enabled: !!email,
-    pollInterval: 5000
-  })
-  
-  const talkSessionClientRef = useRef(new TalkSessionClient())
-  const currentAdminEmail = account?.username || userInfo?.email || null
-  
   const {
     isRecording,
     loading: recordingLoading,
@@ -123,6 +112,19 @@ const VideoCard: React.FC<VideoCardProps & {
     stop: stopTalk,
     cancel: cancelTalk,
   } = useTalkback({ roomRef, targetIdentity: roomName, psoEmail: email })
+  
+  // Check if there's an active talk session for this PSO
+  // Used to prevent multiple sessions and verify the session belongs to this admin
+  // Only poll when admin is starting a talk session (countdown) or has an active session (isTalking)
+  // This prevents unnecessary API calls when admin is just viewing the PSO
+  const { hasActiveSession, sessionId: activeSessionId, supervisorEmail: activeSupervisorEmail } = useTalkSessionStatus({
+    psoEmail: email || null,
+    enabled: (isTalking || isCountdownActive) && !!email, // Only poll when starting or actively talking
+    pollInterval: 5000
+  })
+  
+  const talkSessionClientRef = useRef(new TalkSessionClient())
+  const currentAdminEmail = account?.username || userInfo?.email || null
 
   /**
    * Synchronized timer for break/lunch/emergency
