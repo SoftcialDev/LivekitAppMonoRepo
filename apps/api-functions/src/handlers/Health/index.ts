@@ -6,12 +6,7 @@
  */
 
 import type { Context, HttpRequest } from "@azure/functions";
-import { HealthCheckDomainService } from '../../domain/services/HealthCheckDomainService';
-import { StorageDetailsService } from '../../infrastructure/services/StorageDetailsService';
-import { DatabaseHealthCheckService } from '../../infrastructure/services/DatabaseHealthCheckService';
-import { HealthStatus } from '../../domain/enums/HealthStatus';
-import { HealthCheckResponse } from '../../index';
-import { config } from '../../config';
+import { HealthCheckDomainService, StorageDetailsService, DatabaseHealthCheckService, HealthStatus, HealthCheckResponse, config } from '../../index';
 
 /**
  * Health check endpoint

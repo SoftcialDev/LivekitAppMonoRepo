@@ -88,15 +88,10 @@ export class HealthCheckDomainService {
       'AZURE_CLIENT_SECRET': config.azureClientSecret,
       'SERVICE_BUS_TOPIC_NAME': config.serviceBusTopicName,
       'NODE_ENV': config.node_env,
-      'ADMINS_GROUP_ID': config.adminsGroupId,
-      'SUPERVISORS_GROUP_ID': config.supervisorsGroupId,
-      'EMPLOYEES_GROUP_ID': config.employeesGroupId,
       'AZURE_AD_API_IDENTIFIER_URI': config.azureAdApiIdentifierUri,
       'SERVICE_PRINCIPAL_OBJECT_ID': config.servicePrincipalObjectId,
-      'CONTACT_MANAGER_GROUP_ID': config.contactManagerAppRoleId,
       'AZURE_STORAGE_ACCOUNT': config.accountName,
-      'AZURE_STORAGE_KEY': config.accountKey,
-      'SUPER_ADMIN_GROUP_ID': config.superAdminAppRoleId
+      'AZURE_STORAGE_KEY': config.accountKey
     };
 
     return configMap[key];

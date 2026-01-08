@@ -10,6 +10,7 @@ export * from './BlobUrlService';
 export * from './ChatService';
 export * from './EncryptionService';
 export * from './GraphService';
+export * from './DatabaseHealthCheckService';
 export * from './LiveKitEgressClient';
 export * from './LiveKitRecordingService';
 export * from './LiveKitService';
@@ -18,5 +19,6 @@ export * from './recordingCredentialValidator';
 export * from './recordingErrorLogger';
 export * from './RecordingErrorLoggerService';
 export * from './storageCredentials';
+export * from './StorageDetailsService';
 export * from './WebPubSubService';
 

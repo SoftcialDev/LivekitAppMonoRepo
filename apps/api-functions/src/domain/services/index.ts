@@ -24,6 +24,7 @@ export * from './GetSnapshotsDomainService';
 export * from './GetSupervisorByIdentifierDomainService';
 export * from './GetSupervisorForPsoDomainService';
 export * from './GetTalkSessionsDomainService';
+export * from './HealthCheckDomainService';
 export * from './ImageProcessingService';
 export * from './LivekitRecordingDomainService';
 export * from './LiveKitTokenDomainService';
