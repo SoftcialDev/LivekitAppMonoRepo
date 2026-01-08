@@ -13,7 +13,7 @@ import {
   PendingCommandUserNotFoundError, 
   PendingCommandFetchError 
 } from '../errors/PendingCommandErrors';
-import { getCentralAmericaTime } from '../../index';
+import { getCentralAmericaTime } from '../../utils/dateUtils';
 import { CommandType } from '@prisma/client';
 
 /**

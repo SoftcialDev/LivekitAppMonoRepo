@@ -5,7 +5,7 @@
 
 import { ErrorSeverity } from '../enums/ErrorSeverity';
 import { ErrorSource } from '../enums/ErrorSource';
-import { getCentralAmericaTime } from '../../index';
+import { getCentralAmericaTime } from '../../utils/dateUtils';
 
 /**
  * Domain entity representing an API error log with business logic

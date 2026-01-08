@@ -13,7 +13,7 @@ import { ContactManagerFormResult } from '../value-objects/ContactManagerFormRes
 import { ImageUploadRequest } from '../value-objects/ImageUploadRequest';
 import { FormType } from '../enums/FormType';
 import { ContactManagerFormProcessingError } from '../errors/ContactManagerErrors';
-import { extractErrorCause, extractErrorMessage } from '../../index';
+import { extractErrorCause, extractErrorMessage } from '../../utils/error/ErrorHelpers';
 
 /**
  * Domain service for contact manager form operations

@@ -4,7 +4,7 @@
  */
 
 import { UserRole } from '@prisma/client';
-import { getCentralAmericaTime, formatCentralAmericaTime } from '../../index';
+import { getCentralAmericaTime, formatCentralAmericaTime } from '../../utils/dateUtils';
 
 /**
  * Domain entity representing a User with business logic

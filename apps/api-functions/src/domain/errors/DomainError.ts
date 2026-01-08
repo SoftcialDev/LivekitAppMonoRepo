@@ -4,7 +4,7 @@
  */
 
 import { AuthErrorCode, ValidationErrorCode, MessagingErrorCode, ApplicationErrorCode, SupervisorErrorCode, UserRoleChangeErrorCode, UserDeletionErrorCode } from './ErrorCodes';
-import { getCentralAmericaTime } from '../../index';
+import { getCentralAmericaTime } from '../../utils/dateUtils';
 
 /**
  * Base domain error class
