@@ -46,70 +46,12 @@ jobs:
           cd "${{ env.FUNC_SRC }}"
           npm run prisma:generate
 
-      - name: Build TypeScript
+      - name: Build and Package
         shell: bash
         run: |
           set -euo pipefail
           cd "${{ env.FUNC_SRC }}"
-          npm run build
-
-      - name: Package deployable ZIP
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd "${{ env.FUNC_SRC }}"
-          DEPLOY_ZIP_PATH="$(pwd)/../../deploy.zip"
-          rm -f "$DEPLOY_ZIP_PATH"
-          TEMP_DIR=$(mktemp -d)
-          
-          cp host.json package.json package-lock.json "$TEMP_DIR/"
-          
-          # Move handlers to root (Azure Functions requirement)
-          if [ -d "dist/handlers" ]; then
-            for handler_dir in dist/handlers/*/; do
-              if [ -d "$handler_dir" ]; then
-                handler_name=$(basename "$handler_dir")
-                cp -r "$handler_dir" "$TEMP_DIR/$handler_name"
-                # Fix imports: ../../index -> ../index (handlers moved from dist/handlers/ to root)
-                if [ -f "$TEMP_DIR/$handler_name/index.js" ]; then
-                  sed -i 's|require("../../index")|require("../index")|g' "$TEMP_DIR/$handler_name/index.js"
-                fi
-              fi
-            done
-          fi
-          
-          # Wrapper for handler imports (../index -> root/index.js -> dist/index.js)
-          echo '"use strict";' > "$TEMP_DIR/index.js"
-          echo 'try {' >> "$TEMP_DIR/index.js"
-          echo '  module.exports = require("./dist/index");' >> "$TEMP_DIR/index.js"
-          echo '} catch (error) {' >> "$TEMP_DIR/index.js"
-          echo '  console.error("[Root index.js] Failed to load dist/index");' >> "$TEMP_DIR/index.js"
-          echo '  console.error("Error message:", error?.message || String(error));' >> "$TEMP_DIR/index.js"
-          echo '  console.error("Error stack:", error?.stack || "No stack trace");' >> "$TEMP_DIR/index.js"
-          echo '  console.error("Error name:", error?.name || "Unknown");' >> "$TEMP_DIR/index.js"
-          echo '  if (error?.code) console.error("Error code:", error.code);' >> "$TEMP_DIR/index.js"
-          echo '  throw error;' >> "$TEMP_DIR/index.js"
-          echo '}' >> "$TEMP_DIR/index.js"
-          
-          mkdir -p "$TEMP_DIR/dist"
-          find dist -mindepth 1 -maxdepth 1 ! -name handlers -exec cp -r {} "$TEMP_DIR/dist/" \;
-          
-          cp -r node_modules "$TEMP_DIR/"
-          cp -r prisma "$TEMP_DIR/"
-          
-          cd "$TEMP_DIR"
-          zip -r "$DEPLOY_ZIP_PATH" . \
-            -x "**/.git/**" \
-            -x "**/__tests__/**" \
-            -x "**/*.test.ts" \
-            -x "**/*.test.js" \
-            -x "**/coverage/**" \
-            -x "src/**" \
-            -x "**/tsconfig.json" \
-            -x "**/.eslintrc*" \
-            -x "**/jest.config.*"
-          
-          rm -rf "$TEMP_DIR"
+          npm run build:deploy
 
       - uses: actions/upload-artifact@v4
         with:
