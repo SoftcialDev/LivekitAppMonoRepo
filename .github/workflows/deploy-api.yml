@@ -104,7 +104,7 @@ jobs:
             -x "**/*.test.ts" \
             -x "**/*.test.js" \
             -x "**/coverage/**" \
-            -x "**/src/**" \
+            -x "src/**" \
             -x "**/tsconfig.json" \
             -x "**/.eslintrc*" \
             -x "**/jest.config.*"
