@@ -1,15 +1,5 @@
 import { AzureFunction, Context, HttpRequest } from "@azure/functions";
-import { withAuth } from '../../index';
-import { withErrorHandler } from '../../index';
-import { withCallerId } from '../../index';
-import { withQueryValidation } from '../../index';
-import { requirePermission } from '../../index';
-import { Permission } from '../../index';
-import { ok, badRequest } from '../../index';
-import { ServiceContainer } from '../../index';
-import { GetSupervisorForPsoRequest } from '../../index';
-import { GetSupervisorForPsoApplicationService } from '../../index';
-import { getSupervisorForPsoSchema } from '../../index';
+import { withAuth, withErrorHandler, withCallerId, withQueryValidation, requirePermission, Permission, ok, badRequest, ServiceContainer, GetSupervisorForPsoRequest, GetSupervisorForPsoApplicationService, getSupervisorForPsoSchema, ensureBindings, GetSupervisorForPsoParams } from '../../index';
 
 /**
  * Azure Function: handles supervisor lookup by PSO identifier
@@ -34,9 +24,10 @@ const GetSupervisorForPso: AzureFunction = withErrorHandler(
           serviceContainer.initialize();
 
           const applicationService = serviceContainer.resolve<GetSupervisorForPsoApplicationService>('GetSupervisorForPsoApplicationService');
-          const callerId = ctx.bindings.callerId as string;
+          const extendedCtx = ensureBindings(ctx);
+          const callerId = extendedCtx.bindings.callerId as string;
 
-          const validatedQuery = (ctx as any).bindings.validatedQuery;
+          const validatedQuery = extendedCtx.bindings.validatedQuery as GetSupervisorForPsoParams;
           const request = GetSupervisorForPsoRequest.fromQuery(validatedQuery);
 
           const response = await applicationService.getSupervisorForPso(callerId, request);

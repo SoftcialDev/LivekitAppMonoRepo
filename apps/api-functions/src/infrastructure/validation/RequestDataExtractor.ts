@@ -3,7 +3,7 @@
  * @description Extracts data from Azure Functions context, implements IRequestDataExtractor
  */
 
-import { Context } from '@azure/functions';
+import { Context, HttpRequest } from '@azure/functions';
 import { IRequestDataExtractor } from '../../index';
 import { ConfigurationError } from '../../index';
 
@@ -44,7 +44,7 @@ export class RequestDataExtractor implements IRequestDataExtractor {
    */
   extractPath(ctx: Context): Record<string, unknown> {
     const bindingData = ctx.bindingData || {};
-    const reqParams = (ctx.req as any)?.params || {};
+    const reqParams = (ctx.req as HttpRequest)?.params || {};
     
     return Object.keys(bindingData).length > 0 ? bindingData : reqParams;
   }

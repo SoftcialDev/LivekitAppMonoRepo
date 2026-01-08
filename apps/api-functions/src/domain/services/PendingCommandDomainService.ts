@@ -14,6 +14,7 @@ import {
   PendingCommandFetchError 
 } from '../errors/PendingCommandErrors';
 import { getCentralAmericaTime } from '../../index';
+import { CommandType } from '@prisma/client';
 
 /**
  * Domain service for pending command operations
@@ -41,7 +42,7 @@ export class PendingCommandDomainService implements IPendingCommandDomainService
     await this.pendingCommandRepository.deletePendingCommandsForPso(psoId);
     
     // Create new pending command
-    const pendingCommand = await this.pendingCommandRepository.createPendingCommand(psoId, command as any, ts, reason);
+    const pendingCommand = await this.pendingCommandRepository.createPendingCommand(psoId, command as CommandType, ts, reason);
     
     return {
       id: pendingCommand.id,
@@ -93,7 +94,7 @@ export class PendingCommandDomainService implements IPendingCommandDomainService
       const pendingCommands = pendingCommandsData.map(cmd => new PendingCommand({
         id: cmd.id,
         employeeId: cmd.employeeId,
-        command: cmd.command as any, // CommandType
+        command: cmd.command as CommandType,
         timestamp: cmd.timestamp,
         acknowledged: cmd.acknowledged,
         createdAt: getCentralAmericaTime(), 

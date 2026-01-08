@@ -6,7 +6,7 @@
 import axios from "axios";
 import qs from "qs";
 import { config } from '../../config';
-import { IGraphService, ConfigurationError, GraphServiceError, extractAxiosErrorMessage, GraphUser } from '../../index';
+import { IGraphService, ConfigurationError, GraphServiceError, extractAxiosErrorMessage, GraphUser, GraphAppRoleAssignment, GraphResponse } from '../../index';
 
 /**
  * Infrastructure service for Microsoft Graph operations.
@@ -100,10 +100,11 @@ export class GraphService implements IGraphService {
         throw new GraphServiceError(`Failed to list appRoleAssignedTo: ${resp.status} ${JSON.stringify(resp.data)}`);
       }
 
-      const page: Array<{ id: string; principalId?: string }> = resp.data?.value ?? [];
+      const response = resp.data as GraphResponse<GraphAppRoleAssignment>;
+      const page = response.value ?? [];
       for (const a of page) {
         if (!a?.id) continue;
-        if ((a as any).principalId !== userId) continue;
+        if (a.principalId !== userId) continue;
 
         const delUrl = `${base}/${a.id}`;
         try {
@@ -142,11 +143,11 @@ export class GraphService implements IGraphService {
           );
         }
         
-        const data = resp.data as any;
+        const data = resp.data as GraphResponse<GraphUser>;
         if (Array.isArray(data.value)) {
           users.push(...data.value);
         }
-        url = data["@odata.nextLink"] || "";
+        url = data['@odata.nextLink'] || "";
       } catch (err: unknown) {
         const errorMessage = extractAxiosErrorMessage(err);
         const errorCause = err instanceof Error ? err : new Error(String(err));
@@ -180,15 +181,15 @@ export class GraphService implements IGraphService {
         throw new GraphServiceError(`Graph failed: ${resp.status} – ${JSON.stringify(resp.data)}`);
       }
       
-      const data = resp.data as any;
+      const data = resp.data as GraphResponse<GraphAppRoleAssignment>;
 
       for (const assignment of data.value || []) {
         if (assignment.appRoleId === appRoleId && assignment.principalId) {
-          memberIds.add(assignment.principalId as string);
+          memberIds.add(assignment.principalId);
         }
       }
 
-      url = data["@odata.nextLink"] || "";
+      url = data['@odata.nextLink'] || "";
     }
 
     return memberIds;

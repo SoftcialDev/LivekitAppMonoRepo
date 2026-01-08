@@ -33,9 +33,9 @@ export class CameraStartFailureRepository implements ICameraStartFailureReposito
         errorName: data.errorName,
         errorMessage: data.errorMessage,
         deviceCount: data.deviceCount ?? undefined,
-        devicesSnapshot: (data.devicesSnapshot ?? undefined) as any,
-        attempts: (data.attempts ?? undefined) as any,
-        metadata: (data.metadata ?? undefined) as any,
+        devicesSnapshot: data.devicesSnapshot ? (data.devicesSnapshot as Prisma.InputJsonValue) : undefined,
+        attempts: data.attempts ? (data.attempts as Prisma.InputJsonValue) : undefined,
+        metadata: data.metadata ? (data.metadata as Prisma.InputJsonValue) : undefined,
         createdAtCentralAmerica: data.createdAtCentralAmerica,
       },
     });

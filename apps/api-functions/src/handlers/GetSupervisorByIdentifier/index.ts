@@ -1,15 +1,5 @@
 import { AzureFunction, Context, HttpRequest } from "@azure/functions";
-import { withAuth } from '../../index';
-import { withErrorHandler } from '../../index';
-import { withCallerId } from '../../index';
-import { withQueryValidation } from '../../index';
-import { requirePermission } from '../../index';
-import { Permission } from '../../index';
-import { ok, badRequest } from '../../index';
-import { ServiceContainer } from '../../index';
-import { GetSupervisorByIdentifierRequest } from '../../index';
-import { GetSupervisorByIdentifierApplicationService } from '../../index';
-import { getSupervisorByIdentifierSchema } from '../../index';
+import { withAuth, withErrorHandler, withCallerId, withQueryValidation, requirePermission, Permission, ok, badRequest, ServiceContainer, GetSupervisorByIdentifierRequest, GetSupervisorByIdentifierApplicationService, getSupervisorByIdentifierSchema, ensureBindings, GetSupervisorByIdentifierParams } from '../../index';
 
 /**
  * Azure Function: handles supervisor lookup by identifier
@@ -34,9 +24,10 @@ const GetSupervisorByIdentifier: AzureFunction = withErrorHandler(
           serviceContainer.initialize();
 
           const applicationService = serviceContainer.resolve<GetSupervisorByIdentifierApplicationService>('GetSupervisorByIdentifierApplicationService');
-          const callerId = ctx.bindings.callerId as string;
+          const extendedCtx = ensureBindings(ctx);
+          const callerId = extendedCtx.bindings.callerId as string;
 
-          const validatedQuery = (ctx as any).bindings.validatedQuery;
+          const validatedQuery = extendedCtx.bindings.validatedQuery as GetSupervisorByIdentifierParams;
           const request = GetSupervisorByIdentifierRequest.fromQuery(validatedQuery);
 
           const response = await applicationService.getSupervisorByIdentifier(callerId, request);

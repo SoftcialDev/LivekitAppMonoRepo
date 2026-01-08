@@ -21,7 +21,7 @@ import { IAuditService } from '../../index';
 import { IPresenceService } from '../../index';
 import { UserDeletionApplicationService } from '../../index';
 import { IWebPubSubService } from '../../index';
-import { ExtendedContext } from '../../domain/types/ContextBindings';
+import { ExtendedContext, ensureBindings } from '../../index';
 
 /**
  * Azure Function: DeleteUser

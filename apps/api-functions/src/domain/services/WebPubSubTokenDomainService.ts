@@ -8,9 +8,10 @@ import { WebPubSubTokenRequest } from "../value-objects/WebPubSubTokenRequest";
 import { WebPubSubTokenResponse } from "../value-objects/WebPubSubTokenResponse";
 import { IUserRepository } from "../interfaces/IUserRepository";
 import { IWebPubSubService } from "../interfaces/IWebPubSubService";
-import { config } from '../../index';
+import { config } from '../../config';
 import { UserNotFoundError } from "../errors/UserErrors";
 import { UserRole } from "../enums/UserRole";
+import { WebPubSubGroups } from "../constants/WebPubSubGroups";
 
 /**
  * Domain service for WebPubSub token generation business logic
@@ -64,15 +65,15 @@ export class WebPubSubTokenDomainService {
    */
   private determineUserGroups(role: string, email: string): string[] {
     const normalizedEmail = email.trim().toLowerCase();
-    const groups: string[] = ["presence"]; // All users get presence group
+    const groups: string[] = [WebPubSubGroups.PRESENCE]; // All users get presence group
 
     // PSOs get additional groups for commands and status updates
     if (role === UserRole.PSO) {
       groups.unshift(normalizedEmail); // Personal group for commands
-      groups.push("cm-status-updates"); // Contact Manager status updates
+      groups.push(WebPubSubGroups.CM_STATUS_UPDATES); // Contact Manager status updates
     }
 
-    // Admins, Supervisors, ContactManagers, SuperAdmins remain on "presence" only
+    // Admins, Supervisors, ContactManagers, SuperAdmins remain on presence group only
     return groups;
   }
 }

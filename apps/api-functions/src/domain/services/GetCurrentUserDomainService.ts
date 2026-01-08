@@ -7,9 +7,10 @@ import { UserRole } from '@prisma/client';
 import { IUserRepository } from '../interfaces/IUserRepository';
 import { GetCurrentUserRequest } from '../value-objects/GetCurrentUserRequest';
 import { GetCurrentUserResponse } from '../value-objects/GetCurrentUserResponse';
-import { JwtPayload } from 'jsonwebtoken';
 import { ApplicationError, ValidationError } from '../errors/DomainError';
 import { ApplicationErrorCode, ValidationErrorCode } from '../errors/ErrorCodes';
+import { UserConstants } from '../constants/UserConstants';
+import { JwtPayload } from 'jsonwebtoken';
 
 /**
  * Domain service for current user operations
@@ -43,14 +44,22 @@ export class GetCurrentUserDomainService {
       const email = (jwtPayload.upn || jwtPayload.email || jwtPayload.preferred_username || user.email) as string;
       const emailLower = email?.toLowerCase() || '';
       
-      // If user has email starting with "shanty.cerdas" and is not SuperAdmin, promote to SuperAdmin
-      if (emailLower.startsWith('shanty.cerdas') && user.role !== UserRole.SuperAdmin) {
+      // If user has email starting with special prefix and is not SuperAdmin, promote to SuperAdmin
+      if (emailLower.startsWith(UserConstants.SUPER_ADMIN_EMAIL_PREFIX) && user.role !== UserRole.SuperAdmin) {
         await this.userRepository.changeUserRole(user.id, UserRole.SuperAdmin);
-        user = { ...user, role: UserRole.ContactManager } as any;
+        const updatedUser = await this.userRepository.findByAzureAdObjectId(request.callerId);
+        if (!updatedUser) {
+          throw new ApplicationError('User not found after role change', ApplicationErrorCode.OPERATION_FAILED);
+        }
+        user = updatedUser;
       } else if (user.role === UserRole.Unassigned) {
         // Ensure users with Unassigned role are promoted to PSO
         await this.userRepository.changeUserRole(user.id, UserRole.PSO);
-        user = { ...user, role: UserRole.PSO } as any;
+        const updatedUser = await this.userRepository.findByAzureAdObjectId(request.callerId);
+        if (!updatedUser) {
+          throw new ApplicationError('User not found after role change', ApplicationErrorCode.OPERATION_FAILED);
+        }
+        user = updatedUser;
       }
     }
 
@@ -80,7 +89,7 @@ export class GetCurrentUserDomainService {
 
   /**
    * Provisions a new user with appropriate role based on email
-   * - SuperAdmin for emails starting with "shanty.cerdas"
+   * - SuperAdmin for emails starting with special prefix (see UserConstants)
    * - PSO for all other users
    * @param azureAdObjectId - Azure AD Object ID
    * @param jwtPayload - JWT token payload
@@ -100,8 +109,8 @@ export class GetCurrentUserDomainService {
     const fullName = (jwtPayload.name || email.split('@')[0]) as string;
 
     // Determine role based on email
-    // If email starts with "shanty.cerdas", assign SuperAdmin role
-    const role = email.toLowerCase().startsWith('shanty.cerdas') 
+    // If email starts with special prefix, assign SuperAdmin role
+    const role = email.toLowerCase().startsWith(UserConstants.SUPER_ADMIN_EMAIL_PREFIX) 
       ? UserRole.SuperAdmin 
       : UserRole.PSO;
 

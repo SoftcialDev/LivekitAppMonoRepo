@@ -4,10 +4,7 @@
  * @description Provides utility functions for consistent error logging in recording services
  */
 
-import { IErrorLogService } from '../../index';
-import { IUserRepository } from '../../index';
-import { ErrorSource } from '../../index';
-import { ErrorSeverity } from '../../index';
+import { IErrorLogService, IUserRepository, ErrorSource, ErrorSeverity, ApiEndpoints, FunctionNames } from '../../index';
 
 /**
  * Gets subject user email for error logging
@@ -49,7 +46,7 @@ export async function logRecordingError(
   context: {
     sessionId?: string | null;
     egressId?: string;
-    roomName: string;
+    roomName?: string;
     subjectUserId?: string | null;
     initiatorUserId?: string;
     egressStatus?: string;
@@ -79,15 +76,15 @@ export async function logRecordingError(
     await errorLogService.logError({
       source: ErrorSource.Recording,
       severity: ErrorSeverity.High,
-      endpoint: '/api/recording',
-      functionName: 'LivekitRecordingFunction',
+      endpoint: ApiEndpoints.RECORDING,
+      functionName: FunctionNames.LIVEKIT_RECORDING,
       error: errorObj,
       userId: context.initiatorUserId,
       userEmail: subjectUserEmail,
       context: {
         sessionId: context.sessionId || undefined,
         egressId: context.egressId,
-        roomName: context.roomName,
+        roomName: context.roomName || undefined,
         subjectUserId: context.subjectUserId || undefined,
         egressStatus: context.egressStatus,
         egressError: context.egressError,

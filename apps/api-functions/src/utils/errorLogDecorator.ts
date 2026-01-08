@@ -20,12 +20,12 @@ export function withErrorLogging(
   return function (target: any, propertyKey: string, descriptor: PropertyDescriptor) {
     const originalMethod = descriptor.value;
 
-    descriptor.value = async function (...args: any[]) {
+    descriptor.value = async function (this: { errorLogService?: IErrorLogService }, ...args: any[]) {
       try {
         return await originalMethod.apply(this, args);
       } catch (error) {
         try {
-          const errorLogService = (this as any).errorLogService as IErrorLogService | undefined;
+          const errorLogService = this.errorLogService;
           
           if (errorLogService) {
             await errorLogService.logError({

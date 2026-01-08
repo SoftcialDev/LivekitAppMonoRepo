@@ -51,7 +51,7 @@ export function createLazySingletonProxy<T extends object>(
       
       // After first access, cachedInstance is guaranteed to exist
       // Direct property access for optimal performance
-      const value = (cachedInstance as any)[prop];
+      const value = cachedInstance[prop as keyof T];
       
       // Bind functions to maintain correct 'this' context
       if (typeof value === 'function') {

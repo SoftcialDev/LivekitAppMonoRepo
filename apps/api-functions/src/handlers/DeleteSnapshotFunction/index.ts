@@ -1,15 +1,5 @@
 import { Context, HttpRequest } from "@azure/functions";
-import { withAuth } from '../../index';
-import { withErrorHandler } from '../../index';
-import { withCallerId } from '../../index';
-import { requirePermission } from '../../index';
-import { Permission } from '../../index';
-import { withPathValidation } from '../../index';
-import { ok } from '../../index';
-import { ServiceContainer } from '../../index';
-import { DeleteSnapshotRequest } from '../../index';
-import { DeleteSnapshotApplicationService } from '../../index';
-import { deleteSnapshotSchema } from '../../index';
+import { withAuth, withErrorHandler, withCallerId, requirePermission, Permission, withPathValidation, ok, ServiceContainer, DeleteSnapshotRequest, DeleteSnapshotApplicationService, deleteSnapshotSchema, ensureBindings, DeleteSnapshotParams } from '../../index';
 
 /**
  * HTTP DELETE /api/snapshots/{id}
@@ -39,9 +29,10 @@ const deleteSnapshotFunction = withErrorHandler(
           serviceContainer.initialize();
 
           const applicationService = serviceContainer.resolve<DeleteSnapshotApplicationService>('DeleteSnapshotApplicationService');
-          const callerId = ctx.bindings.callerId as string;
+          const extendedCtx = ensureBindings(ctx);
+          const callerId = extendedCtx.bindings.callerId as string;
 
-          const validatedParams = (ctx as any).bindings.validatedParams;
+          const validatedParams = extendedCtx.bindings.validatedParams as DeleteSnapshotParams;
           const request = DeleteSnapshotRequest.fromParams(callerId, validatedParams);
 
           const response = await applicationService.deleteSnapshot(callerId, request);

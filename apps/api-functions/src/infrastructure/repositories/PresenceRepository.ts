@@ -4,7 +4,7 @@
  * @description Infrastructure repository that implements presence data operations using Prisma ORM
  */
 
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Status as PrismaStatus } from "@prisma/client";
 import { IPresenceRepository } from '../../index';
 import { Presence } from '../../index';
 import { Status } from '../../index';
@@ -32,8 +32,8 @@ export class PresenceRepository implements IPresenceRepository {
   async upsertPresence(userId: string, status: Status, lastSeenAt: Date): Promise<void> {
     await this.prisma.presence.upsert({
       where: { userId },
-      create: { userId, status: status as any, lastSeenAt, updatedAt: getCentralAmericaTime() },
-      update: { status: status as any, lastSeenAt, updatedAt: getCentralAmericaTime() },
+      create: { userId, status: status as PrismaStatus, lastSeenAt, updatedAt: getCentralAmericaTime() },
+      update: { status: status as PrismaStatus, lastSeenAt, updatedAt: getCentralAmericaTime() },
     });
   }
 

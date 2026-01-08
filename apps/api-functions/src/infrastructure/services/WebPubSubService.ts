@@ -6,7 +6,7 @@
 
 import { WebPubSubServiceClient } from "@azure/web-pubsub";
 import { AzureKeyCredential } from "@azure/core-auth";
-import { IWebPubSubService, getCentralAmericaTime, wrapWebPubSubTokenError, wrapWebPubSubBroadcastError, wrapWebPubSubSyncError, extractErrorDetails } from '../../index';
+import { IWebPubSubService, getCentralAmericaTime, wrapWebPubSubTokenError, wrapWebPubSubBroadcastError, wrapWebPubSubSyncError, extractErrorDetails, WebPubSubGroups } from '../../index';
 import { config } from '../../config';
 import prisma from "../database/PrismaClientService";
 
@@ -82,7 +82,7 @@ export class WebPubSubService implements IWebPubSubService {
   }): Promise<void> {
     try {
       const event = { type: "presence", user: payload };
-      await this.client.group("presence").sendToAll(JSON.stringify(event));
+      await this.client.group(WebPubSubGroups.PRESENCE).sendToAll(JSON.stringify(event));
     } catch (error: unknown) {
       throw wrapWebPubSubBroadcastError('Failed to broadcast presence', error);
     }
@@ -119,7 +119,7 @@ export class WebPubSubService implements IWebPubSubService {
     try {
       // 1. List presence group connections
       try {
-        await this.listConnectionsInGroup('presence');
+        await this.listConnectionsInGroup(WebPubSubGroups.PRESENCE);
       } catch {
         // Failed to list presence group
       }
@@ -172,15 +172,16 @@ export class WebPubSubService implements IWebPubSubService {
    */
   async getActiveUsersInPresenceGroup(): Promise<Array<{ userId: string; userRoles: string[] }>> {
     try {
-      const groupClient = this.client.group("presence");
+      const groupClient = this.client.group(WebPubSubGroups.PRESENCE);
       const connections = await groupClient.listConnections();
       
       const activeUsers: Array<{ userId: string; userRoles: string[] }> = [];
       
       for await (const conn of connections) {
+        const connectionWithRoles = conn as { userId?: string; userRoles?: string[] };
         activeUsers.push({
-          userId: conn.userId || 'unknown',
-          userRoles: (conn as any).userRoles || []
+          userId: connectionWithRoles.userId || 'unknown',
+          userRoles: connectionWithRoles.userRoles || []
         });
       }
       
@@ -352,7 +353,7 @@ export class WebPubSubService implements IWebPubSubService {
         data: payload,
         timestamp: getCentralAmericaTime().toISOString(),
       };
-      await this.client.group('presence').sendToAll(JSON.stringify(message));
+      await this.client.group(WebPubSubGroups.PRESENCE).sendToAll(JSON.stringify(message));
     } catch (error: unknown) {
       throw wrapWebPubSubBroadcastError('Failed to broadcast supervisor list change', error);
     }
@@ -386,7 +387,7 @@ export class WebPubSubService implements IWebPubSubService {
         timestamp: getCentralAmericaTime().toISOString()
       };
       
-      await this.client.group("presence").sendToAll(JSON.stringify(event));
+      await this.client.group(WebPubSubGroups.PRESENCE).sendToAll(JSON.stringify(event));
     } catch (error: unknown) {
       throw wrapWebPubSubBroadcastError('Failed to broadcast supervisor change notification', error);
     }

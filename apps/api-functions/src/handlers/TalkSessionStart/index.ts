@@ -4,17 +4,7 @@
  */
 
 import { Context, HttpRequest } from "@azure/functions";
-import { withAuth } from '../../index';
-import { withErrorHandler } from '../../index';
-import { withCallerId } from '../../index';
-import { withBodyValidation } from '../../index';
-import { requirePermission } from '../../index';
-import { Permission } from '../../index';
-import { ok } from '../../index';
-import { ServiceContainer } from '../../index';
-import { TalkSessionStartRequest } from '../../index';
-import { TalkSessionApplicationService } from '../../index';
-import { talkSessionStartSchema } from '../../index';
+import { withAuth, withErrorHandler, withCallerId, withBodyValidation, requirePermission, Permission, ok, ServiceContainer, TalkSessionStartRequest, TalkSessionApplicationService, talkSessionStartSchema, ensureBindings, TalkSessionStartParams } from '../../index';
 
 /**
  * HTTP-triggered Azure Function that starts a talk session between supervisor and PSO.
@@ -44,9 +34,10 @@ export default withErrorHandler(
           serviceContainer.initialize();
 
           const applicationService = serviceContainer.resolve<TalkSessionApplicationService>('TalkSessionApplicationService');
-          const callerId = ctx.bindings.callerId as string;
+          const extendedCtx = ensureBindings(ctx);
+          const callerId = extendedCtx.bindings.callerId as string;
 
-          const validatedBody = (ctx as any).bindings.validatedBody;
+          const validatedBody = extendedCtx.bindings.validatedBody as TalkSessionStartParams;
           const request = TalkSessionStartRequest.fromBody(callerId, validatedBody);
 
           const response = await applicationService.startTalkSession(callerId, request);

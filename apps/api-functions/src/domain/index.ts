@@ -3,6 +3,7 @@
  * @description Centralized export of all domain layer components for easy importing
  */
 
+export * from './constants';
 export * from './entities';
 export * from './enums';
 export * from './errors';

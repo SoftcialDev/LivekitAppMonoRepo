@@ -1,15 +1,5 @@
 import { AzureFunction, Context, HttpRequest } from "@azure/functions";
-import { withAuth } from '../../index';
-import { withErrorHandler } from '../../index';
-import { withCallerId } from '../../index';
-import { requirePermission } from '../../index';
-import { Permission } from '../../index';
-import { withPathValidation } from '../../index';
-import { ok } from '../../index';
-import { ServiceContainer } from '../../index';
-import { DeleteRecordingRequest } from '../../index';
-import { DeleteRecordingApplicationService } from '../../index';
-import { deleteRecordingSchema } from '../../index';
+import { withAuth, withErrorHandler, withCallerId, requirePermission, Permission, withPathValidation, ok, ServiceContainer, DeleteRecordingRequest, DeleteRecordingApplicationService, deleteRecordingSchema, ensureBindings, DeleteRecordingParams } from '../../index';
 
 /**
  * Azure Function HTTP trigger to delete a recording by id.
@@ -37,10 +27,11 @@ const deleteRecordingFunction: AzureFunction = withErrorHandler(
 
           // Resolve application service
           const applicationService = serviceContainer.resolve<DeleteRecordingApplicationService>('DeleteRecordingApplicationService');
-          const callerId = ctx.bindings.callerId as string;
+          const extendedCtx = ensureBindings(ctx);
+          const callerId = extendedCtx.bindings.callerId as string;
 
           // Get validated params from bindings
-          const validatedParams = (ctx as any).bindings.validatedParams;
+          const validatedParams = extendedCtx.bindings.validatedParams as DeleteRecordingParams;
           
           // Create request object
           const request = DeleteRecordingRequest.fromParams(validatedParams);

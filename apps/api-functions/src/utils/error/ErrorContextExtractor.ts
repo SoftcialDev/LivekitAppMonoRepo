@@ -7,6 +7,7 @@
 import { Context } from "@azure/functions";
 import { getCallerAdId } from "../authHelpers";
 import type { JwtPayload } from "jsonwebtoken";
+import { ensureBindings } from "../../index";
 
 /**
  * Error context information extracted from Azure Functions context
@@ -64,7 +65,7 @@ export class ErrorContextExtractor {
    * @returns Function name or "Unknown" if not determinable
    */
   private static extractFunctionName(ctx: Context): string {
-    const execContext = (ctx as any).executionContext;
+    const execContext = (ctx as Context & { executionContext?: { functionName?: string } }).executionContext;
     if (execContext?.functionName) {
       return execContext.functionName;
     }
@@ -98,14 +99,20 @@ export class ErrorContextExtractor {
    * @returns User ID or undefined if not available
    */
   private static extractUserId(ctx: Context): string | undefined {
-    const callerId = (ctx as any).bindings?.callerId;
-    if (callerId) {
-      return callerId;
-    }
+    try {
+      const extendedCtx = ensureBindings(ctx);
+      const callerId = extendedCtx.bindings.callerId;
+      if (callerId) {
+        return callerId as string;
+      }
 
-    const userClaims = (ctx as any).bindings?.user as JwtPayload | undefined;
-    if (userClaims) {
-      return getCallerAdId(userClaims);
+      const userClaims = extendedCtx.bindings.user as JwtPayload | undefined;
+      if (userClaims) {
+        return getCallerAdId(userClaims);
+      }
+    } catch {
+      // If ensureBindings fails, bindings may not be available yet
+      return undefined;
     }
 
     return undefined;

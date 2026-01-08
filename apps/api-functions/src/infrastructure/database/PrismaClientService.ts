@@ -15,7 +15,7 @@ import { createLazySingletonProxy } from '../utils/LazySingletonProxy';
  * Prevents multiple connections from being created
  */
 class PrismaClientSingleton {
-  private static instance: PrismaClient;
+  private static instance: PrismaClient | undefined;
   private static connectionCount = 0;
 
   /**
@@ -64,7 +64,7 @@ class PrismaClientSingleton {
   public static async disconnect(): Promise<void> {
     if (PrismaClientSingleton.instance) {
       await PrismaClientSingleton.instance.$disconnect();
-      PrismaClientSingleton.instance = undefined as any;
+      PrismaClientSingleton.instance = undefined;
       PrismaClientSingleton.connectionCount = 0;
     }
   }
@@ -73,7 +73,7 @@ class PrismaClientSingleton {
    * Resets the singleton instance (useful for testing)
    */
   public static reset(): void {
-    PrismaClientSingleton.instance = undefined as any;
+    PrismaClientSingleton.instance = undefined;
     PrismaClientSingleton.connectionCount = 0;
   }
 

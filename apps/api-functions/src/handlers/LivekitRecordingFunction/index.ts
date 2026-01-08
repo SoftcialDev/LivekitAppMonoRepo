@@ -5,15 +5,7 @@
  */
 
 import { AzureFunction, Context, HttpRequest } from "@azure/functions";
-import { withAuth } from '../../index';
-import { withErrorHandler } from '../../index';
-import { withCallerId } from '../../index';
-import { withBodyValidation } from '../../index';
-import { ok } from '../../index';
-import { LivekitRecordingApplicationService } from '../../index';
-import { LivekitRecordingRequest } from '../../index';
-import { livekitRecordingSchema } from '../../index';
-import { serviceContainer } from '../../index';
+import { withAuth, withErrorHandler, withCallerId, withBodyValidation, ok, LivekitRecordingApplicationService, LivekitRecordingRequest, livekitRecordingSchema, serviceContainer, ensureBindings, LivekitRecordingRequestPayload } from '../../index';
 
 /**
  * Azure Function to control LiveKit recording sessions
@@ -40,9 +32,11 @@ const livekitRecordingHandler: AzureFunction = withErrorHandler(
           serviceContainer.initialize();
           
           const applicationService = serviceContainer.resolve<LivekitRecordingApplicationService>('LivekitRecordingApplicationService');
-          const callerId = ctx.bindings.callerId as string;
+          const extendedCtx = ensureBindings(ctx);
+          const callerId = extendedCtx.bindings.callerId as string;
           
-          const request = LivekitRecordingRequest.fromBody((ctx as any).bindings.validatedBody);
+          const validatedBody = extendedCtx.bindings.validatedBody as LivekitRecordingRequestPayload;
+          const request = LivekitRecordingRequest.fromBody(validatedBody);
           const response = await applicationService.processRecordingCommand(callerId, request);
           
           ok(ctx, response.toPayload());

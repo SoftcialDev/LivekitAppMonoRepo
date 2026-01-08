@@ -2,6 +2,10 @@
  * @fileoverview standaloneLogger - Structured logging utilities for standalone scripts
  * @summary Provides logging functions that don't require Azure Functions context
  * @description Used by standalone scripts (seed, migrations, etc.) for structured logging
+ * 
+ * @remarks
+ * This module uses process.stdout.write and process.stderr.write instead of console.*
+ * to maintain consistency with project logging standards while allowing standalone execution.
  */
 
 /**
@@ -16,7 +20,7 @@ export function logInfo(message: string, props?: Record<string, unknown>): void 
     timestamp: new Date().toISOString(),
     ...props
   };
-  console.log(JSON.stringify(logEntry));
+  process.stdout.write(JSON.stringify(logEntry) + '\n');
 }
 
 /**
@@ -31,7 +35,7 @@ export function logWarn(message: string, props?: Record<string, unknown>): void 
     timestamp: new Date().toISOString(),
     ...props
   };
-  console.warn(JSON.stringify(logEntry));
+  process.stdout.write(JSON.stringify(logEntry) + '\n');
 }
 
 /**
@@ -56,6 +60,6 @@ export function logError(error: unknown, props?: Record<string, unknown>): void 
     logEntry.error = error;
   }
 
-  console.error(JSON.stringify(logEntry));
+  process.stderr.write(JSON.stringify(logEntry) + '\n');
 }
 

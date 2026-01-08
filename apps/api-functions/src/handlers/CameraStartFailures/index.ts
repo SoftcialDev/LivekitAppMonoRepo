@@ -5,17 +5,7 @@
  */
 
 import { Context } from "@azure/functions";
-import { withAuth } from '../../index';
-import { withErrorHandler } from '../../index';
-import { withBodyValidation } from '../../index';
-import { withCallerId } from '../../index';
-import { requirePermission } from '../../index';
-import { Permission } from '../../index';
-import { ok } from '../../index';
-import { cameraStartFailureSchema } from '../../index';
-import { serviceContainer } from '../../index';
-import { getCallerAdId } from '../../index';
-import { ICameraFailureService } from '../../index';
+import { withAuth, withErrorHandler, withBodyValidation, withCallerId, requirePermission, Permission, ok, cameraStartFailureSchema, serviceContainer, getCallerAdId, ICameraFailureService, ensureBindings, CameraStartFailureRequest } from '../../index';
 
 const handler = withErrorHandler(async (ctx: Context) => {
   await withAuth(ctx, async () => {
@@ -29,14 +19,20 @@ const handler = withErrorHandler(async (ctx: Context) => {
       );
 
       await withBodyValidation(cameraStartFailureSchema)(ctx, async () => {
-        const claims = (ctx as any).bindings?.user;
-        const userAdId = getCallerAdId(claims);
+        const extendedCtx = ensureBindings(ctx);
+        const claims = extendedCtx.bindings.user;
+        const userAdId = claims ? getCallerAdId(claims) : undefined;
         const userEmail = claims?.upn ?? claims?.preferred_username ?? undefined;
+        const validatedBody = extendedCtx.bindings.validatedBody as CameraStartFailureRequest;
+
+        if (!userAdId) {
+          throw new Error('User ID not found in claims');
+        }
 
         await failureService.logStartFailure({
           userAdId,
           userEmail,
-          ...(ctx as any).bindings.validatedBody,
+          ...validatedBody,
         });
 
         ok(ctx, { stored: true });

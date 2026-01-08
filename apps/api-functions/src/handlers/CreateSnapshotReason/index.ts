@@ -5,17 +5,7 @@
  */
 
 import { Context, HttpRequest } from "@azure/functions";
-import { withAuth } from '../../index';
-import { withErrorHandler } from '../../index';
-import { withCallerId } from '../../index';
-import { requirePermission } from '../../index';
-import { Permission } from '../../index';
-import { withBodyValidation } from '../../index';
-import { ok } from '../../index';
-import { ServiceContainer } from '../../index';
-import { CreateSnapshotReasonRequest } from '../../index';
-import { CreateSnapshotReasonApplicationService } from '../../index';
-import { createSnapshotReasonSchema } from '../../index';
+import { withAuth, withErrorHandler, withCallerId, requirePermission, Permission, withBodyValidation, ok, ServiceContainer, CreateSnapshotReasonRequest, CreateSnapshotReasonApplicationService, createSnapshotReasonSchema, ensureBindings, CreateSnapshotReasonParams } from '../../index';
 
 const createSnapshotReasonHandler = withErrorHandler(
   async (ctx: Context, req: HttpRequest) => {
@@ -27,9 +17,10 @@ const createSnapshotReasonHandler = withErrorHandler(
           serviceContainer.initialize();
 
           const applicationService = serviceContainer.resolve<CreateSnapshotReasonApplicationService>('CreateSnapshotReasonApplicationService');
-          const callerId = ctx.bindings.callerId as string;
+          const extendedCtx = ensureBindings(ctx);
+          const callerId = extendedCtx.bindings.callerId as string;
 
-          const validatedBody = (ctx as any).bindings.validatedBody;
+          const validatedBody = extendedCtx.bindings.validatedBody as CreateSnapshotReasonParams;
           const request = CreateSnapshotReasonRequest.fromBody(validatedBody);
 
           const response = await applicationService.createSnapshotReason(callerId, request);

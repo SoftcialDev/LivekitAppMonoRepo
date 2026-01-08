@@ -5,14 +5,7 @@
  */
 
 import { Context, HttpRequest } from "@azure/functions";
-import { withAuth } from '../../index';
-import { withErrorHandler } from '../../index';
-import { withCallerId } from '../../index';
-import { withBodyValidation } from '../../index';
-import { ok } from '../../index';
-import { ServiceContainer } from '../../index';
-import { UpdateSnapshotReasonApplicationService } from '../../index';
-import { updateSnapshotReasonSchema } from '../../index';
+import { withAuth, withErrorHandler, withCallerId, withBodyValidation, ok, ServiceContainer, UpdateSnapshotReasonApplicationService, updateSnapshotReasonSchema, ensureBindings, UpdateSnapshotReasonParams } from '../../index';
 
 const updateSnapshotReasonHandler = withErrorHandler(
   async (ctx: Context, req: HttpRequest) => {
@@ -23,9 +16,10 @@ const updateSnapshotReasonHandler = withErrorHandler(
           serviceContainer.initialize();
 
           const applicationService = serviceContainer.resolve<UpdateSnapshotReasonApplicationService>('UpdateSnapshotReasonApplicationService');
-          const callerId = ctx.bindings.callerId as string;
+          const extendedCtx = ensureBindings(ctx);
+          const callerId = extendedCtx.bindings.callerId as string;
 
-          const validatedBody = (ctx as any).bindings.validatedBody;
+          const validatedBody = extendedCtx.bindings.validatedBody as UpdateSnapshotReasonParams;
           const { id, ...updateData } = validatedBody;
 
           const response = await applicationService.updateSnapshotReason(callerId, id, updateData);

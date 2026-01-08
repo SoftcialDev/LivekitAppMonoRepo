@@ -24,7 +24,7 @@ export class RecordingErrorLoggerService implements IRecordingErrorLogger {
       this.errorLogService,
       this.userRepository,
       errorInfo,
-      context as any
+      context
     );
   }
 }

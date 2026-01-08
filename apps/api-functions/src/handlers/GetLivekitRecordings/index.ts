@@ -6,7 +6,7 @@
 
 import { AzureFunction, Context, HttpRequest } from "@azure/functions";
 import { withAuth, withErrorHandler, withCallerId, withQueryValidation, requirePermission, Permission, ok, GetLivekitRecordingsApplicationService, GetLivekitRecordingsRequest, getLivekitRecordingsSchema, serviceContainer } from '../../index';
-import { ExtendedContext } from '../../domain/types/ContextBindings';
+import { ExtendedContext, ensureBindings } from '../../index';
 import { GetLivekitRecordingsRequestPayload } from '../../domain/schemas/GetLivekitRecordingsSchema';
 
 /**

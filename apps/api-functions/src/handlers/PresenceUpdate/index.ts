@@ -1,13 +1,5 @@
 import { Context, HttpRequest } from "@azure/functions";
-import { withAuth } from '../../index';
-import { withErrorHandler } from '../../index';
-import { withCallerId } from '../../index';
-import { withBodyValidation } from '../../index';
-import { ok } from '../../index';
-import { ServiceContainer } from '../../index';
-import { PresenceUpdateRequest } from '../../index';
-import { PresenceUpdateApplicationService } from '../../index';
-import { presenceUpdateSchema } from '../../index';
+import { withAuth, withErrorHandler, withCallerId, withBodyValidation, ok, ServiceContainer, PresenceUpdateRequest, PresenceUpdateApplicationService, presenceUpdateSchema, ensureBindings, PresenceUpdateParams } from '../../index';
 
 /**
  * PresenceUpdateFunction
@@ -33,10 +25,12 @@ const presenceUpdateHandler = withErrorHandler(
 
           // Resolve application service
           const applicationService = serviceContainer.resolve<PresenceUpdateApplicationService>('PresenceUpdateApplicationService');
-          const callerId = ctx.bindings.callerId as string;
+          const extendedCtx = ensureBindings(ctx);
+          const callerId = extendedCtx.bindings.callerId as string;
 
           // Create request object
-          const request = PresenceUpdateRequest.fromBody(callerId, ctx.bindings.validatedBody as any);
+          const validatedBody = extendedCtx.bindings.validatedBody as PresenceUpdateParams;
+          const request = PresenceUpdateRequest.fromBody(callerId, validatedBody);
 
           // Execute presence update
           const response = await applicationService.updatePresence(callerId, request);

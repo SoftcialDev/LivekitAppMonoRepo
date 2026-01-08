@@ -9,6 +9,7 @@ import { Client } from '@microsoft/microsoft-graph-client';
 import { TokenCredentialAuthenticationProvider } from '@microsoft/microsoft-graph-client/authProviders/azureTokenCredentials';
 import prisma from '../database/PrismaClientService';
 import { config } from '../../config';
+import { GraphChatMember } from '../../domain/types/GraphTypes';
 
 export class ChatService implements IChatService {
   private tenantId = config.azureTenantId;
@@ -485,8 +486,8 @@ export class ChatService implements IChatService {
     desired: readonly { userId: string; oid: string }[]
   ): Promise<void> {
     try {
-      const resp: any = await graph.api(`/chats/${chatId}/members`).get();
-      const graphMembers = (resp.value as any[]).map((m) => ({
+      const resp = await graph.api(`/chats/${chatId}/members`).get() as { value: GraphChatMember[] };
+      const graphMembers = resp.value.map((m) => ({
         oid: (m.user?.id as string)?.toLowerCase(),
         memberId: m.id
       }));

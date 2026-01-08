@@ -25,7 +25,7 @@ import { IUserRepository } from '../../index';
 import { IAuthorizationService } from '../../index';
 import { IUserQueryService } from '../../index';
 import { CallerIdNotFoundError } from '../../index';
-import { ExtendedContext } from '../../domain/types/ContextBindings';
+import { ExtendedContext, ensureBindings } from '../../index';
 
 const getUsersByRole: AzureFunction = withErrorHandler(
   async (ctx: Context, req: HttpRequest) => {

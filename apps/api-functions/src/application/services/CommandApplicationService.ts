@@ -4,7 +4,7 @@
  */
 
 import { Command } from '../../index';
-import { MessagingResult } from '../../index';
+import { MessagingResult, MessagingChannel } from '../../index';
 import { IUserRepository } from '../../index';
 import { IAuthorizationService } from '../../index';
 import { ICommandMessagingService } from '../../index';
@@ -68,7 +68,7 @@ export class CommandApplicationService {
       // Broadcast stream event to supervisors
       await this.broadcastStreamEvent(command.employeeEmail, command.type, command.reason);
       
-      return { success: true, sentVia: 'WEB_PUBSUB' as any };
+      return new MessagingResult(MessagingChannel.WebSocket, true);
     } catch (error) {
       throw new MessagingError(
         `Failed to send command: ${(error as Error).message}`,

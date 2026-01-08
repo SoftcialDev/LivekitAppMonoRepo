@@ -5,17 +5,7 @@
  */
 
 import { Context, HttpRequest } from "@azure/functions";
-import { withAuth } from '../../index';
-import { withErrorHandler } from '../../index';
-import { withCallerId } from '../../index';
-import { withBodyValidation } from '../../index';
-import { requirePermission } from '../../index';
-import { Permission } from '../../index';
-import { ok } from '../../index';
-import { ServiceContainer } from '../../index';
-import { TransferPsosRequest } from '../../index';
-import { TransferPsosApplicationService } from '../../index';
-import { transferPsosSchema } from '../../index';
+import { withAuth, withErrorHandler, withCallerId, withBodyValidation, requirePermission, Permission, ok, ServiceContainer, TransferPsosRequest, TransferPsosApplicationService, transferPsosSchema, ensureBindings, TransferPsosParams } from '../../index';
 
 /**
  * HTTP-triggered Azure Function that reassigns ALL PSOs currently
@@ -45,9 +35,10 @@ const transferPsosHandler = withErrorHandler(
           serviceContainer.initialize();
 
           const applicationService = serviceContainer.resolve<TransferPsosApplicationService>('TransferPsosApplicationService');
-          const callerId = ctx.bindings.callerId as string;
+          const extendedCtx = ensureBindings(ctx);
+          const callerId = extendedCtx.bindings.callerId as string;
 
-          const validatedBody = (ctx as any).bindings.validatedBody;
+          const validatedBody = extendedCtx.bindings.validatedBody as TransferPsosParams;
           const request = TransferPsosRequest.fromBody(callerId, validatedBody);
 
           const response = await applicationService.transferPsos(callerId, request);

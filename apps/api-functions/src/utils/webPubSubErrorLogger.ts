@@ -6,12 +6,7 @@
  */
 
 import { Context } from "@azure/functions";
-import { ServiceContainer } from "../infrastructure/container/ServiceContainer";
-import { IErrorLogService } from "../domain/interfaces/IErrorLogService";
-import { ErrorSource } from "../domain/enums/ErrorSource";
-import { ErrorSeverity } from "../domain/enums/ErrorSeverity";
-import { WebSocketEventRequest } from "../domain/value-objects/WebSocketEventRequest";
-import { WebSocketEventResponse } from "../domain/value-objects/WebSocketEventResponse";
+import { ServiceContainer, IErrorLogService, ErrorSource, ErrorSeverity, WebSocketEventRequest, WebSocketEventResponse, ApiEndpoints, FunctionNames } from "../index";
 
 /**
  * Logs an error to the database error log table if the response status indicates an error.
@@ -32,8 +27,8 @@ export async function logWebPubSubErrorIfAny(
   serviceContainer: ServiceContainer,
   context: Context,
   serviceName?: string,
-  endpoint: string = "/api/webpubsub-events",
-  functionName: string = "WebPubSubEvents"
+  endpoint: string = ApiEndpoints.WEBPUBSUB_EVENTS,
+  functionName: string = FunctionNames.WEBPUBSUB_EVENTS
 ): Promise<void> {
   if (response.status >= 400) {
     context.log.error(`${serviceName || "Service"} error`, {

@@ -5,15 +5,7 @@
  */
 
 import { Context, HttpRequest } from "@azure/functions";
-import { withAuth } from '../../index';
-import { withErrorHandler } from '../../index';
-import { withCallerId } from '../../index';
-import { requirePermission } from '../../index';
-import { Permission } from '../../index';
-import { withBodyValidation } from '../../index';
-import { ok } from '../../index';
-import { ServiceContainer } from '../../index';
-import { DeleteSnapshotReasonApplicationService } from '../../index';
+import { withAuth, withErrorHandler, withCallerId, requirePermission, Permission, withBodyValidation, ok, ServiceContainer, DeleteSnapshotReasonApplicationService, ensureBindings } from '../../index';
 import { z } from "zod";
 
 const deleteSchema = z.object({
@@ -30,9 +22,10 @@ const deleteSnapshotReasonHandler = withErrorHandler(
           serviceContainer.initialize();
 
           const applicationService = serviceContainer.resolve<DeleteSnapshotReasonApplicationService>('DeleteSnapshotReasonApplicationService');
-          const callerId = ctx.bindings.callerId as string;
+          const extendedCtx = ensureBindings(ctx);
+          const callerId = extendedCtx.bindings.callerId as string;
 
-          const validatedBody = (ctx as any).bindings.validatedBody;
+          const validatedBody = extendedCtx.bindings.validatedBody as { id: string };
 
           await applicationService.deleteSnapshotReason(callerId, validatedBody.id);
 

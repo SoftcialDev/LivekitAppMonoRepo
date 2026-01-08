@@ -5,17 +5,7 @@
  */
 
 import { Context, HttpRequest } from "@azure/functions";
-import { withAuth } from '../../index';
-import { withErrorHandler } from '../../index';
-import { withCallerId } from '../../index';
-import { requirePermission } from '../../index';
-import { Permission } from '../../index';
-import { withBodyValidation } from '../../index';
-import { ok } from '../../index';
-import { ServiceContainer } from '../../index';
-import { DeleteErrorLogsApplicationService } from '../../index';
-import { DeleteErrorLogsRequest } from '../../index';
-import { deleteErrorLogsSchema } from '../../index';
+import { withAuth, withErrorHandler, withCallerId, requirePermission, Permission, withBodyValidation, ok, ServiceContainer, DeleteErrorLogsApplicationService, DeleteErrorLogsRequest, deleteErrorLogsSchema, ensureBindings, DeleteErrorLogsParams } from '../../index';
 
 /**
  * HTTP DELETE /api/error-logs
@@ -49,7 +39,8 @@ const deleteErrorLogsHandler = withErrorHandler(
           serviceContainer.initialize();
 
           const applicationService = serviceContainer.resolve<DeleteErrorLogsApplicationService>('DeleteErrorLogsApplicationService');
-          const validatedBody = (ctx as any).bindings.validatedBody;
+          const extendedCtx = ensureBindings(ctx);
+          const validatedBody = extendedCtx.bindings.validatedBody as DeleteErrorLogsParams;
           const request = DeleteErrorLogsRequest.fromBody(validatedBody);
 
           if (request.deleteAll) {

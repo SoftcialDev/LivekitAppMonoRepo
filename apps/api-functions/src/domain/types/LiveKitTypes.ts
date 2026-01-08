@@ -7,6 +7,41 @@
 import type { EgressInfo } from 'livekit-server-sdk';
 
 /**
+ * File result from LiveKit egress
+ */
+export interface LiveKitFileResult {
+  location?: string;
+  filename?: string;
+  startedAt?: number;
+  endedAt?: number;
+  duration?: number;
+  size?: number;
+}
+
+/**
+ * Extended EgressInfo with file results
+ * @description Type that represents EgressInfo with additional properties that may be present
+ */
+export type ExtendedEgressInfo = EgressInfo & {
+  fileResults?: LiveKitFileResult[];
+  result?: {
+    fileResults?: LiveKitFileResult[];
+  };
+  results?: Array<{
+    location?: string;
+  }>;
+  id?: string;
+  egress_id?: string;
+}
+
+/**
+ * Response from listEgress operation
+ */
+export interface ListEgressResponse {
+  items?: ExtendedEgressInfo[];
+}
+
+/**
  * Result of starting an egress
  * @description Contains information about a successfully started egress
  */

@@ -11,11 +11,11 @@ import { CameraFailureErrorCode } from './ErrorCodes';
  * Error thrown when camera failure retrieval fails
  */
 export class CameraFailureRetrieveError extends DomainError {
+  public readonly originalError?: Error;
+
   constructor(message: string, originalError?: Error) {
     super(message, CameraFailureErrorCode.RETRIEVE_FAILED);
-    if (originalError) {
-      (this as any).originalError = originalError;
-    }
+    this.originalError = originalError;
   }
 }
 
@@ -23,11 +23,11 @@ export class CameraFailureRetrieveError extends DomainError {
  * Error thrown when camera failure count fails
  */
 export class CameraFailureCountError extends DomainError {
+  public readonly originalError?: Error;
+
   constructor(message: string, originalError?: Error) {
     super(message, CameraFailureErrorCode.COUNT_FAILED);
-    if (originalError) {
-      (this as any).originalError = originalError;
-    }
+    this.originalError = originalError;
   }
 }
 

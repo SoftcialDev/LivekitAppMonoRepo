@@ -1,14 +1,6 @@
 
 import { Context, HttpRequest } from "@azure/functions";
-import { withAuth } from '../../index';
-import { withErrorHandler } from '../../index';
-import { withCallerId } from '../../index';
-import { withBodyValidation } from '../../index';
-import { ok } from '../../index';
-import { ServiceContainer } from '../../index';
-import { GetOrCreateChatRequest } from '../../index';
-import { GetOrCreateChatApplicationService } from '../../index';
-import { getOrCreateChatSchema } from '../../index';
+import { withAuth, withErrorHandler, withCallerId, withBodyValidation, ok, ServiceContainer, GetOrCreateChatRequest, GetOrCreateChatApplicationService, getOrCreateChatSchema, ensureBindings, GetOrCreateChatParams } from '../../index';
 
 /**
  * Azure Function: finds or creates the InContactApp chat between
@@ -35,9 +27,10 @@ const getOrCreateChatFunction = withErrorHandler(
           serviceContainer.initialize();
 
           const applicationService = serviceContainer.resolve<GetOrCreateChatApplicationService>('GetOrCreateChatApplicationService');
-          const callerId = ctx.bindings.callerId as string;
+          const extendedCtx = ensureBindings(ctx);
+          const callerId = extendedCtx.bindings.callerId as string;
 
-          const validatedBody = (ctx as any).bindings.validatedBody;
+          const validatedBody = extendedCtx.bindings.validatedBody as GetOrCreateChatParams;
           const request = GetOrCreateChatRequest.fromBody(callerId, validatedBody);
 
           // Extract token for chat operations

@@ -4,6 +4,7 @@
  */
 
 import { ValidationResult } from '../types/ValidationTypes';
+import { ZodSchema } from 'zod';
 
 /**
  * Interface for validation operations
@@ -12,18 +13,18 @@ import { ValidationResult } from '../types/ValidationTypes';
 export interface IValidator {
   /**
    * Validates data against a schema
-   * @param schema - Schema to validate against (implementation-specific)
+   * @param schema - Zod schema to validate against
    * @param data - Data to validate
    * @returns Validation result with success flag and data or errors
    */
-  validate<T>(schema: any, data: unknown): ValidationResult<T>;
+  validate<T>(schema: ZodSchema<T>, data: unknown): ValidationResult<T>;
 
   /**
    * Safely validates data without throwing
-   * @param schema - Schema to validate against
+   * @param schema - Zod schema to validate against
    * @param data - Data to validate
    * @returns Validation result
    */
-  safeValidate<T>(schema: any, data: unknown): ValidationResult<T>;
+  safeValidate<T>(schema: ZodSchema<T>, data: unknown): ValidationResult<T>;
 }
 

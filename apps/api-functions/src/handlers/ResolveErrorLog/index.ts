@@ -5,16 +5,7 @@
  */
 
 import { Context, HttpRequest } from "@azure/functions";
-import { withAuth } from '../../index';
-import { withErrorHandler } from '../../index';
-import { withCallerId } from '../../index';
-import { requirePermission } from '../../index';
-import { Permission } from '../../index';
-import { withPathValidation } from '../../index';
-import { ok, badRequest } from '../../index';
-import { ServiceContainer } from '../../index';
-import { GetErrorLogsApplicationService } from '../../index';
-import { getErrorLogByIdSchema } from '../../index';
+import { withAuth, withErrorHandler, withCallerId, requirePermission, Permission, withPathValidation, ok, badRequest, ServiceContainer, GetErrorLogsApplicationService, getErrorLogByIdSchema, ensureBindings, GetErrorLogByIdParams } from '../../index';
 
 /**
  * HTTP PATCH /api/error-logs/{id}/resolve
@@ -43,9 +34,10 @@ const resolveErrorLogHandler = withErrorHandler(
           serviceContainer.initialize();
 
         const applicationService = serviceContainer.resolve<GetErrorLogsApplicationService>('GetErrorLogsApplicationService');
-        const callerId = ctx.bindings.callerId as string;
+        const extendedCtx = ensureBindings(ctx);
+        const callerId = extendedCtx.bindings.callerId as string;
 
-          const validatedParams = (ctx as any).bindings.validatedParams;
+          const validatedParams = extendedCtx.bindings.validatedParams as GetErrorLogByIdParams;
           await applicationService.markAsResolved(validatedParams.id, callerId);
 
           return ok(ctx, { message: 'Error log marked as resolved' });

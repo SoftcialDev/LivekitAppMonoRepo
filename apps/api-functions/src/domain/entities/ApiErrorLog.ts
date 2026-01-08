@@ -80,8 +80,8 @@ export class ApiErrorLog {
     id: string;
     severity: string;
     source: string;
-    endpoint: string;
-    functionName: string;
+    endpoint: string | null;
+    functionName: string | null;
     errorName: string | null;
     errorMessage: string | null;
     stackTrace: string | null;
@@ -99,7 +99,7 @@ export class ApiErrorLog {
       id: prismaErrorLog.id,
       severity: prismaErrorLog.severity as ErrorSeverity,
       source: prismaErrorLog.source as ErrorSource,
-      endpoint: prismaErrorLog.endpoint,
+      endpoint: prismaErrorLog.endpoint ?? null,
       functionName: prismaErrorLog.functionName,
       errorName: prismaErrorLog.errorName ?? null,
       errorMessage: prismaErrorLog.errorMessage ?? null,

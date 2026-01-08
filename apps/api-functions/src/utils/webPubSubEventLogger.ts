@@ -6,11 +6,7 @@
  */
 
 import { Context } from "@azure/functions";
-import { ServiceContainer } from "../infrastructure/container/ServiceContainer";
-import { IErrorLogService } from "../domain/interfaces/IErrorLogService";
-import { ErrorSource } from "../domain/enums/ErrorSource";
-import { ErrorSeverity } from "../domain/enums/ErrorSeverity";
-import { WebSocketEventRequest } from "../domain/value-objects/WebSocketEventRequest";
+import { ServiceContainer, IErrorLogService, ErrorSource, ErrorSeverity, WebSocketEventRequest, ApiEndpoints, FunctionNames } from "../index";
 
 /**
  * Logs a WebPubSub event (connection/disconnection) to the database for monitoring
@@ -27,8 +23,8 @@ export async function logWebPubSubEvent(
   request: WebSocketEventRequest,
   serviceContainer: ServiceContainer,
   context: Context,
-  endpoint: string = "/api/webpubsub-events",
-  functionName: string = "WebPubSubEvents"
+  endpoint: string = ApiEndpoints.WEBPUBSUB_EVENTS,
+  functionName: string = FunctionNames.WEBPUBSUB_EVENTS
 ): Promise<void> {
   try {
     const errorLogService = serviceContainer.resolve<IErrorLogService>("ErrorLogService");

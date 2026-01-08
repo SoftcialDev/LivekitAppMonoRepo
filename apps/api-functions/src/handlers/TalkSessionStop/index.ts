@@ -4,16 +4,7 @@
  */
 
 import { Context, HttpRequest } from "@azure/functions";
-import { withAuth } from '../../index';
-import { withErrorHandler } from '../../index';
-import { withBodyValidation } from '../../index';
-import { requirePermission } from '../../index';
-import { Permission } from '../../index';
-import { ok } from '../../index';
-import { ServiceContainer } from '../../index';
-import { TalkSessionStopRequest } from '../../index';
-import { TalkSessionApplicationService } from '../../index';
-import { talkSessionStopSchema } from '../../index';
+import { withAuth, withErrorHandler, withBodyValidation, requirePermission, Permission, ok, ServiceContainer, TalkSessionStopRequest, TalkSessionApplicationService, talkSessionStopSchema, ensureBindings, TalkSessionStopParams } from '../../index';
 
 /**
  * HTTP-triggered Azure Function that stops an active talk session.
@@ -41,8 +32,9 @@ export default withErrorHandler(
         serviceContainer.initialize();
 
         const applicationService = serviceContainer.resolve<TalkSessionApplicationService>('TalkSessionApplicationService');
+        const extendedCtx = ensureBindings(ctx);
 
-        const validatedBody = (ctx as any).bindings.validatedBody;
+        const validatedBody = extendedCtx.bindings.validatedBody as TalkSessionStopParams;
         const request = TalkSessionStopRequest.fromBody(validatedBody);
 
         const response = await applicationService.stopTalkSession(request);

@@ -6,9 +6,10 @@
 
 import prisma from '../database/PrismaClientService';
 import { IErrorLogRepository, CreateErrorLogData, ErrorLogQueryParams } from '../../index';
-import { ApiErrorLog } from '../../index';
+import { ApiErrorLog, ErrorSeverity, ErrorSource } from '../../index';
 import { getCentralAmericaTime, wrapEntityCreationError, wrapDatabaseQueryError, wrapEntityDeletionError, wrapEntityUpdateError } from '../../index';
 import { randomUUID } from 'crypto';
+import { Prisma } from '@prisma/client';
 
 /**
  * Repository for error log data access operations
@@ -23,7 +24,7 @@ export class ErrorLogRepository implements IErrorLogRepository {
    */
   async create(data: CreateErrorLogData): Promise<ApiErrorLog> {
     try {
-      const prismaErrorLog = await (prisma as any).apiErrorLog.create({
+      const prismaErrorLog = await prisma.apiErrorLog.create({
         data: {
           id: randomUUID(),
           severity: data.severity,
@@ -37,13 +38,33 @@ export class ErrorLogRepository implements IErrorLogRepository {
           userId: data.userId,
           userEmail: data.userEmail,
           requestId: data.requestId,
-          context: data.context as any,
+          context: data.context ? (data.context as Prisma.InputJsonValue) : Prisma.JsonNull,
           resolved: false,
           createdAt: getCentralAmericaTime()
         }
       });
 
-      return ApiErrorLog.fromPrisma(prismaErrorLog);
+      return ApiErrorLog.fromPrisma({
+        id: prismaErrorLog.id,
+        severity: prismaErrorLog.severity,
+        source: prismaErrorLog.source,
+        endpoint: prismaErrorLog.endpoint,
+        functionName: prismaErrorLog.functionName ?? null,
+        errorName: prismaErrorLog.errorName,
+        errorMessage: prismaErrorLog.errorMessage,
+        stackTrace: prismaErrorLog.stackTrace,
+        httpStatusCode: prismaErrorLog.httpStatusCode,
+        userId: prismaErrorLog.userId,
+        userEmail: prismaErrorLog.userEmail,
+        requestId: prismaErrorLog.requestId,
+        context: prismaErrorLog.context && typeof prismaErrorLog.context === 'object' && !Array.isArray(prismaErrorLog.context)
+          ? (prismaErrorLog.context as Record<string, unknown>)
+          : null,
+        resolved: prismaErrorLog.resolved,
+        resolvedAt: prismaErrorLog.resolvedAt,
+        resolvedBy: prismaErrorLog.resolvedBy,
+        createdAt: prismaErrorLog.createdAt
+      });
     } catch (error: unknown) {
       throw wrapEntityCreationError('Failed to create error log', error);
     }
@@ -57,14 +78,14 @@ export class ErrorLogRepository implements IErrorLogRepository {
    */
   async findMany(params?: ErrorLogQueryParams): Promise<ApiErrorLog[]> {
     try {
-      const where: any = {};
+      const where: Prisma.ApiErrorLogWhereInput = {};
 
       if (params?.source) {
-        where.source = params.source;
+        where.source = params.source as ErrorSource;
       }
 
       if (params?.severity) {
-        where.severity = params.severity;
+        where.severity = params.severity as ErrorSeverity;
       }
 
       if (params?.endpoint) {
@@ -85,7 +106,7 @@ export class ErrorLogRepository implements IErrorLogRepository {
         }
       }
 
-      const prismaErrorLogs = await (prisma as any).apiErrorLog.findMany({
+      const prismaErrorLogs = await prisma.apiErrorLog.findMany({
         where,
         orderBy: {
           createdAt: 'desc'
@@ -94,25 +115,27 @@ export class ErrorLogRepository implements IErrorLogRepository {
         skip: params?.offset || 0
       });
 
-      return prismaErrorLogs.map((errorLog: {
-        id: string;
-        severity: string;
-        source: string;
-        endpoint: string;
-        functionName: string;
-        errorName: string | null;
-        errorMessage: string | null;
-        stackTrace: string | null;
-        httpStatusCode: number | null;
-        userId: string | null;
-        userEmail: string | null;
-        requestId: string | null;
-        context: Record<string, unknown> | null;
-        resolved: boolean;
-        resolvedAt: Date | null;
-        resolvedBy: string | null;
-        createdAt: Date;
-      }) => ApiErrorLog.fromPrisma(errorLog));
+      return prismaErrorLogs.map((errorLog) => ApiErrorLog.fromPrisma({
+        id: errorLog.id,
+        severity: errorLog.severity,
+        source: errorLog.source,
+        endpoint: errorLog.endpoint,
+        functionName: errorLog.functionName ?? null,
+        errorName: errorLog.errorName,
+        errorMessage: errorLog.errorMessage,
+        stackTrace: errorLog.stackTrace,
+        httpStatusCode: errorLog.httpStatusCode,
+        userId: errorLog.userId,
+        userEmail: errorLog.userEmail,
+        requestId: errorLog.requestId,
+        context: errorLog.context && typeof errorLog.context === 'object' && !Array.isArray(errorLog.context)
+          ? (errorLog.context as Record<string, unknown>)
+          : null,
+        resolved: errorLog.resolved,
+        resolvedAt: errorLog.resolvedAt,
+        resolvedBy: errorLog.resolvedBy,
+        createdAt: errorLog.createdAt
+      }));
     } catch (error: unknown) {
       throw wrapDatabaseQueryError('Failed to find error logs', error);
     }
@@ -126,11 +149,31 @@ export class ErrorLogRepository implements IErrorLogRepository {
    */
   async findById(id: string): Promise<ApiErrorLog | null> {
     try {
-      const prismaErrorLog = await (prisma as any).apiErrorLog.findUnique({
+      const prismaErrorLog = await prisma.apiErrorLog.findUnique({
         where: { id }
       });
 
-      return prismaErrorLog ? ApiErrorLog.fromPrisma(prismaErrorLog) : null;
+      return prismaErrorLog ? ApiErrorLog.fromPrisma({
+        id: prismaErrorLog.id,
+        severity: prismaErrorLog.severity,
+        source: prismaErrorLog.source,
+        endpoint: prismaErrorLog.endpoint,
+        functionName: prismaErrorLog.functionName ?? null,
+        errorName: prismaErrorLog.errorName,
+        errorMessage: prismaErrorLog.errorMessage,
+        stackTrace: prismaErrorLog.stackTrace,
+        httpStatusCode: prismaErrorLog.httpStatusCode,
+        userId: prismaErrorLog.userId,
+        userEmail: prismaErrorLog.userEmail,
+        requestId: prismaErrorLog.requestId,
+        context: prismaErrorLog.context && typeof prismaErrorLog.context === 'object' && !Array.isArray(prismaErrorLog.context)
+          ? (prismaErrorLog.context as Record<string, unknown>)
+          : null,
+        resolved: prismaErrorLog.resolved,
+        resolvedAt: prismaErrorLog.resolvedAt,
+        resolvedBy: prismaErrorLog.resolvedBy,
+        createdAt: prismaErrorLog.createdAt
+      }) : null;
     } catch (error: unknown) {
       throw wrapDatabaseQueryError('Failed to find error log by id', error);
     }
@@ -145,7 +188,7 @@ export class ErrorLogRepository implements IErrorLogRepository {
    */
   async markAsResolved(id: string, resolvedBy: string): Promise<void> {
     try {
-      await (prisma as any).apiErrorLog.update({
+      await prisma.apiErrorLog.update({
         where: { id },
         data: {
           resolved: true,
@@ -166,7 +209,7 @@ export class ErrorLogRepository implements IErrorLogRepository {
    */
   async deleteById(id: string): Promise<void> {
     try {
-      await (prisma as any).apiErrorLog.delete({
+      await prisma.apiErrorLog.delete({
         where: { id }
       });
     } catch (error: unknown) {
@@ -182,7 +225,7 @@ export class ErrorLogRepository implements IErrorLogRepository {
    */
   async deleteMany(ids: string[]): Promise<void> {
     try {
-      await (prisma as any).apiErrorLog.deleteMany({
+      await prisma.apiErrorLog.deleteMany({
         where: {
           id: {
             in: ids
@@ -201,7 +244,7 @@ export class ErrorLogRepository implements IErrorLogRepository {
    */
   async deleteAll(): Promise<void> {
     try {
-      await (prisma as any).apiErrorLog.deleteMany({});
+      await prisma.apiErrorLog.deleteMany({});
     } catch (error: unknown) {
       throw wrapEntityDeletionError('Failed to delete all error logs', error);
     }
@@ -215,14 +258,14 @@ export class ErrorLogRepository implements IErrorLogRepository {
    */
   async count(params?: Omit<ErrorLogQueryParams, 'limit' | 'offset'>): Promise<number> {
     try {
-      const where: any = {};
+      const where: Prisma.ApiErrorLogWhereInput = {};
 
       if (params?.source) {
-        where.source = params.source;
+        where.source = params.source as ErrorSource;
       }
 
       if (params?.severity) {
-        where.severity = params.severity;
+        where.severity = params.severity as ErrorSeverity;
       }
 
       if (params?.endpoint) {
@@ -243,7 +286,7 @@ export class ErrorLogRepository implements IErrorLogRepository {
         }
       }
 
-      const count = await (prisma as any).apiErrorLog.count({
+      const count = await prisma.apiErrorLog.count({
         where
       });
 

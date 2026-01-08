@@ -5,12 +5,12 @@
  * Kept separate from other modules to avoid import-time failures when env vars are missing.
  */
 
-import type { Context } from "@azure/functions";
+import type { Context, HttpRequest } from "@azure/functions";
 import { HealthCheckDomainService } from '../../domain/services/HealthCheckDomainService';
 import { StorageDetailsService } from '../../infrastructure/services/StorageDetailsService';
 import { DatabaseHealthCheckService } from '../../infrastructure/services/DatabaseHealthCheckService';
 import { HealthStatus } from '../../domain/enums/HealthStatus';
-import { HealthCheckResponse } from '../../domain/types/HealthCheckTypes';
+import { HealthCheckResponse } from '../../index';
 import { config } from '../../config';
 
 /**
@@ -31,7 +31,7 @@ import { config } from '../../config';
 export default async function HealthFunction(ctx: Context): Promise<void> {
   const timestamp = new Date().toISOString();
 
-  const req = (ctx as any).req ?? {};
+  const req = (ctx.req as HttpRequest | undefined) ?? {} as HttpRequest;
   const query = (req.query ?? {}) as Record<string, unknown>;
 
   const verbose = String(query.verbose ?? "").toLowerCase() === "true";

@@ -10,7 +10,7 @@ import { exec } from "child_process";
 import { promisify } from "util";
 import { join } from "path";
 import { existsSync, mkdirSync, cpSync } from "fs";
-import { withErrorHandler, withAuth, ok, badRequest, config, seedDefaultSnapshotReasons, seedDefaultRolesAndPermissions, ServiceContainer, IErrorLogService, ErrorSource, ErrorSeverity, ApplicationServiceOperationError, extractErrorMessage, extractErrorProperty } from '../../index';
+import { withErrorHandler, withAuth, ok, badRequest, config, seedDefaultSnapshotReasons, seedDefaultRolesAndPermissions, ServiceContainer, IErrorLogService, ErrorSource, ErrorSeverity, ApplicationServiceOperationError, extractErrorMessage, extractErrorProperty, ApiEndpoints, FunctionNames } from '../../index';
 
 const execAsync = promisify(exec);
 
@@ -161,8 +161,8 @@ const runMigrationsHandler: AzureFunction = withErrorHandler(
             await errorLogService.logError({
               severity: ErrorSeverity.High,
               source: ErrorSource.Database,
-              endpoint: "/api/RunMigrations",
-              functionName: "RunMigrations",
+              endpoint: ApiEndpoints.RUN_MIGRATIONS,
+              functionName: FunctionNames.RUN_MIGRATIONS,
               error: seedError instanceof Error ? seedError : new Error(String(seedError)),
               context: {
                 operation: "seed_roles_permissions_snapshot_reasons",
@@ -191,14 +191,14 @@ const runMigrationsHandler: AzureFunction = withErrorHandler(
           await errorLogService.logError({
             severity: ErrorSeverity.Critical,
             source: ErrorSource.Database,
-            endpoint: "/api/RunMigrations",
-            functionName: "RunMigrations",
+            endpoint: ApiEndpoints.RUN_MIGRATIONS,
+            functionName: FunctionNames.RUN_MIGRATIONS,
             error: error instanceof Error ? error : new Error(String(error)),
             context: {
               operation: "database_migration",
               workingDir: workingDir,
-              stdout: error && typeof error === "object" && "stdout" in error ? String((error as any).stdout) : undefined,
-              stderr: error && typeof error === "object" && "stderr" in error ? String((error as any).stderr) : undefined,
+              stdout: error && typeof error === "object" && "stdout" in error ? String((error as { stdout?: unknown }).stdout) : undefined,
+              stderr: error && typeof error === "object" && "stderr" in error ? String((error as { stderr?: unknown }).stderr) : undefined,
               errorType: "migration_failure"
             }
           });

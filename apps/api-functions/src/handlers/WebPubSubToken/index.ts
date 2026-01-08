@@ -5,16 +5,7 @@
  */
 
 import { Context, HttpRequest } from "@azure/functions";
-import { withAuth } from '../../index';
-import { withErrorHandler } from '../../index';
-import { withCallerId } from '../../index';
-import { requirePermission } from '../../index';
-import { Permission } from '../../index';
-import { ok } from '../../index';
-import { ServiceContainer } from '../../index';
-import { WebPubSubTokenRequest } from '../../index';
-import { WebPubSubTokenApplicationService } from '../../index';
-import { ExtendedContext } from '../../domain/types/ContextBindings';
+import { withAuth, withErrorHandler, withCallerId, requirePermission, Permission, ok, ServiceContainer, WebPubSubTokenRequest, WebPubSubTokenApplicationService, ExtendedContext, ensureBindings } from '../../index';
 
 /**
  * HTTP-triggered function that issues a client access token for Azure Web PubSub.
@@ -41,7 +32,7 @@ const webPubSubTokenHandler = withErrorHandler(
         const serviceContainer = ServiceContainer.getInstance();
         serviceContainer.initialize();
 
-        const extendedCtx = ctx as ExtendedContext;
+        const extendedCtx = ensureBindings(ctx);
         const applicationService = serviceContainer.resolve<WebPubSubTokenApplicationService>('WebPubSubTokenApplicationService');
         const callerId = extendedCtx.bindings.callerId as string;
 

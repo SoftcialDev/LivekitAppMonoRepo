@@ -15,3 +15,32 @@ export interface GraphUser {
   accountEnabled?: boolean;
 }
 
+/**
+ * App role assignment from Microsoft Graph
+ */
+export interface GraphAppRoleAssignment {
+  id: string;
+  principalId?: string;
+  appRoleId?: string;
+  resourceId?: string;
+}
+
+/**
+ * Generic Graph API response with pagination support
+ */
+export interface GraphResponse<T> {
+  value: T[];
+  '@odata.nextLink'?: string;
+}
+
+/**
+ * Chat member from Microsoft Graph
+ */
+export interface GraphChatMember {
+  id: string;
+  user?: {
+    id: string;
+  };
+  roles?: string[];
+}
+

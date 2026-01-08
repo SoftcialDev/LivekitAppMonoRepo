@@ -5,16 +5,7 @@
  */
 
 import { AzureFunction, Context, HttpRequest } from "@azure/functions";
-import { withAuth } from '../../index';
-import { withErrorHandler } from '../../index';
-import { requirePermission } from '../../index';
-import { Permission } from '../../index';
-import { ok } from '../../index';
-import { ServiceContainer } from '../../index';
-import { GetSnapshotReasonsApplicationService } from '../../index';
-import { IErrorLogService } from '../../index';
-import { ErrorSource } from '../../index';
-import { ErrorSeverity } from '../../index';
+import { withAuth, withErrorHandler, requirePermission, Permission, ok, ServiceContainer, GetSnapshotReasonsApplicationService, IErrorLogService, ErrorSource, ErrorSeverity, ensureBindings, ApiEndpoints, FunctionNames } from '../../index';
 
 /**
  * HTTP GET /api/GetSnapshotReasons
@@ -60,13 +51,14 @@ const getSnapshotReasonsHandler: AzureFunction = withErrorHandler(
         const serviceContainer = ServiceContainer.getInstance();
         serviceContainer.initialize();
         const errorLogService = serviceContainer.resolve<IErrorLogService>("ErrorLogService");
-        const callerId = (ctx as any).bindings?.callerId;
+        const extendedCtx = ensureBindings(ctx);
+        const callerId = extendedCtx.bindings.callerId as string | undefined;
 
         await errorLogService.logError({
           severity: ErrorSeverity.Medium,
           source: ErrorSource.Authentication,
-          endpoint: "/api/GetSnapshotReasons",
-          functionName: "GetSnapshotReasons",
+          endpoint: ApiEndpoints.GET_SNAPSHOT_REASONS,
+          functionName: FunctionNames.GET_SNAPSHOT_REASONS,
           error: new Error("Authentication failed: Missing or invalid Authorization header"),
           userId: callerId,
           context: {

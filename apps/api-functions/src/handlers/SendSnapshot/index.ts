@@ -5,17 +5,7 @@
  */
 
 import { Context, HttpRequest } from "@azure/functions";
-import { withAuth } from '../../index';
-import { withErrorHandler } from '../../index';
-import { withCallerId } from '../../index';
-import { withBodyValidation } from '../../index';
-import { requirePermission } from '../../index';
-import { Permission } from '../../index';
-import { ok } from '../../index';
-import { ServiceContainer } from '../../index';
-import { SendSnapshotRequest } from '../../index';
-import { SendSnapshotApplicationService } from '../../index';
-import { sendSnapshotSchema } from '../../index';
+import { withAuth, withErrorHandler, withCallerId, withBodyValidation, requirePermission, Permission, ok, ServiceContainer, SendSnapshotRequest, SendSnapshotApplicationService, sendSnapshotSchema, ensureBindings, SendSnapshotParams } from '../../index';
 
 /**
  * HTTP-triggered Azure Function to process a supervisor's snapshot report.
@@ -43,9 +33,10 @@ const sendSnapshotHandler = withErrorHandler(
           serviceContainer.initialize();
 
           const applicationService = serviceContainer.resolve<SendSnapshotApplicationService>('SendSnapshotApplicationService');
-          const callerId = ctx.bindings.callerId as string;
+          const extendedCtx = ensureBindings(ctx);
+          const callerId = extendedCtx.bindings.callerId as string;
 
-          const validatedBody = (ctx as any).bindings.validatedBody;
+          const validatedBody = extendedCtx.bindings.validatedBody as SendSnapshotParams;
           const request = SendSnapshotRequest.fromBody(callerId, validatedBody);
 
           const response = await applicationService.sendSnapshot(callerId, request);

@@ -5,7 +5,7 @@
 
 import { AzureFunction, Context } from "@azure/functions";
 import { withAuth, withErrorHandler, serviceContainer, getCallerAdId, GetCurrentUserApplicationService, GetCurrentUserRequest, CallerIdNotFoundError } from '../../index';
-import { ExtendedContext } from '../../domain/types/ContextBindings';
+import { ExtendedContext, ensureBindings } from '../../index';
 import type { JwtPayload } from 'jsonwebtoken';
 
 /**
@@ -60,7 +60,7 @@ const getCurrentUser: AzureFunction = withErrorHandler(
       );
 
       // Get caller ID from token
-      const extendedCtx = ctx as ExtendedContext;
+      const extendedCtx = ensureBindings(ctx);
       if (!extendedCtx.bindings.user) {
         throw new CallerIdNotFoundError('User not found in request context');
       }

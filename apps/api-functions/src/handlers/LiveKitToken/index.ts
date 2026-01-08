@@ -1,15 +1,5 @@
 ﻿import { Context, HttpRequest } from "@azure/functions";
-import { withAuth } from '../../index';
-import { withErrorHandler } from '../../index';
-import { withCallerId } from '../../index';
-import { withQueryValidation } from '../../index';
-import { requirePermission } from '../../index';
-import { Permission } from '../../index';
-import { ok } from '../../index';
-import { ServiceContainer } from '../../index';
-import { LiveKitTokenRequest } from '../../index';
-import { LiveKitTokenApplicationService } from '../../index';
-import { liveKitTokenSchema } from '../../index';
+import { withAuth, withErrorHandler, withCallerId, withQueryValidation, requirePermission, Permission, ok, ServiceContainer, LiveKitTokenRequest, LiveKitTokenApplicationService, liveKitTokenSchema, ensureBindings, LiveKitTokenParams } from '../../index';
 
 /**
  * HTTP trigger for issuing LiveKit access tokens.
@@ -47,10 +37,11 @@ const liveKitTokenHandler = withErrorHandler(
 
           // Resolve application service
           const applicationService = serviceContainer.resolve<LiveKitTokenApplicationService>('LiveKitTokenApplicationService');
-          const callerId = ctx.bindings.callerId as string;
+          const extendedCtx = ensureBindings(ctx);
+          const callerId = extendedCtx.bindings.callerId as string;
 
           // Create request object
-          const validatedQuery = ctx.bindings.validatedQuery as any;
+          const validatedQuery = extendedCtx.bindings.validatedQuery as LiveKitTokenParams;
           const request = LiveKitTokenRequest.fromParams(callerId, validatedQuery);
 
           // Execute token generation

@@ -5,17 +5,7 @@
  */
 
 import { Context, HttpRequest } from "@azure/functions";
-import { withAuth } from '../../index';
-import { withErrorHandler } from '../../index';
-import { withCallerId } from '../../index';
-import { requirePermission } from '../../index';
-import { Permission } from '../../index';
-import { withPathValidation } from '../../index';
-import { ok, badRequest } from '../../index';
-import { ServiceContainer } from '../../index';
-import { GetErrorLogsApplicationService } from '../../index';
-import { GetErrorLogsResponse } from '../../index';
-import { getErrorLogByIdSchema } from '../../index';
+import { withAuth, withErrorHandler, withCallerId, requirePermission, Permission, withPathValidation, ok, badRequest, ServiceContainer, GetErrorLogsApplicationService, GetErrorLogsResponse, getErrorLogByIdSchema, ensureBindings, GetErrorLogByIdParams } from '../../index';
 
 /**
  * HTTP GET /api/error-logs/{id}
@@ -43,8 +33,9 @@ const getErrorLogByIdHandler = withErrorHandler(
           serviceContainer.initialize();
 
           const applicationService = serviceContainer.resolve<GetErrorLogsApplicationService>('GetErrorLogsApplicationService');
+          const extendedCtx = ensureBindings(ctx);
 
-          const validatedParams = (ctx as any).bindings.validatedParams;
+          const validatedParams = extendedCtx.bindings.validatedParams as GetErrorLogByIdParams;
           const errorLog = await applicationService.getErrorLogById(validatedParams.id);
 
           if (!errorLog) {

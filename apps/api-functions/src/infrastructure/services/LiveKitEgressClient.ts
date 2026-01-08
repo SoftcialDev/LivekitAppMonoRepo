@@ -17,7 +17,7 @@ import {
 import { config } from '../../config';
 import { slugify, datePrefixUTC } from '../../index';
 import { getValidatedStorageCredentials } from './recordingCredentialValidator';
-import { ILiveKitEgressClient, type EgressStartResult, type EgressStopResult } from '../../index';
+import { ILiveKitEgressClient, type EgressStartResult, type EgressStopResult, ExtendedEgressInfo, ListEgressResponse } from '../../index';
 import { LiveKitOperationError } from '../../index';
 
 /**
@@ -90,7 +90,7 @@ export class LiveKitEgressClient implements ILiveKitEgressClient {
       roomName,
       roomName,
       outputs,
-      opts as any
+      opts
     );
 
     if (!info.egressId) {
@@ -111,11 +111,12 @@ export class LiveKitEgressClient implements ILiveKitEgressClient {
    */
   async stopEgress(egressId: string): Promise<EgressStopResult> {
     const info = await this.egressClient.stopEgress(egressId);
+    const extendedInfo = info as unknown as ExtendedEgressInfo;
 
     const blobUrl =
-      (info as any)?.fileResults?.[0]?.location ??
-      (info as any)?.result?.fileResults?.[0]?.location ??
-      (info as any)?.results?.[0]?.location ??
+      extendedInfo?.fileResults?.[0]?.location ??
+      extendedInfo?.result?.fileResults?.[0]?.location ??
+      extendedInfo?.results?.[0]?.location ??
       undefined;
 
     return { info, blobUrl };
@@ -128,29 +129,42 @@ export class LiveKitEgressClient implements ILiveKitEgressClient {
    */
   async getEgressInfo(egressId: string): Promise<EgressInfo | null> {
     try {
-      let egressList: any;
+      let egressList: ListEgressResponse | ExtendedEgressInfo[] | ExtendedEgressInfo | null = null;
       
       try {
-        egressList = await (this.egressClient as any).listEgress({ egressId });
+        // Try to use listEgress if available (may not be in SDK types)
+        const client = this.egressClient as unknown as { listEgress?: (options?: { egressId?: string }) => Promise<ListEgressResponse | ExtendedEgressInfo[]> };
+        if (client.listEgress) {
+          egressList = await client.listEgress({ egressId });
+        }
       } catch {
         try {
-          egressList = await (this.egressClient as any).listEgress();
+          const client = this.egressClient as unknown as { listEgress?: () => Promise<ListEgressResponse | ExtendedEgressInfo[]> };
+          if (client.listEgress) {
+            egressList = await client.listEgress();
+          }
         } catch {
           return null;
         }
       }
       
-      const items = egressList?.items || egressList || [];
+      if (!egressList) return null;
+      
+      const items = (egressList as ListEgressResponse)?.items || (Array.isArray(egressList) ? egressList : [egressList]);
       
       if (Array.isArray(items)) {
-        const matching = items.find((item: any) => 
-          item.egressId === egressId || 
-          (item as any).id === egressId ||
-          item.egress_id === egressId
-        );
-        if (matching) return matching as EgressInfo;
-      } else if (items.egressId === egressId || (items as any).id === egressId) {
-        return items as EgressInfo;
+        const matching = items.find((item) => {
+          const extendedItem = item as unknown as ExtendedEgressInfo;
+          return extendedItem.egressId === egressId || 
+                 extendedItem.id === egressId ||
+                 extendedItem.egress_id === egressId;
+        });
+        if (matching) return matching as unknown as EgressInfo;
+      } else {
+        const extendedItems = items as unknown as ExtendedEgressInfo;
+        if (extendedItems.egressId === egressId || extendedItems.id === egressId) {
+          return extendedItems as unknown as EgressInfo;
+        }
       }
       
       return null;

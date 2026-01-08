@@ -6,7 +6,7 @@
 
 import { AzureFunction, Context, HttpRequest } from "@azure/functions";
 import { withAuth, withErrorHandler, requirePermission, Permission, ok, badRequest, unauthorized, prisma, getCallerAdId, getWebsocketPresenceStatusSchema, PresenceItem, PaginatedPresence } from '../../index';
-import { ExtendedContext } from '../../domain/types/ContextBindings';
+import { ExtendedContext, ensureBindings } from '../../index';
 
 /**
  * HTTP GET /api/GetWebsocketPresenceStatus
