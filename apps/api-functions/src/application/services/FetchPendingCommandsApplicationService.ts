@@ -4,8 +4,8 @@
  * @description Handles the application logic for the FetchPendingCommands endpoint
  */
 
-import { IPendingCommandDomainService } from '../../index';
-import { FetchPendingCommandsResponse } from '../../index';
+import { IPendingCommandDomainService } from '../../domain/interfaces/IPendingCommandDomainService';
+import { FetchPendingCommandsResponse } from '../../domain/value-objects/FetchPendingCommandsResponse';
 
 /**
  * Application service for fetching pending commands

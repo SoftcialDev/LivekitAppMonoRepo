@@ -4,10 +4,10 @@
  * @description Handles orchestration of domain services for chat creation operations
  */
 
-import { GetOrCreateChatRequest } from '../../index';
-import { GetOrCreateChatResponse } from '../../index';
-import { GetOrCreateChatDomainService } from '../../index';
-import { AuthorizationService } from '../../index';
+import { GetOrCreateChatRequest } from '../../domain/value-objects/GetOrCreateChatRequest';
+import { GetOrCreateChatResponse } from '../../domain/value-objects/GetOrCreateChatResponse';
+import { GetOrCreateChatDomainService } from '../../domain/services/GetOrCreateChatDomainService';
+import { AuthorizationService } from '../../domain/services/AuthorizationService';
 
 /**
  * Application service for handling chat creation operations

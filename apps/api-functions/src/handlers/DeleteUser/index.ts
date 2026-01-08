@@ -4,24 +4,24 @@
  */
 
 import { AzureFunction, Context } from '@azure/functions';
-import { withAuth } from '../../index';
-import { withErrorHandler } from '../../index';
-import { withBodyValidation } from '../../index';
-import { withCallerId } from '../../index';
-import { requirePermission } from '../../index';
-import { Permission } from '../../index';
-import { UserDeletionRequest } from '../../index';
-import { UserDeletionType } from '../../index';
-import { userDeletionSchema } from '../../index';
-import { serviceContainer } from '../../index';
-import { handleAnyError } from '../../index';
-import { IUserRepository } from '../../index';
-import { IAuthorizationService } from '../../index';
-import { IAuditService } from '../../index';
-import { IPresenceService } from '../../index';
-import { UserDeletionApplicationService } from '../../index';
-import { IWebPubSubService } from '../../index';
-import { ExtendedContext, ensureBindings } from '../../index';
+import { withAuth } from '../../middleware/auth';
+import { withErrorHandler } from '../../middleware/errorHandler';
+import { withBodyValidation } from '../../middleware/validate';
+import { withCallerId } from '../../middleware/callerId';
+import { requirePermission } from '../../middleware/permissions';
+import { Permission } from '../../domain/enums/Permission';
+import { UserDeletionRequest } from '../../domain/value-objects/UserDeletionRequest';
+import { UserDeletionType } from '../../domain/enums/UserDeletionType';
+import { userDeletionSchema } from '../../domain/schemas/UserDeletionSchema';
+import { serviceContainer } from '../../infrastructure/container/ServiceContainer';
+import { handleAnyError } from '../../utils/errorHandler';
+import { IUserRepository } from '../../domain/interfaces/IUserRepository';
+import { IAuthorizationService } from '../../domain/interfaces/IAuthorizationService';
+import { IAuditService } from '../../domain/interfaces/IAuditService';
+import { IPresenceService } from '../../domain/interfaces/IPresenceService';
+import { UserDeletionApplicationService } from '../../application/services/UserDeletionApplicationService';
+import { IWebPubSubService } from '../../domain/interfaces/IWebPubSubService';
+import { ensureBindings } from '../../domain/types/ContextBindings';
 
 /**
  * Azure Function: DeleteUser

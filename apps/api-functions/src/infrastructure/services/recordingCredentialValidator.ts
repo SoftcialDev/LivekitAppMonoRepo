@@ -6,7 +6,7 @@
 
 import { getStorageCredentials } from './storageCredentials';
 import { config } from '../../config';
-import { StorageCredentialsError, ConfigurationError } from '../../index';
+import { StorageCredentialsError, ConfigurationError } from '../../domain/errors/InfrastructureErrors';
 
 /**
  * Validates Azure Storage account key format

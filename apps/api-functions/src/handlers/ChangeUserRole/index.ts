@@ -4,25 +4,25 @@
  */
 
 import { AzureFunction, Context } from "@azure/functions";
-import { withAuth } from '../../index';
-import { withErrorHandler } from '../../index';
-import { withBodyValidation } from '../../index';
-import { withCallerId } from '../../index';
-import { requirePermission } from '../../index';
-import { Permission } from '../../index';
-import { ok } from '../../index';
-import { UserRoleChangeApplicationService } from '../../index';
-import { UserRoleChangeRequest } from '../../index';
-import { userRoleChangeSchema } from '../../index';
+import { withAuth } from '../../middleware/auth';
+import { withErrorHandler } from '../../middleware/errorHandler';
+import { withBodyValidation } from '../../middleware/validate';
+import { withCallerId } from '../../middleware/callerId';
+import { requirePermission } from '../../middleware/permissions';
+import { Permission } from '../../domain/enums/Permission';
+import { ok } from '../../utils/response';
+import { UserRoleChangeApplicationService } from '../../application/services/UserRoleChangeApplicationService';
+import { UserRoleChangeRequest } from '../../domain/value-objects/UserRoleChangeRequest';
+import { userRoleChangeSchema } from '../../domain/schemas/UserRoleChangeSchema';
 import { UserRoleChangeSchemaType } from '../../domain/schemas/UserRoleChangeSchema';
-import { serviceContainer } from '../../index';
-import { handleAnyError } from '../../index';
-import { IUserRepository } from '../../index';
-import { IAuthorizationService } from '../../index';
-import { IAuditService } from '../../index';
-import { IPresenceService } from '../../index';
-import { IWebPubSubService } from '../../index';
-import { ExtendedContext, ensureBindings } from '../../index';
+import { serviceContainer } from '../../infrastructure/container/ServiceContainer';
+import { handleAnyError } from '../../utils/errorHandler';
+import { IUserRepository } from '../../domain/interfaces/IUserRepository';
+import { IAuthorizationService } from '../../domain/interfaces/IAuthorizationService';
+import { IAuditService } from '../../domain/interfaces/IAuditService';
+import { IPresenceService } from '../../domain/interfaces/IPresenceService';
+import { IWebPubSubService } from '../../domain/interfaces/IWebPubSubService';
+import { ensureBindings } from '../../domain/types/ContextBindings';
 
 /**
  * Azure Function: ChangeUserRole

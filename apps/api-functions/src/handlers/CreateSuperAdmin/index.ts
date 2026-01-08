@@ -6,17 +6,17 @@
  */
 
 import { AzureFunction, Context, HttpRequest } from "@azure/functions";
-import { withAuth } from '../../index';
-import { withErrorHandler } from '../../index';
-import { withBodyValidation } from '../../index';
-import { withCallerId } from '../../index';
-import { requirePermission } from '../../index';
-import { Permission } from '../../index';
-import { ok } from '../../index';
-import { createSuperAdminSchema } from '../../index';
-import { CreateSuperAdminRequest } from '../../index';
-import { SuperAdminApplicationService } from '../../index';
-import { serviceContainer } from '../../index';
+import { withAuth } from '../../middleware/auth';
+import { withErrorHandler } from '../../middleware/errorHandler';
+import { withBodyValidation } from '../../middleware/validate'; 
+import { withCallerId } from '../../middleware/callerId';
+import { requirePermission } from '../../middleware/permissions';
+import { Permission } from '../../domain/enums/Permission';
+import { ok } from '../../utils/response';
+import { createSuperAdminSchema } from '../../domain/schemas/CreateSuperAdminSchema';
+import { CreateSuperAdminRequest } from '../../domain/value-objects/CreateSuperAdminRequest';
+import { SuperAdminApplicationService } from '../../application/services/SuperAdminApplicationService';
+import { serviceContainer } from '../../infrastructure/container/ServiceContainer';
 
 /**
  * Azure Function handler for creating Super Admin profiles.

@@ -4,8 +4,8 @@
  */
 
 import { Context, HttpRequest } from '@azure/functions';
-import { IRequestDataExtractor } from '../../index';
-import { ConfigurationError } from '../../index';
+import { IRequestDataExtractor } from '../../domain/interfaces/IRequestDataExtractor';
+import { ConfigurationError } from '../../domain/errors/InfrastructureErrors';
 
 /**
  * Infrastructure implementation of IRequestDataExtractor for Azure Functions

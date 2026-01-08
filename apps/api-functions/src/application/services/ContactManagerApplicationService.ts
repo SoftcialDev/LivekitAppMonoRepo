@@ -3,14 +3,14 @@
  * @description Orchestrates contact manager creation with authorization
  */
 
-import { ContactManagerDomainService } from '../../index';
-import { AuthorizationService } from '../../index';
-import { CreateContactManagerRequest } from '../../index';
-import { DeleteContactManagerRequest } from '../../index';
-import { ContactManagerListResponse } from '../../index';
-import { ContactManagerStatusResponse } from '../../index';
-import { UpdateContactManagerStatusRequest } from '../../index';
-import { ContactManagerProfile } from '../../index';
+import { ContactManagerDomainService } from '../../domain/services';
+import { AuthorizationService } from '../../domain/services';
+import { CreateContactManagerRequest } from '../../domain/value-objects/CreateContactManagerRequest';
+import { DeleteContactManagerRequest } from '../../domain/value-objects/DeleteContactManagerRequest';  
+import { ContactManagerListResponse } from '../../domain/value-objects';
+import { ContactManagerStatusResponse } from '../../domain/value-objects/ContactManagerStatusResponse';
+import { UpdateContactManagerStatusRequest } from '../../domain/value-objects/UpdateContactManagerStatusRequest';
+import { ContactManagerProfile } from '../../domain/entities/ContactManagerProfile';
 
 /**
  * Application service for contact manager operations.

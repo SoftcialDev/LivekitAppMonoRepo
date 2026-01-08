@@ -4,11 +4,11 @@
  * @description Handles orchestration of domain services for talk session operations
  */
 
-import { TalkSessionStartRequest } from '../../index';
-import { TalkSessionStartResponse } from '../../index';
-import { TalkSessionStopRequest } from '../../index';
-import { TalkSessionStopResponse } from '../../index';
-import { TalkSessionDomainService } from '../../index';
+import { TalkSessionStartRequest } from '../../domain/value-objects/TalkSessionStartRequest';
+import { TalkSessionStartResponse } from '../../domain/value-objects/TalkSessionStartResponse';
+import { TalkSessionStopRequest } from '../../domain/value-objects/TalkSessionStopRequest';
+import { TalkSessionStopResponse } from '../../domain/value-objects/TalkSessionStopResponse';
+import { TalkSessionDomainService } from '../../domain/services/TalkSessionDomainService';
 
 /**
  * Application service for handling talk session operations

@@ -4,7 +4,7 @@
  */
 
 import { CommandType } from '../enums/CommandType';
-import { getCentralAmericaTime } from '../../index';
+import { getCentralAmericaTime } from '../../utils/dateUtils';
 
 /**
  * Value object representing a camera command

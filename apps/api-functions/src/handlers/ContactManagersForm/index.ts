@@ -4,17 +4,17 @@
  */
 
 import { Context, HttpRequest } from "@azure/functions";
-import { withErrorHandler } from '../../index';
-import { withAuth } from '../../index';
-import { withBodyValidation } from '../../index';
-import { withCallerId } from '../../index';
-import { requirePermission } from '../../index';
-import { Permission } from '../../index';
-import { ok } from '../../index';
-import { contactManagerFormSchema } from '../../index';
-import { ContactManagerFormRequest } from '../../index';
-import { ContactManagerFormApplicationService } from '../../index';
-import { serviceContainer } from '../../index';
+import { withErrorHandler } from '../../middleware/errorHandler';
+import { withAuth } from '../../middleware/auth';
+import { withBodyValidation } from '../../middleware/validate';
+import { withCallerId } from '../../middleware/callerId';
+import { requirePermission } from '../../middleware/permissions';
+import { Permission } from '../../domain/enums/Permission';
+import { ok } from '../../utils/response';
+import { contactManagerFormSchema } from '../../domain/schemas/ContactManagerFormSchema';
+import { ContactManagerFormRequest } from '../../domain/value-objects/ContactManagerFormRequest';
+import { ContactManagerFormApplicationService } from '../../application/services/ContactManagerFormApplicationService';
+import { serviceContainer } from '../../infrastructure/container/ServiceContainer';
 
 /**
  * Azure Function: ContactManagersForm

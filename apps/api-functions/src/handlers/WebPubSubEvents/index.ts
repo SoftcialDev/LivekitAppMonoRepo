@@ -5,13 +5,13 @@
  */
 
 import { AzureFunction, Context, HttpRequest } from "@azure/functions";
-import { withErrorHandler } from '../../index';
-import { ServiceContainer } from '../../index';
-import { WebSocketEventRequest } from '../../index';
-import { WebSocketConnectionApplicationService } from '../../index';
-import { ContactManagerDisconnectApplicationService } from '../../index';
-import { logWebPubSubErrorIfAny } from '../../index';
-import { logWebPubSubEvent } from '../../index';
+import { withErrorHandler } from '../../middleware/errorHandler';
+import { ServiceContainer } from '../../infrastructure/container/ServiceContainer';
+import { WebSocketEventRequest } from '../../domain/value-objects/WebSocketEventRequest';
+import { WebSocketConnectionApplicationService } from '../../application/services/WebSocketConnectionApplicationService';
+import { ContactManagerDisconnectApplicationService } from '../../application/services/ContactManagerDisconnectApplicationService';
+import { logWebPubSubErrorIfAny } from '../../utils/webPubSubErrorLogger';
+import { logWebPubSubEvent } from '../../utils/webPubSubEventLogger';
 
 /**
  * Azure Function: WebPubSubEvents

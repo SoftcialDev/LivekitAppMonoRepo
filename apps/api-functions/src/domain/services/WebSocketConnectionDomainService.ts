@@ -10,7 +10,9 @@ import { PresenceDomainService } from "./PresenceDomainService";
 import { StreamingSessionDomainService } from "./StreamingSessionDomainService";
 import { IWebPubSubService } from "../interfaces/IWebPubSubService";
 import { IUserRepository } from "../interfaces/IUserRepository";
-import { LiveKitRecordingService, logError, extractErrorMessage } from '../../index';
+import { LiveKitRecordingService } from '../../infrastructure/services/LiveKitRecordingService';
+import { logError } from '../../utils/logger';
+import { extractErrorMessage } from '../../utils/error/ErrorHelpers';
 import { Context } from "@azure/functions";
 
 /**

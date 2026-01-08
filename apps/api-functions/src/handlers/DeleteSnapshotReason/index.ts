@@ -5,7 +5,16 @@
  */
 
 import { Context, HttpRequest } from "@azure/functions";
-import { withAuth, withErrorHandler, withCallerId, requirePermission, Permission, withBodyValidation, ok, ServiceContainer, DeleteSnapshotReasonApplicationService, ensureBindings } from '../../index';
+import { withAuth } from '../../middleware/auth';
+import { withErrorHandler } from '../../middleware/errorHandler';
+import { withCallerId } from '../../middleware/callerId';
+import { requirePermission } from '../../middleware/permissions';
+import { Permission } from '../../domain/enums/Permission';
+import { withBodyValidation } from '../../middleware/validate';
+import { ok } from '../../utils/response';
+import { ServiceContainer } from '../../infrastructure/container/ServiceContainer';
+import { DeleteSnapshotReasonApplicationService } from '../../application/services/DeleteSnapshotReasonApplicationService';
+import { ensureBindings } from '../../domain/types/ContextBindings';
 import { z } from "zod";
 
 const deleteSchema = z.object({

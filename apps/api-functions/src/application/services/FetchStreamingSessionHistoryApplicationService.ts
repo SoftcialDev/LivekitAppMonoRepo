@@ -4,8 +4,8 @@
  * @description Provides application service for streaming session history operations
  */
 
-import { IStreamingSessionDomainService } from '../../index';
-import { FetchStreamingSessionHistoryResponse } from '../../index';
+import { IStreamingSessionDomainService } from '../../domain/interfaces/IStreamingSessionDomainService';
+import { FetchStreamingSessionHistoryResponse } from '../../domain/value-objects/FetchStreamingSessionHistoryResponse';
 
 /**
  * Application service for fetching streaming session history

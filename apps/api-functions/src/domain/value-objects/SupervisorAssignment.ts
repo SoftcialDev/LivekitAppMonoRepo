@@ -4,7 +4,7 @@
  */
 
 import { SupervisorChangeType } from '../enums/SupervisorChangeType';
-import { getCentralAmericaTime } from '../../index';
+import { getCentralAmericaTime } from '../../utils/dateUtils';
 
 /**
  * Interface for the raw supervisor assignment request payload.

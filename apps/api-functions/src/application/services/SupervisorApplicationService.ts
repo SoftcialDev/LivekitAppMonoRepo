@@ -3,20 +3,20 @@
  * @description Handles supervisor authorization, validation, and execution
  */
 
-import { SupervisorAssignment } from '../../index';
-import { SupervisorChangeResult } from '../../index';
-import { IUserRepository } from '../../index';
-import { IAuthorizationService } from '../../index';
-import { ISupervisorRepository } from '../../index';
-import { ICommandMessagingService } from '../../index';
-import { ISupervisorManagementService } from '../../index';
-import { IAuditService } from '../../index';
-import { IWebPubSubService } from '../../index';
-import { SupervisorError } from '../../index';
-import { SupervisorErrorCode } from '../../index';
-import { ValidationUtils } from '../../index';
-import { AuthorizationUtils } from '../../index';
-import { SupervisorChangeType } from '../../index';
+import { SupervisorAssignment } from '../../domain/value-objects/SupervisorAssignment';
+import { SupervisorChangeResult } from '../../domain/value-objects/SupervisorChangeResult';
+import { IUserRepository } from '../../domain/interfaces/IUserRepository';
+import { IAuthorizationService } from '../../domain/interfaces/IAuthorizationService';  
+import { ISupervisorRepository } from '../../domain/interfaces/ISupervisorRepository';
+import { ICommandMessagingService } from '../../domain/interfaces/ICommandMessagingService';
+import { ISupervisorManagementService } from '../../domain/interfaces/ISupervisorManagementService';
+import { IAuditService } from '../../domain/interfaces/IAuditService';
+import { IWebPubSubService } from '../../domain/interfaces/IWebPubSubService';
+import { SupervisorError } from '../../domain/errors/DomainError';
+import { SupervisorErrorCode } from '../../domain/errors/ErrorCodes';
+import { ValidationUtils } from '../../domain/utils/ValidationUtils';
+import { AuthorizationUtils } from '../../domain/utils/AuthorizationUtils';
+import { SupervisorChangeType } from '../../domain/enums/SupervisorChangeType';
 
 /**
  * Application service for supervisor operations

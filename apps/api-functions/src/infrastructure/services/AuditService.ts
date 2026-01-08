@@ -3,10 +3,10 @@
  * @description Implements audit logging operations
  */
 
-import { IAuditService } from '../../index';
-import { IAuditRepository } from '../../index';
-import { AuditLog } from '../../index';
-import { getCentralAmericaTime } from '../../index';
+import { IAuditService } from '../../domain/interfaces/IAuditService';
+import { IAuditRepository } from '../../domain/interfaces/IAuditRepository';
+import { AuditLog } from '../../domain/entities/AuditLog';
+import { getCentralAmericaTime } from '../../utils/dateUtils';
 
 /**
  * Service for audit operations

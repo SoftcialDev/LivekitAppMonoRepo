@@ -4,11 +4,11 @@
  * @description Handles orchestration of domain services for Contact Manager disconnection events
  */
 
-import { WebSocketEventRequest } from '../../index';
-import { WebSocketEventResponse } from '../../index';
-import { ContactManagerDisconnectDomainService } from '../../index';
-import { PresenceDomainService } from '../../index';
-import { IWebPubSubService } from '../../index';
+import { WebSocketEventRequest } from '../../domain/value-objects/WebSocketEventRequest';
+import { WebSocketEventResponse } from '../../domain/value-objects/WebSocketEventResponse';
+import { ContactManagerDisconnectDomainService } from '../../domain/services/ContactManagerDisconnectDomainService';
+import { PresenceDomainService } from '../../domain/services/PresenceDomainService';
+import { IWebPubSubService } from '../../domain/interfaces/IWebPubSubService';
 
 /**
  * Application service for handling Contact Manager disconnect operations

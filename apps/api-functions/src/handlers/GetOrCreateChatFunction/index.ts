@@ -1,6 +1,15 @@
 
 import { Context, HttpRequest } from "@azure/functions";
-import { withAuth, withErrorHandler, withCallerId, withBodyValidation, ok, ServiceContainer, GetOrCreateChatRequest, GetOrCreateChatApplicationService, getOrCreateChatSchema, ensureBindings, GetOrCreateChatParams } from '../../index';
+import { withAuth } from '../../middleware/auth';
+import { withErrorHandler } from '../../middleware/errorHandler';
+import { withCallerId } from '../../middleware/callerId';
+import { withBodyValidation } from '../../middleware/validate';
+import { ok } from '../../utils/response';
+import { ServiceContainer } from '../../infrastructure/container/ServiceContainer';
+import { GetOrCreateChatRequest } from '../../domain/value-objects/GetOrCreateChatRequest';
+import { GetOrCreateChatApplicationService } from '../../application/services/GetOrCreateChatApplicationService';
+import { getOrCreateChatSchema, GetOrCreateChatParams } from '../../domain/schemas/GetOrCreateChatSchema';
+import { ensureBindings } from '../../domain/types/ContextBindings';
 
 /**
  * Azure Function: finds or creates the InContactApp chat between

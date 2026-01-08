@@ -5,7 +5,18 @@
  */
 
 import { Context, HttpRequest } from "@azure/functions";
-import { withAuth, withErrorHandler, withCallerId, withBodyValidation, requirePermission, Permission, ok, ServiceContainer, TransferPsosRequest, TransferPsosApplicationService, transferPsosSchema, ensureBindings, TransferPsosParams } from '../../index';
+import { withAuth } from '../../middleware/auth';
+import { withErrorHandler } from '../../middleware/errorHandler';
+import { withCallerId } from '../../middleware/callerId';
+import { withBodyValidation } from '../../middleware/validate';
+import { requirePermission } from '../../middleware/permissions';
+import { Permission } from '../../domain/enums/Permission';
+import { ok } from '../../utils/response';
+import { ServiceContainer } from '../../infrastructure/container/ServiceContainer';
+import { TransferPsosRequest } from '../../domain/value-objects/TransferPsosRequest';
+import { TransferPsosApplicationService } from '../../application/services/TransferPsosApplicationService';
+import { transferPsosSchema, TransferPsosParams } from '../../domain/schemas/TransferPsosSchema';
+import { ensureBindings } from '../../domain/types/ContextBindings';
 
 /**
  * HTTP-triggered Azure Function that reassigns ALL PSOs currently

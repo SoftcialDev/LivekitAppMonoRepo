@@ -1,5 +1,16 @@
 import { AzureFunction, Context, HttpRequest } from "@azure/functions";
-import { withAuth, withErrorHandler, withCallerId, requirePermission, Permission, withPathValidation, ok, ServiceContainer, DeleteRecordingRequest, DeleteRecordingApplicationService, deleteRecordingSchema, ensureBindings, DeleteRecordingParams } from '../../index';
+import { withAuth } from '../../middleware/auth';
+import { withErrorHandler } from '../../middleware/errorHandler';
+import { withCallerId } from '../../middleware/callerId';
+import { requirePermission } from '../../middleware/permissions';
+import { Permission } from '../../domain/enums/Permission';
+import { withPathValidation } from '../../middleware/validate';
+import { ok } from '../../utils/response';
+import { ServiceContainer } from '../../infrastructure/container/ServiceContainer';
+import { DeleteRecordingRequest } from '../../domain/value-objects/DeleteRecordingRequest';
+import { DeleteRecordingApplicationService } from '../../application/services/DeleteRecordingApplicationService';
+import { deleteRecordingSchema, DeleteRecordingParams } from '../../domain/schemas/DeleteRecordingSchema';
+import { ensureBindings } from '../../domain/types/ContextBindings';
 
 /**
  * Azure Function HTTP trigger to delete a recording by id.

@@ -4,9 +4,9 @@
  * @description Handles authorization and coordinates domain services for recording deletion operations
  */
 
-import { DeleteRecordingRequest } from '../../index';
-import { DeleteRecordingResponse } from '../../index';
-import { DeleteRecordingDomainService } from '../../index';
+import { DeleteRecordingRequest } from '../../domain/value-objects/DeleteRecordingRequest';
+import { DeleteRecordingResponse } from '../../domain/value-objects/DeleteRecordingResponse';
+import { DeleteRecordingDomainService } from '../../domain/services';
 
 /**
  * Application service for handling recording deletion operations

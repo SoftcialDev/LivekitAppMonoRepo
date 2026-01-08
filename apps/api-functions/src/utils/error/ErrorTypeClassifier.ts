@@ -5,9 +5,10 @@
  * logging requirements, and severity based on error instance type
  */
 
-import { ExpectedError } from '../../index';
-import { ErrorSeverity, ErrorType } from '../../index';
-import { AuthError, ValidationError, MessagingError } from '../../index';
+import { ExpectedError } from '../../middleware/errorHandler';
+import { ErrorSeverity } from '../../domain/enums/ErrorSeverity';
+import { ErrorType } from '../../domain/enums/ErrorType';
+import { AuthError, ValidationError, MessagingError } from '../../domain/errors';
 import { ErrorClassification } from '../../domain/types/ErrorTypes';
 
 /**

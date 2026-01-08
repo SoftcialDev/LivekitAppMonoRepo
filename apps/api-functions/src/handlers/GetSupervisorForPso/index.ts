@@ -1,5 +1,16 @@
 import { AzureFunction, Context, HttpRequest } from "@azure/functions";
-import { withAuth, withErrorHandler, withCallerId, withQueryValidation, requirePermission, Permission, ok, badRequest, ServiceContainer, GetSupervisorForPsoRequest, GetSupervisorForPsoApplicationService, getSupervisorForPsoSchema, ensureBindings, GetSupervisorForPsoParams } from '../../index';
+import { withAuth } from '../../middleware/auth';
+import { withErrorHandler } from '../../middleware/errorHandler';
+import { withCallerId } from '../../middleware/callerId';
+import { withQueryValidation } from '../../middleware/validate';
+import { requirePermission } from '../../middleware/permissions';
+import { Permission } from '../../domain/enums/Permission';
+import { ok, badRequest } from '../../utils/response';
+import { ServiceContainer } from '../../infrastructure/container/ServiceContainer';
+import { GetSupervisorForPsoRequest } from '../../domain/value-objects/GetSupervisorForPsoRequest';
+import { GetSupervisorForPsoApplicationService } from '../../application/services/GetSupervisorForPsoApplicationService';
+import { getSupervisorForPsoSchema, GetSupervisorForPsoParams } from '../../domain/schemas/GetSupervisorForPsoSchema';
+import { ensureBindings } from '../../domain/types/ContextBindings';
 
 /**
  * Azure Function: handles supervisor lookup by PSO identifier

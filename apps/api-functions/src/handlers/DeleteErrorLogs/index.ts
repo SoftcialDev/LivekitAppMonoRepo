@@ -5,7 +5,18 @@
  */
 
 import { Context, HttpRequest } from "@azure/functions";
-import { withAuth, withErrorHandler, withCallerId, requirePermission, Permission, withBodyValidation, ok, ServiceContainer, DeleteErrorLogsApplicationService, DeleteErrorLogsRequest, deleteErrorLogsSchema, ensureBindings, DeleteErrorLogsParams } from '../../index';
+import { withAuth } from '../../middleware/auth';
+import { withErrorHandler } from '../../middleware/errorHandler';
+import { withCallerId } from '../../middleware/callerId';
+import { requirePermission } from '../../middleware/permissions';
+import { Permission } from '../../domain/enums/Permission';
+import { withBodyValidation } from '../../middleware/validate';
+import { ok } from '../../utils/response';
+import { ServiceContainer } from '../../infrastructure/container/ServiceContainer';
+import { DeleteErrorLogsApplicationService } from '../../application/services/DeleteErrorLogsApplicationService';
+import { DeleteErrorLogsRequest } from '../../domain/value-objects/DeleteErrorLogsRequest';
+import { deleteErrorLogsSchema, DeleteErrorLogsParams } from '../../domain/schemas/DeleteErrorLogsSchema';
+import { ensureBindings } from '../../domain/types/ContextBindings';
 
 /**
  * HTTP DELETE /api/error-logs

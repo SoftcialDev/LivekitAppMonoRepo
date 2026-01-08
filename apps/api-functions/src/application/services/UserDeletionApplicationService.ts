@@ -4,19 +4,19 @@
  */
 
 import { UserRole } from '@prisma/client';
-import { UserDeletionRequest } from '../../index';
-import { UserDeletionResult } from '../../index';
-import { UserDeletionType } from '../../index';
-import { IUserRepository } from '../../index';
-import { IAuthorizationService } from '../../index';
-import { IAuditService } from '../../index';
-import { IPresenceService } from '../../index';
-import { IWebPubSubService } from '../../index';
-import { UserDeletionError } from '../../index';
-import { UserDeletionErrorCode } from '../../index';
-import { ValidationUtils } from '../../index';
-import { RoleValidationUtils } from '../../index';
-import { AuditUtils } from '../../index';
+import { UserDeletionRequest } from '../../domain/value-objects/UserDeletionRequest';
+import { UserDeletionResult } from '../../domain/value-objects/UserDeletionResult';
+import { UserDeletionType } from '../../domain/enums/UserDeletionType';
+import { IUserRepository } from '../../domain/interfaces/IUserRepository';
+import { IAuthorizationService } from '../../domain/interfaces/IAuthorizationService';
+import { IAuditService } from '../../domain/interfaces/IAuditService';
+import { IPresenceService } from '../../domain/interfaces/IPresenceService';
+import { IWebPubSubService } from '../../domain/interfaces/IWebPubSubService';
+import { UserDeletionError } from '../../domain/errors/DomainError';
+import { UserDeletionErrorCode } from '../../domain/errors/ErrorCodes';
+import { ValidationUtils } from '../../domain/utils/ValidationUtils';
+import { RoleValidationUtils } from '../../domain/utils';
+import { AuditUtils } from '../../domain/utils/AuditUtils';
 
 /**
  * Application service for user deletion operations

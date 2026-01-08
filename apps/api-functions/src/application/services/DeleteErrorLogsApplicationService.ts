@@ -4,7 +4,7 @@
  * @description Orchestrates error log deletion operations with authorization
  */
 
-import { DeleteErrorLogsDomainService } from '../../index';
+import { DeleteErrorLogsDomainService } from '../../domain/services/DeleteErrorLogsDomainService';
 
 /**
  * Application service for error log deletion operations

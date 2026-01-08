@@ -5,7 +5,7 @@
  */
 
 import { RecordingStatus } from '@prisma/client';
-import { getCentralAmericaTime } from '../../index';
+import { getCentralAmericaTime } from '../../utils/dateUtils';
 
 /**
  * Domain entity for recording sessions

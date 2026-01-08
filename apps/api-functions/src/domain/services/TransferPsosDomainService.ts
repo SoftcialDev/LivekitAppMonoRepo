@@ -11,7 +11,7 @@ import { ICommandMessagingService } from "../interfaces/ICommandMessagingService
 import { IWebPubSubService } from "../interfaces/IWebPubSubService";
 import { UserNotFoundError } from "../errors/UserErrors";
 import { UserRole } from "../enums/UserRole";
-import { getCentralAmericaTime } from '../../index';
+import { getCentralAmericaTime } from '../../utils/dateUtils';
 import { ValidationError } from "../errors/DomainError";
 import { ValidationErrorCode } from "../errors/ErrorCodes";
 

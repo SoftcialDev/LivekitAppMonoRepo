@@ -4,11 +4,11 @@
  * @description Handles orchestration of domain services for snapshot report operations
  */
 
-import { SendSnapshotRequest } from '../../index';
-import { SendSnapshotResponse } from '../../index';
-import { SendSnapshotDomainService } from '../../index';
-import { AuthorizationService } from '../../index';
-import { UserRole } from '../../index';
+import { SendSnapshotRequest } from '../../domain/value-objects/SendSnapshotRequest';
+import { SendSnapshotResponse } from '../../domain/value-objects/SendSnapshotResponse';
+import { SendSnapshotDomainService } from '../../domain/services/SendSnapshotDomainService';
+import { AuthorizationService } from '../../domain/services/AuthorizationService';
+import { UserRole } from '@prisma/client';
 
 /**
  * Application service for handling snapshot report operations

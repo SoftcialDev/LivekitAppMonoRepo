@@ -4,11 +4,11 @@
  * @description Handles orchestration of domain services for PSO transfer operations
  */
 
-import { TransferPsosRequest } from '../../index';
-import { TransferPsosResponse } from '../../index';
-import { TransferPsosDomainService } from '../../index';
-import { AuthorizationService } from '../../index';
-import { UserRole } from '../../index';
+import { TransferPsosRequest } from '../../domain/value-objects/TransferPsosRequest';
+import { TransferPsosResponse } from '../../domain/value-objects/TransferPsosResponse';
+import { TransferPsosDomainService } from '../../domain/services/TransferPsosDomainService';
+import { AuthorizationService } from '../../domain/services/AuthorizationService';
+import { UserRole } from '@prisma/client';
 
 /**
  * Application service for handling PSO transfer operations

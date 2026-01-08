@@ -7,7 +7,7 @@
 import { GetSupervisorByIdentifierRequest } from "../value-objects/GetSupervisorByIdentifierRequest";
 import { GetSupervisorByIdentifierResponse } from "../value-objects/GetSupervisorByIdentifierResponse";
 import { ISupervisorRepository } from "../interfaces/ISupervisorRepository";
-import { extractErrorMessage } from '../../index';
+import { extractErrorMessage } from '../../utils/error/ErrorHelpers';
 
 /**
  * Domain service for supervisor lookup business logic

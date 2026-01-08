@@ -5,8 +5,16 @@
  */
 
 import { AzureFunction, Context, HttpRequest } from "@azure/functions";
-import { withAuth, withErrorHandler, requirePermission, Permission, ok, badRequest, unauthorized, prisma, getCallerAdId, getWebsocketPresenceStatusSchema, PresenceItem, PaginatedPresence } from '../../index';
-import { ExtendedContext, ensureBindings } from '../../index';
+import { withAuth } from '../../middleware/auth';
+import { withErrorHandler } from '../../middleware/errorHandler';
+import { requirePermission } from '../../middleware/permissions';
+import { Permission } from '../../domain/enums/Permission';
+import { ok, badRequest, unauthorized } from '../../utils/response';
+import prisma from '../../infrastructure/database/PrismaClientService';
+import { getCallerAdId } from '../../utils/authHelpers';
+import { getWebsocketPresenceStatusSchema } from '../../domain/schemas/GetWebsocketPresenceStatusSchema';
+import { PresenceItem, PaginatedPresence } from '../../domain/types/PresenceTypes';
+import { ensureBindings } from '../../domain/types/ContextBindings';
 
 /**
  * HTTP GET /api/GetWebsocketPresenceStatus

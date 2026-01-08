@@ -6,7 +6,13 @@
  */
 
 import { Context } from "@azure/functions";
-import { ServiceContainer, IErrorLogService, ErrorSource, ErrorSeverity, WebSocketEventRequest, ApiEndpoints, FunctionNames } from "../index";
+import { ServiceContainer } from "../infrastructure/container/ServiceContainer";
+import { IErrorLogService } from "../domain/interfaces/IErrorLogService";
+import { ErrorSource } from "../domain/enums/ErrorSource";
+import { ErrorSeverity } from "../domain/enums/ErrorSeverity";
+import { WebSocketEventRequest } from "../domain/value-objects";
+import { ApiEndpoints } from "../domain/constants/ApiEndpoints";
+import { FunctionNames } from "../domain/constants/FunctionNames";
 
 /**
  * Logs a WebPubSub event (connection/disconnection) to the database for monitoring

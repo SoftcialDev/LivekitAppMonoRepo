@@ -5,7 +5,17 @@
  */
 
 import { AzureFunction, Context, HttpRequest } from "@azure/functions";
-import { withAuth, withErrorHandler, withCallerId, withBodyValidation, ok, LivekitRecordingApplicationService, LivekitRecordingRequest, livekitRecordingSchema, serviceContainer, ensureBindings, LivekitRecordingRequestPayload } from '../../index';
+import { withAuth } from '../../middleware/auth';
+import { withErrorHandler } from '../../middleware/errorHandler';
+import { withCallerId } from '../../middleware/callerId';
+import { withBodyValidation } from '../../middleware/validate';
+import { ok } from '../../utils/response';
+import { LivekitRecordingApplicationService } from '../../application/services/LivekitRecordingApplicationService';
+import { LivekitRecordingRequest } from '../../domain/value-objects/LivekitRecordingRequest';
+import { livekitRecordingSchema } from '../../domain/schemas/LivekitRecordingSchema';
+import { serviceContainer } from '../../infrastructure/container/ServiceContainer';
+import { ensureBindings } from '../../domain/types/ContextBindings';
+import { LivekitRecordingRequestPayload } from '../../domain/schemas/LivekitRecordingSchema';
 
 /**
  * Azure Function to control LiveKit recording sessions

@@ -1,5 +1,17 @@
 ﻿import { Context, HttpRequest } from "@azure/functions";
-import { withAuth, withErrorHandler, withCallerId, withQueryValidation, requirePermission, Permission, ok, ServiceContainer, LiveKitTokenRequest, LiveKitTokenApplicationService, liveKitTokenSchema, ensureBindings, LiveKitTokenParams } from '../../index';
+import { withAuth } from '../../middleware/auth';
+import { withErrorHandler } from '../../middleware/errorHandler';
+import { withCallerId } from '../../middleware/callerId';
+import { withQueryValidation } from '../../middleware/validate';
+import { requirePermission } from '../../middleware/permissions';
+import { Permission } from '../../domain/enums/Permission';
+import { ok } from '../../utils/response';
+import { ServiceContainer } from '../../infrastructure/container/ServiceContainer';
+import { LiveKitTokenRequest } from '../../domain/value-objects/LiveKitTokenRequest';
+import { LiveKitTokenApplicationService } from '../../application/services/LiveKitTokenApplicationService';
+import { liveKitTokenSchema } from '../../domain/schemas/LiveKitTokenSchema';
+import { ensureBindings } from '../../domain/types/ContextBindings';
+import { LiveKitTokenParams } from '../../domain/schemas/LiveKitTokenSchema';
 
 /**
  * HTTP trigger for issuing LiveKit access tokens.

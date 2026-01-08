@@ -4,9 +4,10 @@
  * @description Infrastructure implementation of recording error logger service
  */
 
-import { IRecordingErrorLogger, RecordingErrorInfo, RecordingErrorContext } from '../../index';
-import { IErrorLogService } from '../../index';
-import { IUserRepository } from '../../index';
+import { IRecordingErrorLogger } from '../../domain/interfaces/IRecordingErrorLogger';
+import { RecordingErrorInfo, RecordingErrorContext } from '../../domain/types/RecordingErrorTypes';
+import { IErrorLogService } from '../../domain/interfaces/IErrorLogService';
+import { IUserRepository } from '../../domain/interfaces/IUserRepository';
 import { logRecordingError } from './recordingErrorLogger';
 
 /**

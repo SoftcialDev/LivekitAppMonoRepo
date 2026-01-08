@@ -4,24 +4,24 @@
  */
 
 import { Context } from "@azure/functions";
-import { withAuth } from '../../index';
-import { withErrorHandler } from '../../index';
-import { withBodyValidation } from '../../index';
-import { withCallerId } from '../../index';
-import { requirePermission } from '../../index';
-import { Permission } from '../../index';
-import { ok, unauthorized } from '../../index';
-import { CommandApplicationService } from '../../index';
-import { Command } from '../../index';
-import { MessagingChannel } from '../../index';
-import { commandRequestSchema } from '../../index';
-import { serviceContainer } from '../../index';
-import { IUserRepository } from '../../index';
-import { IAuthorizationService } from '../../index';
-import { ICommandMessagingService } from '../../index';
-import { IWebPubSubService } from '../../index';
-import { getCallerAdId } from '../../index';
-import { handleAnyError } from '../../index';
+import { withAuth } from '../../middleware/auth';
+import { withErrorHandler } from '../../middleware/errorHandler';
+import { withBodyValidation } from '../../middleware/validate';
+import { withCallerId } from '../../middleware/callerId';
+import { requirePermission } from '../../middleware/permissions';
+import { Permission } from '../../domain/enums/Permission';
+import { ok, unauthorized } from '../../utils/response';
+import { CommandApplicationService } from '../../application/services/CommandApplicationService';
+import { Command } from '../../domain/value-objects/Command';
+import { MessagingChannel } from '../../domain/enums/MessagingChannel';
+import { commandRequestSchema } from '../../domain/schemas/CommandRequestSchema';
+import { serviceContainer } from '../../infrastructure/container/ServiceContainer';
+import { IUserRepository } from '../../domain/interfaces/IUserRepository';
+import { IAuthorizationService } from '../../domain/interfaces/IAuthorizationService';
+import { ICommandMessagingService } from '../../domain/interfaces/ICommandMessagingService';
+import { IWebPubSubService } from '../../domain/interfaces/IWebPubSubService';
+import { getCallerAdId } from '../../utils/authHelpers';
+import { handleAnyError } from '../../utils/errorHandler';
 
 /**
  * Azure Function: CamaraCommand

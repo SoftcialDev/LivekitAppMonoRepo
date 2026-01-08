@@ -3,17 +3,18 @@
  * @description Handles command authorization, validation, and execution
  */
 
-import { Command } from '../../index';
-import { MessagingResult, MessagingChannel } from '../../index';
-import { IUserRepository } from '../../index';
-import { IAuthorizationService } from '../../index';
-import { ICommandMessagingService } from '../../index';
-import { IWebPubSubService } from '../../index';
-import {  MessagingError } from '../../index';
-import {  MessagingErrorCode } from '../../index';
-import { ValidationUtils } from '../../index';
-import { AuthorizationUtils } from '../../index';
-import { CommandType } from '../../index';
+import { Command } from '../../domain/value-objects/Command';
+import { MessagingResult } from '../../domain/value-objects/MessagingResult';
+import { MessagingChannel } from '../../domain/enums/MessagingChannel';
+import { IUserRepository } from '../../domain/interfaces/IUserRepository';
+import { IAuthorizationService } from '../../domain/interfaces/IAuthorizationService';
+import { ICommandMessagingService } from '../../domain/interfaces/ICommandMessagingService';
+import { IWebPubSubService } from '../../domain/interfaces/IWebPubSubService';
+import { MessagingError } from '../../domain/errors/DomainError';
+import { MessagingErrorCode } from '../../domain/errors/ErrorCodes';
+import { ValidationUtils } from '../../domain/utils/ValidationUtils';
+import { AuthorizationUtils } from '../../domain/utils/AuthorizationUtils';
+import { CommandType } from '../../domain/enums/CommandType';
 
 /**
  * Application service for command operations

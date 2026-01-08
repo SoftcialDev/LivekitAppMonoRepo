@@ -15,10 +15,13 @@ import {
   type RoomCompositeOptions,
 } from "livekit-server-sdk";
 import { config } from '../../config';
-import { slugify, datePrefixUTC } from '../../index';
 import { getValidatedStorageCredentials } from './recordingCredentialValidator';
-import { ILiveKitEgressClient, type EgressStartResult, type EgressStopResult, ExtendedEgressInfo, ListEgressResponse } from '../../index';
-import { LiveKitOperationError } from '../../index';
+import { ILiveKitEgressClient } from '../../domain/interfaces/ILiveKitEgressClient';
+import { EgressStartResult, EgressStopResult, ExtendedEgressInfo, ListEgressResponse } from '../../domain/types/LiveKitTypes';
+import { LiveKitOperationError } from '../../domain/errors/InfrastructureErrors';
+import { slugify,datePrefixUTC } from '../../utils/fileNameUtils';
+
+
 
 /**
  * Infrastructure client for LiveKit Egress operations

@@ -6,7 +6,11 @@
 
 import { WebPubSubServiceClient } from "@azure/web-pubsub";
 import { AzureKeyCredential } from "@azure/core-auth";
-import { IWebPubSubService, getCentralAmericaTime, wrapWebPubSubTokenError, wrapWebPubSubBroadcastError, wrapWebPubSubSyncError, extractErrorDetails, WebPubSubGroups } from '../../index';
+import { IWebPubSubService } from '../../domain/interfaces/IWebPubSubService';
+import { getCentralAmericaTime } from '../../utils/dateUtils';
+import { wrapWebPubSubTokenError, wrapWebPubSubBroadcastError, wrapWebPubSubSyncError } from '../../utils/error/ErrorHelpers';
+import { extractErrorDetails } from '../../utils/error/ErrorHelpers';
+import { WebPubSubGroups } from '../../domain/constants/WebPubSubGroups';
 import { config } from '../../config';
 import prisma from "../database/PrismaClientService";
 

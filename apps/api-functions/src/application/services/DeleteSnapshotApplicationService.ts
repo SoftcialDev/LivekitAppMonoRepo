@@ -4,9 +4,9 @@
  * @description Handles orchestration of domain services for snapshot deletion operations
  */
 
-import { DeleteSnapshotRequest } from '../../index';
-import { DeleteSnapshotResponse } from '../../index';
-import { DeleteSnapshotDomainService } from '../../index';
+import { DeleteSnapshotRequest } from '../../domain/value-objects/DeleteSnapshotRequest';
+import { DeleteSnapshotResponse } from '../../domain/value-objects/DeleteSnapshotResponse';
+import { DeleteSnapshotDomainService } from '../../domain/services/DeleteSnapshotDomainService';
 
 /**
  * Application service for handling snapshot deletion operations

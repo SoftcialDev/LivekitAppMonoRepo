@@ -4,7 +4,8 @@
  * @description Handles snapshot reason data operations using Prisma
  */
 
-import { ISnapshotReasonRepository, SnapshotReasonEntity } from '../../index';
+import { ISnapshotReasonRepository } from '../../domain/interfaces/ISnapshotReasonRepository';
+import { SnapshotReasonEntity } from '../../domain/types/SnapshotReasonTypes';
 import prisma from '../database/PrismaClientService';
 
 /**

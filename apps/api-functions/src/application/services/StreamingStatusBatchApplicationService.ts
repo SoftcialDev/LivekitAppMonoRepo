@@ -4,9 +4,9 @@
  * @description Provides application service for batch streaming status operations
  */
 
-import { IStreamingSessionRepository } from '../../index';
-import { AuthorizationService } from '../../index';
-import { StreamingStatusBatchResponse } from '../../index';
+import { IStreamingSessionRepository } from '../../domain/interfaces/IStreamingSessionRepository';
+import { AuthorizationService } from '../../domain/services/AuthorizationService';
+import { StreamingStatusBatchResponse } from '../../domain/value-objects/StreamingStatusBatchResponse';
 
 /**
  * Application service for batch streaming status operations

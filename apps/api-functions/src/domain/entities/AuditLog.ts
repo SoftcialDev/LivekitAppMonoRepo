@@ -3,7 +3,7 @@
  * @description Encapsulates audit log business logic and state management
  */
 
-import { getCentralAmericaTime, formatCentralAmericaTime } from '../../index';
+import { getCentralAmericaTime, formatCentralAmericaTime } from '../../utils/dateUtils';
 
 /**
  * Domain entity representing an AuditLog with business logic

@@ -3,13 +3,13 @@
  * @description Orchestrates user query operations with authorization and validation
  */
 
-import { UserQueryRequest } from '../../index';
-import { UserQueryResult } from '../../index';
-import { IUserRepository } from '../../index';
-import { IAuthorizationService } from '../../index';
-import { IUserQueryService } from '../../index';
-import { ValidationError } from '../../index';
-import { ValidationErrorCode } from '../../index';
+import { UserQueryRequest } from '../../domain/value-objects/UserQueryRequest';
+import { UserQueryResult } from '../../domain/value-objects/UserQueryResult';
+import { IUserRepository } from '../../domain/interfaces/IUserRepository';
+import { IAuthorizationService } from '../../domain/interfaces/IAuthorizationService';
+import { IUserQueryService } from '../../domain/interfaces/IUserQueryService';
+import { ValidationError } from '../../domain/errors/DomainError';
+import { ValidationErrorCode } from '../../domain/errors/ErrorCodes';
 
 /**
  * Application service for user query operations

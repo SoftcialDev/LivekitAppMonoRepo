@@ -5,10 +5,10 @@
 
 import { ServiceBusClient, ServiceBusSender } from '@azure/service-bus';
 import { webPubSubClient } from './WebPubSubClient';
-import { Command } from '../../index';
-import { MessagingResult } from '../../index';
-import { MessagingChannel } from '../../index';
-import { ICommandMessagingService } from '../../index';
+import { Command } from '../../domain/value-objects/Command';
+import { MessagingResult } from '../../domain/value-objects/MessagingResult';
+import { MessagingChannel } from '../../domain/enums/MessagingChannel';
+import { ICommandMessagingService } from '../../domain/interfaces/ICommandMessagingService';
 import { config } from '../../config';
 
 /**

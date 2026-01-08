@@ -5,7 +5,7 @@
  */
 
 import { SnapshotReason } from '../enums/SnapshotReason';
-import { getCentralAmericaTime } from '../../index';
+import { getCentralAmericaTime } from '../../utils/dateUtils';
 
 /**
  * Domain entity representing a Snapshot with business logic.

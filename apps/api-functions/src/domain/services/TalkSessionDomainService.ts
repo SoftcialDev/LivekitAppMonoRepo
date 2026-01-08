@@ -12,7 +12,7 @@ import { TalkSessionStartResponse } from '../value-objects/TalkSessionStartRespo
 import { TalkSessionStopRequest } from '../value-objects/TalkSessionStopRequest';
 import { TalkSessionStopResponse } from '../value-objects/TalkSessionStopResponse';
 import { UserNotFoundError } from '../errors/UserErrors';
-import { getCentralAmericaTime } from '../../index';
+import { getCentralAmericaTime } from '../../utils/dateUtils';
 
 /**
  * Domain service for handling talk session operations

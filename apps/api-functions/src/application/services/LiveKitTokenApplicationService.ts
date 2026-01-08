@@ -4,9 +4,9 @@
  * @description Handles authorization and coordinates domain services for LiveKit token operations
  */
 
-import { LiveKitTokenRequest } from '../../index';
-import { LiveKitTokenResponse } from '../../index';
-import { LiveKitTokenDomainService } from '../../index';
+import { LiveKitTokenRequest } from '../../domain/value-objects/LiveKitTokenRequest';
+import { LiveKitTokenResponse } from '../../domain/value-objects/LiveKitTokenResponse';
+import { LiveKitTokenDomainService } from '../../domain/services/LiveKitTokenDomainService';
 
 /**
  * Application service for handling LiveKit token operations

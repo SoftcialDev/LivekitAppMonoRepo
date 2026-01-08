@@ -3,8 +3,8 @@
  * @description Prisma repository for user-role assignments.
  */
 import prisma from "../database/PrismaClientService";
-import { IUserRoleAssignmentRepository } from '../../index';
-import { Role } from '../../index';
+import { IUserRoleAssignmentRepository } from '../../domain/interfaces/IUserRoleAssignmentRepository';
+import { Role } from '../../domain/entities/Role';
 
 export class UserRoleAssignmentRepository implements IUserRoleAssignmentRepository {
   /**

@@ -6,15 +6,15 @@
  */
 
 import { AzureFunction, Context, HttpRequest } from "@azure/functions";
-import { withAuth } from '../../index';
-import { withErrorHandler } from '../../index';
-import { withBodyValidation } from '../../index';
-import { withCallerId } from '../../index';
-import { ok } from '../../index';
-import { updateContactManagerStatusSchema } from '../../index';
-import { UpdateContactManagerStatusRequest } from '../../index';
-import { ContactManagerApplicationService } from '../../index';
-import { serviceContainer } from '../../index';
+import { withAuth } from '../../middleware/auth';
+import { withErrorHandler } from '../../middleware/errorHandler';
+import { withBodyValidation } from '../../middleware/validate';
+import { withCallerId } from '../../middleware/callerId';
+import { ok } from '../../utils/response';
+import { updateContactManagerStatusSchema } from '../../domain/schemas/UpdateContactManagerStatusSchema';
+import { UpdateContactManagerStatusRequest } from '../../domain/value-objects/UpdateContactManagerStatusRequest';
+import { ContactManagerApplicationService } from '../../application/services/ContactManagerApplicationService';
+import { serviceContainer } from '../../infrastructure/container/ServiceContainer';
 
 /**
  * Azure Function handler for updating Contact Manager status.

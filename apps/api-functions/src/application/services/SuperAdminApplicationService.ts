@@ -3,12 +3,12 @@
  * @description Orchestrates Super Admin creation with authorization
  */
 
-import { SuperAdminDomainService } from '../../index';
-import { AuthorizationService } from '../../index';
-import { CreateSuperAdminRequest } from '../../index';
-import { DeleteSuperAdminRequest } from '../../index';
-import { SuperAdminListResponse } from '../../index';
-import { SuperAdminProfile } from '../../index';
+import { SuperAdminDomainService } from '../../domain/services/SuperAdminDomainService';
+import { AuthorizationService } from '../../domain/services/AuthorizationService';
+import { CreateSuperAdminRequest } from '../../domain/value-objects/CreateSuperAdminRequest';
+import { DeleteSuperAdminRequest } from '../../domain/value-objects/DeleteSuperAdminRequest';
+import { SuperAdminListResponse } from '../../domain/value-objects/SuperAdminListResponse';
+import { SuperAdminProfile } from '../../domain/entities/SuperAdminProfile';  
 
 /**
  * Application service for Super Admin operations.

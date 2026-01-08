@@ -5,7 +5,16 @@
  */
 
 import { Context, HttpRequest } from "@azure/functions";
-import { withAuth, withErrorHandler, withCallerId, requirePermission, Permission, ok, ServiceContainer, WebPubSubTokenRequest, WebPubSubTokenApplicationService, ExtendedContext, ensureBindings } from '../../index';
+import { withAuth } from '../../middleware/auth';
+import { withErrorHandler } from '../../middleware/errorHandler';
+import { withCallerId } from '../../middleware/callerId';
+import { requirePermission } from '../../middleware/permissions';
+import { Permission } from '../../domain/enums/Permission';
+import { ok } from '../../utils/response';
+import { ServiceContainer } from '../../infrastructure/container/ServiceContainer';
+import { WebPubSubTokenRequest } from '../../domain/value-objects/WebPubSubTokenRequest';
+import { WebPubSubTokenApplicationService } from '../../application/services/WebPubSubTokenApplicationService';
+import { ensureBindings } from '../../domain/types/ContextBindings';
 
 /**
  * HTTP-triggered function that issues a client access token for Azure Web PubSub.

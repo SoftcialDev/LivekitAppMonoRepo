@@ -9,7 +9,7 @@ import { IUserRepository } from "../interfaces/IUserRepository";
 import { IWebPubSubService } from "../interfaces/IWebPubSubService";
 import { Status } from "../enums/Status";
 import { UserNotFoundError } from "../errors/UserErrors";
-import { getCentralAmericaTime } from '../../index';
+import { getCentralAmericaTime } from '../../utils/dateUtils';
 
 /**
  * Domain service for handling presence operations

@@ -4,10 +4,10 @@
  * @description Orchestrates snapshot reason updates with authorization
  */
 
-import { UpdateSnapshotReasonDomainService } from '../../index';
-import { SnapshotReasonResponse } from '../../index';
-import { AuthorizationService } from '../../index';
-import { UserRole } from '../../index';
+import { UpdateSnapshotReasonDomainService } from '../../domain/services/UpdateSnapshotReasonDomainService';
+import { SnapshotReasonResponse } from '../../domain/value-objects/SnapshotReasonResponse';
+import { AuthorizationService } from '../../domain/services/AuthorizationService';
+import { UserRole } from '@prisma/client';
 
 /**
  * Application service for snapshot reason update operations

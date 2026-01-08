@@ -4,10 +4,12 @@
  * @description Implements IRecordingSessionRepository interface with Prisma ORM
  */
 
-import { IRecordingSessionRepository, CreateRecordingSessionData, ListRecordingsParams } from '../../index';
-import { RecordingSession } from '../../index';
+import { IRecordingSessionRepository } from '../../domain/interfaces/IRecordingSessionRepository';
+import { CreateRecordingSessionData, ListRecordingsParams } from '../../domain/types/RecordingSessionTypes';
+import { RecordingSession } from '../../domain/entities/RecordingSession';
 import { RecordingStatus } from '@prisma/client';
-import { getCentralAmericaTime, wrapDatabaseQueryError, wrapEntityCreationError, wrapEntityUpdateError, wrapEntityDeletionError } from '../../index';
+import { getCentralAmericaTime } from '../../utils/dateUtils';
+import { wrapDatabaseQueryError, wrapEntityCreationError, wrapEntityUpdateError, wrapEntityDeletionError } from '../../utils/error/ErrorHelpers';
 import prisma from '../database/PrismaClientService';
 
 /**

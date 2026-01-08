@@ -1,8 +1,8 @@
 ﻿import { Context } from "@azure/functions";
-import { ServiceContainer } from '../../index';
-import { ProcessCommandRequest } from '../../index';
-import { ProcessCommandApplicationService } from '../../index';
-import { processCommandSchema } from '../../index';
+import { ServiceContainer } from '../../infrastructure/container/ServiceContainer';
+import { ProcessCommandRequest } from '../../domain/value-objects/ProcessCommandRequest';
+import { ProcessCommandApplicationService } from '../../application/services/ProcessCommandApplicationService';
+import { processCommandSchema } from '../../domain/schemas/ProcessCommandSchema';
 
 /**
  * Azure Function: ProcessCommand

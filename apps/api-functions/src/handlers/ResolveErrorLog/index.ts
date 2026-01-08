@@ -5,7 +5,17 @@
  */
 
 import { Context, HttpRequest } from "@azure/functions";
-import { withAuth, withErrorHandler, withCallerId, requirePermission, Permission, withPathValidation, ok, badRequest, ServiceContainer, GetErrorLogsApplicationService, getErrorLogByIdSchema, ensureBindings, GetErrorLogByIdParams } from '../../index';
+import { withAuth } from '../../middleware/auth';
+import { withErrorHandler } from '../../middleware/errorHandler';
+import { withCallerId } from '../../middleware/callerId';
+import { requirePermission } from '../../middleware/permissions';
+import { Permission } from '../../domain/enums/Permission';
+import { withPathValidation } from '../../middleware/validate';
+import { ok, badRequest } from '../../utils/response';
+import { ServiceContainer } from '../../infrastructure/container/ServiceContainer';
+import { GetErrorLogsApplicationService } from '../../application/services/GetErrorLogsApplicationService';
+import { getErrorLogByIdSchema, GetErrorLogByIdParams } from '../../domain/schemas/GetErrorLogByIdSchema';
+import { ensureBindings } from '../../domain/types/ContextBindings';
 
 /**
  * HTTP PATCH /api/error-logs/{id}/resolve

@@ -5,16 +5,16 @@
  */
 
 import { Context, HttpRequest } from "@azure/functions";
-import { withAuth } from '../../index';
-import { withErrorHandler } from '../../index';
-import { withCallerId } from '../../index';
-import { requirePermission } from '../../index';
-import { Permission } from '../../index';
-import { ok } from '../../index';
-import { ServiceContainer } from '../../index';
-import { GetCameraFailuresApplicationService } from '../../index';
-import { GetCameraFailuresRequest } from '../../index';
-import { GetCameraFailuresResponse } from '../../index';
+import { withAuth } from '../../middleware/auth';
+import { withErrorHandler } from '../../middleware/errorHandler';
+import { withCallerId } from '../../middleware/callerId';
+import { requirePermission } from '../../middleware/permissions';
+import { Permission } from '../../domain/enums/Permission';
+import { ok } from '../../utils/response';
+import { ServiceContainer } from '../../infrastructure/container/ServiceContainer';
+import { GetCameraFailuresApplicationService } from '../../application/services/GetCameraFailuresApplicationService';
+import { GetCameraFailuresRequest } from '../../domain/value-objects/GetCameraFailuresRequest';
+import { GetCameraFailuresResponse } from '../../domain/value-objects/GetCameraFailuresResponse';  
 
 /**
  * HTTP GET /api/GetCameraFailures

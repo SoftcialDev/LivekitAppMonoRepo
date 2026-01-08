@@ -4,10 +4,10 @@
  * @description Handles orchestration of domain services for supervisor lookup
  */
 
-import { GetSupervisorByIdentifierRequest } from '../../index';
-import { GetSupervisorByIdentifierResponse } from '../../index';
-import { GetSupervisorByIdentifierDomainService } from '../../index';
-import { AuthorizationService } from '../../index';
+import { GetSupervisorByIdentifierRequest } from '../../domain/value-objects/GetSupervisorByIdentifierRequest';
+import { GetSupervisorByIdentifierResponse } from '../../domain/value-objects/GetSupervisorByIdentifierResponse';
+import { GetSupervisorByIdentifierDomainService } from '../../domain/services/GetSupervisorByIdentifierDomainService';
+import { AuthorizationService } from '../../domain/services/AuthorizationService';
 
 /**
  * Application service for handling supervisor lookup operations

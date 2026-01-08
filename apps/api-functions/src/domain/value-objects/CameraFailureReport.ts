@@ -1,6 +1,6 @@
 import { CameraFailureStage } from "@prisma/client";
 import { CameraStartFailureRequest } from "../schemas/CameraStartFailureSchema";
-import { nowCRIso } from '../../index';
+import { getCentralAmericaTimeISO } from '../../utils/dateUtils';
 import { AttemptResult } from '../enums/AttemptResult';
 import { NormalizedAttempt, NormalizedDevice } from '../types/CameraFailureTypes';
 
@@ -39,7 +39,7 @@ export class CameraFailureReport {
       errorMessage: a.errorMessage?.slice(0, 500),
     }));
 
-    const createdAtCentralAmerica = nowCRIso();
+    const createdAtCentralAmerica = getCentralAmericaTimeISO();
 
     return new CameraFailureReport({
       userAdId: req.userAdId,

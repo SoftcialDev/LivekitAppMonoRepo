@@ -14,7 +14,7 @@ import { RecordingSession } from '../entities/RecordingSession';
 import { 
   RecordingFetchError 
 } from '../errors/RecordingErrors';
-import { buildBlobHttpsUrl, generateReadSasUrl } from '../../index';
+import { buildBlobHttpsUrl, generateReadSasUrl } from '../../infrastructure/services/blobSigner';
 
 /**
  * Domain service for recording session operations

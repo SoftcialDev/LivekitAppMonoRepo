@@ -3,8 +3,8 @@
  * @description Represents a request to upload an image to blob storage
  */
 
-import { getCentralAmericaTime } from '../../index';
-import { generateSnapshotFileName, generateSnapshotFolderPath, sanitizeFileName } from '../../index';
+import { getCentralAmericaTime } from '../../utils/dateUtils';
+import { generateSnapshotFileName, generateSnapshotFolderPath, sanitizeFileName } from '../../utils/fileNameUtils';
 import { ValidationError } from '../errors/DomainError';
 import { ValidationErrorCode } from '../errors/ErrorCodes';
 

@@ -5,7 +5,7 @@ import {
 } from "@azure/storage-blob";
 import { getStorageCredentials } from './storageCredentials';
 import { config } from '../../config';
-import { StorageCredentialsError } from '../../index';
+import { StorageCredentialsError } from '../../domain/errors/InfrastructureErrors';
 
 /**
  * Returns the configured Azure Storage account name or throws with a clear message.
@@ -133,7 +133,7 @@ export function generateReadSasUrl(path: string, minutes: number = 60): string {
  *
  * @example
  * ```ts
- * import { BlobSigner } from '../../index';
+ * import { BlobSigner } from '../../infrastructure/services/blobSigner';
  * const url = BlobSigner.buildBlobHttpsUrl("a/b/c.mp4");
  * const sas = BlobSigner.generateReadSasUrl("a/b/c.mp4", 15);
  * ```

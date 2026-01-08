@@ -4,9 +4,9 @@
  * @description Handles orchestration of domain services for process command operations
  */
 
-import { ProcessCommandRequest } from '../../index';
-import { ProcessCommandResponse } from '../../index';
-import { ProcessCommandDomainService } from '../../index';
+import { ProcessCommandRequest } from '../../domain/value-objects/ProcessCommandRequest';
+import { ProcessCommandResponse } from '../../domain/value-objects/ProcessCommandResponse';
+import { ProcessCommandDomainService } from '../../domain/services/ProcessCommandDomainService';
 
 /**
  * Application service for handling process command operations

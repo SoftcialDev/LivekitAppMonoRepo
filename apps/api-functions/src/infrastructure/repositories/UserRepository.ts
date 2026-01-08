@@ -5,7 +5,13 @@
 
 import prisma from '../database/PrismaClientService';
 import { UserRole, ContactManagerStatus } from '@prisma/client';
-import { IUserRepository, User, ContactManagerProfile, SuperAdminProfile, Role, getCentralAmericaTime, wrapPsoFetchError } from '../../index';
+import { IUserRepository } from '../../domain/interfaces/IUserRepository';
+import { User } from '../../domain/entities/User';
+import { ContactManagerProfile } from '../../domain/entities/ContactManagerProfile';
+import { SuperAdminProfile } from '../../domain/entities/SuperAdminProfile';
+import { Role } from '../../domain/entities/Role';
+import { getCentralAmericaTime } from '../../utils/dateUtils';
+import { wrapPsoFetchError } from '../../utils/error/ErrorHelpers';
 
 /**
  * Repository for user data access operations

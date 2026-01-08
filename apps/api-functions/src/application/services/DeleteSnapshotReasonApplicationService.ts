@@ -4,8 +4,8 @@
  * @description Orchestrates snapshot reason deletion with authorization
  */
 
-import { AuthorizationService } from '../../index';
-import { DeleteSnapshotReasonDomainService } from '../../index';
+import { AuthorizationService } from '../../domain/services/AuthorizationService';
+import { DeleteSnapshotReasonDomainService } from '../../domain/services/DeleteSnapshotReasonDomainService';
 
 /**
  * Application service for snapshot reason deletion operations

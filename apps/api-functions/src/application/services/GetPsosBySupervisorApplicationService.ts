@@ -4,12 +4,13 @@
  * @description Handles orchestration of domain services for PSOs lookup
  */
 
-import { GetPsosBySupervisorRequest } from '../../index';
-import { GetPsosBySupervisorResponse } from '../../index';
-import { GetPsosBySupervisorDomainService } from '../../index';
-import { IUserRepository } from '../../index';
-import { UserRole } from '../../index';
-import { UserNotFoundError, InsufficientPrivilegesError } from '../../index';
+import { GetPsosBySupervisorRequest } from '../../domain/value-objects/GetPsosBySupervisorRequest';
+import { GetPsosBySupervisorResponse } from '../../domain/value-objects/GetPsosBySupervisorResponse';
+import { GetPsosBySupervisorDomainService } from '../../domain/services/GetPsosBySupervisorDomainService';
+import { IUserRepository } from '../../domain/interfaces/IUserRepository';
+import { UserRole } from '@prisma/client';
+import { UserNotFoundError } from '../../domain/errors/UserErrors';
+import { InsufficientPrivilegesError } from '../../domain/errors/MiddlewareErrors';
 
 /**
  * Application service for handling PSOs lookup operations

@@ -11,21 +11,21 @@
  */
 
 import { AzureFunction, Context, HttpRequest } from "@azure/functions";
-import { withAuth } from '../../index';
-import { withErrorHandler } from '../../index';
-import { withQueryValidation } from '../../index';
-import { requirePermission } from '../../index';
-import { Permission } from '../../index';
-import { UserQueryRequest } from '../../index';
-import { userQuerySchema } from '../../index';
-import { serviceContainer } from '../../index';
-import { getCallerAdId } from '../../index';
-import { UserQueryApplicationService } from '../../index';
-import { IUserRepository } from '../../index';
-import { IAuthorizationService } from '../../index';
-import { IUserQueryService } from '../../index';
-import { CallerIdNotFoundError } from '../../index';
-import { ExtendedContext, ensureBindings } from '../../index';
+import { withAuth } from '../../middleware/auth';
+import { withErrorHandler } from '../../middleware/errorHandler';
+import { withQueryValidation } from '../../middleware/validate';
+import { requirePermission } from '../../middleware/permissions';
+import { Permission } from '../../domain/enums/Permission';
+import { UserQueryRequest } from '../../domain/value-objects/UserQueryRequest';
+import { userQuerySchema } from '../../domain/schemas/UserQuerySchema';
+import { serviceContainer } from '../../infrastructure/container/ServiceContainer';
+import { getCallerAdId } from '../../utils/authHelpers';
+import { UserQueryApplicationService } from '../../application/services/UserQueryApplicationService';
+import { IUserRepository } from '../../domain/interfaces/IUserRepository';
+import { IAuthorizationService } from '../../domain/interfaces/IAuthorizationService';
+import { IUserQueryService } from '../../domain/interfaces/IUserQueryService';
+import { CallerIdNotFoundError } from '../../domain/errors/MiddlewareErrors';
+import { ensureBindings } from '../../domain/types/ContextBindings';
 
 const getUsersByRole: AzureFunction = withErrorHandler(
   async (ctx: Context, req: HttpRequest) => {

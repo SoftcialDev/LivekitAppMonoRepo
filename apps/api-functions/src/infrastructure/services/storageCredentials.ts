@@ -4,8 +4,8 @@
  */
 
 import { config } from '../../config';
-import { normalizeBase64Padding } from '../../index';
-import { StorageCredentialsError } from '../../index';
+import { normalizeBase64Padding } from '../../utils/base64Utils';
+import { StorageCredentialsError } from '../../domain/errors/InfrastructureErrors';
 
 /**
  * Parses Azure Storage connection string to extract account name and key

@@ -4,7 +4,7 @@
  */
 
 import { UserRole } from '@prisma/client';
-import { getCentralAmericaTime } from '../../index';
+import { getCentralAmericaTime } from '../../utils/dateUtils';
 
 /**
  * Interface for the raw user role change request payload.

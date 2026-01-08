@@ -1,5 +1,16 @@
 import { Context, HttpRequest } from "@azure/functions";
-import { withAuth, withErrorHandler, withCallerId, requirePermission, Permission, withPathValidation, ok, ServiceContainer, DeleteSnapshotRequest, DeleteSnapshotApplicationService, deleteSnapshotSchema, ensureBindings, DeleteSnapshotParams } from '../../index';
+import { withAuth } from '../../middleware/auth';
+import { withErrorHandler } from '../../middleware/errorHandler';
+import { withCallerId } from '../../middleware/callerId';
+import { requirePermission } from '../../middleware/permissions';
+import { Permission } from '../../domain/enums/Permission';
+import { withPathValidation } from '../../middleware/validate';
+import { ok } from '../../utils/response';
+import { ServiceContainer } from '../../infrastructure/container/ServiceContainer';
+import { DeleteSnapshotRequest } from '../../domain/value-objects/DeleteSnapshotRequest';
+import { DeleteSnapshotApplicationService } from '../../application/services/DeleteSnapshotApplicationService';
+import { deleteSnapshotSchema, DeleteSnapshotParams } from '../../domain/schemas/DeleteSnapshotSchema';
+import { ensureBindings } from '../../domain/types/ContextBindings';
 
 /**
  * HTTP DELETE /api/snapshots/{id}

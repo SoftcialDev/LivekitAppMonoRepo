@@ -1,16 +1,16 @@
 import { AzureFunction, Context, HttpRequest } from "@azure/functions";
-import { withAuth } from '../../index';
-import { withErrorHandler } from '../../index';
-import { withCallerId } from '../../index';
-import { requirePermission } from '../../index';
-import { Permission } from '../../index';
-import { ok } from '../../index';
-import { ServiceContainer } from '../../index';
-import { GetPsosBySupervisorRequest } from '../../index';
-import { GetPsosBySupervisorApplicationService } from '../../index';
-import { IUserRepository } from '../../index';
+import { withAuth } from '../../middleware/auth';
+import { withErrorHandler } from '../../middleware/errorHandler';
+import { withCallerId } from '../../middleware/callerId';
+import { requirePermission } from '../../middleware/permissions';
+import { Permission } from '../../domain/enums/Permission';
+import { ok } from '../../utils/response';
+import { ServiceContainer } from '../../infrastructure/container/ServiceContainer';
+import { GetPsosBySupervisorRequest } from '../../domain/value-objects/GetPsosBySupervisorRequest';
+import { GetPsosBySupervisorApplicationService } from '../../application/services/GetPsosBySupervisorApplicationService';
+import { IUserRepository } from '../../domain/interfaces/IUserRepository';
 import { UserRole } from "@prisma/client";
-import { UserNotFoundError } from '../../index';
+import { UserNotFoundError } from '../../domain/errors/UserErrors';
 
 /**
  * Azure Function: GetMyPsos

@@ -4,8 +4,9 @@
  */
 
 import { ZodSchema, ZodError } from 'zod';
-import { IValidator, ValidationResult } from '../../index';
-import { InvalidFormatError } from '../../index';
+import { IValidator } from '../../domain/interfaces/IValidator';
+import { ValidationResult } from '../../domain/types/ValidationTypes';
+import { InvalidFormatError } from '../../domain/errors'; 
 
 /**
  * Infrastructure implementation of IValidator using Zod

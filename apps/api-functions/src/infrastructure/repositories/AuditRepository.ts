@@ -5,7 +5,10 @@
  */
 
 import prisma from '../database/PrismaClientService';
-import { IAuditRepository, AuditLog, getCentralAmericaTime, wrapEntityCreationError, wrapDatabaseQueryError } from '../../index';
+import { IAuditRepository } from '../../domain/interfaces/IAuditRepository';
+import { AuditLog } from '../../domain/entities/AuditLog';
+import { getCentralAmericaTime } from '../../utils/dateUtils';
+import { wrapEntityCreationError, wrapDatabaseQueryError } from '../../utils/error/ErrorHelpers';
 
 /**
  * Repository for audit data access operations

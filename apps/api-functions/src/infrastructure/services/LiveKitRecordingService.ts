@@ -5,19 +5,19 @@
  */
 
 import { LiveKitEgressClient } from './LiveKitEgressClient';
-import { RecordingSessionApplicationService } from '../../index';
+import { RecordingSessionApplicationService } from '../../application/services/RecordingSessionApplicationService';
 import { BlobUrlService } from './BlobUrlService';
 import { RecordingErrorLoggerService } from './RecordingErrorLoggerService';
-import { IRecordingSessionRepository } from '../../index';
-import { IBlobStorageService } from '../../index';
-import { IErrorLogService } from '../../index';
-import { IUserRepository } from '../../index';
-import { RecordingStopStatus } from '../../index';
-import { EntityNotFoundError } from '../../index';
+import { IRecordingSessionRepository } from '../../domain/interfaces/IRecordingSessionRepository';
+import { IBlobStorageService } from '../../domain/interfaces/IBlobStorageService';
+import { IErrorLogService } from '../../domain/interfaces/IErrorLogService';
+import { IUserRepository } from '../../domain/interfaces/IUserRepository';
+import { RecordingStopStatus } from '../../domain/enums/RecordingStopStatus';
+import { EntityNotFoundError } from '../../domain/errors';
 import type {
   RecordingStopResult,
   RecordingSummary
-} from '../../index';
+} from '../../domain/value-objects/RecordingServiceResults';
 
 /**
  * Infrastructure service for LiveKit recording operations

@@ -4,17 +4,17 @@
  */
 
 import { Context } from "@azure/functions";
-import { withErrorHandler } from '../../index';
-import { withAuth } from '../../index';
-import { withBodyValidation } from '../../index';
-import { withCallerId } from '../../index';
-import { requirePermission } from '../../index';
-import { Permission } from '../../index';
-import { ok } from '../../index';
-import { acknowledgeCommandSchema } from '../../index';
-import { AcknowledgeCommandRequest } from '../../index';
-import { CommandAcknowledgmentApplicationService } from '../../index';
-import { serviceContainer } from '../../index';
+import { withErrorHandler } from '../../middleware/errorHandler';
+import { withAuth } from '../../middleware/auth';
+import { withBodyValidation } from '../../middleware/validate';
+import { withCallerId } from '../../middleware/callerId';
+import { requirePermission } from '../../middleware/permissions';
+import { Permission } from '../../domain/enums/Permission';
+import { ok } from '../../utils/response';
+import { acknowledgeCommandSchema } from '../../domain/schemas/AcknowledgeCommandSchema';
+import { AcknowledgeCommandRequest } from '../../domain/value-objects/AcknowledgeCommandRequest';
+import { CommandAcknowledgmentApplicationService } from '../../application/services/CommandAcknowledgmentApplicationService';
+import { serviceContainer } from '../../infrastructure/container/ServiceContainer';
 
 /**
  * Azure Function: AcknowledgeCommandFunction

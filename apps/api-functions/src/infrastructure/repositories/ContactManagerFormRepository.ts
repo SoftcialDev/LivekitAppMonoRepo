@@ -4,7 +4,11 @@
  * @description Provides Prisma-based implementation of contact manager form repository operations
  */
 
-import { IContactManagerFormRepository, ContactManagerFormData, ContactManagerForm, FormType, getCentralAmericaTime, wrapEntityCreationError, wrapDatabaseQueryError } from '../../index';
+import { IContactManagerFormRepository } from '../../domain/interfaces/IContactManagerFormRepository';
+import { ContactManagerFormData, ContactManagerForm } from '../../domain/types/ContactManagerFormTypes';
+import { FormType } from '../../domain/enums/FormType';
+import { getCentralAmericaTime } from '../../utils/dateUtils';
+import { wrapEntityCreationError, wrapDatabaseQueryError } from '../../utils/error/ErrorHelpers';
 import prisma from '../database/PrismaClientService';
 import { Prisma, FormType as PrismaFormType } from '@prisma/client';
 

@@ -1,13 +1,13 @@
 import { Context, HttpRequest } from "@azure/functions";
-import { withAuth } from '../../index';
-import { withErrorHandler } from '../../index';
-import { withCallerId } from '../../index';
-import { requirePermission } from '../../index';
-import { Permission } from '../../index';
-import { ok } from '../../index';
-import { ServiceContainer } from '../../index';
-import { GetSnapshotsRequest } from '../../index';
-import { GetSnapshotsApplicationService } from '../../index';
+import { withAuth } from '../../middleware/auth';
+import { withErrorHandler } from '../../middleware/errorHandler';
+import { withCallerId } from '../../middleware/callerId';
+import { requirePermission } from '../../middleware/permissions';
+import { Permission } from '../../domain/enums/Permission';
+import { ok } from '../../utils/response';
+import { ServiceContainer } from '../../infrastructure/container/ServiceContainer';
+import { GetSnapshotsRequest } from '../../domain/value-objects/GetSnapshotsRequest';
+import { GetSnapshotsApplicationService } from '../../application/services/GetSnapshotsApplicationService';
 
 /**
  * HTTP GET /api/snapshots

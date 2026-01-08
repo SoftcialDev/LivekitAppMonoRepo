@@ -3,8 +3,8 @@
  * @description Prisma repository for roles.
  */
 import prisma from "../database/PrismaClientService";
-import { IRoleRepository } from '../../index';
-import { Role } from '../../index';
+import { IRoleRepository } from '../../domain/interfaces/IRoleRepository';
+import { Role } from '../../domain/entities/Role';
 import { Role as PrismaRole } from '@prisma/client';
 
 export class RoleRepository implements IRoleRepository {

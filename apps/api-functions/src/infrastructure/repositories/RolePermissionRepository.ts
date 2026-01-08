@@ -3,7 +3,8 @@
  * @description Prisma repository for role-permission relationships.
  */
 import prisma from "../database/PrismaClientService";
-import { IRolePermissionRepository, PermissionEntity } from '../../index';
+import { IRolePermissionRepository } from '../../domain/interfaces/IRolePermissionRepository';
+import { PermissionEntity } from '../../domain/entities';
 
 export class RolePermissionRepository implements IRolePermissionRepository {
   /**

@@ -1,5 +1,16 @@
 import { Context, HttpRequest } from "@azure/functions";
-import { withAuth, withErrorHandler, withCallerId, withBodyValidation, requirePermission, Permission, ok, ServiceContainer, StreamingSessionUpdateRequest, StreamingSessionUpdateApplicationService, streamingSessionUpdateSchema, ensureBindings, StreamingSessionUpdateParams } from '../../index';
+import { withAuth } from '../../middleware/auth';
+import { withErrorHandler } from '../../middleware/errorHandler';
+import { withCallerId } from '../../middleware/callerId';
+import { withBodyValidation } from '../../middleware/validate';
+import { requirePermission } from '../../middleware/permissions';
+import { Permission } from '../../domain/enums/Permission';
+import { ok } from '../../utils/response';
+import { ServiceContainer } from '../../infrastructure/container/ServiceContainer';
+import { StreamingSessionUpdateRequest } from '../../domain/value-objects/StreamingSessionUpdateRequest';
+import { StreamingSessionUpdateApplicationService } from '../../application/services/StreamingSessionUpdateApplicationService';
+import { streamingSessionUpdateSchema, StreamingSessionUpdateParams } from '../../domain/schemas/StreamingSessionUpdateSchema';
+import { ensureBindings } from '../../domain/types/ContextBindings';
 
 /**
  * HTTP-triggered Azure Function that updates the streaming session for the authenticated user.

@@ -3,10 +3,10 @@
  * @description Orchestrates command acknowledgment operations with authorization
  */
 
-import { ICommandAcknowledgmentService } from '../../index';
-import { IAuthorizationService } from '../../index';
-import { AcknowledgeCommandRequest } from '../../index';
-import { AcknowledgeCommandResult } from '../../index';
+import { ICommandAcknowledgmentService } from '../../domain/interfaces';
+import { IAuthorizationService } from '../../domain/interfaces/IAuthorizationService';
+import { AcknowledgeCommandRequest } from '../../domain/value-objects/AcknowledgeCommandRequest';
+import { AcknowledgeCommandResult } from '../../domain/value-objects/AcknowledgeCommandResult';
 
 /**
  * Application service for command acknowledgment operations

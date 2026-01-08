@@ -4,12 +4,12 @@
  * @description Orchestrates talk sessions query operations with authorization
  */
 
-import { GetTalkSessionsDomainService } from '../../index';
-import { GetTalkSessionsRequest } from '../../index';
-import { GetTalkSessionsResponse } from '../../index';
-import { IUserRepository } from '../../index';
-import { AuthorizationService } from '../../index';
-import { UserRole } from '../../index';
+import { GetTalkSessionsDomainService } from '../../domain/services/GetTalkSessionsDomainService';
+import { GetTalkSessionsRequest } from '../../domain/value-objects/GetTalkSessionsRequest';
+import { GetTalkSessionsResponse } from '../../domain/value-objects/GetTalkSessionsResponse';
+import { IUserRepository } from '../../domain/interfaces/IUserRepository';
+import { AuthorizationService } from '../../domain/services/AuthorizationService';
+import { UserRole } from '../../domain/enums/UserRole';
 
 /**
  * Application service for talk sessions query operations.

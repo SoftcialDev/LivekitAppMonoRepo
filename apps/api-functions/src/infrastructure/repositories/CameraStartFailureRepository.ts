@@ -5,7 +5,8 @@
  */
 
 import prisma from "../database/PrismaClientService";
-import { ICameraStartFailureRepository, CreateCameraStartFailureData, CameraFailureQueryParams, CameraStartFailure } from '../../index';
+import { ICameraStartFailureRepository } from '../../domain/interfaces/ICameraStartFailureRepository';
+import { CreateCameraStartFailureData, CameraFailureQueryParams, CameraStartFailure } from '../../domain/types/CameraFailureTypes';
 import { Prisma, CameraFailureStage } from '@prisma/client';
 
 /**

@@ -4,8 +4,8 @@
  * @description Orchestrates snapshot reason retrieval with authorization
  */
 
-import { GetSnapshotReasonsDomainService } from '../../index';
-import { SnapshotReasonResponse } from '../../index';
+import { GetSnapshotReasonsDomainService } from '../../domain/services/GetSnapshotReasonsDomainService';
+import { SnapshotReasonResponse } from '../../domain/value-objects/SnapshotReasonResponse';
 
 /**
  * Application service for snapshot reason retrieval operations

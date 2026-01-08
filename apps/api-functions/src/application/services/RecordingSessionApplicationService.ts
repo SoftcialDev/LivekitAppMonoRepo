@@ -5,18 +5,19 @@
  */
 
 import { EgressStatus, type EgressInfo } from "livekit-server-sdk";
-import { getCentralAmericaTime } from '../../index';
-import { tryParseBlobPathFromUrl } from '../../index';
-import { RecordingStopStatus } from '../../index';
-import { ILiveKitEgressClient } from '../../index';
-import { IRecordingSessionRepository } from '../../index';
-import { IBlobStorageService } from '../../index';
-import { IBlobUrlService } from '../../index';
-import { IRecordingErrorLogger } from '../../index';
-import type { RecordingStopResult } from '../../index';
-import { RecordingSessionNotFoundError, extractErrorMessage, extractEgressErrorDetails, extractEgressErrorMessage } from '../../index';
+import { getCentralAmericaTime } from '../../utils/dateUtils';
+import { tryParseBlobPathFromUrl } from '../../utils/blobUrlParser';
+import { RecordingStopStatus } from '../../domain/enums/RecordingStopStatus';
+import { ILiveKitEgressClient } from '../../domain/interfaces/ILiveKitEgressClient';
+import { IRecordingSessionRepository } from '../../domain/interfaces/IRecordingSessionRepository';
+import { IBlobStorageService } from '../../domain/interfaces/IBlobStorageService';
+import { IBlobUrlService } from '../../domain/interfaces/IBlobUrlService';
+import { IRecordingErrorLogger } from '../../domain/interfaces/IRecordingErrorLogger';
+import { RecordingSessionNotFoundError } from '../../domain/errors/ApplicationServiceErrors';
+import { extractErrorMessage, extractEgressErrorDetails, extractEgressErrorMessage } from '../../utils/error/ErrorHelpers';
 import { RecordingSession } from '../../domain/entities/RecordingSession';
 import { EgressErrorDetails } from '../../domain/types/LiveKitTypes';
+import { RecordingStopResult } from '../../domain/value-objects/RecordingServiceResults';
 
 /**
  * Application service for orchestrating recording session operations

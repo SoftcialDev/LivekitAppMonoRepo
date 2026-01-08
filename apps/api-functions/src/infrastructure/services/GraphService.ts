@@ -6,7 +6,10 @@
 import axios from "axios";
 import qs from "qs";
 import { config } from '../../config';
-import { IGraphService, ConfigurationError, GraphServiceError, extractAxiosErrorMessage, GraphUser, GraphAppRoleAssignment, GraphResponse } from '../../index';
+import { IGraphService } from '../../domain/interfaces/IGraphService';
+import { ConfigurationError, GraphServiceError } from '../../domain/errors/InfrastructureErrors';
+import { extractAxiosErrorMessage } from '../../utils/error/ErrorHelpers';
+import { GraphUser, GraphAppRoleAssignment, GraphResponse } from '../../domain/types/GraphTypes';
 
 /**
  * Infrastructure service for Microsoft Graph operations.

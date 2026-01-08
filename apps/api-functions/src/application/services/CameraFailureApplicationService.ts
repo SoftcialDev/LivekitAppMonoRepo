@@ -1,8 +1,8 @@
-import { ICameraFailureService } from '../../index';
-import { CameraStartFailureRequest } from '../../index';
-import { ICameraStartFailureRepository } from '../../index';
-import { CameraFailureReport } from '../../index';
-import { CreateCameraStartFailureData } from '../../index';
+import { ICameraFailureService } from '../../domain/interfaces/ICameraFailureService';
+import { CameraStartFailureRequest } from '../../domain/schemas/CameraStartFailureSchema';
+import { ICameraStartFailureRepository } from '../../domain/interfaces/ICameraStartFailureRepository';
+import { CameraFailureReport } from '../../domain/value-objects/CameraFailureReport';
+import { CreateCameraStartFailureData } from '../../domain/types/CameraFailureTypes';
 
 /**
  * Application service implementing camera start failure logging.

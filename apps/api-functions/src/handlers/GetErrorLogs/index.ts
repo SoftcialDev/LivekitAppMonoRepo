@@ -5,16 +5,17 @@
  */
 
 import { Context, HttpRequest } from "@azure/functions";
-import { withAuth } from '../../index';
-import { withErrorHandler } from '../../index';
-import { withCallerId } from '../../index';
-import { requirePermission } from '../../index';
-import { Permission } from '../../index';
-import { ok, badRequest } from '../../index';
-import { ServiceContainer } from '../../index';
-import { GetErrorLogsApplicationService } from '../../index';
-import { GetErrorLogsRequest } from '../../index';
-import { GetErrorLogsResponse } from '../../index';
+import { withAuth } from '../../middleware/auth';
+import { withErrorHandler } from '../../middleware/errorHandler';
+import { withCallerId } from '../../middleware/callerId';
+import { requirePermission } from '../../middleware/permissions';
+import { Permission } from '../../domain/enums/Permission';
+import { ok } from '../../utils/response';
+import { badRequest } from '../../utils/response';
+import { ServiceContainer } from '../../infrastructure/container/ServiceContainer';
+import { GetErrorLogsApplicationService } from '../../application/services/GetErrorLogsApplicationService';
+import { GetErrorLogsRequest } from '../../domain/value-objects/GetErrorLogsRequest';
+import { GetErrorLogsResponse } from '../../domain/value-objects/GetErrorLogsResponse';
 
 /**
  * HTTP GET /api/error-logs

@@ -51,6 +51,7 @@ export interface EnvCheck {
   missingKeys: string[];
   presentKeys?: string[];
   storageDetails?: StorageDetails;
+  error?: string;
 }
 
 /**

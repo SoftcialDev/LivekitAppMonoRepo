@@ -3,10 +3,10 @@
  * @description Implements presence management operations
  */
 
-import { IPresenceService } from '../../index';
-import { IUserRepository } from '../../index';
-import { PresenceDomainService } from '../../index';
-import { IWebPubSubService } from '../../index';
+import { IPresenceService } from '../../domain/interfaces/IPresenceService';
+import { IUserRepository } from '../../domain/interfaces/IUserRepository';
+import { PresenceDomainService } from '../../domain/services/PresenceDomainService';
+import { IWebPubSubService } from '../../domain/interfaces/IWebPubSubService';
 
 /**
  * Service for presence operations

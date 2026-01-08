@@ -1,5 +1,15 @@
 import { Context, HttpRequest } from "@azure/functions";
-import { withAuth, withErrorHandler, withCallerId, withBodyValidation, ok, ServiceContainer, PresenceUpdateRequest, PresenceUpdateApplicationService, presenceUpdateSchema, ensureBindings, PresenceUpdateParams } from '../../index';
+import { withAuth } from '../../middleware/auth';
+import { withErrorHandler } from '../../middleware/errorHandler';
+import { withCallerId } from '../../middleware/callerId';
+import { withBodyValidation } from '../../middleware/validate';
+import { ok } from '../../utils/response';
+import { ServiceContainer } from '../../infrastructure/container/ServiceContainer';
+import { PresenceUpdateRequest } from '../../domain/value-objects/PresenceUpdateRequest';
+import { PresenceUpdateApplicationService } from '../../application/services/PresenceUpdateApplicationService';
+import { presenceUpdateSchema } from '../../domain/schemas/PresenceUpdateSchema';
+import { ensureBindings } from '../../domain/types/ContextBindings';
+import { PresenceUpdateParams } from '../../domain/schemas/PresenceUpdateSchema';
 
 /**
  * PresenceUpdateFunction

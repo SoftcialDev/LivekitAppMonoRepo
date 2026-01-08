@@ -4,11 +4,11 @@
  * @description Handles orchestration of domain services for snapshot retrieval operations
  */
 
-import { GetSnapshotsRequest } from '../../index';
-import { GetSnapshotsResponse } from '../../index';
-import { GetSnapshotsDomainService } from '../../index';
-import { AuthorizationService } from '../../index';
-import { UserRole } from '../../index';
+import { GetSnapshotsRequest } from '../../domain/value-objects/GetSnapshotsRequest';
+import { GetSnapshotsResponse } from '../../domain/value-objects/GetSnapshotsResponse';
+import { GetSnapshotsDomainService } from '../../domain/services/GetSnapshotsDomainService';
+import { AuthorizationService } from '../../domain/services/AuthorizationService';
+import { UserRole } from '@prisma/client';
 
 /**
  * Application service for handling snapshot retrieval operations

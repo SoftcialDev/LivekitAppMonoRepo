@@ -4,8 +4,8 @@
  * @description Orchestrates camera failure query operations with authorization
  */
 
-import { GetCameraFailuresDomainService } from '../../index';
-import { CameraFailureQueryParams, CameraStartFailure } from '../../index';
+import { GetCameraFailuresDomainService } from '../../domain/services/GetCameraFailuresDomainService';
+import { CameraFailureQueryParams, CameraStartFailure } from '../../domain/types/CameraFailureTypes';
 
 /**
  * Application service for camera failure query operations

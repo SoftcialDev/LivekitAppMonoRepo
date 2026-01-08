@@ -9,7 +9,7 @@ import { LiveKitTokenResponse } from "../value-objects/LiveKitTokenResponse";
 import { LiveKitRoom } from "../entities/LiveKitRoom";
 import { ILiveKitService } from "../interfaces/ILiveKitService";
 import { IUserRepository } from "../interfaces/IUserRepository";
-import { config } from '../../index';
+import { config } from '../../config';
 import { UserNotFoundError } from "../errors/UserErrors";
 import { UserRole } from "../enums/UserRole";
 

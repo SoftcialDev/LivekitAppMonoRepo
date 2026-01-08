@@ -3,7 +3,10 @@
  * @description Implements blob storage operations using Azure Blob Storage
  */
 
-import { IBlobStorageService, ImageUploadRequest, ConfigurationError, wrapBlobStorageUploadError, wrapBlobStorageDownloadError, wrapBlobStorageDeleteError } from '../../index';
+import { IBlobStorageService } from '../../domain/interfaces/IBlobStorageService';
+import { ImageUploadRequest } from '../../domain/value-objects/ImageUploadRequest';
+import { ConfigurationError } from '../../domain/errors/InfrastructureErrors';
+import { wrapBlobStorageUploadError, wrapBlobStorageDownloadError, wrapBlobStorageDeleteError } from '../../utils/error/ErrorHelpers';
 import { BlobServiceClient, ContainerClient } from '@azure/storage-blob';
 import { config } from '../../config';
 

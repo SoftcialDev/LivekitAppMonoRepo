@@ -6,16 +6,16 @@
  */
 
 import { AzureFunction, Context, HttpRequest } from "@azure/functions";
-import { withAuth } from '../../index';
-import { withErrorHandler } from '../../index';
-import { withCallerId } from '../../index';
-import { requirePermission } from '../../index';
-import { Permission } from '../../index';
-import { ok } from '../../index';
-import { deleteContactManagerSchema } from '../../index';
-import { DeleteContactManagerRequest } from '../../index';
-import { ContactManagerApplicationService } from '../../index';
-import { serviceContainer } from '../../index';
+import { withAuth } from '../../middleware/auth';
+import { withErrorHandler } from '../../middleware/errorHandler';
+import { withCallerId } from '../../middleware/callerId';
+import { requirePermission } from '../../middleware/permissions';
+import { Permission } from '../../domain/enums/Permission';
+import { ok } from '../../utils/response';
+import { deleteContactManagerSchema } from '../../domain/schemas/DeleteContactManagerSchema';
+import { DeleteContactManagerRequest } from '../../domain/value-objects/DeleteContactManagerRequest';
+import { ContactManagerApplicationService } from '../../application/services/ContactManagerApplicationService';
+import { serviceContainer } from '../../infrastructure/container/ServiceContainer';
 
 /**
  * Azure Function handler for deleting Contact Manager profiles.

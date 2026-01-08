@@ -4,7 +4,7 @@
  * @description Infrastructure implementation of blob URL service
  */
 
-import { IBlobUrlService } from '../../index';
+import { IBlobUrlService } from '../../domain/interfaces/IBlobUrlService';
 import { buildBlobHttpsUrl, generateReadSasUrl } from './blobSigner';
 
 /**

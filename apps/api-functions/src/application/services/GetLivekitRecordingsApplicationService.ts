@@ -4,9 +4,9 @@
  * @description Handles authorization and coordinates domain services for recording session management
  */
 
-import { IRecordingDomainService } from '../../index';
-import { GetLivekitRecordingsRequest } from '../../index';
-import { GetLivekitRecordingsResponse } from '../../index';
+import { IRecordingDomainService } from '../../domain/interfaces/IRecordingDomainService';
+import { GetLivekitRecordingsRequest } from '../../domain/value-objects/GetLivekitRecordingsRequest';
+import { GetLivekitRecordingsResponse } from '../../domain/value-objects/GetLivekitRecordingsResponse';
 
 /**
  * Application service for GetLivekitRecordings operations

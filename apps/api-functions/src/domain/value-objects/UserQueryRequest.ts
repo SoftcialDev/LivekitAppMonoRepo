@@ -6,7 +6,7 @@
 import { UserRole } from '@prisma/client';
 import { ValidationError } from '../errors/DomainError';
 import { ValidationErrorCode } from '../errors/ErrorCodes';
-import { getCentralAmericaTime } from '../../index';
+import { getCentralAmericaTime } from '../../utils/dateUtils';
 
 export interface UserQueryRequestPayload {
   roles: string[];

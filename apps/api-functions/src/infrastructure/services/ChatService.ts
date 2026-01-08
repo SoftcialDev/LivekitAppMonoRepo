@@ -3,7 +3,11 @@
  * @description Infrastructure service that manages Teams chats using Microsoft Graph.
  */
 
-import { IChatService, getCentralAmericaTime, UserRole, ChatNoParticipantsError, ChatInvalidParticipantsError, wrapChatServiceError } from '../../index';
+import { IChatService } from '../../domain/interfaces/IChatService';
+import { getCentralAmericaTime } from '../../utils/dateUtils';
+import { UserRole } from '../../domain/enums/UserRole';
+import { ChatNoParticipantsError, ChatInvalidParticipantsError } from '../../domain/errors/InfrastructureErrors';
+import { wrapChatServiceError } from '../../utils/error/ErrorHelpers';
 import { ClientSecretCredential, OnBehalfOfCredential } from '@azure/identity';
 import { Client } from '@microsoft/microsoft-graph-client';
 import { TokenCredentialAuthenticationProvider } from '@microsoft/microsoft-graph-client/authProviders/azureTokenCredentials';

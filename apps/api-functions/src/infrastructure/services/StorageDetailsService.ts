@@ -5,7 +5,7 @@
  */
 
 import { StorageDetails } from '../../domain/types/HealthCheckTypes';
-import { getStorageCredentials } from '../../index';
+import { getStorageCredentials } from './storageCredentials';
 import { config } from '../../config';
 import { isEmpty, isNotEmpty } from '../../utils/stringHelpers';
 

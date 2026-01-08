@@ -4,10 +4,10 @@
  * @description Handles orchestration of domain services for WebPubSub token generation operations
  */
 
-import { WebPubSubTokenRequest } from '../../index';
-import { WebPubSubTokenResponse } from '../../index';
-import { WebPubSubTokenDomainService } from '../../index';
-import { AuthorizationService } from '../../index';
+import { WebPubSubTokenRequest } from '../../domain/value-objects/WebPubSubTokenRequest';
+import { WebPubSubTokenResponse } from '../../domain/value-objects/WebPubSubTokenResponse';
+import { WebPubSubTokenDomainService } from '../../domain/services/WebPubSubTokenDomainService';
+import { AuthorizationService } from '../../domain/services/AuthorizationService';
 
 /**
  * Application service for handling WebPubSub token generation operations

@@ -15,7 +15,8 @@ import { IErrorLogService } from "../interfaces/IErrorLogService";
 import { ImageUploadRequest } from "../value-objects/ImageUploadRequest";
 import { UserNotFoundError } from "../errors/UserErrors";
 import { SnapshotReasonNotFoundError, SnapshotReasonInactiveError, DescriptionRequiredError } from "../errors/SnapshotErrors";
-import { formatCentralAmericaTime, getCentralAmericaTime, extractErrorMessage } from '../../index';
+import { formatCentralAmericaTime, getCentralAmericaTime } from '../../utils/dateUtils';
+import { extractErrorMessage } from '../../utils/error/ErrorHelpers';
 import { randomUUID } from 'crypto';
 
 /**

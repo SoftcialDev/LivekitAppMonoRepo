@@ -3,7 +3,7 @@
  * @description Represents a request to acknowledge multiple pending commands
  */
 
-import { getCentralAmericaTime } from '../../index';
+import { getCentralAmericaTime } from '../../utils/dateUtils';
 import { ValidationError } from '../errors/DomainError';
 import { ValidationErrorCode } from '../errors/ErrorCodes';
 

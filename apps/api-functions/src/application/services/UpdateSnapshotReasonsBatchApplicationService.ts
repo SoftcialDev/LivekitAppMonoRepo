@@ -4,9 +4,9 @@
  * @description Orchestrates batch snapshot reason updates with authorization
  */
 
-import { UpdateSnapshotReasonsBatchDomainService } from '../../index';
-import { AuthorizationService } from '../../index';
-import { UserRole } from '../../index';
+import { UpdateSnapshotReasonsBatchDomainService } from '../../domain/services/UpdateSnapshotReasonsBatchDomainService';
+import { AuthorizationService } from '../../domain/services/AuthorizationService';
+import { UserRole } from '@prisma/client';
 
 /**
  * Application service for batch snapshot reason update operations

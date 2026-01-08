@@ -9,7 +9,6 @@ import { SuperAdminProfile } from '../entities/SuperAdminProfile';
 import { CreateSuperAdminRequest } from '../value-objects/CreateSuperAdminRequest';
 import { DeleteSuperAdminRequest } from '../value-objects/DeleteSuperAdminRequest';
 import { SuperAdminListResponse } from '../value-objects/SuperAdminListResponse';
-import { getCentralAmericaTime } from '../../index';
 import { SuperAdminUserNotFoundError, SuperAdminInvalidRoleError } from '../errors/SuperAdminErrors';
 
 /**

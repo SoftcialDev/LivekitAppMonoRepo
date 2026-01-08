@@ -4,7 +4,11 @@
  */
 
 import { Context } from '@azure/functions';
-import { getCallerAdId, badRequest, logError, extractErrorMessage, ensureBindings, ExtendedContext } from '../index';
+import { getCallerAdId } from '../utils/authHelpers';
+import { badRequest } from '../utils/response';
+import { logError } from '../utils/logger';
+import { extractErrorMessage } from '../utils/error/ErrorHelpers';
+import { ensureBindings, ExtendedContext } from '../domain/types/ContextBindings';
 
 /**
  * Middleware that extracts and validates caller ID from JWT claims

@@ -4,7 +4,7 @@
  */
 
 import { UserSummary } from '../entities/UserSummary';
-import { getCentralAmericaTime } from '../../index';
+import { getCentralAmericaTime } from '../../utils/dateUtils';
 
 export interface UserQueryResultPayload {
   total: number;

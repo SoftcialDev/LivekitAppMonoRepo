@@ -5,14 +5,14 @@
  */
 
 import { AzureFunction, Context, HttpRequest } from "@azure/functions";
-import { withAuth } from '../../index';
-import { withErrorHandler } from '../../index';
-import { withCallerId } from '../../index';
-import { requirePermission } from '../../index';
-import { Permission } from '../../index';
-import { ok, noContent } from '../../index';
-import { FetchStreamingSessionHistoryApplicationService } from '../../index';
-import { serviceContainer } from '../../index';
+import { withAuth } from '../../middleware/auth';
+import { withErrorHandler } from '../../middleware/errorHandler';
+import { withCallerId } from '../../middleware/callerId';
+import { requirePermission } from '../../middleware/permissions';
+import { Permission } from '../../domain/enums/Permission';
+import { ok, noContent } from '../../utils/response';
+import { FetchStreamingSessionHistoryApplicationService } from '../../application/services/FetchStreamingSessionHistoryApplicationService';
+import { serviceContainer } from '../../infrastructure/container/ServiceContainer';
 
 /**
  * Azure Function to fetch the most recent streaming session history

@@ -4,8 +4,8 @@
  * @description Handles snapshot data operations using Prisma
  */
 
-import { ISnapshotRepository } from '../../index';
-import { getCentralAmericaTime } from '../../index';
+import { ISnapshotRepository } from '../../domain/interfaces/ISnapshotRepository';
+import { getCentralAmericaTime } from '../../utils/dateUtils';
 import prisma from '../database/PrismaClientService';
 
 /**

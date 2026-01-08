@@ -5,10 +5,10 @@
  */
 
 import { PrismaClient, Status as PrismaStatus } from "@prisma/client";
-import { IPresenceRepository } from '../../index';
-import { Presence } from '../../index';
-import { Status } from '../../index';
-import { getCentralAmericaTime } from '../../index';
+import { IPresenceRepository } from '../../domain/interfaces/IPresenceRepository';
+import { Presence } from '../../domain/entities/Presence';
+import { Status } from '../../domain/enums/Status';
+import { getCentralAmericaTime } from '../../utils/dateUtils';
 
 /**
  * Infrastructure repository for presence data operations

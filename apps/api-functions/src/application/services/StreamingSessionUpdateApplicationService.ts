@@ -4,10 +4,10 @@
  * @description Handles orchestration of domain services for streaming session update operations
  */
 
-import { StreamingSessionUpdateRequest } from '../../index';
-import { StreamingSessionUpdateResponse } from '../../index';
-import { StreamingSessionUpdateDomainService } from '../../index';
-import { AuthorizationService } from '../../index';
+import { StreamingSessionUpdateRequest } from '../../domain/value-objects/StreamingSessionUpdateRequest';
+import { StreamingSessionUpdateResponse } from '../../domain/value-objects/StreamingSessionUpdateResponse';
+import { StreamingSessionUpdateDomainService } from '../../domain/services';
+import { AuthorizationService } from '../../domain/services/AuthorizationService';
 
 /**
  * Application service for handling streaming session update operations

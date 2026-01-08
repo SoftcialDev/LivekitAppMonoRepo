@@ -4,7 +4,11 @@
  * @description Provides repository implementation for talk session operations
  */
 
-import { ITalkSessionRepository, TalkSession, TalkStopReason, getCentralAmericaTime, wrapEntityCreationError, wrapEntityUpdateError, wrapDatabaseQueryError } from '../../index';
+import { ITalkSessionRepository } from '../../domain/interfaces/ITalkSessionRepository';
+import { TalkSession } from '../../domain/types/TalkSessionTypes';
+import { TalkStopReason } from '../../domain/enums/TalkStopReason';
+import { getCentralAmericaTime } from '../../utils/dateUtils';
+import { wrapEntityCreationError, wrapEntityUpdateError, wrapDatabaseQueryError } from '../../utils/error/ErrorHelpers';
 import prisma from '../database/PrismaClientService';
 
 /**

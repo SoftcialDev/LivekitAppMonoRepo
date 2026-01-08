@@ -4,9 +4,9 @@
  * @description Handles orchestration of domain services for WebSocket connection events
  */
 
-import { WebSocketEventRequest } from '../../index';
-import { WebSocketEventResponse } from '../../index';
-import { WebSocketConnectionDomainService } from '../../index';
+import { WebSocketEventRequest } from '../../domain/value-objects/WebSocketEventRequest';
+import { WebSocketEventResponse } from '../../domain/value-objects/WebSocketEventResponse';
+import { WebSocketConnectionDomainService } from '../../domain/services/WebSocketConnectionDomainService';
 
 /**
  * Application service for handling WebSocket connection operations

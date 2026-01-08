@@ -4,7 +4,9 @@
  */
 
 import { JwtPayload } from 'jsonwebtoken';
-import { GetCurrentUserRequest, GetCurrentUserResponse, GetCurrentUserDomainService } from '../../index';
+import { GetCurrentUserRequest } from '../../domain/value-objects/GetCurrentUserRequest';
+import { GetCurrentUserResponse } from '../../domain/value-objects/GetCurrentUserResponse';
+import { GetCurrentUserDomainService } from '../../domain/services/GetCurrentUserDomainService';
 
 /**
  * Application service for current user operations

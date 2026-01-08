@@ -4,13 +4,13 @@
  * @description Handles authorization and coordinates domain services for recording command management
  */
 
-import { ILivekitRecordingDomainService } from '../../index';
-import { IUserRepository } from '../../index';
-import { AuthorizationService } from '../../index';
-import { LivekitRecordingRequest } from '../../index';
-import { LivekitRecordingResponse } from '../../index';
-import { RecordingCommand } from '../../index';
-import { RecordingAccessDeniedError, RecordingUserNotFoundError } from '../../index';
+import { ILivekitRecordingDomainService } from '../../domain/interfaces';
+import { IUserRepository } from '../../domain/interfaces/IUserRepository';
+import { AuthorizationService } from '../../domain/services/AuthorizationService';
+import { LivekitRecordingRequest } from '../../domain/value-objects/LivekitRecordingRequest';
+import { LivekitRecordingResponse } from '../../domain/value-objects/LivekitRecordingResponse';
+import { RecordingCommand } from '../../domain/entities/RecordingCommand';
+import { RecordingUserNotFoundError } from '../../domain/errors/RecordingErrors';
 
 /**
  * Application service for LiveKit recording operations

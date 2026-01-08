@@ -8,7 +8,7 @@ import { ILivekitRecordingDomainService } from '../interfaces/ILivekitRecordingD
 import { RecordingCommand } from '../entities/RecordingCommand';
 import { LivekitRecordingResponse } from '../value-objects/LivekitRecordingResponse';
 import { RecordingResultItem } from '../value-objects/LivekitRecordingResponse';
-import { RecordingSessionApplicationService } from '../../index';
+import { RecordingSessionApplicationService } from '../../application/services/RecordingSessionApplicationService';
 import { 
   RecordingStartError,
   RecordingStopError,

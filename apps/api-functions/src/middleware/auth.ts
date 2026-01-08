@@ -15,7 +15,8 @@ import jwt, {
   Algorithm,
 } from "jsonwebtoken";
 import { config } from "../config";
-import { extractErrorMessage, ensureBindings } from "../index";
+import { extractErrorMessage } from "../utils/error/ErrorHelpers";
+import { ensureBindings } from "../domain/types/ContextBindings";
 
 const client = jwksClient({
   jwksUri: `https://login.microsoftonline.com/${config.azureTenantId}/discovery/v2.0/keys`,

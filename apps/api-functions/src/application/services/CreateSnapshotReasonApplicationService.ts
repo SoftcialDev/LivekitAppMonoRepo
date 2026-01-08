@@ -4,9 +4,9 @@
  * @description Orchestrates snapshot reason creation with authorization
  */
 
-import { CreateSnapshotReasonDomainService } from '../../index';
-import { CreateSnapshotReasonRequest } from '../../index';
-import { SnapshotReasonResponse } from '../../index';
+import { CreateSnapshotReasonDomainService } from '../../domain/services/CreateSnapshotReasonDomainService';
+import { CreateSnapshotReasonRequest } from '../../domain/value-objects/CreateSnapshotReasonRequest';
+import { SnapshotReasonResponse } from '../../domain/value-objects/SnapshotReasonResponse';
 
 /**
  * Application service for snapshot reason creation operations

@@ -6,7 +6,8 @@
  */
 
 import { Context } from "@azure/functions";
-import { ExpectedError, ErrorHandlerOptions } from '../../index';
+import { ExpectedError } from '../../middleware/errorHandler';
+import { ErrorHandlerOptions } from '../../domain/types/ErrorHandlerTypes';
 
 /**
  * Utility class for building HTTP error responses

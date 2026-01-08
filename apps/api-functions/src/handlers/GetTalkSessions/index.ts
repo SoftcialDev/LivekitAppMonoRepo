@@ -5,16 +5,16 @@
  */
 
 import { Context, HttpRequest } from "@azure/functions";
-import { withAuth } from '../../index';
-import { withErrorHandler } from '../../index';
-import { withCallerId } from '../../index';
-import { requirePermission } from '../../index';
-import { Permission } from '../../index';
-import { ok, badRequest } from '../../index';
-import { ServiceContainer } from '../../index';
-import { GetTalkSessionsApplicationService } from '../../index';
-import { GetTalkSessionsRequest } from '../../index';
-import { getTalkSessionsSchema } from '../../index';
+import { withAuth } from '../../middleware/auth';
+import { withErrorHandler } from '../../middleware/errorHandler';
+import { withCallerId } from '../../middleware/callerId';
+import { requirePermission } from '../../middleware/permissions';
+import { Permission } from '../../domain/enums/Permission';
+import { ok, badRequest } from '../../utils/response';
+import { ServiceContainer } from '../../infrastructure/container/ServiceContainer';
+import { GetTalkSessionsApplicationService } from '../../application/services/GetTalkSessionsApplicationService';
+import { GetTalkSessionsRequest } from '../../domain/value-objects/GetTalkSessionsRequest';
+import { getTalkSessionsSchema } from '../../domain/schemas/GetTalkSessionsSchema';
 
 /**
  * HTTP GET /api/talk-sessions

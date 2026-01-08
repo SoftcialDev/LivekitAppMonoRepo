@@ -5,7 +5,15 @@
  */
 
 import { Context, HttpRequest } from "@azure/functions";
-import { withAuth, withErrorHandler, withCallerId, withBodyValidation, ok, ServiceContainer, UpdateSnapshotReasonApplicationService, updateSnapshotReasonSchema, ensureBindings, UpdateSnapshotReasonParams } from '../../index';
+import { withAuth } from '../../middleware/auth';
+import { withErrorHandler } from '../../middleware/errorHandler';
+import { withCallerId } from '../../middleware/callerId';
+import { withBodyValidation } from '../../middleware/validate';
+import { ok } from '../../utils/response';
+import { ServiceContainer } from '../../infrastructure/container/ServiceContainer';
+import { UpdateSnapshotReasonApplicationService } from '../../application/services/UpdateSnapshotReasonApplicationService';
+import { updateSnapshotReasonSchema, UpdateSnapshotReasonParams } from '../../domain/schemas/UpdateSnapshotReasonSchema';
+import { ensureBindings } from '../../domain/types/ContextBindings';
 
 const updateSnapshotReasonHandler = withErrorHandler(
   async (ctx: Context, req: HttpRequest) => {

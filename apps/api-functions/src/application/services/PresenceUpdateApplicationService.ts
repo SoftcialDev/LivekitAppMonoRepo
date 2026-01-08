@@ -4,11 +4,11 @@
  * @description Handles authorization and coordinates domain services for presence update operations
  */
 
-import { PresenceUpdateRequest } from '../../index';
-import { PresenceUpdateResponse } from '../../index';
-import { PresenceDomainService } from '../../index';
-import { AuthorizationService } from '../../index';
-import { Status } from '../../index';
+import { PresenceUpdateRequest } from '../../domain/value-objects/PresenceUpdateRequest';
+import { PresenceUpdateResponse } from '../../domain/value-objects/PresenceUpdateResponse';
+import { PresenceDomainService } from '../../domain/services/PresenceDomainService';
+import { AuthorizationService } from '../../domain/services/AuthorizationService';
+import { Status } from '../../domain/enums/Status';
 
 /**
  * Application service for handling presence update operations

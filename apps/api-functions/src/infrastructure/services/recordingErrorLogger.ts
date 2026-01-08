@@ -4,7 +4,12 @@
  * @description Provides utility functions for consistent error logging in recording services
  */
 
-import { IErrorLogService, IUserRepository, ErrorSource, ErrorSeverity, ApiEndpoints, FunctionNames } from '../../index';
+import { IErrorLogService } from '../../domain/interfaces/IErrorLogService';
+import { IUserRepository } from '../../domain/interfaces/IUserRepository';
+import { ErrorSource } from '../../domain/enums/ErrorSource';
+import { ErrorSeverity } from '../../domain/enums/ErrorSeverity';
+import { ApiEndpoints } from '../../domain/constants/ApiEndpoints';
+import { FunctionNames } from '../../domain/constants/FunctionNames';
 
 /**
  * Gets subject user email for error logging

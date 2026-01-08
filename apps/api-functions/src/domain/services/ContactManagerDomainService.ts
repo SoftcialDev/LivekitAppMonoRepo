@@ -6,7 +6,7 @@
 import { ContactManagerStatus, UserRole } from '@prisma/client';
 import { IUserRepository } from '../interfaces/IUserRepository';
 import { IWebPubSubService } from '../interfaces/IWebPubSubService';
-import { getCentralAmericaTime } from '../../index';
+import { getCentralAmericaTime } from '../../utils/dateUtils';
 import { ContactManagerProfile } from '../entities/ContactManagerProfile';
 import { CreateContactManagerRequest } from '../value-objects/CreateContactManagerRequest';
 import { DeleteContactManagerRequest } from '../value-objects/DeleteContactManagerRequest';

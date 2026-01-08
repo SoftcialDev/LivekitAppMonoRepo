@@ -3,7 +3,7 @@
  * @description Represents the result of processing a contact manager form
  */
 
-import { getCentralAmericaTime } from '../../index';
+import { getCentralAmericaTime } from '../../utils/dateUtils';
 import { ValidationError } from '../errors/DomainError';
 import { ValidationErrorCode } from '../errors/ErrorCodes';
 

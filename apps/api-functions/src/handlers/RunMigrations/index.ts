@@ -10,7 +10,20 @@ import { exec } from "child_process";
 import { promisify } from "util";
 import { join } from "path";
 import { existsSync, mkdirSync, cpSync } from "fs";
-import { withErrorHandler, withAuth, ok, badRequest, config, seedDefaultSnapshotReasons, seedDefaultRolesAndPermissions, ServiceContainer, IErrorLogService, ErrorSource, ErrorSeverity, ApplicationServiceOperationError, extractErrorMessage, extractErrorProperty, ApiEndpoints, FunctionNames } from '../../index';
+import { withErrorHandler } from '../../middleware/errorHandler';
+import { withAuth } from '../../middleware/auth';
+import { ok, badRequest } from '../../utils/response';
+import { config } from '../../config';
+import { seedDefaultSnapshotReasons } from '../../infrastructure/seed/defaultSnapshotReasons';
+import { seedDefaultRolesAndPermissions } from '../../infrastructure/seed/defaultRolesAndPermissions';
+import { ServiceContainer } from '../../infrastructure/container/ServiceContainer';
+import { IErrorLogService } from '../../domain/interfaces/IErrorLogService';
+import { ErrorSource } from '../../domain/enums/ErrorSource';
+import { ErrorSeverity } from '../../domain/enums/ErrorSeverity';
+import { ApplicationServiceOperationError } from '../../domain/errors/ApplicationServiceErrors';
+import { extractErrorMessage, extractErrorProperty } from '../../utils/error/ErrorHelpers';
+import { ApiEndpoints } from '../../domain/constants/ApiEndpoints';
+import { FunctionNames } from '../../domain/constants/FunctionNames';
 
 const execAsync = promisify(exec);
 

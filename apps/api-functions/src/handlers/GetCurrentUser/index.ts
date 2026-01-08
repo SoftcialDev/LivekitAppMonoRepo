@@ -4,9 +4,14 @@
  */
 
 import { AzureFunction, Context } from "@azure/functions";
-import { withAuth, withErrorHandler, serviceContainer, getCallerAdId, GetCurrentUserApplicationService, GetCurrentUserRequest, CallerIdNotFoundError } from '../../index';
-import { ExtendedContext, ensureBindings } from '../../index';
-import type { JwtPayload } from 'jsonwebtoken';
+import { withAuth } from '../../middleware/auth';
+import { withErrorHandler } from '../../middleware/errorHandler';
+import { serviceContainer } from '../../infrastructure/container/ServiceContainer';
+import { getCallerAdId } from '../../utils/authHelpers';
+import { GetCurrentUserApplicationService } from '../../application/services/GetCurrentUserApplicationService';
+import { GetCurrentUserRequest } from '../../domain/value-objects/GetCurrentUserRequest';
+import { ensureBindings } from '../../domain/types/ContextBindings';
+import { CallerIdNotFoundError } from "../../domain/errors";
 
 /**
  * Azure Function: GetCurrentUser

@@ -9,7 +9,7 @@ import { GetPsosBySupervisorResponse } from "../value-objects/GetPsosBySuperviso
 import { IUserRepository } from "../interfaces/IUserRepository";
 import { ApplicationError } from "../errors/DomainError";
 import { ApplicationErrorCode } from "../errors/ErrorCodes";
-import { extractErrorMessage } from '../../index';
+import { extractErrorMessage } from '../../utils/error/ErrorHelpers';
 
 /**
  * Domain service for PSOs lookup business logic

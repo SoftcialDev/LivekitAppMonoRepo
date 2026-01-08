@@ -4,19 +4,18 @@
  */
 
 import { UserRole } from '@prisma/client';
-import { UserRole as DomainUserRole } from '../../index';
-import { UserRoleChangeRequest } from '../../index';
-import { UserRoleChangeResult } from '../../index';
-import { IUserRepository } from '../../index';
-import { IAuthorizationService } from '../../index';
-import { IAuditService } from '../../index';
-import { IPresenceService } from '../../index';
-import { IWebPubSubService } from '../../index';
-import { UserRoleChangeError } from '../../index';
-import { UserRoleChangeErrorCode } from '../../index';
-import { ValidationUtils } from '../../index';
-import { RoleValidationUtils } from '../../index';
-import { AuditUtils } from '../../index';
+import { UserRoleChangeRequest } from '../../domain/value-objects/UserRoleChangeRequest';
+import { UserRoleChangeResult } from '../../domain/value-objects/UserRoleChangeResult';
+import { IUserRepository } from '../../domain/interfaces/IUserRepository';
+import { IAuthorizationService } from '../../domain/interfaces/IAuthorizationService';
+import { IAuditService } from '../../domain/interfaces/IAuditService';
+import { IPresenceService } from '../../domain/interfaces/IPresenceService';
+import { IWebPubSubService } from '../../domain/interfaces/IWebPubSubService';
+import { UserRoleChangeError } from '../../domain/errors';
+import { UserRoleChangeErrorCode } from '../../domain/errors';
+import { ValidationUtils } from '../../domain/utils';
+import { RoleValidationUtils } from '../../domain/utils';
+import { AuditUtils } from '../../domain/utils';
 
 
 /**

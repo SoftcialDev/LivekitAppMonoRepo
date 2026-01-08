@@ -5,9 +5,13 @@
  */
 
 import prisma from '../database/PrismaClientService';
-import { IErrorLogRepository, CreateErrorLogData, ErrorLogQueryParams } from '../../index';
-import { ApiErrorLog, ErrorSeverity, ErrorSource } from '../../index';
-import { getCentralAmericaTime, wrapEntityCreationError, wrapDatabaseQueryError, wrapEntityDeletionError, wrapEntityUpdateError } from '../../index';
+import { IErrorLogRepository } from '../../domain/interfaces/IErrorLogRepository';
+import { CreateErrorLogData, ErrorLogQueryParams } from '../../domain/types/ErrorLogTypes';
+import { ApiErrorLog } from '../../domain/entities/ApiErrorLog';
+import { ErrorSeverity } from '../../domain/enums/ErrorSeverity';
+import { ErrorSource } from '../../domain/enums/ErrorSource';
+import { getCentralAmericaTime } from '../../utils/dateUtils';
+import { wrapEntityCreationError, wrapDatabaseQueryError, wrapEntityDeletionError, wrapEntityUpdateError } from '../../utils/error/ErrorHelpers';
 import { randomUUID } from 'crypto';
 import { Prisma } from '@prisma/client';
 

@@ -4,9 +4,9 @@
  * @description Orchestrates error log query operations with authorization
  */
 
-import { GetErrorLogsDomainService } from '../../index';
-import { ErrorLogQueryParams } from '../../index';
-import { ApiErrorLog } from '../../index';
+import { GetErrorLogsDomainService } from '../../domain/services/GetErrorLogsDomainService';
+import { ErrorLogQueryParams } from '../../domain/types/ErrorLogTypes';
+import { ApiErrorLog } from '../../domain/entities/ApiErrorLog';
 
 /**
  * Application service for error log query operations

@@ -5,7 +5,19 @@
  */
 
 import { AzureFunction, Context, HttpRequest } from "@azure/functions";
-import { withAuth, withErrorHandler, requirePermission, Permission, ok, ServiceContainer, GetSnapshotReasonsApplicationService, IErrorLogService, ErrorSource, ErrorSeverity, ensureBindings, ApiEndpoints, FunctionNames } from '../../index';
+import { withAuth } from '../../middleware/auth';
+import { withErrorHandler } from '../../middleware/errorHandler';
+import { requirePermission } from '../../middleware/permissions';
+import { Permission } from '../../domain/enums/Permission';
+import { ok } from '../../utils/response';
+import { ServiceContainer } from '../../infrastructure/container/ServiceContainer';
+import { GetSnapshotReasonsApplicationService } from '../../application/services/GetSnapshotReasonsApplicationService';
+import { IErrorLogService } from '../../domain/interfaces/IErrorLogService';
+import { ErrorSource } from '../../domain/enums/ErrorSource';
+import { ErrorSeverity } from '../../domain/enums/ErrorSeverity';
+import { ensureBindings } from '../../domain/types/ContextBindings';
+import { ApiEndpoints } from '../../domain/constants/ApiEndpoints';
+import { FunctionNames } from '../../domain/constants/FunctionNames';
 
 /**
  * HTTP GET /api/GetSnapshotReasons

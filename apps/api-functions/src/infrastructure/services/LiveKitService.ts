@@ -5,7 +5,8 @@
  */
 
 import { RoomServiceClient, AccessToken } from 'livekit-server-sdk';
-import { ILiveKitService, extractHttpStatusCode, extractErrorMessage } from '../../index';
+import { ILiveKitService } from '../../domain/interfaces/ILiveKitService';
+import { extractHttpStatusCode, extractErrorMessage } from '../../utils/error/ErrorHelpers';
 import { config } from '../../config';
 
 /**

@@ -4,7 +4,10 @@
  * @description Provides repository implementation for streaming session operations
  */
 
-import { IStreamingSessionRepository, StreamingSessionHistory, getCentralAmericaTime, wrapStreamingSessionFetchError, wrapEntityCreationError, wrapEntityUpdateError, wrapDatabaseQueryError } from '../../index';
+import { IStreamingSessionRepository } from '../../domain/interfaces/IStreamingSessionRepository';
+import { StreamingSessionHistory } from '../../domain/entities/StreamingSessionHistory';
+import { getCentralAmericaTime } from '../../utils/dateUtils';
+import { wrapStreamingSessionFetchError, wrapEntityCreationError, wrapEntityUpdateError, wrapDatabaseQueryError } from '../../utils/error/ErrorHelpers';
 import prisma from '../database/PrismaClientService';
 
 /**

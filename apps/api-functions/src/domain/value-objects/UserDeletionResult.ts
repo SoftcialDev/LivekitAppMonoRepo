@@ -5,7 +5,7 @@
 
 import { UserRole } from '@prisma/client';
 import { UserDeletionType } from '../enums/UserDeletionType';
-import { getCentralAmericaTime } from '../../index';
+import { getCentralAmericaTime } from '../../utils/dateUtils';
 
 /**
  * Value object representing the result of a user deletion operation

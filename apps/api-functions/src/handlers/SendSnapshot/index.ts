@@ -5,7 +5,18 @@
  */
 
 import { Context, HttpRequest } from "@azure/functions";
-import { withAuth, withErrorHandler, withCallerId, withBodyValidation, requirePermission, Permission, ok, ServiceContainer, SendSnapshotRequest, SendSnapshotApplicationService, sendSnapshotSchema, ensureBindings, SendSnapshotParams } from '../../index';
+import { withAuth } from '../../middleware/auth';
+import { withErrorHandler } from '../../middleware/errorHandler';
+import { withCallerId } from '../../middleware/callerId';
+import { withBodyValidation } from '../../middleware/validate';
+import { requirePermission } from '../../middleware/permissions';
+import { Permission } from '../../domain/enums/Permission';
+import { ok } from '../../utils/response';
+import { ServiceContainer } from '../../infrastructure/container/ServiceContainer';
+import { SendSnapshotRequest } from '../../domain/value-objects/SendSnapshotRequest';
+import { SendSnapshotApplicationService } from '../../application/services/SendSnapshotApplicationService';
+import { sendSnapshotSchema, SendSnapshotParams } from '../../domain/schemas/SendSnapshotSchema';
+import { ensureBindings } from '../../domain/types/ContextBindings';
 
 /**
  * HTTP-triggered Azure Function to process a supervisor's snapshot report.

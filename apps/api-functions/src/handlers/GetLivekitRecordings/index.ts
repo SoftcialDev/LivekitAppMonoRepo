@@ -5,8 +5,18 @@
  */
 
 import { AzureFunction, Context, HttpRequest } from "@azure/functions";
-import { withAuth, withErrorHandler, withCallerId, withQueryValidation, requirePermission, Permission, ok, GetLivekitRecordingsApplicationService, GetLivekitRecordingsRequest, getLivekitRecordingsSchema, serviceContainer } from '../../index';
-import { ExtendedContext, ensureBindings } from '../../index';
+import { withAuth } from '../../middleware/auth';
+import { withErrorHandler } from '../../middleware/errorHandler';
+import { withCallerId } from '../../middleware/callerId';
+import { withQueryValidation } from '../../middleware/validate';
+import { requirePermission } from '../../middleware/permissions';
+import { Permission } from '../../domain/enums/Permission';
+import { ok } from '../../utils/response';
+import { GetLivekitRecordingsApplicationService } from '../../application/services/GetLivekitRecordingsApplicationService';
+import { GetLivekitRecordingsRequest } from '../../domain/value-objects/GetLivekitRecordingsRequest';
+import { getLivekitRecordingsSchema } from '../../domain/schemas/GetLivekitRecordingsSchema';
+import { serviceContainer } from '../../infrastructure/container/ServiceContainer';
+import { ensureBindings } from '../../domain/types/ContextBindings';
 import { GetLivekitRecordingsRequestPayload } from '../../domain/schemas/GetLivekitRecordingsSchema';
 
 /**

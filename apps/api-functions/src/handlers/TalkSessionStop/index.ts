@@ -4,7 +4,17 @@
  */
 
 import { Context, HttpRequest } from "@azure/functions";
-import { withAuth, withErrorHandler, withBodyValidation, requirePermission, Permission, ok, ServiceContainer, TalkSessionStopRequest, TalkSessionApplicationService, talkSessionStopSchema, ensureBindings, TalkSessionStopParams } from '../../index';
+import { withAuth } from '../../middleware/auth';
+import { withErrorHandler } from '../../middleware/errorHandler';
+import { withBodyValidation } from '../../middleware/validate';
+import { requirePermission } from '../../middleware/permissions';
+import { Permission } from '../../domain/enums/Permission';
+import { ok } from '../../utils/response';
+import { ServiceContainer } from '../../infrastructure/container/ServiceContainer';
+import { TalkSessionStopRequest } from '../../domain/value-objects/TalkSessionStopRequest';
+import { TalkSessionApplicationService } from '../../application/services/TalkSessionApplicationService';
+import { talkSessionStopSchema, TalkSessionStopParams } from '../../domain/schemas/TalkSessionStopSchema';
+import { ensureBindings } from '../../domain/types/ContextBindings';
 
 /**
  * HTTP-triggered Azure Function that stops an active talk session.

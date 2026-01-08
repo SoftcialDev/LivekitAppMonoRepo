@@ -3,12 +3,12 @@
  * @description Orchestrates contact manager form operations with authorization
  */
 
-import { IContactManagerFormService } from '../../index';
-import { IAuthorizationService } from '../../index';
-import { IUserRepository } from '../../index';
-import { ContactManagerFormRequest } from '../../index';
-import { ContactManagerFormResult } from '../../index';
-import { UserNotFoundError } from '../../index';
+import { IContactManagerFormService } from '../../domain/interfaces/IContactManagerFormService';
+import { IAuthorizationService } from '../../domain/interfaces/IAuthorizationService';
+import { IUserRepository } from '../../domain/interfaces/IUserRepository';
+import { ContactManagerFormRequest } from '../../domain/value-objects/ContactManagerFormRequest';
+import { ContactManagerFormResult } from '../../domain/value-objects/ContactManagerFormResult';
+import { UserNotFoundError } from '../../domain/errors/UserErrors';
 
 /**
  * Application service for contact manager form operations

@@ -4,7 +4,18 @@
  */
 
 import { Context, HttpRequest } from "@azure/functions";
-import { withAuth, withErrorHandler, withCallerId, withBodyValidation, requirePermission, Permission, ok, ServiceContainer, TalkSessionStartRequest, TalkSessionApplicationService, talkSessionStartSchema, ensureBindings, TalkSessionStartParams } from '../../index';
+import { withAuth } from '../../middleware/auth';
+import { withErrorHandler } from '../../middleware/errorHandler';
+import { withCallerId } from '../../middleware/callerId';
+import { withBodyValidation } from '../../middleware/validate';
+import { requirePermission } from '../../middleware/permissions';
+import { Permission } from '../../domain/enums/Permission';
+import { ok } from '../../utils/response';
+import { ServiceContainer } from '../../infrastructure/container/ServiceContainer';
+import { TalkSessionStartRequest } from '../../domain/value-objects/TalkSessionStartRequest';
+import { TalkSessionApplicationService } from '../../application/services/TalkSessionApplicationService';
+import { talkSessionStartSchema, TalkSessionStartParams } from '../../domain/schemas/TalkSessionStartSchema';
+import { ensureBindings } from '../../domain/types/ContextBindings';
 
 /**
  * HTTP-triggered Azure Function that starts a talk session between supervisor and PSO.
