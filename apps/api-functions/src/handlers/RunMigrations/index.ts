@@ -46,6 +46,7 @@ function getPrismaSchemaPath(): string {
     resolve(currentDir, "..", "prisma", "schema.prisma"),
     resolve(currentDir, "prisma", "schema.prisma"),
     resolve(process.cwd(), "prisma", "schema.prisma"),
+    resolve(process.cwd(), "schema.prisma"), // Fallback for -u 1 copy structure
   ];
 
   for (const path of possiblePaths) {
