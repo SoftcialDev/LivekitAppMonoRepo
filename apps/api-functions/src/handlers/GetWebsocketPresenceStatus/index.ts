@@ -6,6 +6,7 @@
 
 import { AzureFunction, Context, HttpRequest } from "@azure/functions";
 import { withAuth, withErrorHandler, requirePermission, Permission, ok, badRequest, unauthorized, prisma, getCallerAdId, getWebsocketPresenceStatusSchema, PresenceItem, PaginatedPresence } from '../../index';
+import { ExtendedContext } from '../../domain/types/ContextBindings';
 
 /**
  * HTTP GET /api/GetWebsocketPresenceStatus
@@ -29,7 +30,12 @@ const getWebsocketPresenceStatuses: AzureFunction = withErrorHandler(
     await withAuth(ctx, async () => {
       await requirePermission(Permission.StreamingStatusRead)(ctx);
 
-      const callerId = getCallerAdId(ctx.bindings.user);
+      const extendedCtx = ctx as ExtendedContext;
+      if (!extendedCtx.bindings.user) {
+        return unauthorized(ctx, "Unable to determine caller identity: user not found in context");
+      }
+      
+      const callerId = getCallerAdId(extendedCtx.bindings.user);
       if (!callerId) {
         return unauthorized(ctx, "Unable to determine caller identity");
       }

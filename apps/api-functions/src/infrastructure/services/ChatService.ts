@@ -3,16 +3,12 @@
  * @description Infrastructure service that manages Teams chats using Microsoft Graph.
  */
 
-import { IChatService } from '../../index';
+import { IChatService, getCentralAmericaTime, UserRole, ChatNoParticipantsError, ChatInvalidParticipantsError, wrapChatServiceError } from '../../index';
 import { ClientSecretCredential, OnBehalfOfCredential } from '@azure/identity';
 import { Client } from '@microsoft/microsoft-graph-client';
 import { TokenCredentialAuthenticationProvider } from '@microsoft/microsoft-graph-client/authProviders/azureTokenCredentials';
-import { getCentralAmericaTime } from '../../index';
 import prisma from '../database/PrismaClientService';
-import { UserRole } from '../../index';
 import { config } from '../../config';
-import { ChatNoParticipantsError, ChatInvalidParticipantsError } from '../../index';
-import { wrapChatServiceError } from '../../utils/error';
 
 export class ChatService implements IChatService {
   private tenantId = config.azureTenantId;
@@ -162,7 +158,7 @@ export class ChatService implements IChatService {
    * @param message - Message payload (Adaptive Card data).
    * @returns Promise that resolves once the message is submitted to Graph.
    */
-  async sendMessageAsApp(chatId: string, message: any): Promise<void> {
+  async sendMessageAsApp(chatId: string, message: Record<string, unknown>): Promise<void> {
     const graph = this.initGraphClientAsApp();
     await this.sendMessageToChat(graph, chatId, message);
   }
@@ -173,7 +169,7 @@ export class ChatService implements IChatService {
    * @param chatId - Chat identifier.
    * @param message - Domain message payload to format into an adaptive card.
    */
-  private async sendMessageToChat(graph: any, chatId: string, message: any): Promise<void> {
+  private async sendMessageToChat(graph: Client, chatId: string, message: Record<string, unknown>): Promise<void> {
     try {
       const messageType = message?.type ?? 'contactManagerForm';
       const subjectText = message?.subject ?? 'Notification';
@@ -249,7 +245,8 @@ export class ChatService implements IChatService {
           });
         }
       } else {
-        const formTypeLabel = this.humanizeFormType(message.formType);
+        const formType = typeof message.formType === 'string' ? message.formType : undefined;
+        const formTypeLabel = formType ? this.humanizeFormType(formType) : 'Form';
         cardBody.push(
           {
             type: 'TextBlock',

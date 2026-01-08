@@ -6,20 +6,7 @@
 import axios from "axios";
 import qs from "qs";
 import { config } from '../../config';
-import { extractAxiosErrorMessage } from '../../utils/error';
-import { IGraphService } from '../../index';
-import { ConfigurationError, GraphServiceError } from '../../index';
-
-/**
- * Minimal user data from Microsoft Graph
- */
-export interface GraphUser {
-  id: string;
-  displayName?: string;
-  mail?: string;
-  userPrincipalName?: string;
-  accountEnabled?: boolean;
-}
+import { IGraphService, ConfigurationError, GraphServiceError, extractAxiosErrorMessage, GraphUser } from '../../index';
 
 /**
  * Infrastructure service for Microsoft Graph operations.

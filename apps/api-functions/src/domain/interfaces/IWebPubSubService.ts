@@ -4,6 +4,8 @@
  * @description Interface defining the contract for WebPubSub service implementations
  */
 
+import { WebPubSubMessage } from '../types/MessageTypes';
+
 /**
  * Interface for WebPubSub service operations
  * @description Defines the contract for WebPubSub token generation and messaging
@@ -46,7 +48,7 @@ export interface IWebPubSubService {
   /**
    * Broadcasts a custom message to all clients in a specific group
    * @param group - The group to broadcast to
-   * @param message - The message to broadcast
+   * @param message - The message to broadcast (must be JSON-serializable)
    * @returns Promise that resolves when the broadcast is complete
    * @throws Error when broadcast fails
    * @example
@@ -55,7 +57,7 @@ export interface IWebPubSubService {
    *   contactManager: { email: 'cm@example.com', status: 'Available' }
    * });
    */
-  broadcastMessage(group: string, message: any): Promise<void>;
+  broadcastMessage(group: string, message: WebPubSubMessage): Promise<void>;
 
   /**
    * Lists all groups and users with detailed connection information

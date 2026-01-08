@@ -57,13 +57,25 @@ export class User {
    * @param prismaUser - Prisma User model
    * @returns User entity
    */
-  static fromPrisma(prismaUser: any): User {
+  static fromPrisma(prismaUser: {
+    id: string;
+    azureAdObjectId: string;
+    email: string;
+    fullName: string | null;
+    role: string;
+    roleChangedAt: Date | null;
+    supervisorId: string | null;
+    assignedAt: Date | null;
+    createdAt: Date;
+    updatedAt: Date;
+    deletedAt: Date | null;
+  }): User {
     return new User({
       id: prismaUser.id,
       azureAdObjectId: prismaUser.azureAdObjectId,
       email: prismaUser.email,
-      fullName: prismaUser.fullName,
-      role: prismaUser.role,
+      fullName: prismaUser.fullName ?? '',
+      role: prismaUser.role as UserRole,
       roleChangedAt: prismaUser.roleChangedAt,
       supervisorId: prismaUser.supervisorId,
       assignedAt: prismaUser.assignedAt,

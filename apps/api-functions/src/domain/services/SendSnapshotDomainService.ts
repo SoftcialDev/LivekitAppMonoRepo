@@ -15,8 +15,8 @@ import { IErrorLogService } from "../interfaces/IErrorLogService";
 import { ImageUploadRequest } from "../value-objects/ImageUploadRequest";
 import { UserNotFoundError } from "../errors/UserErrors";
 import { SnapshotReasonNotFoundError, SnapshotReasonInactiveError, DescriptionRequiredError } from "../errors/SnapshotErrors";
-import { formatCentralAmericaTime, getCentralAmericaTime } from '../../index';
-import { extractErrorMessage } from '../../utils/error';
+import { formatCentralAmericaTime, getCentralAmericaTime, extractErrorMessage } from '../../index';
+import { randomUUID } from 'crypto';
 
 /**
  * Domain service for snapshot report business logic
@@ -76,7 +76,6 @@ export class SendSnapshotDomainService {
 
     // 4. Generate a temporary UUID for the snapshot to use in file naming
     // This allows us to create descriptive file names before the snapshot is persisted
-    const { randomUUID } = await import('crypto');
     const temporarySnapshotId = randomUUID();
 
     // 5. Upload image to blob storage with descriptive file name

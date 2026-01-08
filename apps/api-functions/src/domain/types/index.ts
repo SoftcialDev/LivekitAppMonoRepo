@@ -5,11 +5,14 @@
 
 export * from './CameraFailureTypes';
 export * from './ContactManagerFormTypes';
+export * from './ContextBindings';
 export * from './ErrorHandlerTypes';
 export * from './ErrorLogTypes';
 export * from './ErrorTypes';
+export * from './GraphTypes';
 export * from './HealthCheckTypes';
 export * from './LiveKitTypes';
+export * from './MessageTypes';
 export * from './PresenceTypes';
 export * from './RecordingErrorTypes';
 export * from './RecordingSessionTypes';

@@ -53,7 +53,7 @@ export class CommandMessagingService implements ICommandMessagingService {
    * @param payload - Payload to send
    * @returns Promise that resolves when message is sent
    */
-  async sendToGroup(groupName: string, payload: unknown): Promise<void> {
+  async sendToGroup(groupName: string, payload: Record<string, unknown>): Promise<void> {
     const groupClient = webPubSubClient.group(groupName);
     await groupClient.sendToAll(JSON.stringify(payload));
   }
@@ -65,7 +65,8 @@ export class CommandMessagingService implements ICommandMessagingService {
    */
   private async sendToWebSocket(command: Command): Promise<void> {
     const groupName = `commands:${command.employeeEmail}`;
-    await this.sendToGroup(groupName, command.toPayload());
+    const payload = command.toPayload() as Record<string, unknown>;
+    await this.sendToGroup(groupName, payload);
   }
 
   /**

@@ -14,6 +14,7 @@ import { ok } from '../../index';
 import { ServiceContainer } from '../../index';
 import { WebPubSubTokenRequest } from '../../index';
 import { WebPubSubTokenApplicationService } from '../../index';
+import { ExtendedContext } from '../../domain/types/ContextBindings';
 
 /**
  * HTTP-triggered function that issues a client access token for Azure Web PubSub.
@@ -40,8 +41,9 @@ const webPubSubTokenHandler = withErrorHandler(
         const serviceContainer = ServiceContainer.getInstance();
         serviceContainer.initialize();
 
+        const extendedCtx = ctx as ExtendedContext;
         const applicationService = serviceContainer.resolve<WebPubSubTokenApplicationService>('WebPubSubTokenApplicationService');
-        const callerId = ctx.bindings.callerId as string;
+        const callerId = extendedCtx.bindings.callerId as string;
 
         const request = new WebPubSubTokenRequest(callerId);
         const response = await applicationService.generateToken(callerId, request);

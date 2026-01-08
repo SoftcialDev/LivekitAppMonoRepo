@@ -5,13 +5,10 @@
 
 import { UserRole } from '@prisma/client';
 import { IUserRepository } from '../interfaces/IUserRepository';
+import { IUserQueryService } from '../interfaces/IUserQueryService';
 import { UserQueryRequest } from '../value-objects/UserQueryRequest';
 import { UserQueryResult } from '../value-objects/UserQueryResult';
 import { UserSummary } from '../entities/UserSummary';
-
-export interface IUserQueryService {
-  findUsersByRoles(request: UserQueryRequest): Promise<UserQueryResult>;
-}
 
 /**
  * Domain service for user query operations

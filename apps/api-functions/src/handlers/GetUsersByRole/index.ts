@@ -25,6 +25,7 @@ import { IUserRepository } from '../../index';
 import { IAuthorizationService } from '../../index';
 import { IUserQueryService } from '../../index';
 import { CallerIdNotFoundError } from '../../index';
+import { ExtendedContext } from '../../domain/types/ContextBindings';
 
 const getUsersByRole: AzureFunction = withErrorHandler(
   async (ctx: Context, req: HttpRequest) => {
@@ -43,8 +44,14 @@ const getUsersByRole: AzureFunction = withErrorHandler(
 
       await withQueryValidation(userQuerySchema)(ctx, async () => {
         await requirePermission(Permission.UsersRead)(ctx);
-        const { role, page, pageSize } = ctx.bindings.validatedQuery;
-        const callerId = getCallerAdId(ctx.bindings.user);
+        const extendedCtx = ctx as ExtendedContext;
+        const { role, page, pageSize } = extendedCtx.bindings.validatedQuery as { role?: string; page?: string; pageSize?: string };
+        
+        if (!extendedCtx.bindings.user) {
+          throw new CallerIdNotFoundError('User not found in request context');
+        }
+        
+        const callerId = getCallerAdId(extendedCtx.bindings.user);
         if (!callerId) {
           throw new CallerIdNotFoundError('Caller ID not found in request context');
         }

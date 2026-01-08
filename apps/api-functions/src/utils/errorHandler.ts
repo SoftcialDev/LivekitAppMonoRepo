@@ -6,6 +6,7 @@
 import { Context } from "@azure/functions";
 import { badRequest, unauthorized } from "./response";
 import { AuthError, ValidationError, MessagingError } from "../domain/errors/DomainError";
+import { logWarn, logError } from "./logger";
 
 /**
  * Handles domain errors and returns appropriate HTTP responses
@@ -17,8 +18,8 @@ import { AuthError, ValidationError, MessagingError } from "../domain/errors/Dom
 export function handleDomainError(
   ctx: Context, 
   error: AuthError | ValidationError | MessagingError,
-  context?: Record<string, any>
-): any {
+  context?: Record<string, unknown>
+): void {
   // Log the error with context
   const logContext = {
     statusCode: error.statusCode,
@@ -27,23 +28,28 @@ export function handleDomainError(
   };
 
   if (error instanceof AuthError) {
-    ctx.log.warn(`Authorization failed: ${error.message}`, logContext);
-    return unauthorized(ctx, error.message);
+    logWarn(ctx, `Authorization failed: ${error.message}`, logContext);
+    unauthorized(ctx, error.message);
+    return;
   }
 
   if (error instanceof ValidationError) {
-    ctx.log.warn(`Validation failed: ${error.message}`, logContext);
-    return badRequest(ctx, error.message);
+    logWarn(ctx, `Validation failed: ${error.message}`, logContext);
+    badRequest(ctx, error.message);
+    return;
   }
 
   if (error instanceof MessagingError) {
-    ctx.log.error(`Messaging failed: ${error.message}`, logContext);
-    return badRequest(ctx, error.message);
+    logError(ctx, error, logContext);
+    badRequest(ctx, error.message);
+    return;
   }
 
   // This should never happen due to the union type, but TypeScript needs it
-  ctx.log.error(`Unknown domain error: ${(error as any).message}`, logContext);
-  return badRequest(ctx, (error as any).message);
+  // Handle any remaining error types
+  const errorMessage = String(error);
+  logError(ctx, error, logContext);
+  badRequest(ctx, errorMessage);
 }
 
 /**
@@ -55,15 +61,16 @@ export function handleDomainError(
  */
 export function handleAnyError(
   ctx: Context, 
-  error: any,
-  context?: Record<string, any>
-): any {
+  error: unknown,
+  context?: Record<string, unknown>
+): void {
   // Check if it's a known domain error
   if (error instanceof AuthError || error instanceof ValidationError || error instanceof MessagingError) {
-    return handleDomainError(ctx, error, context);
+    handleDomainError(ctx, error, context);
+    return;
   }
 
   // Handle unknown errors
-  ctx.log.error("Unexpected error:", { error, ...context });
-  return badRequest(ctx, "An unexpected error occurred");
+  logError(ctx, error, context);
+  badRequest(ctx, "An unexpected error occurred");
 }

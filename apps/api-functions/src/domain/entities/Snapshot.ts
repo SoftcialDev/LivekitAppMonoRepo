@@ -61,22 +61,32 @@ export class Snapshot {
 
   /**
    * Creates a Snapshot entity from Prisma model.
-   * @param prismaSnapshot - Prisma Snapshot model
+   * @param prismaSnapshot - Prisma Snapshot model with optional relations
    * @returns Snapshot entity
    */
-  static fromPrisma(prismaSnapshot: any): Snapshot {
+  static fromPrisma(prismaSnapshot: {
+    id: string;
+    supervisorId: string;
+    psoId: string;
+    reason: { id: string; label: string; code: string } | null;
+    description: string | null;
+    takenAt: Date;
+    imageUrl: string;
+    supervisor?: { fullName: string | null } | null;
+    pso?: { fullName: string | null; email: string } | null;
+  }): Snapshot {
     return new Snapshot({
       id: prismaSnapshot.id,
       supervisorId: prismaSnapshot.supervisorId,
       psoId: prismaSnapshot.psoId,
-      reason: prismaSnapshot.reason,
+      reason: prismaSnapshot.reason?.label ?? '',
       description: prismaSnapshot.description,
       takenAt: prismaSnapshot.takenAt,
       imageUrl: prismaSnapshot.imageUrl,
-      supervisor: prismaSnapshot.supervisor ? {
+      supervisor: prismaSnapshot.supervisor && prismaSnapshot.supervisor.fullName ? {
         fullName: prismaSnapshot.supervisor.fullName
       } : undefined,
-      pso: prismaSnapshot.pso ? {
+      pso: prismaSnapshot.pso && prismaSnapshot.pso.fullName ? {
         fullName: prismaSnapshot.pso.fullName,
         email: prismaSnapshot.pso.email
       } : undefined,

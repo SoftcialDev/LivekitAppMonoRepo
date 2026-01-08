@@ -47,14 +47,21 @@ export class ContactManagerProfile {
    * @param prismaProfile - Prisma ContactManagerProfile model
    * @returns ContactManagerProfile entity
    */
-  static fromPrisma(prismaProfile: any): ContactManagerProfile {
+  static fromPrisma(prismaProfile: {
+    id: string;
+    userId: string;
+    status: ContactManagerStatus;
+    createdAt: Date;
+    updatedAt: Date;
+    user?: { email: string; fullName: string | null } | null;
+  }): ContactManagerProfile {
     return new ContactManagerProfile({
       id: prismaProfile.id,
       userId: prismaProfile.userId,
       status: prismaProfile.status,
       createdAt: prismaProfile.createdAt,
       updatedAt: prismaProfile.updatedAt,
-      user: prismaProfile.user ? {
+      user: prismaProfile.user && prismaProfile.user.fullName ? {
         email: prismaProfile.user.email,
         fullName: prismaProfile.user.fullName
       } : undefined

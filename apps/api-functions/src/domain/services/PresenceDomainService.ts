@@ -60,7 +60,7 @@ export class PresenceDomainService {
    * @example
    * await presenceDomainService.setUserOffline(userId, context);
    */
-  async setUserOffline(userId: string, context?: any): Promise<void> {
+  async setUserOffline(userId: string, context?: Record<string, unknown>): Promise<void> {
     try {
       // 1. Find user
       const user = await this.findActiveUser(userId);
@@ -167,7 +167,7 @@ export class PresenceDomainService {
     user: { email: string; fullName: string; role: string; supervisorId: string | null; supervisorEmail: string | null },
     status: Status,
     lastSeenAt: Date,
-    context?: any
+    context?: Record<string, unknown>
   ): Promise<void> {
     const broadcast = {
       email: user.email,

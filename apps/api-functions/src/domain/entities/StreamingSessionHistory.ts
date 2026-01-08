@@ -51,7 +51,16 @@ export class StreamingSessionHistory {
    * @param prismaSession - Prisma StreamingSessionHistory model
    * @returns StreamingSessionHistory entity
    */
-  static fromPrisma(prismaSession: any): StreamingSessionHistory {
+  static fromPrisma(prismaSession: {
+    id: string;
+    userId: string;
+    startedAt: Date;
+    stoppedAt: Date | null;
+    stopReason: string | null;
+    createdAt: Date;
+    updatedAt: Date;
+    user?: { email: string; id: string } | null;
+  }): StreamingSessionHistory {
     return new StreamingSessionHistory({
       id: prismaSession.id,
       userId: prismaSession.userId,

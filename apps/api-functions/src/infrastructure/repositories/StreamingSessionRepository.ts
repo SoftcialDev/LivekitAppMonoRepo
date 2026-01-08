@@ -4,16 +4,8 @@
  * @description Provides repository implementation for streaming session operations
  */
 
-import { IStreamingSessionRepository } from '../../index';
-import { StreamingSessionHistory } from '../../index';
+import { IStreamingSessionRepository, StreamingSessionHistory, getCentralAmericaTime, wrapStreamingSessionFetchError, wrapEntityCreationError, wrapEntityUpdateError, wrapDatabaseQueryError } from '../../index';
 import prisma from '../database/PrismaClientService';
-import { getCentralAmericaTime } from '../../index';
-import {
-  wrapStreamingSessionFetchError,
-  wrapEntityCreationError,
-  wrapEntityUpdateError,
-  wrapDatabaseQueryError
-} from '../../utils/error';
 
 /**
  * Repository for streaming session data access operations
@@ -189,7 +181,7 @@ export class StreamingSessionRepository implements IStreamingSessionRepository {
    * @returns Promise that resolves when the session is stopped
    * @throws Error if database operation fails
    */
-  async stopStreamingSession(userId: string, reason: string, context?: any): Promise<void> {
+  async stopStreamingSession(userId: string, reason: string, context?: Record<string, unknown>): Promise<void> {
     try {
       const now = getCentralAmericaTime();
       
@@ -211,7 +203,7 @@ export class StreamingSessionRepository implements IStreamingSessionRepository {
           where: { id: openSession.id },
           data: {
             stoppedAt: now,
-            stopReason: reason as any,
+            stopReason: reason,
             updatedAt: now  // ✅ Agregar updatedAt en Central America Time
           }
         });
@@ -338,7 +330,7 @@ export class StreamingSessionRepository implements IStreamingSessionRepository {
           createdAt: session.createdAt,
           updatedAt: session.updatedAt,
           stopReason: session.stopReason,
-          user: { email: session.email }
+          user: { email: session.email, id: session.userId }
         }));
       });
 

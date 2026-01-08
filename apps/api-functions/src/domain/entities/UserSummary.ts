@@ -42,16 +42,22 @@ export class UserSummary {
    * @param user - Prisma user object
    * @returns UserSummary instance
    */
-  static fromPrismaUser(user: any): UserSummary {
-    const { firstName, lastName } = this.splitName(user.fullName);
+  static fromPrismaUser(user: {
+    azureAdObjectId: string;
+    email: string;
+    fullName: string | null;
+    role: string;
+    supervisor?: { azureAdObjectId: string; fullName: string | null } | null;
+  }): UserSummary {
+    const { firstName, lastName } = this.splitName(user.fullName ?? '');
     return new UserSummary({
       azureAdObjectId: user.azureAdObjectId,
       email: user.email,
       firstName,
       lastName,
-      role: user.role,
-      supervisorAdId: user.supervisor?.azureAdObjectId,
-      supervisorName: user.supervisor?.fullName,
+      role: user.role as UserRole | null,
+      supervisorAdId: user.supervisor?.azureAdObjectId ?? undefined,
+      supervisorName: user.supervisor?.fullName ?? undefined,
     });
   }
 

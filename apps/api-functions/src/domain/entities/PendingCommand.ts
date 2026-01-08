@@ -60,7 +60,20 @@ export class PendingCommand {
    * @param prismaCommand - Prisma PendingCommand model
    * @returns PendingCommand entity
    */
-  static fromPrisma(prismaCommand: any): PendingCommand {
+  static fromPrisma(prismaCommand: {
+    id: string;
+    employeeId: string;
+    command: CommandType;
+    timestamp: Date;
+    published: boolean;
+    publishedAt: Date | null;
+    acknowledged: boolean;
+    acknowledgedAt: Date | null;
+    attemptCount: number;
+    expiresAt: Date | null;
+    createdAt: Date;
+    updatedAt: Date;
+  }): PendingCommand {
     return new PendingCommand({
       id: prismaCommand.id,
       employeeId: prismaCommand.employeeId,

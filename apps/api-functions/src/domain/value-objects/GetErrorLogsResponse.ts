@@ -51,7 +51,7 @@ export class GetErrorLogsResponse {
       endpoint: string | null;
       functionName: string | null;
       errorName: string | null;
-      errorMessage: string;
+      errorMessage: string | null;
       stackTrace: string | null;
       httpStatusCode: number | null;
       userId: string | null;
@@ -110,7 +110,7 @@ export class GetErrorLogsResponse {
     endpoint: string | null;
     functionName: string | null;
     errorName: string | null;
-    errorMessage: string;
+    errorMessage: string | null;
     stackTrace: string | null;
     httpStatusCode: number | null;
     userId: string | null;

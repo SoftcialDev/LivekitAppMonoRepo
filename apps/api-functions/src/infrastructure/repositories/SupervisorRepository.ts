@@ -4,9 +4,7 @@
  */
 
 import prisma from '../database/PrismaClientService';
-import { ISupervisorRepository } from '../../index';
-import { User } from '../../index';
-import { wrapPsoFetchError, wrapSupervisorFetchError } from '../../utils/error';
+import { ISupervisorRepository, User, wrapPsoFetchError, wrapSupervisorFetchError } from '../../index';
 
 /**
  * Repository for supervisor data access operations

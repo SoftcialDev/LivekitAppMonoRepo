@@ -5,6 +5,7 @@
  */
 
 import { StreamingSessionHistory } from '../entities/StreamingSessionHistory';
+import { FunctionContext } from '../types/MessageTypes';
 
 /**
  * Interface for streaming session repository
@@ -83,11 +84,11 @@ export interface IStreamingSessionRepository {
    * Stops a streaming session for a user
    * @param userId - The user's database ID
    * @param reason - The reason for stopping the session
-   * @param context - Optional Azure Functions context for logging
+   * @param context - Optional context for logging (Azure Functions context or custom data)
    * @returns Promise that resolves when the session is stopped
    * @throws Error if database operation fails
    */
-  stopStreamingSession(userId: string, reason: string, context?: any): Promise<void>;
+  stopStreamingSession(userId: string, reason: string, context?: FunctionContext): Promise<void>;
 
   /**
    * Gets the last streaming session for a user

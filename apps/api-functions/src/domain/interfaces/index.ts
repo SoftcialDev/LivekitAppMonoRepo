@@ -39,6 +39,7 @@ export * from './IStreamingSessionRepository';
 export * from './ISupervisorManagementService';
 export * from './ISupervisorRepository';
 export * from './ITalkSessionRepository';
+export * from './IUserQueryService';
 export * from './IUserRepository';
 export * from './IUserRoleAssignmentRepository';
 export * from './IValidationConfig';

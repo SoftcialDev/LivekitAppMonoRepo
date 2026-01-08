@@ -14,13 +14,8 @@ import { IBlobStorageService } from '../../index';
 import { IBlobUrlService } from '../../index';
 import { IRecordingErrorLogger } from '../../index';
 import type { RecordingStopResult } from '../../index';
-import { RecordingSessionNotFoundError } from '../../index';
+import { RecordingSessionNotFoundError, extractErrorMessage, extractEgressErrorDetails, extractEgressErrorMessage } from '../../index';
 import { RecordingSession } from '../../domain/entities/RecordingSession';
-import { 
-  extractErrorMessage, 
-  extractEgressErrorDetails, 
-  extractEgressErrorMessage
-} from '../../utils/error';
 import { EgressErrorDetails } from '../../domain/types/LiveKitTypes';
 
 /**

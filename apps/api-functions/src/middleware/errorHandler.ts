@@ -11,10 +11,7 @@ import { ServiceContainer } from "../infrastructure/container/ServiceContainer";
 import { IErrorLogService } from "../domain/interfaces/IErrorLogService";
 import { ErrorHandlerOptions } from "../domain/types/ErrorHandlerTypes";
 import { ErrorType } from "../domain/enums/ErrorType";
-import { ErrorContextExtractor } from "../utils/error/ErrorContextExtractor";
-import { ErrorTypeClassifier } from "../utils/error/ErrorTypeClassifier";
-import { ErrorLogger } from "../utils/error/ErrorLogger";
-import { ErrorResponseBuilder } from "../utils/error/ErrorResponseBuilder";
+import { ErrorContextExtractor, ErrorTypeClassifier, ErrorLogger, ErrorResponseBuilder } from "../index";
 
 /**
  * Expected error for controlled 4xx responses

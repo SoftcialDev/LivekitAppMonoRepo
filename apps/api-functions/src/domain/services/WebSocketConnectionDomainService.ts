@@ -10,10 +10,8 @@ import { PresenceDomainService } from "./PresenceDomainService";
 import { StreamingSessionDomainService } from "./StreamingSessionDomainService";
 import { IWebPubSubService } from "../interfaces/IWebPubSubService";
 import { IUserRepository } from "../interfaces/IUserRepository";
-import { LiveKitRecordingService } from '../../index';
+import { LiveKitRecordingService, logError, extractErrorMessage } from '../../index';
 import { Context } from "@azure/functions";
-import { logError } from '../../index';
-import { extractErrorMessage } from '../../utils/error';
 
 /**
  * Domain service for WebSocket connection business logic
@@ -103,8 +101,9 @@ export class WebSocketConnectionDomainService {
       }
 
       // 2. Set user offline and stop streaming session
-      await this.presenceDomainService.setUserOffline(request.userId, context);
-      await this.streamingSessionDomainService.stopStreamingSession(request.userId, 'DISCONNECT', context);
+      const contextRecord = context ? { invocationId: context.invocationId } as Record<string, unknown> : undefined;
+      await this.presenceDomainService.setUserOffline(request.userId, contextRecord);
+      await this.streamingSessionDomainService.stopStreamingSession(request.userId, 'DISCONNECT', contextRecord);
 
       // 3. Sync presence
       try {

@@ -47,7 +47,16 @@ export class AuditLog {
    * @param prismaAuditLog - Prisma AuditLog model
    * @returns AuditLog entity
    */
-  static fromPrisma(prismaAuditLog: any): AuditLog {
+  static fromPrisma(prismaAuditLog: {
+    id: string;
+    entity: string;
+    entityId: string;
+    action: string;
+    changedById: string;
+    timestamp: Date;
+    dataBefore: Record<string, unknown> | null;
+    dataAfter: Record<string, unknown> | null;
+  }): AuditLog {
     return new AuditLog({
       id: prismaAuditLog.id,
       entity: prismaAuditLog.entity,

@@ -53,7 +53,23 @@ export class RecordingSession {
    * @param prismaSession - Raw Prisma recording session data
    * @returns RecordingSession entity instance
    */
-  static fromPrisma(prismaSession: any): RecordingSession {
+  static fromPrisma(prismaSession: {
+    id: string;
+    roomName: string;
+    roomId: string | null;
+    egressId: string;
+    userId: string;
+    subjectUserId: string | null;
+    subjectLabel: string | null;
+    status: string;
+    startedAt: Date | string | null;
+    stoppedAt: Date | string | null;
+    blobUrl: string | null;
+    blobPath: string | null;
+    createdAt: Date;
+    updatedAt: Date;
+      user?: { email: string; fullName: string | null } | null;
+    }): RecordingSession {
     return new RecordingSession(
       prismaSession.id,
       prismaSession.roomName,
@@ -62,16 +78,16 @@ export class RecordingSession {
       prismaSession.userId,
       prismaSession.subjectUserId,
       prismaSession.subjectLabel,
-      prismaSession.status,
-      prismaSession.startedAt ? new Date(prismaSession.startedAt) : getCentralAmericaTime(),
-      prismaSession.stoppedAt ? new Date(prismaSession.stoppedAt) : null,
+      prismaSession.status as RecordingStatus,
+      prismaSession.startedAt ? (prismaSession.startedAt instanceof Date ? prismaSession.startedAt : new Date(prismaSession.startedAt)) : getCentralAmericaTime(),
+      prismaSession.stoppedAt ? (typeof prismaSession.stoppedAt === 'string' ? new Date(prismaSession.stoppedAt) : prismaSession.stoppedAt) : null,
       prismaSession.blobUrl,
       prismaSession.blobPath,
       prismaSession.createdAt,
       prismaSession.updatedAt,
       prismaSession.user ? {
         email: prismaSession.user.email,
-        fullName: prismaSession.user.fullName
+        fullName: prismaSession.user.fullName || ''
       } : undefined
     );
   }

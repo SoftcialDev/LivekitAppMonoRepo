@@ -7,14 +7,8 @@
 import prisma from '../database/PrismaClientService';
 import { IErrorLogRepository, CreateErrorLogData, ErrorLogQueryParams } from '../../index';
 import { ApiErrorLog } from '../../index';
-import { getCentralAmericaTime } from '../../index';
+import { getCentralAmericaTime, wrapEntityCreationError, wrapDatabaseQueryError, wrapEntityDeletionError, wrapEntityUpdateError } from '../../index';
 import { randomUUID } from 'crypto';
-import {
-  wrapEntityCreationError,
-  wrapDatabaseQueryError,
-  wrapEntityDeletionError,
-  wrapEntityUpdateError
-} from '../../utils/error';
 
 /**
  * Repository for error log data access operations
@@ -100,7 +94,25 @@ export class ErrorLogRepository implements IErrorLogRepository {
         skip: params?.offset || 0
       });
 
-      return prismaErrorLogs.map((errorLog: unknown) => ApiErrorLog.fromPrisma(errorLog));
+      return prismaErrorLogs.map((errorLog: {
+        id: string;
+        severity: string;
+        source: string;
+        endpoint: string;
+        functionName: string;
+        errorName: string | null;
+        errorMessage: string | null;
+        stackTrace: string | null;
+        httpStatusCode: number | null;
+        userId: string | null;
+        userEmail: string | null;
+        requestId: string | null;
+        context: Record<string, unknown> | null;
+        resolved: boolean;
+        resolvedAt: Date | null;
+        resolvedBy: string | null;
+        createdAt: Date;
+      }) => ApiErrorLog.fromPrisma(errorLog));
     } catch (error: unknown) {
       throw wrapDatabaseQueryError('Failed to find error logs', error);
     }

@@ -17,7 +17,7 @@ export class ApiErrorLog {
   public readonly endpoint: string | null;
   public readonly functionName: string | null;
   public readonly errorName: string | null;
-  public readonly errorMessage: string;
+  public readonly errorMessage: string | null;
   public readonly stackTrace: string | null;
   public readonly httpStatusCode: number | null;
   public readonly userId: string | null;
@@ -40,7 +40,7 @@ export class ApiErrorLog {
     endpoint?: string | null;
     functionName?: string | null;
     errorName?: string | null;
-    errorMessage: string;
+    errorMessage?: string | null;
     stackTrace?: string | null;
     httpStatusCode?: number | null;
     userId?: string | null;
@@ -58,7 +58,7 @@ export class ApiErrorLog {
     this.endpoint = props.endpoint || null;
     this.functionName = props.functionName || null;
     this.errorName = props.errorName || null;
-    this.errorMessage = props.errorMessage;
+    this.errorMessage = props.errorMessage ?? null;
     this.stackTrace = props.stackTrace || null;
     this.httpStatusCode = props.httpStatusCode || null;
     this.userId = props.userId || null;
@@ -76,15 +76,33 @@ export class ApiErrorLog {
    * @param prismaErrorLog - Prisma ApiErrorLog model
    * @returns ApiErrorLog entity
    */
-  static fromPrisma(prismaErrorLog: any): ApiErrorLog {
+  static fromPrisma(prismaErrorLog: {
+    id: string;
+    severity: string;
+    source: string;
+    endpoint: string;
+    functionName: string;
+    errorName: string | null;
+    errorMessage: string | null;
+    stackTrace: string | null;
+    httpStatusCode: number | null;
+    userId: string | null;
+    userEmail: string | null;
+    requestId: string | null;
+    context: Record<string, unknown> | null;
+    resolved: boolean;
+    resolvedAt: Date | null;
+    resolvedBy: string | null;
+    createdAt: Date;
+  }): ApiErrorLog {
     return new ApiErrorLog({
       id: prismaErrorLog.id,
       severity: prismaErrorLog.severity as ErrorSeverity,
       source: prismaErrorLog.source as ErrorSource,
       endpoint: prismaErrorLog.endpoint,
       functionName: prismaErrorLog.functionName,
-      errorName: prismaErrorLog.errorName,
-      errorMessage: prismaErrorLog.errorMessage,
+      errorName: prismaErrorLog.errorName ?? null,
+      errorMessage: prismaErrorLog.errorMessage ?? null,
       stackTrace: prismaErrorLog.stackTrace,
       httpStatusCode: prismaErrorLog.httpStatusCode,
       userId: prismaErrorLog.userId,

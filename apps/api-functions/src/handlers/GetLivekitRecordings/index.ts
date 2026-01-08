@@ -6,6 +6,8 @@
 
 import { AzureFunction, Context, HttpRequest } from "@azure/functions";
 import { withAuth, withErrorHandler, withCallerId, withQueryValidation, requirePermission, Permission, ok, GetLivekitRecordingsApplicationService, GetLivekitRecordingsRequest, getLivekitRecordingsSchema, serviceContainer } from '../../index';
+import { ExtendedContext } from '../../domain/types/ContextBindings';
+import { GetLivekitRecordingsRequestPayload } from '../../domain/schemas/GetLivekitRecordingsSchema';
 
 /**
  * Azure Function to fetch LiveKit recording sessions
@@ -31,10 +33,11 @@ const getLivekitRecordingsHandler: AzureFunction = withErrorHandler(
           await requirePermission(Permission.RecordingsRead)(ctx);
           serviceContainer.initialize();
           
+          const extendedCtx = ctx as ExtendedContext;
           const applicationService = serviceContainer.resolve<GetLivekitRecordingsApplicationService>('GetLivekitRecordingsApplicationService');
-          const callerId = ctx.bindings.callerId as string;
+          const callerId = extendedCtx.bindings.callerId as string;
           
-          const validatedQuery = ctx.bindings.validatedQuery as any;
+          const validatedQuery = extendedCtx.bindings.validatedQuery as GetLivekitRecordingsRequestPayload;
           const request = GetLivekitRecordingsRequest.fromQuery(validatedQuery);
           const response = await applicationService.getLivekitRecordings(callerId, request);
           

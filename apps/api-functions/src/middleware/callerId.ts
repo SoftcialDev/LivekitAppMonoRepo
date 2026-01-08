@@ -4,10 +4,7 @@
  */
 
 import { Context } from '@azure/functions';
-import { getCallerAdId } from '../utils/authHelpers';
-import { badRequest } from '../utils/response';
-import { logError } from '../utils/logger';
-import { extractErrorMessage } from '../utils/error';
+import { getCallerAdId, badRequest, logError, extractErrorMessage, ensureBindings, ExtendedContext } from '../index';
 
 /**
  * Middleware that extracts and validates caller ID from JWT claims
@@ -19,7 +16,14 @@ import { extractErrorMessage } from '../utils/error';
 export async function withCallerId(ctx: Context, next: () => Promise<void>) {
   try {
     // Extract caller ID from JWT claims
-    const callerId = getCallerAdId(ctx.bindings.user);
+    const extendedCtx = ensureBindings(ctx);
+    
+    if (!extendedCtx.bindings.user) {
+      badRequest(ctx, "Cannot determine caller identity: user not found in context");
+      return;
+    }
+    
+    const callerId = getCallerAdId(extendedCtx.bindings.user);
     
     if (!callerId) {
       badRequest(ctx, "Cannot determine caller identity");
@@ -27,8 +31,7 @@ export async function withCallerId(ctx: Context, next: () => Promise<void>) {
     }
 
     // Attach caller ID to context for downstream handlers
-    (ctx as any).bindings = (ctx as any).bindings || {};
-    (ctx as any).bindings.callerId = callerId;
+    extendedCtx.bindings.callerId = callerId;
 
     // Proceed to next middleware or handler
     await next();
@@ -48,5 +51,6 @@ export async function withCallerId(ctx: Context, next: () => Promise<void>) {
  * @returns Caller ID or null if not found
  */
 export function getCallerIdFromContext(ctx: Context): string | null {
-  return (ctx as any).bindings?.callerId || null;
+  const extendedCtx = ctx as ExtendedContext;
+  return extendedCtx.bindings?.callerId || null;
 }

@@ -2,10 +2,10 @@
 
 /**
  * Send 200 OK with JSON body.
- * @param ctx Azure Functions context
- * @param data Payload to return
+ * @param ctx - Azure Functions context
+ * @param data - Payload to return
  */
-export function ok(ctx: Context, data: any) {
+export function ok(ctx: Context, data: unknown): void {
   ctx.res = {
     status: 200,
     headers: { "Content-Type": "application/json" },
@@ -15,10 +15,10 @@ export function ok(ctx: Context, data: any) {
 
 /**
  * Send 400 Bad Request with error message or object.
- * @param ctx Azure Functions context
- * @param error String or object describing the error
+ * @param ctx - Azure Functions context
+ * @param error - String or object describing the error
  */
-export function badRequest(ctx: Context, error: string | object) {
+export function badRequest(ctx: Context, error: string | object): void {
   ctx.res = {
     status: 400,
     headers: { "Content-Type": "application/json" },
@@ -26,12 +26,11 @@ export function badRequest(ctx: Context, error: string | object) {
   };
 }
 
-
 /**
  * Send 204 No Content.
- * @param ctx Azure Functions context
+ * @param ctx - Azure Functions context
  */
-export function noContent(ctx: Context) {
+export function noContent(ctx: Context): void {
   ctx.res = {
     status: 204,
     body: null,
@@ -40,10 +39,10 @@ export function noContent(ctx: Context) {
 
 /**
  * Send 401 Unauthorized.
- * @param ctx Azure Functions context
- * @param message Optional error message
+ * @param ctx - Azure Functions context
+ * @param message - Optional error message
  */
-export function unauthorized(ctx: Context, message = "Unauthorized") {
+export function unauthorized(ctx: Context, message = "Unauthorized"): void {
   ctx.res = {
     status: 401,
     headers: { "Content-Type": "application/json" },
@@ -53,10 +52,10 @@ export function unauthorized(ctx: Context, message = "Unauthorized") {
 
 /**
  * Send 403 Forbidden.
- * @param ctx Azure Functions context
- * @param message Optional error message
+ * @param ctx - Azure Functions context
+ * @param message - Optional error message
  */
-export function forbidden(ctx: Context, message = "Forbidden") {
+export function forbidden(ctx: Context, message = "Forbidden"): void {
   ctx.res = {
     status: 403,
     headers: { "Content-Type": "application/json" },
@@ -66,10 +65,10 @@ export function forbidden(ctx: Context, message = "Forbidden") {
 
 /**
  * Send 404 Not Found.
- * @param ctx Azure Functions context
- * @param message Optional error message
+ * @param ctx - Azure Functions context
+ * @param message - Optional error message
  */
-export function notFound(ctx: Context, message = "Not Found") {
+export function notFound(ctx: Context, message = "Not Found"): void {
   ctx.res = {
     status: 404,
     headers: { "Content-Type": "application/json" },

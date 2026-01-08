@@ -5,6 +5,7 @@
  */
 
 import { seedDefaultSnapshotReasons } from './defaultSnapshotReasons';
+import { logInfo, logError } from '../../utils/standaloneLogger';
 
 /**
  * Main function to seed default snapshot reasons
@@ -13,14 +14,10 @@ import { seedDefaultSnapshotReasons } from './defaultSnapshotReasons';
 async function main(): Promise<void> {
   try {
     await seedDefaultSnapshotReasons();
-    // Using console here is acceptable for standalone scripts
-    // eslint-disable-next-line no-console
-    console.log('✅ Snapshot reasons seeded successfully');
+    logInfo('Snapshot reasons seeded successfully', { operation: 'seedSnapshotReasons' });
     process.exit(0);
   } catch (error) {
-    // Using console here is acceptable for standalone scripts
-    // eslint-disable-next-line no-console
-    console.error('❌ Error seeding snapshot reasons:', error);
+    logError(error, { operation: 'seedSnapshotReasons' });
     process.exit(1);
   }
 }

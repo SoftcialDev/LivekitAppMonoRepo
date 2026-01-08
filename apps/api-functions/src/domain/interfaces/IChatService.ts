@@ -3,6 +3,8 @@
  * @description Defines the contract for chat services
  */
 
+import { BaseChatMessage } from '../types/MessageTypes';
+
 /**
  * Interface for chat service
  */
@@ -40,8 +42,8 @@ export interface IChatService {
   /**
    * Sends a message to a chat using the managed service account
    * @param chatId - ID of the chat
-   * @param message - Message content
+   * @param message - Message content (must include type and subject)
    * @returns Promise that resolves when message is sent
    */
-  sendMessageAsApp(chatId: string, message: any): Promise<void>;
+  sendMessageAsApp(chatId: string, message: BaseChatMessage): Promise<void>;
 }

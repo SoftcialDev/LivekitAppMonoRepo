@@ -21,6 +21,7 @@ import { IAuditService } from '../../index';
 import { IPresenceService } from '../../index';
 import { UserDeletionApplicationService } from '../../index';
 import { IWebPubSubService } from '../../index';
+import { ExtendedContext } from '../../domain/types/ContextBindings';
 
 /**
  * Azure Function: DeleteUser
@@ -93,8 +94,9 @@ const deleteUser: AzureFunction = withErrorHandler(
 
         // Validate request body
         await withBodyValidation(userDeletionSchema)(ctx, async () => {
-          const { userEmail, reason } = ctx.bindings.validatedBody;
-          const callerId = ctx.bindings.callerId as string;
+          const extendedCtx = ctx as ExtendedContext;
+          const { userEmail, reason } = extendedCtx.bindings.validatedBody as { userEmail: string; reason?: string };
+          const callerId = extendedCtx.bindings.callerId as string;
 
           // Create user deletion request (always SOFT_DELETE)
           const request = UserDeletionRequest.create(

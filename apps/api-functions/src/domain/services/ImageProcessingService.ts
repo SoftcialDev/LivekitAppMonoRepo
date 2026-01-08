@@ -7,7 +7,7 @@ import { IBlobStorageService } from '../interfaces/IBlobStorageService';
 import { ImageUploadRequest } from '../value-objects/ImageUploadRequest';
 import { ApplicationError } from '../errors/DomainError';
 import { ApplicationErrorCode } from '../errors/ErrorCodes';
-import { extractErrorMessage } from '../../utils/error';
+import { extractErrorMessage } from '../../index';
 
 /**
  * Domain service for image processing operations

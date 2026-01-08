@@ -14,6 +14,7 @@ import { ok } from '../../index';
 import { UserRoleChangeApplicationService } from '../../index';
 import { UserRoleChangeRequest } from '../../index';
 import { userRoleChangeSchema } from '../../index';
+import { UserRoleChangeSchemaType } from '../../domain/schemas/UserRoleChangeSchema';
 import { serviceContainer } from '../../index';
 import { handleAnyError } from '../../index';
 import { IUserRepository } from '../../index';
@@ -21,6 +22,7 @@ import { IAuthorizationService } from '../../index';
 import { IAuditService } from '../../index';
 import { IPresenceService } from '../../index';
 import { IWebPubSubService } from '../../index';
+import { ExtendedContext } from '../../domain/types/ContextBindings';
 
 /**
  * Azure Function: ChangeUserRole
@@ -65,8 +67,10 @@ const changeUserRole: AzureFunction = withErrorHandler(
 
         // Validate request body
         await withBodyValidation(userRoleChangeSchema)(ctx, async () => {
-          const { userEmail, newRole } = ctx.bindings.validatedBody;
-          const callerId = ctx.bindings.callerId as string;
+          const extendedCtx = ctx as ExtendedContext;
+          const validatedBody = extendedCtx.bindings.validatedBody as UserRoleChangeSchemaType;
+          const { userEmail, newRole } = validatedBody;
+          const callerId = extendedCtx.bindings.callerId as string;
 
           try {
             // Create user role change request

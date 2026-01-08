@@ -71,7 +71,7 @@ export class StreamingSessionDomainService implements IStreamingSessionDomainSer
    * @returns Promise that resolves when the session is stopped
    * @throws Error if the operation fails
    */
-  async stopStreamingSession(userId: string, reason: string, context?: any): Promise<void> {
+  async stopStreamingSession(userId: string, reason: string, context?: Record<string, unknown>): Promise<void> {
     try {
       // Convert email to database ID if needed
       let databaseUserId = userId;

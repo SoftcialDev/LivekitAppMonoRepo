@@ -8,8 +8,7 @@ import { WebSocketEventRequest } from "../value-objects/WebSocketEventRequest";
 import { WebSocketEventResponse } from "../value-objects/WebSocketEventResponse";
 import { ICommandMessagingService } from "../interfaces/ICommandMessagingService";
 import { ContactManagerStatus } from "@prisma/client";
-import { prisma } from '../../index';
-import { extractErrorMessage } from '../../utils/error';
+import { prisma, extractErrorMessage } from '../../index';
 
 /**
  * Domain service for Contact Manager disconnect business logic

@@ -1,11 +1,5 @@
 import { AzureFunction, Context, HttpRequest } from "@azure/functions";
-import { withErrorHandler } from '../../index';
-import { withAuth } from '../../index';
-import { ok, badRequest } from '../../index';
-import { GraphService } from '../../index';
-import { prisma } from '../../index';
-import { getCentralAmericaTime } from '../../index';
-import { extractErrorMessage } from '../../utils/error';
+import { withErrorHandler, withAuth, ok, badRequest, GraphService, prisma, getCentralAmericaTime, extractErrorMessage } from '../../index';
 
 
 function normalizeEmail(email: string): string {

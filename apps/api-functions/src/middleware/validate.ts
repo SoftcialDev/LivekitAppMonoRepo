@@ -13,6 +13,7 @@ import { ValidationSource } from '../domain/enums/ValidationSource';
 import { BindingKey } from '../domain/enums/BindingKey';
 import { ZodValidator } from '../infrastructure/validation/ZodValidator';
 import { RequestDataExtractor } from '../infrastructure/validation/RequestDataExtractor';
+import { ensureBindings } from '../domain/types/ContextBindings';
 
 const validator: IValidator = new ZodValidator();
 const dataExtractor: IRequestDataExtractor = new RequestDataExtractor();
@@ -70,8 +71,8 @@ function createValidationMiddleware<T>(
       return badRequest(ctx, { validationErrors });
     }
 
-    (ctx as any).bindings = (ctx as any).bindings || {};
-    (ctx as any).bindings[config.bindingKey] = result.data;
+    const extendedCtx = ensureBindings(ctx);
+    extendedCtx.bindings[config.bindingKey] = result.data;
 
     await next();
   };

@@ -6,16 +6,9 @@
 
 import { WebPubSubServiceClient } from "@azure/web-pubsub";
 import { AzureKeyCredential } from "@azure/core-auth";
-import { IWebPubSubService } from '../../index';
+import { IWebPubSubService, getCentralAmericaTime, wrapWebPubSubTokenError, wrapWebPubSubBroadcastError, wrapWebPubSubSyncError, extractErrorDetails } from '../../index';
 import { config } from '../../config';
-import { getCentralAmericaTime } from '../../index';
 import prisma from "../database/PrismaClientService";
-import {
-  wrapWebPubSubTokenError,
-  wrapWebPubSubBroadcastError,
-  wrapWebPubSubSyncError,
-  extractErrorDetails
-} from '../../utils/error';
 
 /**
  * Infrastructure implementation of WebPubSub service
@@ -107,7 +100,7 @@ export class WebPubSubService implements IWebPubSubService {
    *   contactManager: { email: 'cm@example.com', status: 'Available' }
    * });
    */
-  async broadcastMessage(group: string, message: any): Promise<void> {
+  async broadcastMessage(group: string, message: Record<string, unknown>): Promise<void> {
     try {
       await this.client.group(group).sendToAll(JSON.stringify(message));
     } catch (error: unknown) {

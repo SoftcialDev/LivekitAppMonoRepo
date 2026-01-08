@@ -5,13 +5,7 @@
  */
 
 import prisma from '../database/PrismaClientService';
-import { IAuditRepository } from '../../index';
-import { AuditLog } from '../../index';
-import { getCentralAmericaTime } from '../../index';
-import {
-  wrapEntityCreationError,
-  wrapDatabaseQueryError
-} from '../../utils/error';
+import { IAuditRepository, AuditLog, getCentralAmericaTime, wrapEntityCreationError, wrapDatabaseQueryError } from '../../index';
 
 /**
  * Repository for audit data access operations
@@ -38,7 +32,11 @@ export class AuditRepository implements IAuditRepository {
         }
       });
 
-      return AuditLog.fromPrisma(prismaAuditLog);
+      return AuditLog.fromPrisma({
+        ...prismaAuditLog,
+        dataBefore: prismaAuditLog.dataBefore as Record<string, unknown> | null,
+        dataAfter: prismaAuditLog.dataAfter as Record<string, unknown> | null
+      });
     } catch (error: unknown) {
       throw wrapEntityCreationError('Failed to create audit log', error);
     }
@@ -62,7 +60,11 @@ export class AuditRepository implements IAuditRepository {
         }
       });
 
-      return prismaAuditLogs.map(auditLog => AuditLog.fromPrisma(auditLog));
+      return prismaAuditLogs.map(auditLog => AuditLog.fromPrisma({
+        ...auditLog,
+        dataBefore: auditLog.dataBefore as Record<string, unknown> | null,
+        dataAfter: auditLog.dataAfter as Record<string, unknown> | null
+      }));
     } catch (error: unknown) {
       throw wrapDatabaseQueryError('Failed to find audit logs by entity', error);
     }
@@ -84,7 +86,11 @@ export class AuditRepository implements IAuditRepository {
         }
       });
 
-      return prismaAuditLogs.map(auditLog => AuditLog.fromPrisma(auditLog));
+      return prismaAuditLogs.map(auditLog => AuditLog.fromPrisma({
+        ...auditLog,
+        dataBefore: auditLog.dataBefore as Record<string, unknown> | null,
+        dataAfter: auditLog.dataAfter as Record<string, unknown> | null
+      }));
     } catch (error: unknown) {
       throw wrapDatabaseQueryError('Failed to find audit logs by user', error);
     }
@@ -110,7 +116,11 @@ export class AuditRepository implements IAuditRepository {
         }
       });
 
-      return prismaAuditLogs.map(auditLog => AuditLog.fromPrisma(auditLog));
+      return prismaAuditLogs.map(auditLog => AuditLog.fromPrisma({
+        ...auditLog,
+        dataBefore: auditLog.dataBefore as Record<string, unknown> | null,
+        dataAfter: auditLog.dataAfter as Record<string, unknown> | null
+      }));
     } catch (error: unknown) {
       throw wrapDatabaseQueryError('Failed to find audit logs by date range', error);
     }

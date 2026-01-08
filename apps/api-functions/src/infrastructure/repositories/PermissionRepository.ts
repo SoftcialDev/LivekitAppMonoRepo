@@ -4,13 +4,14 @@
  */
 import prisma from "../database/PrismaClientService";
 import { IPermissionRepository, PermissionEntity } from '../../index';
+import { Permission as PrismaPermission } from '@prisma/client';
 
 export class PermissionRepository implements IPermissionRepository {
   /**
    * @description Maps a Prisma permission to a domain Permission.
-   * @param p Prisma permission.
+   * @param p - Prisma permission.
    */
-  private toDomain(p: any): PermissionEntity {
+  private toDomain(p: PrismaPermission): PermissionEntity {
     return new PermissionEntity(
       p.id,
       p.code,
@@ -34,7 +35,7 @@ export class PermissionRepository implements IPermissionRepository {
       where: onlyActive ? { isActive: true } : undefined,
       orderBy: [{ resource: "asc" }, { action: "asc" }],
     });
-    return perms.map((p: any) => this.toDomain(p));
+    return perms.map((p) => this.toDomain(p));
   }
 }
 

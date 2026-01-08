@@ -9,7 +9,7 @@ import { GetSupervisorForPsoResponse } from "../value-objects/GetSupervisorForPs
 import { ISupervisorRepository } from "../interfaces/ISupervisorRepository";
 import { ApplicationError } from "../errors/DomainError";
 import { ApplicationErrorCode } from "../errors/ErrorCodes";
-import { extractErrorMessage } from '../../utils/error';
+import { extractErrorMessage } from '../../index';
 
 /**
  * Domain service for supervisor lookup business logic

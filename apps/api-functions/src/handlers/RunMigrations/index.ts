@@ -10,8 +10,7 @@ import { exec } from "child_process";
 import { promisify } from "util";
 import { join } from "path";
 import { existsSync, mkdirSync, cpSync } from "fs";
-import { withErrorHandler, withAuth, ok, badRequest, config, seedDefaultSnapshotReasons, seedDefaultRolesAndPermissions, ServiceContainer, IErrorLogService, ErrorSource, ErrorSeverity, ApplicationServiceOperationError } from '../../index';
-import { extractErrorMessage, extractErrorProperty } from '../../utils/error';
+import { withErrorHandler, withAuth, ok, badRequest, config, seedDefaultSnapshotReasons, seedDefaultRolesAndPermissions, ServiceContainer, IErrorLogService, ErrorSource, ErrorSeverity, ApplicationServiceOperationError, extractErrorMessage, extractErrorProperty } from '../../index';
 
 const execAsync = promisify(exec);
 

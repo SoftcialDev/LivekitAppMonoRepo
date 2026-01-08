@@ -15,7 +15,7 @@ import jwt, {
   Algorithm,
 } from "jsonwebtoken";
 import { config } from "../config";
-import { extractErrorMessage } from "../utils/error";
+import { extractErrorMessage, ensureBindings } from "../index";
 
 const client = jwksClient({
   jwksUri: `https://login.microsoftonline.com/${config.azureTenantId}/discovery/v2.0/keys`,
@@ -133,7 +133,8 @@ export async function withAuth(
     return;
   }
 
-  (ctx as any).bindings.user = decoded;
-  (ctx as any).bindings.accessToken = token;
+  const extendedCtx = ensureBindings(ctx);
+  extendedCtx.bindings.user = decoded;
+  extendedCtx.bindings.accessToken = token;
   await next();
 }

@@ -63,7 +63,7 @@ export class CommandApplicationService {
     try {
       // Use the existing CommandMessagingService to send the command
       const groupName = `commands:${command.employeeEmail}`;
-      await this.commandMessagingService.sendToGroup(groupName, command.toPayload());
+      await this.commandMessagingService.sendToGroup(groupName, command.toPayload() as Record<string, unknown>);
       
       // Broadcast stream event to supervisors
       await this.broadcastStreamEvent(command.employeeEmail, command.type, command.reason);

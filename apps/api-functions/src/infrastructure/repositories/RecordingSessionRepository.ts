@@ -7,14 +7,8 @@
 import { IRecordingSessionRepository, CreateRecordingSessionData, ListRecordingsParams } from '../../index';
 import { RecordingSession } from '../../index';
 import { RecordingStatus } from '@prisma/client';
-import { getCentralAmericaTime } from '../../index';
+import { getCentralAmericaTime, wrapDatabaseQueryError, wrapEntityCreationError, wrapEntityUpdateError, wrapEntityDeletionError } from '../../index';
 import prisma from '../database/PrismaClientService';
-import {
-  wrapDatabaseQueryError,
-  wrapEntityCreationError,
-  wrapEntityUpdateError,
-  wrapEntityDeletionError
-} from '../../utils/error';
 
 /**
  * Repository implementation for recording session data access
@@ -39,7 +33,9 @@ export class RecordingSessionRepository implements IRecordingSessionRepository {
         }
       });
 
-      return prismaSession ? RecordingSession.fromPrisma(prismaSession) : null;
+      if (!prismaSession) return null;
+      
+      return RecordingSession.fromPrisma(prismaSession);
     } catch (error: unknown) {
       throw wrapDatabaseQueryError('Failed to find recording session', error);
     }

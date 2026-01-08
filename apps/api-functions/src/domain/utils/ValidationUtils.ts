@@ -8,6 +8,7 @@ import { IUserRepository } from '../interfaces/IUserRepository';
 import { ISupervisorRepository } from '../interfaces/ISupervisorRepository';
 import { ValidationError } from '../errors/DomainError';
 import { ValidationErrorCode } from '../errors/ErrorCodes';
+import { User } from '@prisma/client';
 
 /**
  * Common validation utilities for domain operations
@@ -52,7 +53,7 @@ export class ValidationUtils {
     userRepository: IUserRepository, 
     email: string, 
     fieldName: string = 'User'
-  ): Promise<import('@prisma/client').User> {
+  ): Promise<User> {
     const user = await userRepository.findByEmail(email);
     if (!user) {
       throw new ValidationError(`${fieldName} not found`, ValidationErrorCode.TARGET_USER_NOT_FOUND);
@@ -75,7 +76,7 @@ export class ValidationUtils {
     userRepository: IUserRepository, 
     email: string, 
     fieldName: string = 'User'
-  ): Promise<import('@prisma/client').User> {
+  ): Promise<User> {
     const user = await this.validateUserExists(userRepository, email, fieldName);
     if (user.role !== UserRole.PSO) {
       throw new ValidationError(`${fieldName} is not a PSO`, ValidationErrorCode.TARGET_NOT_EMPLOYEE);
@@ -95,7 +96,7 @@ export class ValidationUtils {
     supervisorRepository: ISupervisorRepository, 
     email: string, 
     fieldName: string = 'Supervisor'
-  ): Promise<import('@prisma/client').User> {
+  ): Promise<User> {
     const supervisor = await supervisorRepository.findByEmail(email);
     if (!supervisor) {
       throw new ValidationError(`${fieldName} not found`, ValidationErrorCode.TARGET_USER_NOT_FOUND);
