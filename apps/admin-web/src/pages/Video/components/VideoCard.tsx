@@ -98,13 +98,15 @@ const VideoCard: React.FC<VideoCardProps & {
   const { playAudio: playAudioSafely } = useAudioPlay({ maxRetries: 2, retryDelay: 300 })
   
   // Check if there's an active talk session for this PSO
-  const { hasActiveSession, sessionId: activeSessionId } = useTalkSessionStatus({
+  // Used to prevent multiple sessions and verify the session belongs to this admin
+  const { hasActiveSession, sessionId: activeSessionId, supervisorEmail: activeSupervisorEmail } = useTalkSessionStatus({
     psoEmail: email || null,
     enabled: !!email,
     pollInterval: 5000
   })
   
   const talkSessionClientRef = useRef(new TalkSessionClient())
+  const currentAdminEmail = account?.username || userInfo?.email || null
   
   const {
     isRecording,
@@ -194,9 +196,24 @@ const VideoCard: React.FC<VideoCardProps & {
         (track as RemoteVideoTrack).attach(videoRef.current!)
         
       } else if (kind === 'audio') {
-        // Only attach audio if there's an active talk session
-        if (!hasActiveSession) {
-          console.log('[VideoCard] Ignoring audio track - no active talk session')
+        // Only attach and play audio when admin has started a talk session
+        // PSO can publish audio anytime (when streaming), but admin only hears it during active talk sessions
+        // We verify:
+        // 1. Admin has started a session (isTalking === true)
+        // 2. No other supervisor has an active session, OR the active session belongs to this admin
+        const isMySession = !hasActiveSession || 
+                           (activeSupervisorEmail && currentAdminEmail && 
+                            activeSupervisorEmail.toLowerCase() === currentAdminEmail.toLowerCase())
+        const canHearAudio = isTalking && isMySession
+        
+        if (!canHearAudio) {
+          console.log('[VideoCard] Ignoring audio track - no active talk session for this admin', { 
+            isTalking, 
+            hasActiveSession, 
+            activeSupervisorEmail,
+            currentAdminEmail,
+            isMySession
+          })
           return
         }
         
@@ -224,12 +241,7 @@ const VideoCard: React.FC<VideoCardProps & {
       // Subscribe handler (stable reference) and remember it for cleanup
       const handleTrackSubscribed = (pub: any) => {
         attachTrack(pub)
-        // Attempt to play audio when subscribed (with safe retry logic)
-        if (pub.kind === 'audio' && audioRef.current) {
-          playAudioSafely(audioRef.current).catch((err) => {
-            // Error already logged in useAudioPlay
-          })
-        }
+        // Audio playback is handled in attachTrack when isTalking is true
       }
       participantTrackHandlers.set(p, handleTrackSubscribed)
       p.on(ParticipantEvent.TrackSubscribed, handleTrackSubscribed)
@@ -297,26 +309,30 @@ const VideoCard: React.FC<VideoCardProps & {
             // For audio tracks that aren't subscribed yet, set up a polling mechanism
             // to check when they become subscribed (LiveKit auto-subscribes but may have a delay)
             // This handles the case where PSO publishes audio after admin is already connected
-            let checkCount = 0
-            const maxChecks = 20 // Check for up to 10 seconds (20 * 500ms)
-            const checkInterval = setInterval(() => {
-              checkCount++
-              const currentPub = participant.getTrackPublication(publication.trackSid)
-              if (currentPub && currentPub.isSubscribed && currentPub.track) {
-                console.log('[VideoCard] Audio track became subscribed after polling, attaching now')
-                clearInterval(checkInterval)
-                attachTrack(currentPub)
-              } else if (checkCount >= maxChecks) {
-                console.warn('[VideoCard] Audio track did not become subscribed after polling')
-                clearInterval(checkInterval)
+            // Only poll if admin has an active talk session (isTalking === true)
+            // Otherwise, the audio will be ignored anyway when it becomes subscribed
+            if (isTalking) {
+              let checkCount = 0
+              const maxChecks = 20 // Check for up to 10 seconds (20 * 500ms)
+              const checkInterval = setInterval(() => {
+                checkCount++
+                const currentPub = participant.getTrackPublication(publication.trackSid)
+                if (currentPub && currentPub.isSubscribed && currentPub.track) {
+                  console.log('[VideoCard] Audio track became subscribed after polling, attaching now')
+                  clearInterval(checkInterval)
+                  attachTrack(currentPub)
+                } else if (checkCount >= maxChecks) {
+                  console.warn('[VideoCard] Audio track did not become subscribed after polling')
+                  clearInterval(checkInterval)
+                }
+              }, 500)
+              
+              // Store interval for cleanup
+              if (!(room as any).__audioPollIntervals) {
+                (room as any).__audioPollIntervals = new Set()
               }
-            }, 500)
-            
-            // Store interval for cleanup
-            if (!(room as any).__audioPollIntervals) {
-              (room as any).__audioPollIntervals = new Set()
+              (room as any).__audioPollIntervals.add(checkInterval)
             }
-            (room as any).__audioPollIntervals.add(checkInterval)
           }
         }
       }
@@ -384,6 +400,11 @@ const VideoCard: React.FC<VideoCardProps & {
     email,
     hasActiveSession,
     activeSessionId,
+    activeSupervisorEmail,
+    currentAdminEmail,
+    isTalking,
+    isAudioMuted,
+    playAudioSafely,
   ])
 
   /**
