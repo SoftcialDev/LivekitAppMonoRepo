@@ -7,6 +7,7 @@ import { IBlobStorageService } from '../interfaces/IBlobStorageService';
 import { ImageUploadRequest } from '../value-objects/ImageUploadRequest';
 import { ApplicationError } from '../errors/DomainError';
 import { ApplicationErrorCode } from '../errors/ErrorCodes';
+import { extractErrorMessage } from '../../utils/error';
 
 /**
  * Domain service for image processing operations
@@ -30,8 +31,9 @@ export class ImageProcessingService {
       const imageUrl = await this.blobStorageService.uploadImage(imageRequest);
 
       return imageUrl;
-    } catch (error: any) {
-      throw new ApplicationError(`Failed to process and upload image: ${error.message}`, ApplicationErrorCode.OPERATION_FAILED);
+    } catch (error: unknown) {
+      const errorMessage = extractErrorMessage(error);
+      throw new ApplicationError(`Failed to process and upload image: ${errorMessage}`, ApplicationErrorCode.OPERATION_FAILED);
     }
   }
 

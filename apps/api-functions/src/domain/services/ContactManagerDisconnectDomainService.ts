@@ -9,6 +9,7 @@ import { WebSocketEventResponse } from "../value-objects/WebSocketEventResponse"
 import { ICommandMessagingService } from "../interfaces/ICommandMessagingService";
 import { ContactManagerStatus } from "@prisma/client";
 import { prisma } from '../../index';
+import { extractErrorMessage } from '../../utils/error';
 
 /**
  * Domain service for Contact Manager disconnect business logic
@@ -60,8 +61,9 @@ export class ContactManagerDisconnectDomainService {
       });
       
       return WebSocketEventResponse.success(`Contact Manager ${request.userId} status updated successfully`);
-    } catch (error: any) {
-      return WebSocketEventResponse.error(`Failed to handle Contact Manager disconnect: ${error.message}`);
+    } catch (error: unknown) {
+      const errorMessage = extractErrorMessage(error);
+      return WebSocketEventResponse.error(`Failed to handle Contact Manager disconnect: ${errorMessage}`);
     }
   }
 }

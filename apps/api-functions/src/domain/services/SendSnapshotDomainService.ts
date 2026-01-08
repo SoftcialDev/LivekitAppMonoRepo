@@ -16,6 +16,7 @@ import { ImageUploadRequest } from "../value-objects/ImageUploadRequest";
 import { UserNotFoundError } from "../errors/UserErrors";
 import { SnapshotReasonNotFoundError, SnapshotReasonInactiveError, DescriptionRequiredError } from "../errors/SnapshotErrors";
 import { formatCentralAmericaTime, getCentralAmericaTime } from '../../index';
+import { extractErrorMessage } from '../../utils/error';
 
 /**
  * Domain service for snapshot report business logic
@@ -158,12 +159,13 @@ export class SendSnapshotDomainService {
         imageUrl: details.imageUrl
       });
       
-    } catch (error: any) {
+    } catch (error: unknown) {
       try {
+        const errorInstance = error instanceof Error ? error : new Error(String(error));
         await this.errorLogService.logChatServiceError({
           endpoint: 'SendSnapshot',
           functionName: 'notifySnapshotReport',
-          error,
+          error: errorInstance,
           userId: details.supervisorId,
           chatId,
           context: {

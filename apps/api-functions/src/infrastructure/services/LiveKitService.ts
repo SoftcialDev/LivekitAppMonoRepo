@@ -6,7 +6,8 @@
 
 import { RoomServiceClient, AccessToken } from 'livekit-server-sdk';
 import { ILiveKitService } from '../../index';
-import { config } from '../../index';
+import { config } from '../../config';
+import { extractHttpStatusCode, extractErrorMessage } from '../../utils/error';
 
 /**
  * Error thrown when a LiveKit service operation fails unexpectedly
@@ -59,13 +60,14 @@ export class LiveKitService implements ILiveKitService {
   async ensureRoom(roomName: string): Promise<void> {
     try {
       await this.adminClient.createRoom({ name: roomName, emptyTimeout: 0 });
-    } catch (err: any) {
-      const code = err.code ?? err.statusCode ?? err.status;
+    } catch (err: unknown) {
+      const code = extractHttpStatusCode(err);
       if (code === 409) {
         return;
       }
+      const errorMessage = extractErrorMessage(err);
       throw new LiveKitServiceError(
-        `Failed to ensure room "${roomName}": ${err.message}`,
+        `Failed to ensure room "${roomName}": ${errorMessage}`,
         code,
         err,
       );
@@ -81,10 +83,11 @@ export class LiveKitService implements ILiveKitService {
     try {
       const rooms = await this.adminClient.listRooms();
       return rooms.map(r => r.name ?? r.sid);
-    } catch (err: any) {
-      const code = err.code ?? err.statusCode ?? err.status;
+    } catch (err: unknown) {
+      const code = extractHttpStatusCode(err);
+      const errorMessage = extractErrorMessage(err);
       throw new LiveKitServiceError(
-        `Failed to list rooms: ${err.message}`,
+        `Failed to list rooms: ${errorMessage}`,
         code,
         err,
       );
@@ -122,9 +125,10 @@ export class LiveKitService implements ILiveKitService {
 
       const token = await at.toJwt();
       return token;
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errorMessage = extractErrorMessage(err);
       throw new LiveKitServiceError(
-        `Failed to generate token for "${identity}": ${err.message}`,
+        `Failed to generate token for "${identity}": ${errorMessage}`,
         undefined,
         err,
       );

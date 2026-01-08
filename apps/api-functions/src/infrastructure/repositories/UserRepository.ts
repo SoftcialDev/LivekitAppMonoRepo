@@ -11,7 +11,7 @@ import { ContactManagerProfile } from '../../index';
 import { SuperAdminProfile } from '../../index';
 import { Role } from '../../index';
 import { getCentralAmericaTime } from '../../index';
-import { PsoFetchError } from '../../index';
+import { wrapPsoFetchError } from '../../utils/error';
 
 /**
  * Repository for user data access operations
@@ -703,8 +703,8 @@ export class UserRepository implements IUserRepository {
         email: pso.email.toLowerCase(),
         supervisorName: pso.supervisor?.fullName || ""
       }));
-    } catch (error: any) {
-      throw new PsoFetchError(`Failed to get PSOs by supervisor: ${error.message}`, error instanceof Error ? error : new Error(String(error)));
+    } catch (error: unknown) {
+      throw wrapPsoFetchError('Failed to get PSOs by supervisor', error);
     }
   }
 

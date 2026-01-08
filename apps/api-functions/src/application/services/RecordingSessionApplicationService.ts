@@ -15,45 +15,13 @@ import { IBlobUrlService } from '../../index';
 import { IRecordingErrorLogger } from '../../index';
 import type { RecordingStopResult } from '../../index';
 import { RecordingSessionNotFoundError } from '../../index';
-
-/**
- * Extracts error details from EgressInfo or error object
- * @param info - EgressInfo object or error object
- * @returns Object with all available error context
- */
-function extractEgressErrorDetails(info: any): {
-  status?: string;
-  statusDetail?: string;
-  error?: string;
-  errorMessage?: string;
-  roomName?: string;
-  roomId?: string;
-  startedAt?: string | number;
-  endedAt?: string | number;
-  duration?: number;
-  sourceType?: string;
-  fileResults?: any;
-  streamResults?: any;
-  segmentResults?: any;
-} {
-  if (!info) return {};
-  
-  return {
-    status: info.status || info.state || (info as any).egressStatus,
-    statusDetail: info.statusDetail || (info as any).statusDetail,
-    error: info.error || (info as any).error,
-    errorMessage: info.errorMessage || (info as any).errorMessage || info.message,
-    roomName: info.roomName || (info as any).roomName,
-    roomId: info.roomId || (info as any).roomId,
-    startedAt: info.startedAt || (info as any).startedAt || info.startedAtMs,
-    endedAt: info.endedAt || (info as any).endedAt || info.endedAtMs,
-    duration: info.duration || info.durationMs || (info as any).duration,
-    sourceType: info.sourceType || (info as any).sourceType,
-    fileResults: info.fileResults || (info as any).fileResults || (info as any).result?.fileResults,
-    streamResults: info.streamResults || (info as any).streamResults,
-    segmentResults: info.segmentResults || (info as any).segmentResults,
-  };
-}
+import { RecordingSession } from '../../domain/entities/RecordingSession';
+import { 
+  extractErrorMessage, 
+  extractEgressErrorDetails, 
+  extractEgressErrorMessage
+} from '../../utils/error';
+import { EgressErrorDetails } from '../../domain/types/LiveKitTypes';
 
 /**
  * Application service for orchestrating recording session operations
@@ -105,7 +73,7 @@ export class RecordingSessionApplicationService {
       this.scheduleEgressStatusCheck(egressId, sessionId, args);
 
       return { roomName: args.roomName, egressId, blobPath: objectKey };
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (sessionId) {
         try {
           await this.recordingRepository.fail(sessionId);
@@ -115,18 +83,15 @@ export class RecordingSessionApplicationService {
       }
 
       const errorDetails = extractEgressErrorDetails(error);
-      const errorMessage = errorDetails.error || 
-                          errorDetails.statusDetail || 
-                          errorDetails.errorMessage ||
-                          error?.message ||
-                          'Failed to start recording egress';
+      const errorMessage = extractEgressErrorMessage(errorDetails, error, 'Failed to start recording egress');
+      const errorInstance = error instanceof Error ? error : new Error(String(error));
 
       if (this.errorLogger) {
         await this.errorLogger.logError(
           {
             message: `Recording start failed: ${errorMessage}`,
-            name: error?.name || 'RecordingStartError',
-            stack: error?.stack,
+            name: errorInstance.name || 'RecordingStartError',
+            stack: errorInstance.stack,
           },
           {
             sessionId: sessionId ?? undefined,
@@ -163,9 +128,7 @@ export class RecordingSessionApplicationService {
         const egressInfo = await this.egressClient.getEgressInfo(egressId);
         if (egressInfo && (egressInfo.status === EgressStatus.EGRESS_FAILED || egressInfo.status === EgressStatus.EGRESS_ABORTED)) {
           const errorDetails = extractEgressErrorDetails(egressInfo);
-          const errorMessage = errorDetails.error || 
-                              errorDetails.statusDetail || 
-                              'Egress failed during initialization';
+          const errorMessage = extractEgressErrorMessage(errorDetails, egressInfo, 'Egress failed during initialization');
           
           if (sessionId) {
             await this.recordingRepository.fail(sessionId);
@@ -201,13 +164,13 @@ export class RecordingSessionApplicationService {
    * @param userId - User ID to search for
    * @returns Array of unique active sessions
    */
-  async findActiveSessions(userId: string): Promise<any[]> {
+  async findActiveSessions(userId: string): Promise<RecordingSession[]> {
     const [byRoom, bySubject] = await Promise.all([
       this.recordingRepository.findActiveByRoom(userId),
       this.recordingRepository.findActiveBySubject(userId),
     ]);
 
-    const map = new Map<string, any>();
+    const map = new Map<string, RecordingSession>();
     for (const s of [...byRoom, ...bySubject]) {
       map.set(s.id, s);
     }
@@ -222,7 +185,7 @@ export class RecordingSessionApplicationService {
    * @returns RecordingStopResult for completed session
    */
   async handleCompletedSession(
-    session: any,
+    session: RecordingSession,
     blobUrl: string | undefined,
     sasMinutes: number
   ): Promise<RecordingStopResult> {
@@ -241,12 +204,12 @@ export class RecordingSessionApplicationService {
       sessionId: session.id,
       egressId: session.egressId,
       status: RecordingStopStatus.Completed,
-      blobPath: (session as any).blobPath ?? undefined,
+      blobPath: session.blobPath ?? undefined,
       blobUrl: finalUrl,
       sasUrl,
       roomName: session.roomName,
       initiatorUserId: session.userId,
-      subjectUserId: (session as any).subjectUserId ?? null,
+      subjectUserId: session.subjectUserId ?? null,
     };
   }
 
@@ -258,9 +221,9 @@ export class RecordingSessionApplicationService {
    * @returns RecordingStopResult for failed session
    */
   async handleFailedSession(
-    session: any,
+    session: RecordingSession,
     egressError: string,
-    clusterErrorDetails?: any
+    clusterErrorDetails?: unknown
   ): Promise<RecordingStopResult> {
     await this.recordingRepository.fail(session.id);
 
@@ -274,9 +237,11 @@ export class RecordingSessionApplicationService {
           sessionId: session.id,
           egressId: session.egressId,
           roomName: session.roomName,
-          subjectUserId: (session as any).subjectUserId,
+          subjectUserId: session.subjectUserId,
           initiatorUserId: session.userId,
-          egressStatus: clusterErrorDetails?.status || 'EGRESS_FAILED',
+          egressStatus: (clusterErrorDetails && typeof clusterErrorDetails === 'object' && 'status' in clusterErrorDetails) 
+                        ? String(clusterErrorDetails.status) 
+                        : 'EGRESS_FAILED',
           egressError: egressError,
           clusterErrorDetails: clusterErrorDetails || undefined,
         }
@@ -287,11 +252,11 @@ export class RecordingSessionApplicationService {
       sessionId: session.id,
       egressId: session.egressId,
       status: RecordingStopStatus.Failed,
-      blobPath: (session as any).blobPath ?? undefined,
+      blobPath: session.blobPath ?? undefined,
       blobUrl: undefined,
       roomName: session.roomName,
       initiatorUserId: session.userId,
-      subjectUserId: (session as any).subjectUserId ?? null,
+      subjectUserId: session.subjectUserId ?? null,
     };
   }
 
@@ -300,9 +265,9 @@ export class RecordingSessionApplicationService {
    * @param session - Recording session
    * @returns RecordingStopResult for disconnected session
    */
-  async handleDisconnectedSession(session: any): Promise<RecordingStopResult> {
-    const blobUrl = (session as any).blobPath
-      ? this.blobUrlService.buildBlobHttpsUrl((session as any).blobPath)
+  async handleDisconnectedSession(session: RecordingSession): Promise<RecordingStopResult> {
+    const blobUrl = session.blobPath
+      ? this.blobUrlService.buildBlobHttpsUrl(session.blobPath)
       : null;
 
     await this.recordingRepository.complete(
@@ -315,11 +280,11 @@ export class RecordingSessionApplicationService {
       sessionId: session.id,
       egressId: session.egressId,
       status: RecordingStopStatus.CompletedDisconnection,
-      blobPath: (session as any).blobPath ?? undefined,
+      blobPath: session.blobPath ?? undefined,
       blobUrl: blobUrl ?? undefined,
       roomName: session.roomName,
       initiatorUserId: session.userId,
-      subjectUserId: (session as any).subjectUserId ?? null,
+      subjectUserId: session.subjectUserId ?? null,
     };
   }
 
@@ -329,31 +294,29 @@ export class RecordingSessionApplicationService {
    * @param err - Error that occurred
    * @returns RecordingStopResult for failed session
    */
-  async handleStopError(session: any, err: any): Promise<RecordingStopResult> {
+  async handleStopError(session: RecordingSession, err: unknown): Promise<RecordingStopResult> {
     await this.recordingRepository.fail(session.id);
 
     const errorDetails = extractEgressErrorDetails(err);
-    const egressErrorDetails = errorDetails.error || 
-                              errorDetails.statusDetail || 
-                              errorDetails.errorMessage ||
-                              err.message;
+    const egressErrorDetails = extractEgressErrorMessage(errorDetails, err, 'Recording stop failed');
 
+    const errorInstance = err instanceof Error ? err : new Error(String(err));
     if (this.errorLogger) {
       await this.errorLogger.logError(
         {
           message: egressErrorDetails 
             ? `Recording stop failed: ${egressErrorDetails}` 
-            : `Recording stop failed: ${err?.message || String(err)}`,
-          name: err?.name || 'RecordingStopError',
-          stack: err?.stack,
+            : `Recording stop failed: ${extractErrorMessage(err)}`,
+          name: errorInstance.name || 'RecordingStopError',
+          stack: errorInstance.stack,
         },
         {
           sessionId: session.id,
           egressId: session.egressId,
           roomName: session.roomName,
-          subjectUserId: (session as any).subjectUserId,
+          subjectUserId: session.subjectUserId,
           initiatorUserId: session.userId,
-          stopError: err?.message || String(err),
+          stopError: extractErrorMessage(err),
           egressStatus: errorDetails.status || 'UNKNOWN',
           egressError: egressErrorDetails,
           clusterErrorDetails: errorDetails || undefined,
@@ -365,11 +328,11 @@ export class RecordingSessionApplicationService {
       sessionId: session.id,
       egressId: session.egressId,
       status: RecordingStopStatus.Failed,
-      blobPath: (session as any).blobPath ?? undefined,
+      blobPath: session.blobPath ?? undefined,
       blobUrl: undefined,
       roomName: session.roomName,
       initiatorUserId: session.userId,
-      subjectUserId: (session as any).subjectUserId ?? null,
+      subjectUserId: session.subjectUserId ?? null,
     };
   }
 
@@ -406,7 +369,7 @@ export class RecordingSessionApplicationService {
       try {
         let blobUrl: string | undefined;
         let egressError: string | undefined;
-        let clusterErrorDetails: any;
+        let clusterErrorDetails: EgressErrorDetails | undefined;
 
         try {
           const egressInfo = await this.egressClient.getEgressInfo(session.egressId);
@@ -420,8 +383,9 @@ export class RecordingSessionApplicationService {
         try {
           const stopResult = await this.egressClient.stopEgress(session.egressId);
           blobUrl = stopResult.blobUrl;
-        } catch (err: any) {
-          const message = err?.message?.toLowerCase?.() ?? "";
+        } catch (err: unknown) {
+          const errorMessage = extractErrorMessage(err);
+          const message = errorMessage.toLowerCase();
           
           if (message.includes("egress_failed") || message.includes("cannot be stopped")) {
             const errorDetails = extractEgressErrorDetails(err);
@@ -430,11 +394,7 @@ export class RecordingSessionApplicationService {
               Object.assign(errorDetails, clusterErrorDetails);
             }
             
-            egressError = errorDetails.error || 
-                        errorDetails.statusDetail || 
-                        errorDetails.errorMessage ||
-                        err.message ||
-                        'Egress failed but error details not available';
+            egressError = extractEgressErrorMessage(errorDetails, err, 'Egress failed but error details not available');
           } else {
             throw err;
           }
@@ -449,8 +409,8 @@ export class RecordingSessionApplicationService {
         const result = await this.handleCompletedSession(session, blobUrl, sasMinutes);
         completed += 1;
         results.push(result);
-      } catch (err: any) {
-        const message = err?.message?.toLowerCase?.() ?? "";
+      } catch (err: unknown) {
+        const message = (err instanceof Error ? err.message : String(err)).toLowerCase();
         const notFound = message.includes("not found") || message.includes("no active egress");
         
         if (notFound) {
@@ -490,7 +450,7 @@ export class RecordingSessionApplicationService {
     }
 
     const blobPath =
-      (session as any).blobPath ?? tryParseBlobPathFromUrl(session.blobUrl) ?? null;
+      session.blobPath ?? tryParseBlobPathFromUrl(session.blobUrl) ?? null;
 
     let blobDeleted = false;
     let blobMissing = false;

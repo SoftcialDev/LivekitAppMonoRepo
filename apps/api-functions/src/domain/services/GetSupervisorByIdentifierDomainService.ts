@@ -7,6 +7,7 @@
 import { GetSupervisorByIdentifierRequest } from "../value-objects/GetSupervisorByIdentifierRequest";
 import { GetSupervisorByIdentifierResponse } from "../value-objects/GetSupervisorByIdentifierResponse";
 import { ISupervisorRepository } from "../interfaces/ISupervisorRepository";
+import { extractErrorMessage } from '../../utils/error';
 
 /**
  * Domain service for supervisor lookup business logic
@@ -54,8 +55,9 @@ export class GetSupervisorByIdentifierDomainService {
         email: result.email,
         fullName: result.fullName
       });
-    } catch (error: any) {
-      return GetSupervisorByIdentifierResponse.withMessage(`Failed to find supervisor: ${error.message}`);
+    } catch (error: unknown) {
+      const errorMessage = extractErrorMessage(error);
+      return GetSupervisorByIdentifierResponse.withMessage(`Failed to find supervisor: ${errorMessage}`);
     }
   }
 }

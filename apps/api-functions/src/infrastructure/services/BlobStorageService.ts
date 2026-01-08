@@ -6,8 +6,13 @@
 import { IBlobStorageService } from '../../index';
 import { ImageUploadRequest } from '../../index';
 import { BlobServiceClient, ContainerClient } from '@azure/storage-blob';
-import { config } from '../../index';
-import { ConfigurationError, BlobStorageUploadError, BlobStorageDownloadError, BlobStorageDeleteError } from '../../index';
+import { config } from '../../config';
+import { ConfigurationError } from '../../index';
+import {
+  wrapBlobStorageUploadError,
+  wrapBlobStorageDownloadError,
+  wrapBlobStorageDeleteError
+} from '../../utils/error';
 
 /**
  * Infrastructure service for blob storage operations
@@ -51,8 +56,8 @@ export class BlobStorageService implements IBlobStorageService {
       });
       
       return blobClient.url;
-    } catch (error: any) {
-      throw new BlobStorageUploadError(`Failed to upload image: ${error.message}`, error instanceof Error ? error : new Error(String(error)));
+    } catch (error: unknown) {
+      throw wrapBlobStorageUploadError('Failed to upload image', error);
     }
   }
 
@@ -73,8 +78,8 @@ export class BlobStorageService implements IBlobStorageService {
       }
       
       return Buffer.concat(chunks);
-    } catch (error: any) {
-      throw new BlobStorageDownloadError(`Failed to download image: ${error.message}`, error instanceof Error ? error : new Error(String(error)));
+    } catch (error: unknown) {
+      throw wrapBlobStorageDownloadError('Failed to download image', error);
     }
   }
 
@@ -89,8 +94,8 @@ export class BlobStorageService implements IBlobStorageService {
       const blobClient = this.containerClient.getBlockBlobClient(blobName);
       const result = await blobClient.deleteIfExists();
       return result.succeeded;
-    } catch (error: any) {
-      throw new BlobStorageDeleteError(`Failed to delete image: ${error.message}`, error instanceof Error ? error : new Error(String(error)));
+    } catch (error: unknown) {
+      throw wrapBlobStorageDeleteError('Failed to delete image', error);
     }
   }
 
@@ -105,8 +110,8 @@ export class BlobStorageService implements IBlobStorageService {
       const blobClient = this.containerClient.getBlockBlobClient(blobPath);
       const result = await blobClient.deleteIfExists();
       return result.succeeded;
-    } catch (error: any) {
-      throw new BlobStorageDeleteError(`Failed to delete recording: ${error.message}`, error instanceof Error ? error : new Error(String(error)));
+    } catch (error: unknown) {
+      throw wrapBlobStorageDeleteError('Failed to delete recording', error);
     }
   }
 }

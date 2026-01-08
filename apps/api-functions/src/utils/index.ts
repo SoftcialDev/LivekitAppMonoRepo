@@ -10,6 +10,7 @@ export * from './dateUtils';
 export * from './error';
 export * from './errorHandler';
 export * from './errorLogDecorator';
+export * from './errorResponseMapper';
 export * from './fileNameUtils';
 export * from './logger';
 export * from './response';

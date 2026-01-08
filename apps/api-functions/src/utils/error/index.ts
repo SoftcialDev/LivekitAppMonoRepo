@@ -4,6 +4,7 @@
  */
 
 export * from './ErrorContextExtractor';
+export * from './ErrorHelpers';
 export * from './ErrorLogger';
 export * from './ErrorResponseBuilder';
 export * from './ErrorTypeClassifier';

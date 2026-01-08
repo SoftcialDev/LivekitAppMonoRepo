@@ -8,7 +8,11 @@ import { ITalkSessionRepository, TalkSession } from '../../index';
 import { TalkStopReason } from '../../index';
 import prisma from '../database/PrismaClientService';
 import { getCentralAmericaTime } from '../../index';
-import { EntityCreationError, EntityUpdateError, DatabaseQueryError } from '../../index';
+import {
+  wrapEntityCreationError,
+  wrapEntityUpdateError,
+  wrapDatabaseQueryError
+} from '../../utils/error';
 
 /**
  * Repository for talk session data access operations
@@ -38,8 +42,8 @@ export class TalkSessionRepository implements ITalkSessionRepository {
       });
 
       return this.mapToTalkSession(session);
-    } catch (error: any) {
-      throw new EntityCreationError(`Failed to create talk session: ${error.message}`, error instanceof Error ? error : new Error(String(error)));
+    } catch (error: unknown) {
+      throw wrapEntityCreationError('Failed to create talk session', error);
     }
   }
 
@@ -61,8 +65,8 @@ export class TalkSessionRepository implements ITalkSessionRepository {
           updatedAt: now
         }
       });
-    } catch (error: any) {
-      throw new EntityUpdateError(`Failed to stop talk session: ${error.message}`, error instanceof Error ? error : new Error(String(error)));
+    } catch (error: unknown) {
+      throw wrapEntityUpdateError('Failed to stop talk session', error);
     }
   }
 
@@ -87,8 +91,8 @@ export class TalkSessionRepository implements ITalkSessionRepository {
       });
 
       return session ? this.mapToTalkSession(session) : null;
-    } catch (error: any) {
-      throw new DatabaseQueryError(`Failed to get active talk session: ${error.message}`, error instanceof Error ? error : new Error(String(error)));
+    } catch (error: unknown) {
+      throw wrapDatabaseQueryError('Failed to get active talk session', error);
     }
   }
 
@@ -110,9 +114,9 @@ export class TalkSessionRepository implements ITalkSessionRepository {
         }
       });
 
-      return sessions.map((s: any) => this.mapToTalkSession(s));
-    } catch (error: any) {
-      throw new DatabaseQueryError(`Failed to get active talk sessions for supervisor: ${error.message}`, error instanceof Error ? error : new Error(String(error)));
+      return sessions.map(s => this.mapToTalkSession(s));
+    } catch (error: unknown) {
+      throw wrapDatabaseQueryError('Failed to get active talk sessions for supervisor', error);
     }
   }
 
@@ -134,9 +138,9 @@ export class TalkSessionRepository implements ITalkSessionRepository {
         }
       });
 
-      return sessions.map((s: any) => this.mapToTalkSession(s));
-    } catch (error: any) {
-      throw new DatabaseQueryError(`Failed to get active talk sessions for PSO: ${error.message}`, error instanceof Error ? error : new Error(String(error)));
+      return sessions.map(s => this.mapToTalkSession(s));
+    } catch (error: unknown) {
+      throw wrapDatabaseQueryError('Failed to get active talk sessions for PSO', error);
     }
   }
 
@@ -214,8 +218,8 @@ export class TalkSessionRepository implements ITalkSessionRepository {
         })),
         total
       };
-    } catch (error: any) {
-      throw new DatabaseQueryError(`Failed to get talk sessions: ${error.message}`, error instanceof Error ? error : new Error(String(error)));
+    } catch (error: unknown) {
+      throw wrapDatabaseQueryError('Failed to get talk sessions', error);
     }
   }
 
@@ -245,8 +249,8 @@ export class TalkSessionRepository implements ITalkSessionRepository {
       return {
         psoEmail: session.pso.email
       };
-    } catch (error: any) {
-      throw new DatabaseQueryError(`Failed to find talk session: ${error.message}`, error instanceof Error ? error : new Error(String(error)));
+    } catch (error: unknown) {
+      throw wrapDatabaseQueryError('Failed to find talk session', error);
     }
   }
 

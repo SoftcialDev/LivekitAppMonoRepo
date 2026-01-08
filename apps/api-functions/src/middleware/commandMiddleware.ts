@@ -4,10 +4,10 @@
  */
 
 import { Context } from '@azure/functions';
-import { unauthorized, badRequest } from '../utils/response';
 import { requireCommandPermission } from './authorization';
 import { requirePSOTarget } from './validation';
 import { extractCallerId } from '../utils/authHelpers';
+import { mapMiddlewareErrorToResponse } from '../utils';
 
 /**
  * Composite middleware for command operations
@@ -26,16 +26,13 @@ export async function validateCommandRequest(ctx: Context, targetEmail: string):
     // 3. Validate target PSO
     await requirePSOTarget()(ctx, targetEmail);
     
-  } catch (error: any) {
-    if (error.message === 'Cannot determine caller identity') {
-      throw unauthorized(ctx, error.message);
+  } catch (error: unknown) {
+    // Map known middleware errors to HTTP responses
+    const handled = mapMiddlewareErrorToResponse(ctx, error);
+    if (handled) {
+      return; // Response already set, exit
     }
-    if (error.message === 'Insufficient privileges') {
-      throw unauthorized(ctx, error.message);
-    }
-    if (error.message === 'Target user not found or not a PSO') {
-      throw badRequest(ctx, error.message);
-    }
+    // Unknown errors are re-thrown for upper-level handling
     throw error;
   }
 }

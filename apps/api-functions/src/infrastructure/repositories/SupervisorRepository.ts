@@ -6,7 +6,7 @@
 import prisma from '../database/PrismaClientService';
 import { ISupervisorRepository } from '../../index';
 import { User } from '../../index';
-import { PsoFetchError, SupervisorFetchError } from '../../index';
+import { wrapPsoFetchError, wrapSupervisorFetchError } from '../../utils/error';
 
 /**
  * Repository for supervisor data access operations
@@ -86,8 +86,8 @@ export class SupervisorRepository implements ISupervisorRepository {
       }
 
       return null;
-    } catch (error: any) {
-      throw new PsoFetchError(`Failed to find PSO by identifier: ${error.message}`, error instanceof Error ? error : new Error(String(error)));
+    } catch (error: unknown) {
+      throw wrapPsoFetchError('Failed to find PSO by identifier', error);
     }
   }
 
@@ -135,8 +135,8 @@ export class SupervisorRepository implements ISupervisorRepository {
       }
 
       return "User not found";
-    } catch (error: any) {
-      throw new SupervisorFetchError(`Failed to find supervisor by identifier: ${error.message}`, error instanceof Error ? error : new Error(String(error)));
+    } catch (error: unknown) {
+      throw wrapSupervisorFetchError('Failed to find supervisor by identifier', error);
     }
   }
 }

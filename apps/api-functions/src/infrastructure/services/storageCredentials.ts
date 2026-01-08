@@ -3,7 +3,7 @@
  * @description Utilities for extracting Azure Storage credentials from connection string or environment variables
  */
 
-import { config } from '../../index';
+import { config } from '../../config';
 import { normalizeBase64Padding } from '../../index';
 import { StorageCredentialsError } from '../../index';
 

@@ -9,7 +9,12 @@ import { IErrorLogRepository, CreateErrorLogData, ErrorLogQueryParams } from '..
 import { ApiErrorLog } from '../../index';
 import { getCentralAmericaTime } from '../../index';
 import { randomUUID } from 'crypto';
-import { EntityCreationError, DatabaseQueryError, EntityDeletionError, EntityUpdateError } from '../../index';
+import {
+  wrapEntityCreationError,
+  wrapDatabaseQueryError,
+  wrapEntityDeletionError,
+  wrapEntityUpdateError
+} from '../../utils/error';
 
 /**
  * Repository for error log data access operations
@@ -45,8 +50,8 @@ export class ErrorLogRepository implements IErrorLogRepository {
       });
 
       return ApiErrorLog.fromPrisma(prismaErrorLog);
-    } catch (error: any) {
-      throw new EntityCreationError(`Failed to create error log: ${error.message}`, error instanceof Error ? error : new Error(String(error)));
+    } catch (error: unknown) {
+      throw wrapEntityCreationError('Failed to create error log', error);
     }
   }
 
@@ -95,9 +100,9 @@ export class ErrorLogRepository implements IErrorLogRepository {
         skip: params?.offset || 0
       });
 
-      return prismaErrorLogs.map((errorLog: any) => ApiErrorLog.fromPrisma(errorLog));
-    } catch (error: any) {
-      throw new DatabaseQueryError(`Failed to find error logs: ${error.message}`, error instanceof Error ? error : new Error(String(error)));
+      return prismaErrorLogs.map((errorLog: unknown) => ApiErrorLog.fromPrisma(errorLog));
+    } catch (error: unknown) {
+      throw wrapDatabaseQueryError('Failed to find error logs', error);
     }
   }
 
@@ -114,8 +119,8 @@ export class ErrorLogRepository implements IErrorLogRepository {
       });
 
       return prismaErrorLog ? ApiErrorLog.fromPrisma(prismaErrorLog) : null;
-    } catch (error: any) {
-      throw new DatabaseQueryError(`Failed to find error log by id: ${error.message}`, error instanceof Error ? error : new Error(String(error)));
+    } catch (error: unknown) {
+      throw wrapDatabaseQueryError('Failed to find error log by id', error);
     }
   }
 
@@ -136,8 +141,8 @@ export class ErrorLogRepository implements IErrorLogRepository {
           resolvedBy
         }
       });
-    } catch (error: any) {
-      throw new EntityUpdateError(`Failed to mark error log as resolved: ${error.message}`, error instanceof Error ? error : new Error(String(error)));
+    } catch (error: unknown) {
+      throw wrapEntityUpdateError('Failed to mark error log as resolved', error);
     }
   }
 
@@ -152,8 +157,8 @@ export class ErrorLogRepository implements IErrorLogRepository {
       await (prisma as any).apiErrorLog.delete({
         where: { id }
       });
-    } catch (error: any) {
-      throw new EntityDeletionError(`Failed to delete error log: ${error.message}`, error instanceof Error ? error : new Error(String(error)));
+    } catch (error: unknown) {
+      throw wrapEntityDeletionError('Failed to delete error log', error);
     }
   }
 
@@ -172,8 +177,8 @@ export class ErrorLogRepository implements IErrorLogRepository {
           }
         }
       });
-    } catch (error: any) {
-      throw new EntityDeletionError(`Failed to delete error logs: ${error.message}`, error instanceof Error ? error : new Error(String(error)));
+    } catch (error: unknown) {
+      throw wrapEntityDeletionError('Failed to delete error logs', error);
     }
   }
 
@@ -185,8 +190,8 @@ export class ErrorLogRepository implements IErrorLogRepository {
   async deleteAll(): Promise<void> {
     try {
       await (prisma as any).apiErrorLog.deleteMany({});
-    } catch (error: any) {
-      throw new EntityDeletionError(`Failed to delete all error logs: ${error.message}`, error instanceof Error ? error : new Error(String(error)));
+    } catch (error: unknown) {
+      throw wrapEntityDeletionError('Failed to delete all error logs', error);
     }
   }
 
@@ -231,8 +236,8 @@ export class ErrorLogRepository implements IErrorLogRepository {
       });
 
       return count;
-    } catch (error: any) {
-      throw new DatabaseQueryError(`Failed to count error logs: ${error.message}`, error instanceof Error ? error : new Error(String(error)));
+    } catch (error: unknown) {
+      throw wrapDatabaseQueryError('Failed to count error logs', error);
     }
   }
 }

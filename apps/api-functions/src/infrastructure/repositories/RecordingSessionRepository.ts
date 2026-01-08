@@ -9,7 +9,12 @@ import { RecordingSession } from '../../index';
 import { RecordingStatus } from '@prisma/client';
 import { getCentralAmericaTime } from '../../index';
 import prisma from '../database/PrismaClientService';
-import { DatabaseQueryError, EntityCreationError, EntityUpdateError, EntityDeletionError } from '../../index';
+import {
+  wrapDatabaseQueryError,
+  wrapEntityCreationError,
+  wrapEntityUpdateError,
+  wrapEntityDeletionError
+} from '../../utils/error';
 
 /**
  * Repository implementation for recording session data access
@@ -35,8 +40,8 @@ export class RecordingSessionRepository implements IRecordingSessionRepository {
       });
 
       return prismaSession ? RecordingSession.fromPrisma(prismaSession) : null;
-    } catch (error: any) {
-      throw new DatabaseQueryError(`Failed to find recording session: ${error.message}`, error instanceof Error ? error : new Error(String(error)));
+    } catch (error: unknown) {
+      throw wrapDatabaseQueryError('Failed to find recording session', error);
     }
   }
 
@@ -62,8 +67,8 @@ export class RecordingSessionRepository implements IRecordingSessionRepository {
       });
 
       return prismaSessions.map(session => RecordingSession.fromPrisma(session));
-    } catch (error: any) {
-      throw new DatabaseQueryError(`Failed to list recording sessions: ${error.message}`, error instanceof Error ? error : new Error(String(error)));
+    } catch (error: unknown) {
+      throw wrapDatabaseQueryError('Failed to list recording sessions', error);
     }
   }
 
@@ -80,8 +85,8 @@ export class RecordingSessionRepository implements IRecordingSessionRepository {
       });
 
       return users;
-    } catch (error: any) {
-      throw new DatabaseQueryError(`Failed to get users by IDs: ${error.message}`, error instanceof Error ? error : new Error(String(error)));
+    } catch (error: unknown) {
+      throw wrapDatabaseQueryError('Failed to get users by IDs', error);
     }
   }
 
@@ -116,8 +121,8 @@ export class RecordingSessionRepository implements IRecordingSessionRepository {
       });
 
       return RecordingSession.fromPrisma(prismaSession);
-    } catch (error: any) {
-      throw new EntityCreationError(`Failed to create recording session: ${error.message}`, error instanceof Error ? error : new Error(String(error)));
+    } catch (error: unknown) {
+      throw wrapEntityCreationError('Failed to create recording session', error);
     }
   }
 
@@ -138,8 +143,8 @@ export class RecordingSessionRepository implements IRecordingSessionRepository {
           blobUrl: blobUrl,
         }
       });
-    } catch (error: any) {
-      throw new EntityUpdateError(`Failed to complete recording session: ${error.message}`, error instanceof Error ? error : new Error(String(error)));
+    } catch (error: unknown) {
+      throw wrapEntityUpdateError('Failed to complete recording session', error);
     }
   }
 
@@ -157,8 +162,8 @@ export class RecordingSessionRepository implements IRecordingSessionRepository {
           stoppedAt: getCentralAmericaTime().toISOString(),
         }
       });
-    } catch (error: any) {
-      throw new EntityUpdateError(`Failed to mark recording session as failed: ${error.message}`, error instanceof Error ? error : new Error(String(error)));
+    } catch (error: unknown) {
+      throw wrapEntityUpdateError('Failed to mark recording session as failed', error);
     }
   }
 
@@ -172,8 +177,8 @@ export class RecordingSessionRepository implements IRecordingSessionRepository {
       await prisma.recordingSession.delete({
         where: { id }
       });
-    } catch (error: any) {
-      throw new EntityDeletionError(`Failed to delete recording session: ${error.message}`, error instanceof Error ? error : new Error(String(error)));
+    } catch (error: unknown) {
+      throw wrapEntityDeletionError('Failed to delete recording session', error);
     }
   }
 
@@ -197,8 +202,8 @@ export class RecordingSessionRepository implements IRecordingSessionRepository {
       });
 
       return prismaSessions.map(session => RecordingSession.fromPrisma(session));
-    } catch (error: any) {
-      throw new DatabaseQueryError(`Failed to find active recordings by room: ${error.message}`, error instanceof Error ? error : new Error(String(error)));
+    } catch (error: unknown) {
+      throw wrapDatabaseQueryError('Failed to find active recordings by room', error);
     }
   }
 
@@ -222,8 +227,8 @@ export class RecordingSessionRepository implements IRecordingSessionRepository {
       });
 
       return prismaSessions.map(session => RecordingSession.fromPrisma(session));
-    } catch (error: any) {
-      throw new DatabaseQueryError(`Failed to find active recordings by subject: ${error.message}`, error instanceof Error ? error : new Error(String(error)));
+    } catch (error: unknown) {
+      throw wrapDatabaseQueryError('Failed to find active recordings by subject', error);
     }
   }
 
@@ -247,8 +252,8 @@ export class RecordingSessionRepository implements IRecordingSessionRepository {
       });
 
       return prismaSessions.map(session => RecordingSession.fromPrisma(session));
-    } catch (error: any) {
-      throw new DatabaseQueryError(`Failed to find active recordings by initiator: ${error.message}`, error instanceof Error ? error : new Error(String(error)));
+    } catch (error: unknown) {
+      throw wrapDatabaseQueryError('Failed to find active recordings by initiator', error);
     }
   }
 }

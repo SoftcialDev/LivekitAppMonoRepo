@@ -4,7 +4,7 @@ import {
   generateBlobSASQueryParameters,
 } from "@azure/storage-blob";
 import { getStorageCredentials } from './storageCredentials';
-import { config } from '../../index';
+import { config } from '../../config';
 import { StorageCredentialsError } from '../../index';
 
 /**

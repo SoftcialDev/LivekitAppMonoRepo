@@ -13,6 +13,7 @@ import { IUserRepository } from "../interfaces/IUserRepository";
 import { LiveKitRecordingService } from '../../index';
 import { Context } from "@azure/functions";
 import { logError } from '../../index';
+import { extractErrorMessage } from '../../utils/error';
 
 /**
  * Domain service for WebSocket connection business logic
@@ -51,18 +52,19 @@ export class WebSocketConnectionDomainService {
 
       try {
         await this.webPubSubService.syncAllUsersWithDatabase();
-      } catch (e: any) {
+      } catch (e: unknown) {
         if (context) {
-          logError(context, e, { operation: 'syncAllUsersWithDatabase', event: 'connection' });
+          logError(context, e instanceof Error ? e : new Error(String(e)), { operation: 'syncAllUsersWithDatabase', event: 'connection' });
         }
       }
 
       return WebSocketEventResponse.success(`User ${request.userId} connected successfully`);
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (context) {
-        logError(context, error, { operation: 'handleConnection', userId: request.userId });
+        logError(context, error instanceof Error ? error : new Error(String(error)), { operation: 'handleConnection', userId: request.userId });
       }
-      return WebSocketEventResponse.error(`Failed to handle connection: ${error.message}`);
+      const errorMessage = extractErrorMessage(error);
+      return WebSocketEventResponse.error(`Failed to handle connection: ${errorMessage}`);
     }
   }
 
@@ -93,9 +95,10 @@ export class WebSocketConnectionDomainService {
             context.log.info(`[WebSocketDisconnection] Stopped ${stopResult.completed}/${stopResult.total} active recording(s) for user ${request.userId}`);
           }
         }
-      } catch (recordingError: any) {
+      } catch (recordingError: unknown) {
         if (context) {
-          context.log.warn(`[WebSocketDisconnection] Failed to stop recording on disconnect: ${recordingError.message}`);
+          const errorMessage = extractErrorMessage(recordingError);
+          context.log.warn(`[WebSocketDisconnection] Failed to stop recording on disconnect: ${errorMessage}`);
         }
       }
 
@@ -106,18 +109,19 @@ export class WebSocketConnectionDomainService {
       // 3. Sync presence
       try {
         await this.webPubSubService.syncAllUsersWithDatabase();
-      } catch (e: any) {
+      } catch (e: unknown) {
         if (context) {
-          logError(context, e, { operation: 'syncAllUsersWithDatabase', event: 'disconnection' });
+          logError(context, e instanceof Error ? e : new Error(String(e)), { operation: 'syncAllUsersWithDatabase', event: 'disconnection' });
         }
       }
       
       return WebSocketEventResponse.success(`User ${request.userId} disconnected successfully`);
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (context) {
-        logError(context, error, { operation: 'handleDisconnection', userId: request.userId });
+        logError(context, error instanceof Error ? error : new Error(String(error)), { operation: 'handleDisconnection', userId: request.userId });
       }
-      return WebSocketEventResponse.error(`Failed to handle disconnection: ${error.message}`);
+      const errorMessage = extractErrorMessage(error);
+      return WebSocketEventResponse.error(`Failed to handle disconnection: ${errorMessage}`);
     }
   }
 }

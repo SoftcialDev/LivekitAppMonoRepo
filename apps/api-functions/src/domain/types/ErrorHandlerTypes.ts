@@ -1,5 +1,12 @@
 /**
- * Configuration options for error handler middleware.
+ * @fileoverview ErrorHandlerTypes - Type definitions for error handler middleware
+ * @summary Type definitions for error handler configuration options
+ * @description Pure data structures for error handler middleware configuration
+ */
+
+/**
+ * Configuration options for error handler middleware
+ * @description Defines options for customizing error handler behavior
  */
 export interface ErrorHandlerOptions {
   /**

@@ -11,6 +11,7 @@ import { promisify } from "util";
 import { join } from "path";
 import { existsSync, mkdirSync, cpSync } from "fs";
 import { withErrorHandler, withAuth, ok, badRequest, config, seedDefaultSnapshotReasons, seedDefaultRolesAndPermissions, ServiceContainer, IErrorLogService, ErrorSource, ErrorSeverity, ApplicationServiceOperationError } from '../../index';
+import { extractErrorMessage, extractErrorProperty } from '../../utils/error';
 
 const execAsync = promisify(exec);
 
@@ -19,7 +20,9 @@ const MIGRATION_TIMEOUT_MS = 300000;
 /**
  * Gets the absolute path to the schema.prisma file
  * @description Attempts multiple path resolution strategies to handle different
- * deployment contexts (local, Azure Functions, etc.)
+ * deployment contexts (local development, Azure Functions, etc.). Tries paths
+ * relative to current directory, process working directory, and falls back to
+ * a default path if none are found.
  * @returns Absolute path to schema.prisma file
  */
 function getPrismaSchemaPath(): string {
@@ -110,9 +113,11 @@ const runMigrationsHandler: AzureFunction = withErrorHandler(
           stdout = result.stdout || '';
           stderr = result.stderr || '';
           migrationSucceeded = true;
-        } catch (firstAttemptError: any) {
-          const errorMessage = firstAttemptError.message || '';
-          const errorOutput = (firstAttemptError.stdout || '') + (firstAttemptError.stderr || '');
+        } catch (firstAttemptError: unknown) {
+          const errorMessage = extractErrorMessage(firstAttemptError);
+          const errorStdout = String(extractErrorProperty(firstAttemptError, 'stdout') || '');
+          const errorStderr = String(extractErrorProperty(firstAttemptError, 'stderr') || '');
+          const errorOutput = errorStdout + errorStderr;
           
           const requiresDataLoss = 
             errorMessage.includes('without a default value') ||
@@ -218,8 +223,9 @@ export default runMigrationsHandler;
  * Prepares a writable Prisma runtime environment in `/tmp/prisma-runtime`
  * @description Copies Prisma CLI and `@prisma` packages from read-only deployment
  * directory to a writable temporary directory. This allows executing migrations
- * in Azure Functions where the deployment directory is read-only.
- * @returns Object containing migration command and working directory path
+ * in Azure Functions where the deployment directory is read-only. Creates necessary
+ * directories and copies Prisma binaries if they don't already exist in the runtime location.
+ * @returns Object containing migration command (with schema path) and working directory path
  */
 function preparePrismaRuntime(): { migrationCommand: string; workingDir: string } {
   const runtimeRoot = "/tmp/prisma-runtime";

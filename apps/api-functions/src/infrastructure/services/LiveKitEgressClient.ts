@@ -14,7 +14,7 @@ import {
   EncodingOptions,
   type RoomCompositeOptions,
 } from "livekit-server-sdk";
-import { config } from '../../index';
+import { config } from '../../config';
 import { slugify, datePrefixUTC } from '../../index';
 import { getValidatedStorageCredentials } from './recordingCredentialValidator';
 import { ILiveKitEgressClient, type EgressStartResult, type EgressStopResult } from '../../index';

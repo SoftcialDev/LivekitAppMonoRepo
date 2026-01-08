@@ -9,6 +9,7 @@ export * from './CommandAcknowledgmentStatus';
 export * from './CommandType';
 export * from './ErrorSeverity';
 export * from './ErrorSource';
+export * from './ErrorType';
 export * from './FormType';
 export * from './HealthStatus';
 export * from './MessagingChannel';

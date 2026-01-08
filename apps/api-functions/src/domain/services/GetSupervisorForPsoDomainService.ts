@@ -9,6 +9,7 @@ import { GetSupervisorForPsoResponse } from "../value-objects/GetSupervisorForPs
 import { ISupervisorRepository } from "../interfaces/ISupervisorRepository";
 import { ApplicationError } from "../errors/DomainError";
 import { ApplicationErrorCode } from "../errors/ErrorCodes";
+import { extractErrorMessage } from '../../utils/error';
 
 /**
  * Domain service for supervisor lookup business logic
@@ -60,8 +61,9 @@ export class GetSupervisorForPsoDomainService {
         email: supervisor.email,
         fullName: supervisor.fullName,
       });
-    } catch (error: any) {
-      throw new ApplicationError(`Failed to get supervisor: ${error.message}`, ApplicationErrorCode.OPERATION_FAILED);
+    } catch (error: unknown) {
+      const errorMessage = extractErrorMessage(error);
+      throw new ApplicationError(`Failed to get supervisor: ${errorMessage}`, ApplicationErrorCode.OPERATION_FAILED);
     }
   }
 }

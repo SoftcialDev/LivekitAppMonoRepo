@@ -5,7 +5,8 @@
 
 import axios from "axios";
 import qs from "qs";
-import { config } from '../../index';
+import { config } from '../../config';
+import { extractAxiosErrorMessage } from '../../utils/error';
 import { IGraphService } from '../../index';
 import { ConfigurationError, GraphServiceError } from '../../index';
 
@@ -60,14 +61,10 @@ export class GraphService implements IGraphService {
       }
       
       return accessToken as string;
-    } catch (err: any) {
-      if (err.response) {
-        throw new GraphServiceError(
-          `Failed to acquire Graph token: HTTP ${err.response.status} - ${JSON.stringify(err.response.data)}`,
-          err instanceof Error ? err : new Error(String(err))
-        );
-      }
-      throw new GraphServiceError(`Failed to acquire Graph token: ${err.message}`, err instanceof Error ? err : new Error(String(err)));
+    } catch (err: unknown) {
+      const errorMessage = extractAxiosErrorMessage(err);
+      const errorCause = err instanceof Error ? err : new Error(String(err));
+      throw new GraphServiceError(`Failed to acquire Graph token: ${errorMessage}`, errorCause);
     }
   }
 
@@ -126,11 +123,10 @@ export class GraphService implements IGraphService {
           await axios.delete(delUrl, { 
             headers: { Authorization: `Bearer ${token}` } 
           });
-        } catch (err: any) {
-          const detail = err?.response
-            ? `HTTP ${err.response.status} - ${JSON.stringify(err.response.data)}`
-            : err?.message;
-          throw new GraphServiceError(`Failed to delete appRoleAssignedTo ${a.id}: ${detail}`, err instanceof Error ? err : new Error(String(err)));
+        } catch (err: unknown) {
+          const errorMessage = extractAxiosErrorMessage(err);
+          const errorCause = err instanceof Error ? err : new Error(String(err));
+          throw new GraphServiceError(`Failed to delete appRoleAssignedTo ${a.id}: ${errorMessage}`, errorCause);
         }
       }
 
@@ -164,14 +160,10 @@ export class GraphService implements IGraphService {
           users.push(...data.value);
         }
         url = data["@odata.nextLink"] || "";
-      } catch (err: any) {
-        if (err.response) {
-          throw new GraphServiceError(
-            `Error fetching users: HTTP ${err.response.status} - ${JSON.stringify(err.response.data)}`,
-            err instanceof Error ? err : new Error(String(err))
-          );
-        }
-        throw new GraphServiceError(`Error fetching users: ${err.message}`, err instanceof Error ? err : new Error(String(err)));
+      } catch (err: unknown) {
+        const errorMessage = extractAxiosErrorMessage(err);
+        const errorCause = err instanceof Error ? err : new Error(String(err));
+        throw new GraphServiceError(`Error fetching users: ${errorMessage}`, errorCause);
       }
     }
     

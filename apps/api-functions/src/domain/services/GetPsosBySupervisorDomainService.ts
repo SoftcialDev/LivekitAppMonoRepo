@@ -9,6 +9,7 @@ import { GetPsosBySupervisorResponse } from "../value-objects/GetPsosBySuperviso
 import { IUserRepository } from "../interfaces/IUserRepository";
 import { ApplicationError } from "../errors/DomainError";
 import { ApplicationErrorCode } from "../errors/ErrorCodes";
+import { extractErrorMessage } from '../../utils/error';
 
 /**
  * Domain service for PSOs lookup business logic
@@ -34,8 +35,9 @@ export class GetPsosBySupervisorDomainService {
     try {
       const psos = await this.userRepository.getPsosBySupervisor(request.supervisorId);
       return GetPsosBySupervisorResponse.withPsos(psos);
-    } catch (error: any) {
-      throw new ApplicationError(`Failed to get PSOs: ${error.message}`, ApplicationErrorCode.OPERATION_FAILED);
+    } catch (error: unknown) {
+      const errorMessage = extractErrorMessage(error);
+      throw new ApplicationError(`Failed to get PSOs: ${errorMessage}`, ApplicationErrorCode.OPERATION_FAILED);
     }
   }
 }

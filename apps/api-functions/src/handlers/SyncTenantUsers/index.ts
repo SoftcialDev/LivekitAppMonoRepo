@@ -5,6 +5,7 @@ import { ok, badRequest } from '../../index';
 import { GraphService } from '../../index';
 import { prisma } from '../../index';
 import { getCentralAmericaTime } from '../../index';
+import { extractErrorMessage } from '../../utils/error';
 
 
 function normalizeEmail(email: string): string {
@@ -98,8 +99,9 @@ async function syncTenantUsersHandler(ctx: Context, req: HttpRequest): Promise<v
             createdCount++;
             ctx.log.info(`[SyncTenantUsers] Created user: ${normalizedEmail}`);
           }
-        } catch (userError: any) {
-          ctx.log.error(`[SyncTenantUsers] Error processing user ${graphUser.id}:`, userError);
+        } catch (userError: unknown) {
+          const errorMessage = extractErrorMessage(userError);
+          ctx.log.error(`[SyncTenantUsers] Error processing user ${graphUser.id}:`, userError instanceof Error ? userError : new Error(errorMessage));
           skippedCount++;
         }
       }
@@ -118,8 +120,8 @@ async function syncTenantUsersHandler(ctx: Context, req: HttpRequest): Promise<v
         timestamp: new Date().toISOString()
       });
 
-    } catch (error: any) {
-      ctx.log.error("[SyncTenantUsers] Sync failed:", error);
+    } catch (error: unknown) {
+      ctx.log.error("[SyncTenantUsers] Sync failed:", error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   });

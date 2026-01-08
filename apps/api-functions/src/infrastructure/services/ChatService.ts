@@ -10,8 +10,9 @@ import { TokenCredentialAuthenticationProvider } from '@microsoft/microsoft-grap
 import { getCentralAmericaTime } from '../../index';
 import prisma from '../database/PrismaClientService';
 import { UserRole } from '../../index';
-import { config } from '../../index';
-import { ChatServiceError, ChatNoParticipantsError, ChatInvalidParticipantsError } from '../../index';
+import { config } from '../../config';
+import { ChatNoParticipantsError, ChatInvalidParticipantsError } from '../../index';
+import { wrapChatServiceError } from '../../utils/error';
 
 export class ChatService implements IChatService {
   private tenantId = config.azureTenantId;
@@ -53,8 +54,8 @@ export class ChatService implements IChatService {
       const chatId = await this.createGraphChat(token, graphParticipants, topic);
       await this.ensureChatRecordAndMembers(chatId, topic, graphParticipants);
       return chatId;
-    } catch (error: any) {
-      throw new ChatServiceError(`Failed to get or sync chat: ${error.message}`, error instanceof Error ? error : new Error(String(error)));
+    } catch (error: unknown) {
+      throw wrapChatServiceError('Failed to get or sync chat', error);
     }
   }
 
@@ -321,8 +322,8 @@ export class ChatService implements IChatService {
       };
 
       await graph.api(`/chats/${chatId}/messages`).post(messagePayload);
-    } catch (error: any) {
-      throw new ChatServiceError(`Failed to send message: ${error.message}`, error instanceof Error ? error : new Error(String(error)));
+    } catch (error: unknown) {
+      throw wrapChatServiceError('Failed to send message', error);
     }
   }
 
@@ -468,8 +469,8 @@ export class ChatService implements IChatService {
 
       await this.syncChatMembersWithClient(graph, graphChat.id, participants);
       return graphChat.id;
-    } catch (error: any) {
-      throw error;
+    } catch (error: unknown) {
+      throw wrapChatServiceError('Failed to create Graph chat', error);
     }
   }
 

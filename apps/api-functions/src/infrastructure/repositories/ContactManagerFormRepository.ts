@@ -1,23 +1,25 @@
 /**
  * @fileoverview ContactManagerFormRepository - Repository for contact manager form data access
- * @description Implements data access operations for contact manager forms using Prisma
+ * @summary Implements data access operations for contact manager forms using Prisma
+ * @description Provides Prisma-based implementation of contact manager form repository operations
  */
 
 import { IContactManagerFormRepository, ContactManagerFormData, ContactManagerForm, FormType } from '../../index';
 import prisma from '../database/PrismaClientService';
 import { getCentralAmericaTime } from '../../index';
-import { EntityCreationError, DatabaseQueryError } from '../../index';
 import { Prisma, FormType as PrismaFormType } from '@prisma/client';
+import { wrapEntityCreationError, wrapDatabaseQueryError } from '../../utils/error';
 
 /**
  * Repository for contact manager form data access operations
+ * @description Implements IContactManagerFormRepository using Prisma for database operations
  */
 export class ContactManagerFormRepository implements IContactManagerFormRepository {
   /**
    * Creates a new contact manager form
    * @param formData - Form data to create
    * @returns Promise that resolves to created form ID
-   * @throws Error if creation fails
+   * @throws EntityCreationError if creation fails
    */
   async createForm(formData: ContactManagerFormData): Promise<string> {
     try {
@@ -35,8 +37,8 @@ export class ContactManagerFormRepository implements IContactManagerFormReposito
       });
 
       return record.id;
-    } catch (error: any) {
-      throw new EntityCreationError(`Failed to create contact manager form: ${error.message}`, error instanceof Error ? error : new Error(String(error)));
+    } catch (error: unknown) {
+      throw wrapEntityCreationError('Failed to create contact manager form', error);
     }
   }
 
@@ -44,7 +46,7 @@ export class ContactManagerFormRepository implements IContactManagerFormReposito
    * Finds a form by ID
    * @param formId - ID of the form to find
    * @returns Promise that resolves to form data or null if not found
-   * @throws Error if query fails
+   * @throws DatabaseQueryError if query fails
    */
   async findById(formId: string): Promise<ContactManagerForm | null> {
     try {
@@ -53,8 +55,8 @@ export class ContactManagerFormRepository implements IContactManagerFormReposito
       });
 
       return form ? this.mapToContactManagerForm(form) : null;
-    } catch (error: any) {
-      throw new DatabaseQueryError(`Failed to find contact manager form: ${error.message}`, error instanceof Error ? error : new Error(String(error)));
+    } catch (error: unknown) {
+      throw wrapDatabaseQueryError('Failed to find contact manager form', error);
     }
   }
 

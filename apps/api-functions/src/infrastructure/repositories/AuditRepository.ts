@@ -8,7 +8,10 @@ import prisma from '../database/PrismaClientService';
 import { IAuditRepository } from '../../index';
 import { AuditLog } from '../../index';
 import { getCentralAmericaTime } from '../../index';
-import { EntityCreationError, DatabaseQueryError } from '../../index';
+import {
+  wrapEntityCreationError,
+  wrapDatabaseQueryError
+} from '../../utils/error';
 
 /**
  * Repository for audit data access operations
@@ -36,8 +39,8 @@ export class AuditRepository implements IAuditRepository {
       });
 
       return AuditLog.fromPrisma(prismaAuditLog);
-    } catch (error: any) {
-      throw new EntityCreationError(`Failed to create audit log: ${error.message}`, error instanceof Error ? error : new Error(String(error)));
+    } catch (error: unknown) {
+      throw wrapEntityCreationError('Failed to create audit log', error);
     }
   }
 
@@ -60,8 +63,8 @@ export class AuditRepository implements IAuditRepository {
       });
 
       return prismaAuditLogs.map(auditLog => AuditLog.fromPrisma(auditLog));
-    } catch (error: any) {
-      throw new DatabaseQueryError(`Failed to find audit logs by entity: ${error.message}`, error instanceof Error ? error : new Error(String(error)));
+    } catch (error: unknown) {
+      throw wrapDatabaseQueryError('Failed to find audit logs by entity', error);
     }
   }
 
@@ -82,8 +85,8 @@ export class AuditRepository implements IAuditRepository {
       });
 
       return prismaAuditLogs.map(auditLog => AuditLog.fromPrisma(auditLog));
-    } catch (error: any) {
-      throw new DatabaseQueryError(`Failed to find audit logs by user: ${error.message}`, error instanceof Error ? error : new Error(String(error)));
+    } catch (error: unknown) {
+      throw wrapDatabaseQueryError('Failed to find audit logs by user', error);
     }
   }
 
@@ -108,8 +111,8 @@ export class AuditRepository implements IAuditRepository {
       });
 
       return prismaAuditLogs.map(auditLog => AuditLog.fromPrisma(auditLog));
-    } catch (error: any) {
-      throw new DatabaseQueryError(`Failed to find audit logs by date range: ${error.message}`, error instanceof Error ? error : new Error(String(error)));
+    } catch (error: unknown) {
+      throw wrapDatabaseQueryError('Failed to find audit logs by date range', error);
     }
   }
 }

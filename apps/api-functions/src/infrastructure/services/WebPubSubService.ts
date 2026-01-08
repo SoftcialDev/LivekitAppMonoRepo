@@ -7,10 +7,15 @@
 import { WebPubSubServiceClient } from "@azure/web-pubsub";
 import { AzureKeyCredential } from "@azure/core-auth";
 import { IWebPubSubService } from '../../index';
-import { config } from '../../index';
+import { config } from '../../config';
 import { getCentralAmericaTime } from '../../index';
 import prisma from "../database/PrismaClientService";
-import { WebPubSubTokenError, WebPubSubBroadcastError, WebPubSubSyncError } from '../../index';
+import {
+  wrapWebPubSubTokenError,
+  wrapWebPubSubBroadcastError,
+  wrapWebPubSubSyncError,
+  extractErrorDetails
+} from '../../utils/error';
 
 /**
  * Infrastructure implementation of WebPubSub service
@@ -55,8 +60,8 @@ export class WebPubSubService implements IWebPubSubService {
       });
 
       return tokenResponse.token;
-    } catch (error: any) {
-      throw new WebPubSubTokenError(`Failed to generate WebPubSub token: ${error.message}`, error instanceof Error ? error : new Error(String(error)));
+    } catch (error: unknown) {
+      throw wrapWebPubSubTokenError('Failed to generate WebPubSub token', error);
     }
   }
 
@@ -85,8 +90,8 @@ export class WebPubSubService implements IWebPubSubService {
     try {
       const event = { type: "presence", user: payload };
       await this.client.group("presence").sendToAll(JSON.stringify(event));
-    } catch (error: any) {
-      throw new WebPubSubBroadcastError(`Failed to broadcast presence: ${error.message}`, error instanceof Error ? error : new Error(String(error)));
+    } catch (error: unknown) {
+      throw wrapWebPubSubBroadcastError('Failed to broadcast presence', error);
     }
   }
 
@@ -105,14 +110,17 @@ export class WebPubSubService implements IWebPubSubService {
   async broadcastMessage(group: string, message: any): Promise<void> {
     try {
       await this.client.group(group).sendToAll(JSON.stringify(message));
-    } catch (error: any) {
-      throw new WebPubSubBroadcastError(`Failed to broadcast message to group '${group}': ${error.message}`, error instanceof Error ? error : new Error(String(error)));
+    } catch (error: unknown) {
+      throw wrapWebPubSubBroadcastError(`Failed to broadcast message to group '${group}'`, error);
     }
   }
 
   /**
    * Lists all groups and users in the WebPubSub hub
+   * @description Iterates through known groups (presence, livekit_agent_azure_pubsub, notifications, streaming)
+   * and lists connections in each group
    * @returns Promise that resolves when listing is complete
+   * @throws Error if listing operation fails
    */
   async listAllGroupsAndUsers(): Promise<void> {
     try {
@@ -133,7 +141,7 @@ export class WebPubSubService implements IWebPubSubService {
           // Group doesn't exist or error - this is normal
         }
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw error;
     }
   }
@@ -141,7 +149,8 @@ export class WebPubSubService implements IWebPubSubService {
   /**
    * Lists connections in a specific group
    * @param groupName - Name of the group to list connections for
-   * @returns Promise that resolves to array of connections
+   * @returns Promise that resolves to array of connections with connectionId and userId
+   * @throws Error if listing connections fails
    */
   public async listConnectionsInGroup(groupName: string): Promise<Array<{connectionId: string, userId?: string}>> {
     try {
@@ -158,14 +167,15 @@ export class WebPubSubService implements IWebPubSubService {
       }
       
       return result;
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw error;
     }
   }
 
   /**
    * Gets the list of active users connected to the 'presence' group
-   * @returns Promise that resolves to array of active users
+   * @returns Promise that resolves to array of active users with userId and userRoles
+   * @throws WebPubSubSyncError if retrieving active users fails
    */
   async getActiveUsersInPresenceGroup(): Promise<Array<{ userId: string; userRoles: string[] }>> {
     try {
@@ -182,14 +192,17 @@ export class WebPubSubService implements IWebPubSubService {
       }
       
       return activeUsers;
-    } catch (error: any) {
-      throw new WebPubSubSyncError(`Failed to get active users in presence group: ${error.message}`, error instanceof Error ? error : new Error(String(error)));
+    } catch (error: unknown) {
+      throw wrapWebPubSubSyncError('Failed to get active users in presence group', error);
     }
   }
 
   /**
    * Syncs all users between Web PubSub and Database
-   * @returns Promise that resolves to sync results
+   * @description Compares users in WebPubSub presence group with database presence records
+   * and corrects discrepancies (marks users online/offline as needed)
+   * @returns Promise that resolves to sync results with corrected count, warnings, and errors
+   * @throws WebPubSubSyncError if sync operation fails
    */
   async syncAllUsersWithDatabase(): Promise<{
     corrected: number;
@@ -238,8 +251,9 @@ export class WebPubSubService implements IWebPubSubService {
               action: 'mark_online',
               reason: 'Connected in WebPubSub but offline in DB'
             });
-          } catch (error: any) {
-            errors.push(`Failed to mark ${user.email} online: ${error.message}`);
+          } catch (error: unknown) {
+            const { message } = extractErrorDetails(error);
+            errors.push(`Failed to mark ${user.email} online: ${message}`);
           }
         } else if (!isInWebPubSub && isOnlineInDb) {
           // User online in DB but not in WebPubSub → Mark offline
@@ -254,8 +268,9 @@ export class WebPubSubService implements IWebPubSubService {
               action: 'mark_offline',
               reason: 'Not in WebPubSub but online in DB'
             });
-          } catch (error: any) {
-            errors.push(`Failed to mark ${user.email} offline: ${error.message}`);
+          } catch (error: unknown) {
+            const { message } = extractErrorDetails(error);
+            errors.push(`Failed to mark ${user.email} offline: ${message}`);
           }
         }
       }
@@ -265,14 +280,17 @@ export class WebPubSubService implements IWebPubSubService {
         warnings,
         errors
       };
-    } catch (error: any) {
-      throw new WebPubSubSyncError(`Failed to sync users with database: ${error.message}`, error instanceof Error ? error : new Error(String(error)));
+    } catch (error: unknown) {
+      throw wrapWebPubSubSyncError('Failed to sync users with database', error);
     }
   }
 
   /**
    * Debug function to test sync functionality
-   * @returns Promise that resolves to sync results with detailed logging
+   * @description Executes sync operation and returns detailed debug information
+   * including WebPubSub users and database users for comparison
+   * @returns Promise that resolves to sync results with detailed logging information
+   * @throws Error if debug sync operation fails
    */
   async debugSync(): Promise<{
     corrected: number;
@@ -312,13 +330,22 @@ export class WebPubSubService implements IWebPubSubService {
         webPubSubUsers,
         dbUsers: dbUsersDebug
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw error;
     }
   }
 
   /**
-   * Broadcasts supervisor list changes (add/remove) to the presence group.
+   * Broadcasts supervisor list changes (add/remove) to the presence group
+   * @param payload - The supervisor list change data
+   * @returns Promise that resolves when the broadcast is complete
+   * @throws WebPubSubBroadcastError when broadcast fails
+   * @example
+   * await webPubSubService.broadcastSupervisorListChanged({
+   *   email: 'supervisor@example.com',
+   *   fullName: 'John Supervisor',
+   *   action: 'added'
+   * });
    */
   async broadcastSupervisorListChanged(payload: {
     email: string;
@@ -333,8 +360,8 @@ export class WebPubSubService implements IWebPubSubService {
         timestamp: getCentralAmericaTime().toISOString(),
       };
       await this.client.group('presence').sendToAll(JSON.stringify(message));
-    } catch (error: any) {
-      throw new WebPubSubBroadcastError(`Failed to broadcast supervisor list change: ${error.message}`, error instanceof Error ? error : new Error(String(error)));
+    } catch (error: unknown) {
+      throw wrapWebPubSubBroadcastError('Failed to broadcast supervisor list change', error);
     }
   }
 
@@ -342,7 +369,13 @@ export class WebPubSubService implements IWebPubSubService {
    * Broadcasts supervisor change notifications to all users in the presence group
    * @param payload - The supervisor change notification data
    * @returns Promise that resolves when the broadcast is complete
-   * @throws Error when broadcast fails
+   * @throws WebPubSubBroadcastError when broadcast fails
+   * @example
+   * await webPubSubService.broadcastSupervisorChangeNotification({
+   *   psoEmails: ['pso1@example.com', 'pso2@example.com'],
+   *   newSupervisorEmail: 'supervisor@example.com',
+   *   newSupervisorName: 'John Supervisor',
+   *   psoNames: ['PSO One', 'PSO Two']
    * });
    */
   async broadcastSupervisorChangeNotification(payload: {
@@ -361,19 +394,21 @@ export class WebPubSubService implements IWebPubSubService {
       };
       
       await this.client.group("presence").sendToAll(JSON.stringify(event));
-    } catch (error: any) {
-      throw new WebPubSubBroadcastError(`Failed to broadcast supervisor change notification: ${error.message}`, error instanceof Error ? error : new Error(String(error)));
+    } catch (error: unknown) {
+      throw wrapWebPubSubBroadcastError('Failed to broadcast supervisor change notification', error);
     }
   }
 
   /**
    * Logs active users in the presence group and compares with database
+   * @description Retrieves and logs active users from WebPubSub presence group
    * @returns Promise that resolves when logging is complete
+   * @throws Error if logging operation fails
    */
   async logActiveUsersInPresenceGroup(): Promise<void> {
     try {
       await this.getActiveUsersInPresenceGroup();
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw error;
     }
   }

@@ -13,6 +13,7 @@ import { ContactManagerFormResult } from '../value-objects/ContactManagerFormRes
 import { ImageUploadRequest } from '../value-objects/ImageUploadRequest';
 import { FormType } from '../enums/FormType';
 import { ContactManagerFormProcessingError } from '../errors/ContactManagerErrors';
+import { extractErrorCause, extractErrorMessage } from '../../utils/error';
 
 /**
  * Domain service for contact manager form operations
@@ -60,8 +61,10 @@ export class ContactManagerFormService implements IContactManagerFormService {
       void this.sendNotificationAsync(request, imageUrl, senderName, senderEmail, senderId, formId);
 
       return ContactManagerFormResult.fromFormCreation(formId, true, imageUrl);
-    } catch (error: any) {
-      throw new ContactManagerFormProcessingError(`Failed to process contact manager form: ${error.message}`, error);
+    } catch (error: unknown) {
+      const errorMessage = extractErrorMessage(error);
+      const errorCause = extractErrorCause(error);
+      throw new ContactManagerFormProcessingError(`Failed to process contact manager form: ${errorMessage}`, errorCause);
     }
   }
 

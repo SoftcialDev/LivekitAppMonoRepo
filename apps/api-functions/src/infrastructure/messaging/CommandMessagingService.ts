@@ -9,7 +9,7 @@ import { Command } from '../../index';
 import { MessagingResult } from '../../index';
 import { MessagingChannel } from '../../index';
 import { ICommandMessagingService } from '../../index';
-import { config } from '../../index';
+import { config } from '../../config';
 
 /**
  * Service for sending commands with WebSocket primary and Service Bus fallback

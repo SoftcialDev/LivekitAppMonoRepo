@@ -87,7 +87,7 @@ import { WebPubSubTokenDomainService } from '../../index';
 import { WebPubSubTokenApplicationService } from '../../index';
 import { IWebPubSubService } from '../../index';
 import { WebPubSubService } from '../services/WebPubSubService';
-import { config } from '../../index';
+import { config } from '../../config';
 import { TransferPsosDomainService } from '../../index';
 import { TransferPsosApplicationService } from '../../index';
 import { SendSnapshotDomainService } from '../../index';

@@ -74,7 +74,7 @@ export class PresenceDomainService {
 
       // 4. Broadcast change
       await this.broadcastPresenceChange(user, Status.Offline, now, context);
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw error;
     }
   }
@@ -181,7 +181,7 @@ export class PresenceDomainService {
     
     try {
       await this.webPubSubService.broadcastPresence(broadcast);
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw error;
     }
   }

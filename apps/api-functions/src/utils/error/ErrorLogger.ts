@@ -7,7 +7,7 @@
 import { IErrorLogService } from '../../index';
 import { ErrorSource } from '../../index';
 import { ErrorContext } from "./ErrorContextExtractor";
-import { ErrorClassification } from "./ErrorTypeClassifier";
+import { ErrorClassification } from '../../domain/types/ErrorTypes';
 import { AuthError, ValidationError, MessagingError } from '../../index';
 
 /**

@@ -38,3 +38,62 @@ export interface EgressStopResult {
   blobUrl?: string;
 }
 
+/**
+ * Egress error details extracted from EgressInfo or error object
+ * @description Type definition for LiveKit Egress error details
+ */
+export interface EgressErrorDetails {
+  /**
+   * Egress status
+   */
+  status?: string;
+  /**
+   * Status detail message
+   */
+  statusDetail?: string;
+  /**
+   * Error message
+   */
+  error?: string;
+  /**
+   * Error message (alternative field)
+   */
+  errorMessage?: string;
+  /**
+   * Room name
+   */
+  roomName?: string;
+  /**
+   * Room ID
+   */
+  roomId?: string;
+  /**
+   * Start timestamp
+   */
+  startedAt?: string | number;
+  /**
+   * End timestamp
+   */
+  endedAt?: string | number;
+  /**
+   * Duration in milliseconds
+   */
+  duration?: number;
+  /**
+   * Source type
+   */
+  sourceType?: string;
+  /**
+   * File results
+   */
+  fileResults?: unknown;
+  /**
+   * Stream results
+   */
+  streamResults?: unknown;
+  /**
+   * Segment results
+   */
+  segmentResults?: unknown;
+}
+

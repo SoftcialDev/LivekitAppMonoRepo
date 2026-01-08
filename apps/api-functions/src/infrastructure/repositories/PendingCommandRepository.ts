@@ -6,7 +6,12 @@
 import { IPendingCommandRepository } from '../../index';
 import prisma from '../database/PrismaClientService';
 import { getCentralAmericaTime } from '../../index';
-import { EntityUpdateError, DatabaseQueryError, EntityDeletionError, EntityCreationError } from '../../index';
+import {
+  wrapEntityUpdateError,
+  wrapDatabaseQueryError,
+  wrapEntityDeletionError,
+  wrapEntityCreationError
+} from '../../utils/error';
 
 /**
  * Repository for pending command data access operations
@@ -31,8 +36,8 @@ export class PendingCommandRepository implements IPendingCommandRepository {
       });
 
       return result.count;
-    } catch (error: any) {
-      throw new EntityUpdateError(`Failed to mark commands as acknowledged: ${error.message}`, error instanceof Error ? error : new Error(String(error)));
+    } catch (error: unknown) {
+      throw wrapEntityUpdateError('Failed to mark commands as acknowledged', error);
     }
   }
 
@@ -51,9 +56,9 @@ export class PendingCommandRepository implements IPendingCommandRepository {
         select: { id: true }
       });
 
-      return commands.map((command: any) => command.id);
-    } catch (error: any) {
-      throw new DatabaseQueryError(`Failed to find commands by IDs: ${error.message}`, error instanceof Error ? error : new Error(String(error)));
+      return commands.map(command => command.id);
+    } catch (error: unknown) {
+      throw wrapDatabaseQueryError('Failed to find commands by IDs', error);
     }
   }
 
@@ -88,8 +93,8 @@ export class PendingCommandRepository implements IPendingCommandRepository {
         timestamp: cmd.timestamp,
         acknowledged: cmd.acknowledged
       }));
-    } catch (error: any) {
-      throw new DatabaseQueryError(`Failed to get pending commands for PSO: ${error.message}`, error instanceof Error ? error : new Error(String(error)));
+    } catch (error: unknown) {
+      throw wrapDatabaseQueryError('Failed to get pending commands for PSO', error);
     }
   }
 
@@ -104,8 +109,8 @@ export class PendingCommandRepository implements IPendingCommandRepository {
       await prisma.pendingCommand.deleteMany({
         where: { employeeId: psoId }
       });
-    } catch (error: any) {
-      throw new EntityDeletionError(`Failed to delete pending commands for PSO: ${error.message}`, error instanceof Error ? error : new Error(String(error)));
+    } catch (error: unknown) {
+      throw wrapEntityDeletionError('Failed to delete pending commands for PSO', error);
     }
   }
 
@@ -138,8 +143,8 @@ export class PendingCommandRepository implements IPendingCommandRepository {
         timestamp: pendingCommand.timestamp,
         reason: pendingCommand.reason || undefined
       };
-    } catch (error: any) {
-      throw new EntityCreationError(`Failed to create pending command: ${error.message}`, error instanceof Error ? error : new Error(String(error)));
+    } catch (error: unknown) {
+      throw wrapEntityCreationError('Failed to create pending command', error);
     }
   }
 
@@ -159,8 +164,8 @@ export class PendingCommandRepository implements IPendingCommandRepository {
           attemptCount: { increment: 1 }
         }
       });
-    } catch (error: any) {
-      throw new EntityUpdateError(`Failed to mark command as published: ${error.message}`, error instanceof Error ? error : new Error(String(error)));
+    } catch (error: unknown) {
+      throw wrapEntityUpdateError('Failed to mark command as published', error);
     }
   }
 }

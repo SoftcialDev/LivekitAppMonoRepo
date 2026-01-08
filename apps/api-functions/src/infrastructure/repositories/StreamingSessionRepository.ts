@@ -8,7 +8,12 @@ import { IStreamingSessionRepository } from '../../index';
 import { StreamingSessionHistory } from '../../index';
 import prisma from '../database/PrismaClientService';
 import { getCentralAmericaTime } from '../../index';
-import { StreamingSessionFetchError, EntityCreationError, EntityUpdateError, DatabaseQueryError } from '../../index';
+import {
+  wrapStreamingSessionFetchError,
+  wrapEntityCreationError,
+  wrapEntityUpdateError,
+  wrapDatabaseQueryError
+} from '../../utils/error';
 
 /**
  * Repository for streaming session data access operations
@@ -28,8 +33,8 @@ export class StreamingSessionRepository implements IStreamingSessionRepository {
       });
 
       return session ? StreamingSessionHistory.fromPrisma(session) : null;
-    } catch (error: any) {
-      throw new StreamingSessionFetchError(`Failed to get latest session for user: ${error.message}`, error instanceof Error ? error : new Error(String(error)));
+    } catch (error: unknown) {
+      throw wrapStreamingSessionFetchError('Failed to get latest session for user', error);
     }
   }
 
@@ -54,8 +59,8 @@ export class StreamingSessionRepository implements IStreamingSessionRepository {
       });
 
       return StreamingSessionHistory.fromPrisma(session);
-    } catch (error: any) {
-      throw new EntityCreationError(`Failed to create session: ${error.message}`, error instanceof Error ? error : new Error(String(error)));
+    } catch (error: unknown) {
+      throw wrapEntityCreationError('Failed to create session', error);
     }
   }
 
@@ -80,8 +85,8 @@ export class StreamingSessionRepository implements IStreamingSessionRepository {
       });
 
       return StreamingSessionHistory.fromPrisma(session);
-    } catch (error: any) {
-      throw new EntityUpdateError(`Failed to update session: ${error.message}`, error instanceof Error ? error : new Error(String(error)));
+    } catch (error: unknown) {
+      throw wrapEntityUpdateError('Failed to update session', error);
     }
   }
 
@@ -111,8 +116,8 @@ export class StreamingSessionRepository implements IStreamingSessionRepository {
       });
 
       return sessions.map(session => StreamingSessionHistory.fromPrisma(session));
-    } catch (error: any) {
-      throw new StreamingSessionFetchError(`Failed to get sessions for user in date range: ${error.message}`, error instanceof Error ? error : new Error(String(error)));
+    } catch (error: unknown) {
+      throw wrapStreamingSessionFetchError('Failed to get sessions for user in date range', error);
     }
   }
 
@@ -139,8 +144,8 @@ export class StreamingSessionRepository implements IStreamingSessionRepository {
       });
 
       return sessions.map(session => StreamingSessionHistory.fromPrisma(session));
-    } catch (error: any) {
-      throw new StreamingSessionFetchError(`Failed to get active sessions: ${error.message}`, error instanceof Error ? error : new Error(String(error)));
+    } catch (error: unknown) {
+      throw wrapStreamingSessionFetchError('Failed to get active sessions', error);
     }
   }
 
@@ -171,8 +176,8 @@ export class StreamingSessionRepository implements IStreamingSessionRepository {
       });
 
       return sessions.map(session => StreamingSessionHistory.fromPrisma(session));
-    } catch (error: any) {
-      throw new StreamingSessionFetchError(`Failed to get active sessions for supervisor: ${error.message}`, error instanceof Error ? error : new Error(String(error)));
+    } catch (error: unknown) {
+      throw wrapStreamingSessionFetchError('Failed to get active sessions for supervisor', error);
     }
   }
 
@@ -212,8 +217,8 @@ export class StreamingSessionRepository implements IStreamingSessionRepository {
         });
         
       }
-    } catch (error: any) {
-      throw new EntityUpdateError(`Failed to stop streaming session: ${error.message}`, error instanceof Error ? error : new Error(String(error)));
+    } catch (error: unknown) {
+      throw wrapEntityUpdateError('Failed to stop streaming session', error);
     }
   }
 
@@ -245,8 +250,8 @@ export class StreamingSessionRepository implements IStreamingSessionRepository {
           updatedAt: getCentralAmericaTime()
         },
       });
-    } catch (error: any) {
-      throw new EntityCreationError(`Failed to start streaming session: ${error.message}`, error instanceof Error ? error : new Error(String(error)));
+    } catch (error: unknown) {
+      throw wrapEntityCreationError('Failed to start streaming session', error);
     }
   }
 
@@ -264,8 +269,8 @@ export class StreamingSessionRepository implements IStreamingSessionRepository {
       });
 
       return session ? StreamingSessionHistory.fromPrisma(session) : null;
-    } catch (error: any) {
-      throw new StreamingSessionFetchError(`Failed to get last streaming session: ${error.message}`, error instanceof Error ? error : new Error(String(error)));
+    } catch (error: unknown) {
+      throw wrapStreamingSessionFetchError('Failed to get last streaming session', error);
     }
   }
 
@@ -282,8 +287,8 @@ export class StreamingSessionRepository implements IStreamingSessionRepository {
       });
       
       return openCount > 0;
-    } catch (error: any) {
-      throw new DatabaseQueryError(`Failed to check if user is streaming: ${error.message}`, error instanceof Error ? error : new Error(String(error)));
+    } catch (error: unknown) {
+      throw wrapDatabaseQueryError('Failed to check if user is streaming', error);
     }
   }
 
@@ -341,8 +346,8 @@ export class StreamingSessionRepository implements IStreamingSessionRepository {
         email,
         session: sessionsByEmail.get(email) || null
       }));
-    } catch (error: any) {
-      throw new StreamingSessionFetchError(`Failed to get latest sessions for emails: ${error.message}`, error instanceof Error ? error : new Error(String(error)));
+    } catch (error: unknown) {
+      throw wrapStreamingSessionFetchError('Failed to get latest sessions for emails', error);
     }
   }
 }

@@ -7,6 +7,7 @@ import { Context } from '@azure/functions';
 import { getCallerAdId } from '../utils/authHelpers';
 import { badRequest } from '../utils/response';
 import { logError } from '../utils/logger';
+import { extractErrorMessage } from '../utils/error';
 
 /**
  * Middleware that extracts and validates caller ID from JWT claims
@@ -31,9 +32,11 @@ export async function withCallerId(ctx: Context, next: () => Promise<void>) {
 
     // Proceed to next middleware or handler
     await next();
-  } catch (error: any) {
-    logError(ctx, error, { middleware: 'withCallerId' });
-    badRequest(ctx, `Authentication error: ${error.message}`);
+  } catch (error: unknown) {
+    const errorInstance = error instanceof Error ? error : new Error(String(error));
+    logError(ctx, errorInstance, { middleware: 'withCallerId' });
+    const errorMessage = extractErrorMessage(error);
+    badRequest(ctx, `Authentication error: ${errorMessage}`);
   }
 }
 
