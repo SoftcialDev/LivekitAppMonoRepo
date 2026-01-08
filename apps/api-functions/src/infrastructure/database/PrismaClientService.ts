@@ -7,7 +7,7 @@
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
-import { config } from '../../index';
+import { config } from '../../config';
 
 /**
  * Singleton class to manage Prisma client instances
@@ -77,14 +77,49 @@ class PrismaClientSingleton {
   }
 }
 
-// Export singleton instance
-const prisma = PrismaClientSingleton.getInstance();
+/**
+ * Lazy-initialized Prisma client instance
+ * @remarks
+ * The instance is created only when first accessed, ensuring config is available
+ * at module initialization time. This avoids issues with module initialization order.
+ */
+let prismaInstance: PrismaClient | undefined;
 
 /**
- * Export the configured Prisma client as the default export.
- *
+ * Get the singleton Prisma client instance (lazy initialization)
+ * @returns PrismaClient instance
  * @remarks
- * Consumers of this module should import the same instance
- * to take advantage of automatic connection reuse.
+ * This function ensures the Prisma client is only initialized when needed,
+ * avoiding issues with module initialization order and config availability.
  */
-export default prisma;
+export function getPrismaClient(): PrismaClient {
+  if (!prismaInstance) {
+    prismaInstance = PrismaClientSingleton.getInstance();
+  }
+  return prismaInstance;
+}
+
+/**
+ * Create a lazy getter object that proxies all PrismaClient methods
+ * @remarks
+ * This allows the default export to behave like a PrismaClient instance
+ * while deferring initialization until first use.
+ */
+const prismaProxy = new Proxy({} as PrismaClient, {
+  get(_target, prop) {
+    const instance = getPrismaClient();
+    const value = (instance as any)[prop];
+    if (typeof value === 'function') {
+      return value.bind(instance);
+    }
+    return value;
+  }
+});
+
+/**
+ * Export the Prisma client proxy as default export for backwards compatibility
+ * @remarks
+ * This provides a lazy-initialized Prisma client instance that behaves
+ * exactly like a PrismaClient, but only initializes when first accessed.
+ */
+export default prismaProxy;
