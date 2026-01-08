@@ -19,7 +19,7 @@ const DEFAULT_HANG_UP_SOUND = '/sounds/hang-up.wav';
 /**
  * Default volume level for notification sounds (0.0 to 1.0).
  */
-const DEFAULT_VOLUME = 0.3;
+const DEFAULT_VOLUME = 0.7;
 
 /**
  * Retrieves the sound file path from environment variables.
@@ -48,6 +48,7 @@ function getSoundPath(envVar: string, defaultValue: string): string {
  */
 function playSound(soundPath: string, volume: number = DEFAULT_VOLUME): void {
   try {
+    console.log('[AudioPlayer] Attempting to play sound:', soundPath);
     const audio = new Audio(soundPath);
     audio.volume = Math.max(0, Math.min(1, volume));
     
@@ -58,14 +59,26 @@ function playSound(soundPath: string, volume: number = DEFAULT_VOLUME): void {
     
     audio.addEventListener('ended', () => {
       clearTimeout(stopTimeout);
+      console.log('[AudioPlayer] Sound playback ended:', soundPath);
     });
     
-    audio.play().catch((error) => {
+    audio.addEventListener('error', (error) => {
       clearTimeout(stopTimeout);
-      console.warn('[AudioPlayer] Failed to play sound:', soundPath, error);
+      console.error('[AudioPlayer] Audio error:', soundPath, error);
+    });
+    
+    audio.addEventListener('loadeddata', () => {
+      console.log('[AudioPlayer] Audio loaded successfully:', soundPath);
+    });
+    
+    audio.play().then(() => {
+      console.log('[AudioPlayer] Sound playing successfully:', soundPath);
+    }).catch((error) => {
+      clearTimeout(stopTimeout);
+      console.error('[AudioPlayer] Failed to play sound:', soundPath, error);
     });
   } catch (error) {
-    console.warn('[AudioPlayer] Error creating audio element:', error);
+    console.error('[AudioPlayer] Error creating audio element:', error);
   }
 }
 
@@ -79,6 +92,7 @@ export function playIncomingCallSound(): void {
     'VITE_TALK_INCOMING_CALL_SOUND',
     DEFAULT_INCOMING_CALL_SOUND
   );
+  console.log('[AudioPlayer] Playing incoming call sound from:', soundPath);
   playSound(soundPath, DEFAULT_VOLUME);
 }
 

@@ -21,4 +21,5 @@ export * from './SnapshotReasonTypes';
 export * from './TalkSessionTypes';
 export * from './ValidationConfig';
 export * from './ValidationTypes';
+export * from './UserDebugTypes';
 

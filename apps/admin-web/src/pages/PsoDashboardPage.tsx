@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Room } from 'livekit-client';
 import { useAuth } from '@/shared/auth/useAuth';
 import { useToast } from '@/shared/ui/ToastContext';
 import { useContactManagerStatus } from './ContactManager/hooks/useContactManagerStatus';
@@ -11,6 +12,8 @@ import { usePsoStreamingStatus } from './Video/hooks/usePsoStreamingStatus';
 import { useSynchronizedTimer } from './Video/hooks/useSynchronizedTimer';
 import { CompactTimer } from './Video/components/TimerDisplay';
 import { useTalkSessionNotifications } from './Video/hooks/useTalkSessionNotifications';
+import { usePsoTalkResponse } from './Video/hooks/usePsoTalkResponse';
+import { TalkActiveBanner } from './Video/components/TalkActiveBanner';
 
 /**
  * @fileoverview PsoDashboardPage - Personal dashboard for PSO users
@@ -32,7 +35,10 @@ const PsoDashboard: React.FC = () => {
   usePsoSupervisorNotifications(psoEmail, refetchSupervisor);
   useWebSocketHeartbeat(psoEmail);
 
-  useTalkSessionNotifications({
+  const { videoRef, audioRef, isStreaming, videoTrack, getCurrentRoom } = useStreamingDashboard();
+  useAutoReloadWhenIdle(isStreaming, { intervalMs: 120_000, onlyWhenVisible: false });
+  
+  const talkNotifications = useTalkSessionNotifications({
     psoEmail,
     onTalkSessionStart: (message) => {
       console.log('[PsoDashboard] Talk session started:', message);
@@ -42,8 +48,15 @@ const PsoDashboard: React.FC = () => {
     }
   });
 
-  const { videoRef, audioRef, isStreaming, videoTrack } = useStreamingDashboard();
-  useAutoReloadWhenIdle(isStreaming, { intervalMs: 120_000, onlyWhenVisible: false });
+  const roomRef = React.useRef<Room | null>(null);
+  React.useEffect(() => {
+    roomRef.current = getCurrentRoom();
+  }, [getCurrentRoom, isStreaming]);
+
+  usePsoTalkResponse({
+    roomRef,
+    isTalkActive: talkNotifications.isTalkActive
+  });
 
   const { status: streamingStatus, loading: statusLoading, error: statusError } = usePsoStreamingStatus(psoEmail, isStreaming);
 
@@ -70,6 +83,12 @@ const PsoDashboard: React.FC = () => {
       )}
 
       <div className="relative w-full max-w-4xl mb-4 rounded-xl overflow-hidden bg-black h-[50vh] sm:h-[60vh] md:h-[70vh] lg:h-[80vh]">
+        <TalkActiveBanner
+          isActive={talkNotifications.isTalkActive}
+          isIncoming={talkNotifications.isIncoming}
+          justEnded={talkNotifications.justEnded}
+          supervisorName={talkNotifications.supervisorName || 'Supervisor'}
+        />
         <video
           ref={videoRef}
           autoPlay playsInline muted={false} controls={false}

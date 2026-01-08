@@ -77,6 +77,7 @@ import { GetSupervisorByIdentifierDomainService } from '../../domain/services/Ge
 import { GetPsosBySupervisorDomainService } from '../../domain/services/GetPsosBySupervisorDomainService';
 import { GetSupervisorForPsoDomainService } from '../../domain/services/GetSupervisorForPsoDomainService';
 import { GetCurrentUserDomainService } from '../../domain/services/GetCurrentUserDomainService';
+import { GetUserDebugDomainService } from '../../domain/services/GetUserDebugDomainService';
 import { GetErrorLogsDomainService } from '../../domain/services/GetErrorLogsDomainService';
 import { GetCameraFailuresDomainService } from '../../domain/services/GetCameraFailuresDomainService';
 import { DeleteErrorLogsDomainService } from '../../domain/services/DeleteErrorLogsDomainService';
@@ -121,6 +122,7 @@ import { GetSupervisorByIdentifierApplicationService } from '../../application/s
 import { GetPsosBySupervisorApplicationService } from '../../application/services/GetPsosBySupervisorApplicationService';
 import { GetSupervisorForPsoApplicationService } from '../../application/services/GetSupervisorForPsoApplicationService';
 import { GetCurrentUserApplicationService } from '../../application/services/GetCurrentUserApplicationService';
+import { GetUserDebugApplicationService } from '../../application/services/GetUserDebugApplicationService';
 import { GetErrorLogsApplicationService } from '../../application/services/GetErrorLogsApplicationService';
 import { GetCameraFailuresApplicationService } from '../../application/services/GetCameraFailuresApplicationService';
 import { DeleteErrorLogsApplicationService } from '../../application/services/DeleteErrorLogsApplicationService';
@@ -793,6 +795,23 @@ export class ServiceContainer {
           this.register<GetCurrentUserApplicationService>('GetCurrentUserApplicationService', () => {
             const getCurrentUserDomainService = this.resolve<GetCurrentUserDomainService>('GetCurrentUserDomainService');
             return new GetCurrentUserApplicationService(getCurrentUserDomainService);
+          });
+
+          // Register Get User Debug services
+          this.register<GetUserDebugDomainService>('GetUserDebugDomainService', () => {
+            const userRepository = this.resolve<IUserRepository>('UserRepository');
+            const userRoleAssignmentRepository = this.resolve<IUserRoleAssignmentRepository>('UserRoleAssignmentRepository');
+            const permissionRepository = this.resolve<IPermissionRepository>('PermissionRepository');
+            return new GetUserDebugDomainService(
+              userRepository,
+              userRoleAssignmentRepository,
+              permissionRepository
+            );
+          });
+
+          this.register<GetUserDebugApplicationService>('GetUserDebugApplicationService', () => {
+            const getUserDebugDomainService = this.resolve<GetUserDebugDomainService>('GetUserDebugDomainService');
+            return new GetUserDebugApplicationService(getUserDebugDomainService);
           });
 
           // Register Get Error Logs services

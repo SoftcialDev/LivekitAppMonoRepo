@@ -38,5 +38,16 @@ export class PermissionRepository implements IPermissionRepository {
     });
     return perms.map((p) => this.toDomain(p));
   }
+
+  async findByCodes(codes: string[], onlyActive: boolean = true): Promise<Permission[]> {
+    const perms = await prisma.permission.findMany({
+      where: {
+        code: { in: codes },
+        ...(onlyActive ? { isActive: true } : {})
+      },
+      orderBy: [{ resource: "asc" }, { action: "asc" }],
+    });
+    return perms.map((p) => this.toDomain(p));
+  }
 }
 

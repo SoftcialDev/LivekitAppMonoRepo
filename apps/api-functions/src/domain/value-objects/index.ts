@@ -31,6 +31,8 @@ export * from './GetCameraFailuresRequest';
 export * from './GetCameraFailuresResponse';
 export * from './GetCurrentUserRequest';
 export * from './GetCurrentUserResponse';
+export * from './GetUserDebugRequest';
+export * from './GetUserDebugResponse';
 export * from './GetErrorLogsRequest';
 export * from './GetErrorLogsResponse';
 export * from './GetLivekitRecordingsRequest';

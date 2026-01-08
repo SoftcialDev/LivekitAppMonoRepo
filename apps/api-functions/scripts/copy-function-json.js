@@ -1,6 +1,9 @@
 /**
- * @fileoverview Script to copy function.json files to dist/ directory
- * @description Copies all function.json files from src/handlers to dist/handlers
+ * @fileoverview Copy function.json files to dist/ directory
+ * @summary Copies all function.json files from src/handlers to dist/handlers
+ * @description Recursively copies function.json configuration files from the source handlers
+ * directory to the compiled dist/handlers directory. This ensures Azure Functions can locate
+ * the function configuration files after TypeScript compilation.
  */
 
 const fs = require('fs');
@@ -10,9 +13,9 @@ const srcHandlersDir = path.join(__dirname, '../src/handlers');
 const distHandlersDir = path.join(__dirname, '../dist/handlers');
 
 /**
- * Recursively copies function.json files from src to dist
- * @param {string} srcDir - Source directory
- * @param {string} destDir - Destination directory
+ * Recursively copies function.json files from source to destination directory
+ * @param {string} srcDir - Source directory path
+ * @param {string} destDir - Destination directory path
  */
 function copyFunctionJsonFiles(srcDir, destDir) {
   if (!fs.existsSync(srcDir)) {
@@ -27,14 +30,11 @@ function copyFunctionJsonFiles(srcDir, destDir) {
     const destPath = path.join(destDir, entry.name);
 
     if (entry.isDirectory()) {
-      // Create destination directory if it doesn't exist
       if (!fs.existsSync(destPath)) {
         fs.mkdirSync(destPath, { recursive: true });
       }
-      // Recursively process subdirectories
       copyFunctionJsonFiles(srcPath, destPath);
     } else if (entry.name === 'function.json') {
-      // Copy function.json file
       if (!fs.existsSync(destDir)) {
         fs.mkdirSync(destDir, { recursive: true });
       }
@@ -44,12 +44,10 @@ function copyFunctionJsonFiles(srcDir, destDir) {
   }
 }
 
-// Ensure dist/handlers directory exists
 if (!fs.existsSync(distHandlersDir)) {
   fs.mkdirSync(distHandlersDir, { recursive: true });
 }
 
-// Copy all function.json files
 copyFunctionJsonFiles(srcHandlersDir, distHandlersDir);
 
 console.log('Finished copying function.json files');

@@ -90,7 +90,7 @@ const VideoCard: React.FC<VideoCardProps & {
   const roomRef = useRef<Room | null>(null)
   const audioRef = useRef<HTMLAudioElement>(null)
 
-  const [isAudioMuted, setIsAudioMuted] = useState(true)
+  const [isAudioMuted, setIsAudioMuted] = useState(false)
 
   const {
     isRecording,
@@ -117,8 +117,19 @@ const VideoCard: React.FC<VideoCardProps & {
   useEffect(() => {
     if (audioRef.current) {
       audioRef.current.muted = isAudioMuted
+      if (!isAudioMuted) {
+        audioRef.current.play?.().catch(() => {})
+      }
     }
   }, [isAudioMuted])
+
+  /** Automatically unmute audio when Talk is active */
+  useEffect(() => {
+    if (isTalking && audioRef.current) {
+      audioRef.current.muted = false
+      audioRef.current.play?.().catch(() => {})
+    }
+  }, [isTalking])
 
   /**
    * Snapshot helpers (provides `videoRef` used to capture frames).
@@ -169,6 +180,7 @@ const VideoCard: React.FC<VideoCardProps & {
         (track as RemoteAudioTrack).attach(audioRef.current!)
         if (audioRef.current) {
           audioRef.current.muted = isAudioMuted
+          audioRef.current.play?.().catch(() => {})
         }
       }
     }
@@ -177,7 +189,7 @@ const VideoCard: React.FC<VideoCardProps & {
     const participantTrackHandlers = new Map<RemoteParticipant, (pub: any) => void>()
 
     const setupParticipant = (p: RemoteParticipant) => {
-      // Attach existing publications
+      // Attach existing subscribed tracks
       for (const pub of p.getTrackPublications().values()) {
         attachTrack(pub)
       }
@@ -220,8 +232,9 @@ const VideoCard: React.FC<VideoCardProps & {
       }
       room.on(RoomEvent.ParticipantConnected, onParticipantConnected)
       
-      const onTrackPublished = (_publication: any, participant: RemoteParticipant) => {
+      const onTrackPublished = (publication: any, participant: RemoteParticipant) => {
         if (participant.identity === roomName) {
+          // LiveKit automatically subscribes to tracks, so we just need to wait for TrackSubscribed event
           setupParticipant(participant)
         }
       }
@@ -408,7 +421,8 @@ const VideoCard: React.FC<VideoCardProps & {
             Chat
           </button>
 
-          {/*  <button
+          {/* Mute/Unmute button - Audio is automatically unmuted when Talk is active */}
+          {/* <button
             onClick={() => setIsAudioMuted(prev => !prev)}
             className="flex-1 py-2 bg-gray-700 text-white rounded-xl"
           >

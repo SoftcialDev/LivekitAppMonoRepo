@@ -2,8 +2,9 @@
  * @fileoverview Package deployable ZIP for Azure Functions
  * @summary Creates the final deployable ZIP from dist/ directory
  * @description Packages the compiled code from dist/ into a deployable ZIP file for Azure Functions.
- * The dist/ directory already contains handlers in the root with corrected import paths,
- * host.json, and package.json from the build process.
+ * The dist/ directory should already contain handlers in the root with corrected import paths,
+ * host.json, and package.json from the build process. This script copies all necessary files
+ * to a temporary directory, then creates a ZIP archive ready for deployment.
  */
 
 const fs = require('fs');
@@ -14,25 +15,19 @@ const rootDir = path.join(__dirname, '..');
 const distDir = path.join(rootDir, 'dist');
 const deployZipPath = path.join(rootDir, '../../deploy.zip');
 
-// Ensure build is complete
 if (!fs.existsSync(distDir)) {
   console.error('Error: dist/ directory not found. Run "npm run build" first.');
   process.exit(1);
 }
 
-// Create temporary directory for packaging
 const tempDir = path.join(rootDir, '.deploy-temp');
 if (fs.existsSync(tempDir)) {
   fs.rmSync(tempDir, { recursive: true, force: true });
 }
 fs.mkdirSync(tempDir, { recursive: true });
 
-// Copy contents of dist/ to root
-// dist/ already has handlers in root with corrected paths, host.json, and package.json
-// Exclude root index.js (barrel export) - handlers don't need it
 const distEntries = fs.readdirSync(distDir, { withFileTypes: true });
 distEntries.forEach(entry => {
-  // Skip root index.js (barrel export not needed in deploy)
   if (entry.name === 'index.js' && !entry.isDirectory()) {
     return;
   }
@@ -47,25 +42,31 @@ distEntries.forEach(entry => {
   }
 });
 
-// Copy package-lock.json (not included in dist/)
+const hostJsonInDist = path.join(distDir, 'host.json');
+const hostJsonInTemp = path.join(tempDir, 'host.json');
+if (!fs.existsSync(hostJsonInTemp)) {
+  const hostJsonInRoot = path.join(rootDir, 'host.json');
+  if (fs.existsSync(hostJsonInRoot)) {
+    fs.copyFileSync(hostJsonInRoot, hostJsonInTemp);
+  } else if (fs.existsSync(hostJsonInDist)) {
+    fs.copyFileSync(hostJsonInDist, hostJsonInTemp);
+  } else {
+    console.error('Error: host.json not found in dist/ or root directory');
+    process.exit(1);
+  }
+}
+
 const packageLockSrc = path.join(rootDir, 'package-lock.json');
 if (fs.existsSync(packageLockSrc)) {
   fs.copyFileSync(packageLockSrc, path.join(tempDir, 'package-lock.json'));
 }
 
-// Copy node_modules
 const nodeModulesSrc = path.join(rootDir, 'node_modules');
 if (fs.existsSync(nodeModulesSrc)) {
   fs.cpSync(nodeModulesSrc, path.join(tempDir, 'node_modules'), { recursive: true });
 }
 
-// Copy prisma directory
-const prismaSrc = path.join(rootDir, 'prisma');
-if (fs.existsSync(prismaSrc)) {
-  fs.cpSync(prismaSrc, path.join(tempDir, 'prisma'), { recursive: true });
-}
 
-// Create ZIP archive
 if (fs.existsSync(deployZipPath)) {
   fs.unlinkSync(deployZipPath);
 }
@@ -81,7 +82,6 @@ try {
   process.exit(1);
 }
 
-// Cleanup temporary directory
 fs.rmSync(tempDir, { recursive: true, force: true });
 
 console.log('Packaging complete');

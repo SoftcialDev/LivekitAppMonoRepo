@@ -26,6 +26,7 @@ export * from './GetPsosBySupervisorSchema';
 export * from './GetSnapshotsSchema';
 export * from './GetSupervisorByIdentifierSchema';
 export * from './GetSupervisorForPsoSchema';
+export * from './GetUserDebugSchema';
 export * from './GetTalkSessionsSchema';
 export * from './GetWebsocketPresenceStatusSchema';
 export * from './LivekitRecordingSchema';

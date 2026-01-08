@@ -6,7 +6,7 @@
  * to the console, optionally filtering events by a specific PSO email.
  */
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { WebPubSubClientService } from '@/shared/api/webpubsubClient';
 import { playIncomingCallSound, playHangUpSound } from '@/shared/utils/audioPlayer';
 import { TalkSessionStartMessage } from '@/shared/types/talkSession';
@@ -33,16 +33,45 @@ export interface UseTalkSessionNotificationsOptions {
 }
 
 /**
+ * Return type for useTalkSessionNotifications hook
+ */
+export interface UseTalkSessionNotificationsReturn {
+  /**
+   * Whether a talk session is currently active
+   */
+  isTalkActive: boolean;
+  /**
+   * Whether the call is in the incoming phase (first 3 seconds)
+   */
+  isIncoming: boolean;
+  /**
+   * Whether the call just ended (showing hang up message)
+   */
+  justEnded: boolean;
+  /**
+   * Name of the supervisor in the active talk session
+   */
+  supervisorName: string | null;
+}
+
+/**
  * A React hook that listens for talk session start and end notifications
  * via WebSocket and triggers corresponding actions like playing sounds and
  * executing callbacks.
  *
  * @param options - Configuration properties for the hook.
+ * @returns Object containing talk session state information
  */
 export function useTalkSessionNotifications(
   options: UseTalkSessionNotificationsOptions
-): void {
+): UseTalkSessionNotificationsReturn {
   const { psoEmail, onTalkSessionStart, onTalkSessionEnd } = options;
+  
+  const [isTalkActive, setIsTalkActive] = useState(false);
+  const [isIncoming, setIsIncoming] = useState(false);
+  const [justEnded, setJustEnded] = useState(false);
+  const [supervisorName, setSupervisorName] = useState<string | null>(null);
+  const [endedSupervisorName, setEndedSupervisorName] = useState<string | null>(null);
 
   useEffect(() => {
     if (!psoEmail) {
@@ -68,7 +97,14 @@ export function useTalkSessionNotifications(
       
       console.log('[useTalkSessionNotifications] Playing incoming call sound');
       playIncomingCallSound();
+      setIsTalkActive(true);
+      setIsIncoming(true);
+      setSupervisorName(message.supervisorName || null);
       onTalkSessionStart?.(message);
+      
+      setTimeout(() => {
+        setIsIncoming(false);
+      }, 3000);
     };
 
     /**
@@ -90,7 +126,17 @@ export function useTalkSessionNotifications(
       
       console.log('[useTalkSessionNotifications] Playing hang up sound');
       playHangUpSound();
+      setEndedSupervisorName(supervisorName);
+      setIsTalkActive(false);
+      setIsIncoming(false);
+      setJustEnded(true);
+      setSupervisorName(null);
       onTalkSessionEnd?.();
+      
+      setTimeout(() => {
+        setJustEnded(false);
+        setEndedSupervisorName(null);
+      }, 3000);
     };
 
     const client = WebPubSubClientService.getInstance();
@@ -116,5 +162,12 @@ export function useTalkSessionNotifications(
       unsubscribe();
     };
   }, [psoEmail, onTalkSessionStart, onTalkSessionEnd]);
+
+  return {
+    isTalkActive,
+    isIncoming,
+    justEnded,
+    supervisorName: supervisorName || endedSupervisorName
+  };
 }
 

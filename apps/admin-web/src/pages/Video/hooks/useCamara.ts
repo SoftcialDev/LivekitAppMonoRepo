@@ -426,6 +426,7 @@ const stopStreamForCommand = useCallback(async (reason?: string) => {
     isRetrying, 
     retryCount, 
     cancelPersistentRetries,
-    videoTrack: tracksRef.current.video
+    videoTrack: tracksRef.current.video,
+    getCurrentRoom: liveKit.getCurrentRoom
   };
 }

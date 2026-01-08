@@ -16,5 +16,13 @@ export interface IPermissionRepository {
    * @param onlyActive When true, returns only active permissions.
    */
   findAll(onlyActive?: boolean): Promise<Permission[]>;
+
+  /**
+   * Finds permissions by their codes.
+   * @param codes Array of permission codes.
+   * @param onlyActive When true, returns only active permissions.
+   * @returns Promise that resolves to array of permissions matching the codes
+   */
+  findByCodes(codes: string[], onlyActive?: boolean): Promise<Permission[]>;
 }
 
