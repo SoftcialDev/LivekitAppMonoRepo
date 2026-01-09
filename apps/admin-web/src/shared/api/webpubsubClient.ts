@@ -200,10 +200,31 @@ export class WebPubSubClientService {
         this.clearRefreshTimer(); // Clear refresh timer on successful connection
         this.firstConnectionAttemptTime = null; // Reset on success
       } catch (err) {
-        // First connection failed → schedule retry
+        // First connection failed → check if we should refresh or retry
+        console.error('[WebPubSub] Initial connection failed:', err);
         this.connected = false;
-        this.scheduleReconnect("initial connect failed");
-        throw err;
+        
+        // Check if 10 seconds have passed
+        if (this.firstConnectionAttemptTime !== null) {
+          const elapsed = Date.now() - this.firstConnectionAttemptTime;
+          if (elapsed >= 10000) {
+            console.warn('[WebPubSub] Initial connection failed after 10 seconds, scheduling refresh...');
+            this.scheduleRefreshIfNeeded();
+            // Don't throw - let refresh handle it
+            // The refresh timer will handle the page reload
+            return;
+          }
+        }
+        
+        // If less than 10 seconds, schedule reconnect
+        // Note: reconnect may have already been scheduled by startFreshClient()
+        if (this.shouldReconnect) {
+          console.log('[WebPubSub] Scheduling reconnect after initial connect failure...');
+          this.scheduleReconnect("initial connect failed");
+        }
+        
+        // Don't throw - reconnect is already scheduled and will handle retries
+        // Throwing would interrupt the async flow unnecessarily
       } finally {
         this.connecting = false;
       }
@@ -408,6 +429,7 @@ export class WebPubSubClientService {
     });
 
     wsClient.on("disconnected", () => {
+      console.log('[WebPubSub] Disconnected event fired');
       this.connected = false;
 
       for (const h of this.disconnectedHandlers) {
@@ -415,22 +437,50 @@ export class WebPubSubClientService {
       }
 
       if (this.shouldReconnect) {
+        // Check if we should refresh (10 seconds timeout)
+        if (this.firstConnectionAttemptTime !== null) {
+          const elapsed = Date.now() - this.firstConnectionAttemptTime;
+          if (elapsed >= 10000) {
+            console.warn('[WebPubSub] Disconnected after 10 seconds, scheduling refresh...');
+            this.scheduleRefreshIfNeeded();
+            return;
+          }
+        }
         this.scheduleReconnect("ws disconnected");
       }
     });
 
+    // Listen for error events on the underlying WebSocket
+    // Note: WebPubSub client may not expose error directly, so we use connectionStateChanged
+    // But we also need to handle errors from start() promise rejection
+    
     // Start the client (handshake). Control returns once the socket is ready.
     try {
       await wsClient.start();
+      console.log('[WebPubSub] WebSocket client started successfully');
     } catch (error) {
       console.error('[WebPubSub] Failed to start WebSocket client:', error);
-      // If start fails, schedule refresh if needed
+      this.connected = false;
+      
+      // Check if we should refresh (10 seconds timeout)
       if (this.firstConnectionAttemptTime !== null) {
         const elapsed = Date.now() - this.firstConnectionAttemptTime;
         if (elapsed >= 10000) {
+          console.warn('[WebPubSub] Start failed after 10 seconds, scheduling refresh...');
           this.scheduleRefreshIfNeeded();
+          // Don't throw - let refresh handle it or reconnect will continue
+          // The reconnect will be scheduled by the catch in connect() if shouldReconnect is true
+          return;
         }
       }
+      
+      // If less than 10 seconds, schedule reconnect and throw to notify caller
+      if (this.shouldReconnect) {
+        console.log('[WebPubSub] Scheduling reconnect after start failure...');
+        this.scheduleReconnect("start failed");
+      }
+      
+      // Still throw to notify caller, but reconnect is already scheduled
       throw error;
     }
   }
@@ -558,3 +608,4 @@ export class WebPubSubClientService {
  * `import { webPubSubClient as pubsub } from "@/shared/api/webpubsubClient"`
  */
 export const webPubSubClient = WebPubSubClientService.getInstance();
+

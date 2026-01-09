@@ -37,6 +37,9 @@ import { useAudioPlay } from '../hooks/useAudioPlay'
 import { useTalkSessionStatus } from '../hooks/useTalkSessionStatus'
 import { TalkSessionClient } from '@/shared/api/talkSessionClient'
 import { TalkStopReason } from '@/shared/types/talkSession'
+import { useAudioAttachment } from '../hooks/useAudioAttachment'
+import { useRemoteTracks } from '../hooks/useRemoteTracks'
+import { useLiveKitRoomConnection } from '../hooks/useLiveKitRoomConnection'
 const VideoCard: React.FC<VideoCardProps & { 
   livekitUrl?: string;
   psoName?: string;
@@ -95,7 +98,11 @@ const VideoCard: React.FC<VideoCardProps & {
   const audioRef = useRef<HTMLAudioElement>(null)
 
   const [isAudioMuted, setIsAudioMuted] = useState(false)
-  const { playAudio: playAudioSafely } = useAudioPlay({ maxRetries: 2, retryDelay: 300 })
+  
+  // Refs to access current values without triggering useEffect re-runs
+  const hasActiveSessionRef = useRef(false)
+  const activeSessionIdRef = useRef<string | null>(null)
+  const activeSupervisorEmailRef = useRef<string | null>(null)
   
   const {
     isRecording,
@@ -114,17 +121,57 @@ const VideoCard: React.FC<VideoCardProps & {
   } = useTalkback({ roomRef, targetIdentity: roomName, psoEmail: email })
   
   // Check if there's an active talk session for this PSO
-  // Used to prevent multiple sessions and verify the session belongs to this admin
-  // Only poll when admin is starting a talk session (countdown) or has an active session (isTalking)
-  // This prevents unnecessary API calls when admin is just viewing the PSO
+  // Used to prevent multiple sessions BEFORE starting a new one
+  // Only poll during countdown to verify no other session exists
+  // Once we start talking (isTalking = true), we don't need to poll because we know the session is active
   const { hasActiveSession, sessionId: activeSessionId, supervisorEmail: activeSupervisorEmail } = useTalkSessionStatus({
     psoEmail: email || null,
-    enabled: (isTalking || isCountdownActive) && !!email, // Only poll when starting or actively talking
+    enabled: isCountdownActive && !!email, // Only poll during countdown, not during active talk session
     pollInterval: 5000
   })
   
   const talkSessionClientRef = useRef(new TalkSessionClient())
-  const currentAdminEmail = account?.username || userInfo?.email || null
+  const currentAdminEmail = (account?.username || userInfo?.email || null) as string | null
+  
+  // Update refs when values change
+  useEffect(() => {
+    hasActiveSessionRef.current = hasActiveSession
+  }, [hasActiveSession])
+  
+  useEffect(() => {
+    activeSessionIdRef.current = activeSessionId
+  }, [activeSessionId])
+  
+  useEffect(() => {
+    activeSupervisorEmailRef.current = activeSupervisorEmail
+  }, [activeSupervisorEmail])
+  
+  // Audio attachment hook - handles conditional audio attachment
+  const audioAttachment = useAudioAttachment({
+    audioRef,
+    isTalking,
+    hasActiveSession,
+    activeSupervisorEmail,
+    currentAdminEmail,
+    isAudioMuted,
+    roomRef,
+    roomName: roomName || null,
+  })
+  
+  // LiveKit room connection hook
+  const { isConnected, isConnecting: roomConnecting, error: connectionError } = useLiveKitRoomConnection({
+    shouldStream,
+    accessToken: accessToken || null,
+    roomName: roomName || null,
+    livekitUrl: livekitUrl || null,
+    roomRef,
+    onRoomConnected: (room) => {
+      console.log('[VideoCard] Room connected successfully');
+    },
+    onRoomDisconnected: () => {
+      console.log('[VideoCard] Room disconnected');
+    },
+  })
 
   /**
    * Synchronized timer for break/lunch/emergency
@@ -165,249 +212,75 @@ const VideoCard: React.FC<VideoCardProps & {
     closeModal,
     confirm,
   } = useSnapshot(email)
+  
+  // Remote tracks hook - handles track attachment/detachment
+  // Initialize after videoRef is available from useSnapshot
+  useRemoteTracks({
+    roomRef,
+    targetIdentity: roomName || null,
+    videoRef,
+    audioRef,
+    audioAttachment,
+  })
   /**
-   * Connect to LiveKit and subscribe to the target participant.
-   * - Attaches video/audio tracks on subscription.
-   * - Calls `onPlay` on the first video attachment (no auto-recording).
-   * - Cleans up on unmount or when streaming stops.
+   * Handle PSO disconnection - close talk session if active
    */
   useEffect(() => {
-    
-    if (!shouldStream) {
-
-      roomRef.current?.disconnect()
-      roomRef.current = null
-      return
-    }
-    if (!accessToken || !roomName || !livekitUrl) {
-      return
+    const room = roomRef.current;
+    if (!room || !roomName) {
+      return;
     }
 
-    let lkRoom: Room | null = null
-    let canceled = false
-
-
-    const attachTrack = (pub: any) => {
-      const { track, kind, isSubscribed } = pub
-      if (!isSubscribed || !track) {
-        console.log('[VideoCard] Track not ready:', { kind, isSubscribed, hasTrack: !!track })
-        return
-      }
-
-      if (kind === 'video') {
-        (track as RemoteVideoTrack).attach(videoRef.current!)
-        
-      } else if (kind === 'audio') {
-        // Only attach and play audio when admin has started a talk session
-        // PSO can publish audio anytime (when streaming), but admin only hears it during active talk sessions
-        // We verify:
-        // 1. Admin has started a session (isTalking === true)
-        // 2. No other supervisor has an active session, OR the active session belongs to this admin
-        const isMySession = !hasActiveSession || 
-                           (activeSupervisorEmail && currentAdminEmail && 
-                            activeSupervisorEmail.toLowerCase() === currentAdminEmail.toLowerCase())
-        const canHearAudio = isTalking && isMySession
-        
-        if (!canHearAudio) {
-          console.log('[VideoCard] Ignoring audio track - no active talk session for this admin', { 
-            isTalking, 
-            hasActiveSession, 
-            activeSupervisorEmail,
-            currentAdminEmail,
-            isMySession
-          })
-          return
-        }
-        
-        (track as RemoteAudioTrack).attach(audioRef.current!)
-        if (audioRef.current) {
-          audioRef.current.muted = isAudioMuted
-          audioRef.current.volume = 1.0
-          // Use safe audio play with limited retries
-          playAudioSafely(audioRef.current).catch((err) => {
-            // Error already logged in useAudioPlay
-            // NotAllowedError means user interaction is required
-          })
+    const onParticipantDisconnected = (participant: RemoteParticipant) => {
+      if (participant.identity === roomName) {
+        console.log('[VideoCard] PSO disconnected from LiveKit');
+        // PSO se desconectó - cerrar talk session si está activa
+        const currentHasActiveSession = hasActiveSessionRef.current;
+        const currentActiveSessionId = activeSessionIdRef.current;
+        if (currentHasActiveSession && currentActiveSessionId) {
+          talkSessionClientRef.current
+            .stop(currentActiveSessionId, TalkStopReason.PSO_DISCONNECTED)
+            .catch((err: unknown) => {
+              console.error('[VideoCard] Failed to stop talk session on PSO disconnect:', err);
+            });
         }
       }
-    }
+    };
 
-    // Keep track of per-participant handlers to remove them on cleanup
-    const participantTrackHandlers = new Map<RemoteParticipant, (pub: any) => void>()
-
-    const setupParticipant = (p: RemoteParticipant) => {
-      // Attach existing subscribed tracks
-      for (const pub of p.getTrackPublications().values()) {
-        attachTrack(pub)
-      }
-      // Subscribe handler (stable reference) and remember it for cleanup
-      const handleTrackSubscribed = (pub: any) => {
-        attachTrack(pub)
-        // Audio playback is handled in attachTrack when isTalking is true
-      }
-      participantTrackHandlers.set(p, handleTrackSubscribed)
-      p.on(ParticipantEvent.TrackSubscribed, handleTrackSubscribed)
-    }
-
-    const connectAndWatch = async (retryCount = 0) => {
-      const room = new Room()
-      try {
-        await room.connect(livekitUrl!, accessToken!)
-      } catch (error) {
-        if (retryCount < 2 && !canceled) {
-          const delay = (retryCount + 1) * 1500;
-          setTimeout(() => connectAndWatch(retryCount + 1), delay);
-          return;
-        }
-      }
-      
-      if (canceled) {
-        room.disconnect()
-        return
-      }
-      
-      lkRoom = room
-      roomRef.current = room
-
-      room.remoteParticipants.forEach(p => {
-        if (p.identity === roomName) {
-          setupParticipant(p)
-        }
-      })
-      
-      const onParticipantConnected = (p: RemoteParticipant) => {
-        if (p.identity === roomName) {
-          setupParticipant(p)
-        }
-      }
-      room.on(RoomEvent.ParticipantConnected, onParticipantConnected)
-      
-      const onParticipantDisconnected = (participant: RemoteParticipant) => {
-        if (participant.identity === roomName) {
-          console.log('[VideoCard] PSO disconnected from LiveKit')
-          // PSO se desconectó - cerrar talk session si está activa
-          if (hasActiveSession && activeSessionId) {
-            talkSessionClientRef.current
-              .stop(activeSessionId, TalkStopReason.PSO_DISCONNECTED)
-              .catch((err: unknown) => {
-                console.error('[VideoCard] Failed to stop talk session on PSO disconnect:', err)
-              })
-          }
-        }
-      }
-      room.on(RoomEvent.ParticipantDisconnected, onParticipantDisconnected)
-      
-      const onTrackPublished = async (publication: any, participant: RemoteParticipant) => {
-        if (participant.identity === roomName) {
-          console.log('[VideoCard] Track published:', { kind: publication.kind, isSubscribed: publication.isSubscribed, trackSid: publication.trackSid })
-          
-          // Setup participant to handle the track when it gets subscribed
-          setupParticipant(participant)
-          
-          // If track is already subscribed, attach it immediately
-          if (publication.isSubscribed && publication.track) {
-            attachTrack(publication)
-          } else if (publication.kind === 'audio') {
-            // For audio tracks that aren't subscribed yet, set up a polling mechanism
-            // to check when they become subscribed (LiveKit auto-subscribes but may have a delay)
-            // This handles the case where PSO publishes audio after admin is already connected
-            // Only poll if admin has an active talk session (isTalking === true)
-            // Otherwise, the audio will be ignored anyway when it becomes subscribed
-            if (isTalking) {
-              let checkCount = 0
-              const maxChecks = 20 // Check for up to 10 seconds (20 * 500ms)
-              const checkInterval = setInterval(() => {
-                checkCount++
-                const currentPub = participant.getTrackPublication(publication.trackSid)
-                if (currentPub && currentPub.isSubscribed && currentPub.track) {
-                  console.log('[VideoCard] Audio track became subscribed after polling, attaching now')
-                  clearInterval(checkInterval)
-                  attachTrack(currentPub)
-                } else if (checkCount >= maxChecks) {
-                  console.warn('[VideoCard] Audio track did not become subscribed after polling')
-                  clearInterval(checkInterval)
-                }
-              }, 500)
-              
-              // Store interval for cleanup
-              if (!(room as any).__audioPollIntervals) {
-                (room as any).__audioPollIntervals = new Set()
-              }
-              (room as any).__audioPollIntervals.add(checkInterval)
-            }
-          }
-        }
-      }
-      room.on(RoomEvent.TrackPublished, onTrackPublished)
-
-      // Cleanup: remove listeners when effect cleans up
-      const cleanupListeners = () => {
-        room.off(RoomEvent.ParticipantConnected, onParticipantConnected)
-        room.off(RoomEvent.TrackPublished, onTrackPublished)
-        participantTrackHandlers.forEach((handler, participant) => {
-          participant.off(ParticipantEvent.TrackSubscribed, handler)
-        })
-        participantTrackHandlers.clear()
-        
-        // Cleanup audio polling intervals
-        if ((room as any).__audioPollIntervals) {
-          (room as any).__audioPollIntervals.forEach((interval: NodeJS.Timeout) => {
-            clearInterval(interval)
-          })
-          ;(room as any).__audioPollIntervals.clear()
-        }
-      }
-
-      // Store cleanup on lkRoom for later
-      ;(room as any).__cleanupListeners = cleanupListeners
-    }
-
-    void connectAndWatch()
+    room.on(RoomEvent.ParticipantDisconnected, onParticipantDisconnected);
 
     return () => {
-      canceled = true
-      
+      room.off(RoomEvent.ParticipantDisconnected, onParticipantDisconnected);
+    };
+  }, [roomRef, roomName]);
+
+  /**
+   * Cleanup: Close talk session and clean elements when component unmounts
+   */
+  useEffect(() => {
+    return () => {
       // Close talk session if active when component unmounts
-      if (hasActiveSession && activeSessionId) {
+      const currentHasActiveSession = hasActiveSessionRef.current;
+      const currentActiveSessionId = activeSessionIdRef.current;
+      if (currentHasActiveSession && currentActiveSessionId) {
         talkSessionClientRef.current
-          .stop(activeSessionId, TalkStopReason.SUPERVISOR_DISCONNECTED)
+          .stop(currentActiveSessionId, TalkStopReason.SUPERVISOR_DISCONNECTED)
           .catch((err: unknown) => {
-            console.error('[VideoCard] Failed to stop talk session on cleanup:', err)
-          })
+            console.error('[VideoCard] Failed to stop talk session on cleanup:', err);
+          });
       }
-      
-      // Remove per-room listeners before disconnect to avoid leaks
-      const roomCleanup = (lkRoom as any)?.__cleanupListeners as (() => void) | undefined
-      if (roomCleanup) {
-        roomCleanup()
-      }
-      lkRoom?.disconnect()
-      roomRef.current = null
 
       // Clean elements
       if (videoRef.current) {
-        videoRef.current.srcObject = null
-        videoRef.current.src = ''
+        videoRef.current.srcObject = null;
+        videoRef.current.src = '';
       }
       if (audioRef.current) {
-        audioRef.current.srcObject = null
-        audioRef.current.src = ''
+        audioRef.current.srcObject = null;
+        audioRef.current.src = '';
       }
-    }
-  }, [
-    shouldStream,
-    accessToken,
-    roomName,
-    livekitUrl,
-    email,
-    hasActiveSession,
-    activeSessionId,
-    activeSupervisorEmail,
-    currentAdminEmail,
-    isTalking,
-    isAudioMuted,
-    playAudioSafely,
-  ])
+    };
+  }, []);
 
   /**
    * Safety net: if an external change flips shouldStream true → false,
@@ -482,7 +355,7 @@ const VideoCard: React.FC<VideoCardProps & {
               playsInline
               muted
               controls={false}
-              className="absolute inset-0 w-full h-full object-contain"
+              className="absolute inset-0 w-full h-full object-cover rounded-xl"
             />
           ) : (
             <div className="absolute inset-0 flex flex-col items-center justify-center">

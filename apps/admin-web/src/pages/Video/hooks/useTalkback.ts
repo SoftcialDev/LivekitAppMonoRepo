@@ -150,8 +150,39 @@ export function useTalkback(options: UseTalkbackOptions): UseTalkback {
     setLoading(true)
 
     try {
-      const room = roomRef.current
-      if (!room) throw new Error('useTalkback.start(): room is not connected')
+      // Wait for room to be available (with timeout)
+      let room = roomRef.current
+      let attempts = 0
+      const maxAttempts = 10
+      const waitInterval = 100 // 100ms between checks
+      
+      while (!room && attempts < maxAttempts) {
+        await new Promise(resolve => setTimeout(resolve, waitInterval))
+        room = roomRef.current
+        attempts++
+      }
+      
+      if (!room) {
+        console.error('[useTalkback] Room not available after waiting', {
+          attempts,
+          hasRoomRef: !!roomRef.current
+        })
+        throw new Error('useTalkback.start(): room is not connected - please wait for connection')
+      }
+      
+      // Double check that room is actually connected
+      if (room.state !== 'connected') {
+        console.warn('[useTalkback] Room exists but not connected, waiting...', {
+          roomState: room.state,
+          connectionState: (room as any).connectionState
+        })
+        // Wait a bit more for connection
+        await new Promise(resolve => setTimeout(resolve, 500))
+        room = roomRef.current
+        if (!room || room.state !== 'connected') {
+          throw new Error('useTalkback.start(): room is not connected - connection in progress')
+        }
+      }
 
       if (psoEmail) {
         // Check if PSO already has an active talk session

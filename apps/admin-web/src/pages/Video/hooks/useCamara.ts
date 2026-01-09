@@ -365,9 +365,15 @@ const stopStreamForCommand = useCallback(async (reason?: string) => {
       const sessionData = await streamingClient.fetchLastSessionWithReason();
       console.log('[StopStream] Session data after STOP:', sessionData);
       
-      // Disparar evento personalizado para que usePsoStreamingStatus se actualice
+      // Disparar evento personalizado para que usePsoStreamingStatus y useIsolatedStreams se actualice
+      // Agregar email del PSO al evento para que useIsolatedStreams pueda actualizar el timer del admin
       const event = new CustomEvent('streamingSessionUpdated', {
-        detail: { session: sessionData }
+        detail: { 
+          session: {
+            ...sessionData,
+            email: userEmail // Agregar email del PSO al evento
+          }
+        }
       });
       window.dispatchEvent(event);
       

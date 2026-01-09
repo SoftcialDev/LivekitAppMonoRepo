@@ -22,6 +22,12 @@ interface StreamCreds {
 export type CredsMap = Record<string, StreamCreds>;
 
 /**
+ * Delay in milliseconds before fetching status after STOP command
+ * This gives the backend time to process the stop and update the database
+ */
+const STOP_STATUS_FETCH_DELAY_MS = 6000; // 6 seconds
+
+/**
  * Hook COMPLETAMENTE AISLADO para streams
  * NO se ve afectado por cambios en el presence store
  * Solo se actualiza cuando realmente es necesario
@@ -29,6 +35,7 @@ export type CredsMap = Record<string, StreamCreds>;
  */
 export function useIsolatedStreams(viewerEmail: string, emails: string[]): CredsMap {
   const [credsMap, setCredsMap] = useState<CredsMap>({});
+  const credsMapRef = useRef<CredsMap>({}); // Keep ref for current credsMap to check in timers
   const canceledUsersRef = useRef<Set<string>>(new Set());
   const emailsRef = useRef<string[]>([]); // keep latest emails without retriggering effects
   const joinedGroupsRef = useRef<Set<string>>(new Set()); // track joined WS groups
@@ -37,6 +44,12 @@ export function useIsolatedStreams(viewerEmail: string, emails: string[]): Creds
   const lastEmailsRef = useRef<string[]>([]);
   const cooldownUntilRef = useRef<Record<string, number>>({}); // avoid early fetches
   const pendingTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const stopStatusTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({}); // track STOP status fetch timers
+  
+  // Keep credsMapRef in sync with credsMap state
+  useEffect(() => {
+    credsMapRef.current = credsMap;
+  }, [credsMap]);
 
   // Helper: convert batch response to statusInfo map
   const buildStatusMap = (statuses: UserStreamingStatus[]) => {
@@ -129,6 +142,15 @@ export function useIsolatedStreams(viewerEmail: string, emails: string[]): Creds
     if (timer) {
       clearTimeout(timer);
       delete pendingTimersRef.current[key];
+    }
+  }, []);
+
+  const clearStopStatusTimer = useCallback((email: string) => {
+    const key = email.toLowerCase();
+    const timer = stopStatusTimersRef.current[key];
+    if (timer) {
+      clearTimeout(timer);
+      delete stopStatusTimersRef.current[key];
     }
   }, []);
 
@@ -352,6 +374,77 @@ export function useIsolatedStreams(viewerEmail: string, emails: string[]): Creds
     void joinMissingGroups();
   }, [viewerEmail, emailsRef.current.join(',')]);
 
+  // ✅ Listen for streamingSessionUpdated event to get immediate timer updates
+  useEffect(() => {
+    const handleStreamingSessionUpdate = (event: CustomEvent) => {
+      const { session } = event.detail;
+      if (!session || !session.email) return;
+      
+      const emailKey = String(session.email).toLowerCase();
+      const currentEmails = emailsRef.current;
+      
+      // Only update if this email is in our list
+      if (!currentEmails.includes(emailKey)) {
+        return;
+      }
+      
+      console.log('[useIsolatedStreams] Streaming session updated via event for:', emailKey);
+      
+      // Update statusInfo immediately with the new session data
+      if (session.stoppedAt) {
+        const stopReason = session.stopReason;
+        const stoppedAt = session.stoppedAt;
+        
+        // Build statusInfo similar to buildStatusMap
+        let userStatus: 'on_break' | 'disconnected' | 'offline';
+        if (stopReason === 'QUICK_BREAK' || stopReason === 'SHORT_BREAK' || stopReason === 'LUNCH_BREAK') {
+          userStatus = 'on_break';
+        } else if (stopReason === 'EMERGENCY' || stopReason === 'DISCONNECT') {
+          userStatus = 'disconnected';
+        } else {
+          userStatus = 'offline';
+        }
+        
+        const statusInfo = {
+          email: session.email,
+          status: userStatus,
+          lastSession: {
+            stopReason: stopReason,
+            stoppedAt: stoppedAt
+          }
+        };
+        
+        setCredsMap(prev => ({
+          ...prev,
+          [emailKey]: {
+            ...(prev[emailKey] ?? { loading: false }),
+            statusInfo
+          }
+        }));
+        
+        // Clear any pending timer since we got the update immediately
+        clearStopStatusTimer(emailKey);
+      } else {
+        // Session started, clear statusInfo
+        setCredsMap(prev => {
+          const current = prev[emailKey];
+          if (!current) return prev;
+          const { statusInfo, ...rest } = current;
+          return {
+            ...prev,
+            [emailKey]: rest
+          };
+        });
+      }
+    };
+    
+    window.addEventListener('streamingSessionUpdated', handleStreamingSessionUpdate as EventListener);
+    
+    return () => {
+      window.removeEventListener('streamingSessionUpdated', handleStreamingSessionUpdate as EventListener);
+    };
+  }, []);
+
   // ✅ WebSocket handler registrado UNA sola vez; usa refs para leer estado actual
   useEffect(() => {
     const client = WebPubSubClientService.getInstance();
@@ -432,8 +525,10 @@ export function useIsolatedStreams(viewerEmail: string, emails: string[]): Creds
           ns.delete(targetEmail);
           canceledUsersRef.current = ns;
         }
-        // ✅ DELAY de 2 segundos para dar tiempo al PSO de iniciar streaming
+        // ✅ DELAY de 6 segundos para dar tiempo al PSO de iniciar streaming
         const emailKey = targetEmail as string; // narrow for closure
+        clearStopStatusTimer(emailKey); // Clear any pending STOP status timer
+        
         setTimeout(async () => {
           if (emailKey) {
             try {
@@ -471,29 +566,54 @@ export function useIsolatedStreams(viewerEmail: string, emails: string[]): Creds
               // Error handling
             }
           }
-        }, 6000);
+        }, STOP_STATUS_FETCH_DELAY_MS);
       } else if (started === false) {
         clearPendingTimer(targetEmail);
+        clearStopStatusTimer(targetEmail); // Clear any existing STOP status timer for this email
+        
         const ns = new Set(canceledUsersRef.current);
         ns.add(targetEmail);
         canceledUsersRef.current = ns;
         clearOne(targetEmail);
-        // ✅ Tras STOP: esperar y pedir status SOLO para ese email
+        
+        // ✅ Tras STOP: esperar un poco (1 segundo) para que el backend actualice la BD
+        // luego pedir status SOLO para ese email (una sola vez)
+        // El evento streamingSessionUpdated también actualizará esto inmediatamente si está disponible
         const emailKey = targetEmail as string; // narrow for closure
-        setTimeout(async () => {
-          try {
-            const resp = await fetchStreamingStatusBatch([emailKey]);
-            const map = buildStatusMap(resp.statuses);
-            const statusInfo = map[emailKey];
-            if (!statusInfo) return;
-            setCredsMap(prev => ({
-              ...prev,
-              [emailKey]: { ...(prev[emailKey] ?? { loading: false }), statusInfo }
-            }));
-          } catch {
-            // ignore
-          }
-        }, 6000);
+        
+        // Only schedule if not already scheduled for this email
+        // Reduce delay to 1 second since we also listen to streamingSessionUpdated event
+        if (!stopStatusTimersRef.current[emailKey]) {
+          stopStatusTimersRef.current[emailKey] = setTimeout(async () => {
+            try {
+              // Only fetch if statusInfo is not already set (from streamingSessionUpdated event)
+              const currentCreds = credsMapRef.current?.[emailKey];
+              if (currentCreds?.statusInfo) {
+                console.log('[useIsolatedStreams] StatusInfo already set via event, skipping batch fetch for:', emailKey);
+                delete stopStatusTimersRef.current[emailKey];
+                return;
+              }
+              
+              const resp = await fetchStreamingStatusBatch([emailKey]);
+              const map = buildStatusMap(resp.statuses);
+              const statusInfo = map[emailKey];
+              if (!statusInfo) {
+                // Clean up timer reference
+                delete stopStatusTimersRef.current[emailKey];
+                return;
+              }
+              setCredsMap(prev => ({
+                ...prev,
+                [emailKey]: { ...(prev[emailKey] ?? { loading: false }), statusInfo }
+              }));
+            } catch {
+              // ignore
+            } finally {
+              // Clean up timer reference after execution
+              delete stopStatusTimersRef.current[emailKey];
+            }
+          }, 1000); // Reduced from 6 seconds to 1 second - fallback only if event doesn't fire
+        }
       }
     };
 
@@ -508,6 +628,8 @@ export function useIsolatedStreams(viewerEmail: string, emails: string[]): Creds
     return () => {
       Object.values(pendingTimersRef.current).forEach(clearTimeout);
       pendingTimersRef.current = {};
+      Object.values(stopStatusTimersRef.current).forEach(clearTimeout);
+      stopStatusTimersRef.current = {};
     };
   }, []);
 

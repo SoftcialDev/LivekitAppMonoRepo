@@ -122,6 +122,7 @@ export function useTalkSessionStatus(
 
   /**
    * Set up polling when enabled and psoEmail is available
+   * Only fetches once when enabled becomes true, no continuous polling
    */
   useEffect(() => {
     if (!enabled || !psoEmail) {
@@ -133,13 +134,9 @@ export function useTalkSessionStatus(
       return;
     }
 
-    // Initial fetch
+    // Only fetch once when enabled becomes true (during countdown)
+    // No need for continuous polling since we're the ones starting the session
     fetchStatus();
-
-    // Set up polling interval
-    intervalRef.current = setInterval(() => {
-      fetchStatus();
-    }, pollInterval);
 
     // Cleanup on unmount or when dependencies change
     return () => {
@@ -148,7 +145,7 @@ export function useTalkSessionStatus(
         intervalRef.current = null;
       }
     };
-  }, [enabled, psoEmail, pollInterval, fetchStatus]);
+  }, [enabled, psoEmail, fetchStatus]);
 
   return {
     hasActiveSession,
