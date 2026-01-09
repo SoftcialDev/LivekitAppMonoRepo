@@ -181,10 +181,10 @@ export class StreamingSessionRepository implements IStreamingSessionRepository {
    * @param userId - The ID of the user
    * @param reason - The reason for stopping the session
    * @param context - Optional Azure Functions context for logging
-   * @returns Promise that resolves when the session is stopped
+1   * @returns Promise that resolves to the updated session with stoppedAt, or null if no session was found
    * @throws Error if database operation fails
    */
-  async stopStreamingSession(userId: string, reason: string, context?: Record<string, unknown>): Promise<void> {
+  async stopStreamingSession(userId: string, reason: string, context?: Record<string, unknown>): Promise<StreamingSessionHistory | null> {
     try {
       const now = getCentralAmericaTime();
       
@@ -199,19 +199,21 @@ export class StreamingSessionRepository implements IStreamingSessionRepository {
         }
       });
 
-      if (openSession) {
-        
-        // Update the session with stop information
-        await prisma.streamingSessionHistory.update({
-          where: { id: openSession.id },
-          data: {
-            stoppedAt: now,
-            stopReason: reason,
-            updatedAt: now  // ✅ Agregar updatedAt en Central America Time
-          }
-        });
-        
+      if (!openSession) {
+        return null;
       }
+        
+      // Update the session with stop information and return the updated session
+      const updatedSession = await prisma.streamingSessionHistory.update({
+        where: { id: openSession.id },
+        data: {
+          stoppedAt: now,
+          stopReason: reason,
+          updatedAt: now
+        }
+      });
+
+      return StreamingSessionHistory.fromPrisma(updatedSession);
     } catch (error: unknown) {
       throw wrapEntityUpdateError('Failed to stop streaming session', error);
     }
