@@ -189,8 +189,10 @@ export function useTalkback(options: UseTalkbackOptions): UseTalkback {
         try {
           const activeSession = await talkSessionClientRef.current.checkActiveSession(psoEmail)
           if (activeSession.hasActiveSession) {
+            // Use supervisor name if available, otherwise fallback to email, then to default message
+            const supervisorDisplayName = activeSession.supervisorName || activeSession.supervisorEmail || 'another supervisor'
             throw new Error(
-              `PSO already has an active talk session with ${activeSession.supervisorEmail || 'another supervisor'}. Please wait for it to end.`
+              `PSO already has an active talk session with ${supervisorDisplayName}. Please wait for it to end.`
             )
           }
         } catch (checkError: any) {

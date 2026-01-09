@@ -347,38 +347,24 @@ const stopStreamForCommand = useCallback(async (reason?: string) => {
   console.info('[Streaming] INACTIVE by COMMAND');
   
   try {
-    const payload: any = { 
-      status: 'stopped',
-      isCommand: true
-    };
+    // Call setInactive which now returns stoppedAt in the response
+    const response = await streamingClient.setInactive(reason, true);
+    console.log('[StopStream] Streaming session update response:', response);
     
-    // Include reason if provided
-    if (reason) {
-      payload.reason = reason;
-    }
-    
-    await apiClient.post('/api/StreamingSessionUpdate', payload);
-    
-    // ✅ INMEDIATAMENTE después del STOP, obtener la información del timer
-    console.log('[StopStream] Fetching session history immediately after STOP command');
-    try {
-      const sessionData = await streamingClient.fetchLastSessionWithReason();
-      console.log('[StopStream] Session data after STOP:', sessionData);
-      
+    // Use stoppedAt from the response immediately, eliminating the need for an additional fetch
+    if (response.stoppedAt && response.stopReason) {
       // Disparar evento personalizado para que usePsoStreamingStatus y useIsolatedStreams se actualice
-      // Agregar email del PSO al evento para que useIsolatedStreams pueda actualizar el timer del admin
+      // Usar stoppedAt de la respuesta para eliminar latencia
       const event = new CustomEvent('streamingSessionUpdated', {
         detail: { 
           session: {
-            ...sessionData,
+            stopReason: response.stopReason,
+            stoppedAt: response.stoppedAt,
             email: userEmail // Agregar email del PSO al evento
           }
         }
       });
       window.dispatchEvent(event);
-      
-    } catch (err) {
-      console.warn('[StopStream] Failed to fetch session history after STOP:', err);
     }
     
   } catch (err) {

@@ -40,6 +40,7 @@ import { TalkStopReason } from '@/shared/types/talkSession'
 import { useAudioAttachment } from '../hooks/useAudioAttachment'
 import { useRemoteTracks } from '../hooks/useRemoteTracks'
 import { useLiveKitRoomConnection } from '../hooks/useLiveKitRoomConnection'
+import { useToast } from '@/shared/ui/ToastContext'
 const VideoCard: React.FC<VideoCardProps & { 
   livekitUrl?: string;
   psoName?: string;
@@ -79,6 +80,7 @@ const VideoCard: React.FC<VideoCardProps & {
   const { userInfo } = useUserInfo();
   const { reasons: snapshotReasons } = useSnapshotReasons();
   const { hasPermission, hasAnyPermission } = usePermissions();
+  const { showToast } = useToast();
 
   const canTalkControl = hasAnyPermission([
     Permission.TalkSessionsStart,
@@ -124,7 +126,7 @@ const VideoCard: React.FC<VideoCardProps & {
   // Used to prevent multiple sessions BEFORE starting a new one
   // Only poll during countdown to verify no other session exists
   // Once we start talking (isTalking = true), we don't need to poll because we know the session is active
-  const { hasActiveSession, sessionId: activeSessionId, supervisorEmail: activeSupervisorEmail } = useTalkSessionStatus({
+  const { hasActiveSession, sessionId: activeSessionId, supervisorEmail: activeSupervisorEmail, supervisorName: activeSupervisorName } = useTalkSessionStatus({
     psoEmail: email || null,
     enabled: isCountdownActive && !!email, // Only poll during countdown, not during active talk session
     pollInterval: 5000
@@ -435,7 +437,23 @@ const VideoCard: React.FC<VideoCardProps & {
                 } else if (isTalking) {
                   await stopTalk()
                 } else {
-                  await startTalk()
+                  try {
+                    await startTalk()
+                  } catch (error: unknown) {
+                    const errorMessage = error instanceof Error ? error.message : 'Failed to start talk session'
+                    
+                    // Check if error is about active session and extract supervisor name
+                    if (errorMessage.includes('already has an active talk session')) {
+                      // Get supervisor name from activeSession response or use default
+                      const supervisorDisplayName = activeSupervisorName || activeSupervisorEmail || 'another supervisor'
+                      showToast(
+                        `PSO already has an active talk session with ${supervisorDisplayName}. Please wait for it to end.`,
+                        'error'
+                      )
+                    } else {
+                      showToast(errorMessage, 'error')
+                    }
+                  }
                 }
               }}
               disabled={talkDisabled && !isCountdownActive}

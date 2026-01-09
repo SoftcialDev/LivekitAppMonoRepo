@@ -25,7 +25,8 @@ export const LoadingPage: React.FC = (): JSX.Element => {
         // Configure token getter for API requests
         setTokenGetter(getApiToken);
         
-        // Load user information from database
+        // Always load user information from database when account is authenticated
+        // This ensures we get the latest role even if localStorage has cached data
         await loadUserInfo();
       } catch (error) {
         console.error('Failed to load user data:', error);
@@ -34,11 +35,11 @@ export const LoadingPage: React.FC = (): JSX.Element => {
       }
     };
 
-    // Only load if we have an account but no user info yet
-    if (account && !userInfo && !isLoading) {
+    // Always load if we have an account authenticated, regardless of localStorage cache
+    if (account && !isLoading) {
       loadUserData();
     }
-  }, [account, userInfo, isLoading, getApiToken, loadUserInfo, navigate]);
+  }, [account, isLoading, getApiToken, loadUserInfo, navigate]);
 
   useEffect(() => {
     // Redirect based on user role once user info is loaded

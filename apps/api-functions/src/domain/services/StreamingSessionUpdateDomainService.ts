@@ -62,12 +62,13 @@ export class StreamingSessionUpdateDomainService {
       // Use provided reason, COMMAND if triggered by command, or DISCONNECT as fallback
       const stopReason = request.reason || (request.isCommand ? 'COMMAND' : 'DISCONNECT');
       try {
-        await this.streamingSessionDomainService.stopStreamingSession(user.id, stopReason);
+        const updatedSession = await this.streamingSessionDomainService.stopStreamingSession(user.id, stopReason);
         await this.broadcastStreamEvent(user.email, 'stopped', stopReason);
         return new StreamingSessionUpdateResponse(
           `Streaming session stopped (${stopReason})`,
           StreamingStatus.Stopped,
-          stopReason
+          stopReason,
+          updatedSession?.stoppedAt?.toISOString()
         );
       } catch (error) {
         await this.broadcastStreamEvent(

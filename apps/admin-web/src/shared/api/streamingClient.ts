@@ -59,14 +59,33 @@ export class StreamingClient {
   /**
    * Notify the backend that the user has stopped streaming video.
    *
-   * @returns A promise that resolves when the request completes.
+   * @param reason - Optional stop reason (e.g., 'QUICK_BREAK', 'LUNCH_BREAK', etc.)
+   * @param isCommand - Whether this stop was triggered by a command
+   * @returns A promise that resolves to the response containing stoppedAt timestamp
    * @throws Will propagate any network or API errors.
    */
-  public async setInactive(): Promise<void> {
-    await apiClient.post<unknown>(
-      '/api/StreamingSessionUpdate',
-      { status: 'stopped' } as StreamingStatusPayload
-    );
+  public async setInactive(reason?: string, isCommand?: boolean): Promise<{
+    message: string;
+    status: string;
+    stopReason?: string;
+    stoppedAt?: string;
+  }> {
+    const payload: any = { status: 'stopped' };
+    if (reason) {
+      payload.reason = reason;
+    }
+    if (isCommand !== undefined) {
+      payload.isCommand = isCommand;
+    }
+    
+    const response = await apiClient.post<{
+      message: string;
+      status: string;
+      stopReason?: string;
+      stoppedAt?: string;
+    }>('/api/StreamingSessionUpdate', payload);
+    
+    return response.data;
   }
 
   /**

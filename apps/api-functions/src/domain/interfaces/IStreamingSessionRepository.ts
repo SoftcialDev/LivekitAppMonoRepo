@@ -85,10 +85,10 @@ export interface IStreamingSessionRepository {
    * @param userId - The user's database ID
    * @param reason - The reason for stopping the session
    * @param context - Optional context for logging (Azure Functions context or custom data)
-   * @returns Promise that resolves when the session is stopped
+   * @returns Promise that resolves to the updated session with stoppedAt, or null if no session was found
    * @throws Error if database operation fails
    */
-  stopStreamingSession(userId: string, reason: string, context?: FunctionContext): Promise<void>;
+  stopStreamingSession(userId: string, reason: string, context?: FunctionContext): Promise<StreamingSessionHistory | null>;
 
   /**
    * Gets the last streaming session for a user
