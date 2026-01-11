@@ -8,10 +8,11 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { webSocketService } from '@/shared/services/webSocket';
+import { WebSocketGroupRetryManager } from '@/shared/services/webSocket/managers';
 import { fetchStreamingStatusBatch } from '../../api/streamingStatusBatchClient';
 import { StreamingStatus, StreamingStopReason } from '../../enums';
 import type { CredsMap, StreamCreds, StreamingStatusInfo } from '../../types';
-import { STOP_STATUS_FETCH_DELAY_MS, INIT_FETCH_DELAY_MS, PENDING_TIMEOUT_MS } from '../../constants';
+import { STOP_STATUS_FETCH_DELAY_MS, INIT_FETCH_DELAY_MS, PENDING_TIMEOUT_MS, START_CONNECTION_TIMEOUT_MS } from '../../constants';
 import { logDebug, logError, logWarn } from '@/shared/utils/logger';
 import {
   buildStatusMap,
@@ -44,6 +45,7 @@ export function useIsolatedStreams(viewerEmail: string, emails: string[]): Creds
   const stopStatusTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({}); // Track STOP status fetch timers
   const fetchingTokensRef = useRef<Set<string>>(new Set()); // Track emails currently fetching tokens to prevent duplicate calls
   const retryTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({}); // Track retry timers for pending token fetches
+  const startConnectionTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({}); // Track timeouts for pending -> started connection
   
   useEffect(() => {
     credsMapRef.current = credsMap;
@@ -151,6 +153,15 @@ export function useIsolatedStreams(viewerEmail: string, emails: string[]): Creds
     }
   }, []);
 
+  const clearStartConnectionTimer = useCallback((email: string): void => {
+    const key = email.toLowerCase();
+    const timer = startConnectionTimersRef.current[key];
+    if (timer) {
+      clearTimeout(timer);
+      delete startConnectionTimersRef.current[key];
+    }
+  }, []);
+
   useEffect(() => {
     if (isInitializedRef.current || emails.length === 0) return;
     
@@ -249,27 +260,35 @@ export function useIsolatedStreams(viewerEmail: string, emails: string[]): Creds
       toLeave.forEach(email => {
         clearPendingTimer(email);
         clearRetryTimer(email);
+        clearStartConnectionTimer(email);
         clearOne(email);
       });
     }
-  }, [emails, clearOne, clearPendingTimer, clearRetryTimer]);
+  }, [emails, clearOne, clearPendingTimer, clearRetryTimer, clearStartConnectionTimer]);
 
   useEffect(() => {
     const joinMissingGroups = async (): Promise<void> => {
       try {
         await webSocketService.connect(viewerEmail);
+        const groupRetryManager = new WebSocketGroupRetryManager();
         for (const email of emailsRef.current) {
           if (!joinedGroupsRef.current.has(email)) {
             try {
-              await webSocketService.joinGroup(email);
+              await groupRetryManager.joinGroupWithRetry(
+                email,
+                () => webSocketService.joinGroup(email),
+                () => webSocketService.isConnected()
+              );
               joinedGroupsRef.current.add(email);
-            } catch {
-              // Ignore join errors
+            } catch (error) {
+              logWarn('Failed to join PSO group after retries', { email, error });
+              // Non-critical group, continue with others
             }
           }
         }
       } catch (error) {
-        logWarn('Failed to join WebSocket groups', { error });
+        logWarn('Failed to connect WebSocket', { error });
+        // Connection retry handled by WebSocketService
       }
     };
     void joinMissingGroups();
@@ -351,6 +370,7 @@ export function useIsolatedStreams(viewerEmail: string, emails: string[]): Creds
         const key = parsed.targetEmail;
         clearPendingTimer(key);
         clearRetryTimer(key); // Clear any existing retry timers
+        clearStartConnectionTimer(key); // Clear any existing start connection timer
         
         logDebug('[useIsolatedStreams] Received pending status, starting optimistic connection', {
           email: key,
@@ -445,12 +465,33 @@ export function useIsolatedStreams(viewerEmail: string, emails: string[]): Creds
           });
           clearPendingTimer(key);
         }, PENDING_TIMEOUT_MS);
+
+        // Set timeout: if 'started' message is not received within 15 seconds, set loading to false
+        startConnectionTimersRef.current[key] = setTimeout(() => {
+          delete startConnectionTimersRef.current[key];
+          setCredsMap(prev => {
+            const current = prev[key];
+            if (!current) return prev;
+            
+            // Only set loading to false if we still don't have a token and are still loading
+            // This prevents race conditions if 'started' message arrives right after timeout
+            if (current.loading && !current.accessToken) {
+              logWarn('[useIsolatedStreams] Start connection timeout - no started message received within 15 seconds', { email: key });
+              return {
+                ...prev,
+                [key]: { ...current, loading: false }
+              };
+            }
+            return prev; // Already has token or not loading - no change needed
+          });
+        }, START_CONNECTION_TIMEOUT_MS);
         return;
       }
 
       if (parsed.failed) {
         const key = parsed.targetEmail;
         clearPendingTimer(key);
+        clearStartConnectionTimer(key);
         setCredsMap(prev => {
           const current = prev[key] ?? {};
           return {
@@ -464,6 +505,7 @@ export function useIsolatedStreams(viewerEmail: string, emails: string[]): Creds
       if (parsed.started === true) {
         clearPendingTimer(parsed.targetEmail);
         clearRetryTimer(parsed.targetEmail);
+        clearStartConnectionTimer(parsed.targetEmail);
         if (canceledUsersRef.current.has(parsed.targetEmail)) {
           const ns = new Set(canceledUsersRef.current);
           ns.delete(parsed.targetEmail);
@@ -548,6 +590,7 @@ export function useIsolatedStreams(viewerEmail: string, emails: string[]): Creds
       } else if (parsed.started === false) {
         clearPendingTimer(parsed.targetEmail);
         clearStopStatusTimer(parsed.targetEmail);
+        clearStartConnectionTimer(parsed.targetEmail);
         
         const ns = new Set(canceledUsersRef.current);
         ns.add(parsed.targetEmail);

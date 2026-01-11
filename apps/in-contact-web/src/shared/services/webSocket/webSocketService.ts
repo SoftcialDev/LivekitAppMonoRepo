@@ -414,6 +414,9 @@ export class WebSocketService {
       resetBackoff: () => {
         this.reconnectManager.resetBackoff();
       },
+      isConnected: () => {
+        return this.isConnected();
+      },
     });
 
     this.client = newClient;

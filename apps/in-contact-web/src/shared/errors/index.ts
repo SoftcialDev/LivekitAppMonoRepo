@@ -4,6 +4,7 @@
  */
 
 export { AppError } from './AppError';
+export { MediaPermissionError } from './MediaPermissionError';
 export {
   ApiError,
   UnauthorizedError,
@@ -16,4 +17,10 @@ export {
 export { ConfigurationError } from './ConfigurationError';
 export { ContextError } from './ContextError';
 export { BootstrapError } from './BootstrapError';
+export {
+  WebSocketConnectionActiveError,
+  WebSocketConnectionLostError,
+  WebSocketHandshakeError,
+  WebSocketNotConnectedError,
+} from './WebSocketError';
 

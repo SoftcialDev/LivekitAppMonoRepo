@@ -5,7 +5,7 @@
  * status with timer information. Listens for talk session notifications and plays audio alerts.
  */
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import type { Room } from 'livekit-client';
 import { useAuth } from '@/modules/auth';
 import { usePsoStreamingStatus } from '@/modules/pso-streaming/hooks/status';
@@ -21,9 +21,11 @@ import {
   usePsoTalkResponse,
   useStreamCommandHandling,
 } from '../hooks';
-import { TalkActiveBanner } from '../components';
+import { TalkActiveBanner, MediaPermissionsModal } from '../components';
 import { AUTO_RELOAD_INTERVAL_MS } from '../constants';
-import { logDebug } from '@/shared/utils/logger';
+import { logDebug, logError } from '@/shared/utils/logger';
+import { isWithinCentralAmericaWindow } from '@/shared/utils/time';
+import { MediaPermissionError } from '@/shared/errors';
 
 /**
  * Personal dashboard for PSO users
@@ -38,12 +40,31 @@ const PsoDashboardPage: React.FC = () => {
   const { account } = useAuth();
   const psoEmail = account?.username?.toLowerCase() ?? '';
 
+  // Media permissions modal state
+  const [mediaPermissionsModalOpen, setMediaPermissionsModalOpen] = useState(false);
+  const [mediaPermissionError, setMediaPermissionError] = useState<MediaPermissionError | null>(null);
+
   // Supervisor information
   const { supervisor, refetchSupervisor } = usePsoSupervisor(psoEmail);
   usePsoSupervisorNotifications({ psoEmail, refetchSupervisor });
 
   // Streaming dashboard
-  const { videoRef, audioRef, isStreaming, getCurrentRoom, startStream, stopStream } = useStreamingDashboard();
+  const { videoRef, audioRef, isStreaming, getCurrentRoom, startStream: startStreamBase, stopStream } = useStreamingDashboard();
+
+  // Wrap startStream to catch media permission errors
+  const startStream = useCallback(async (): Promise<void> => {
+    try {
+      await startStreamBase();
+    } catch (error) {
+      if (error instanceof MediaPermissionError) {
+        setMediaPermissionError(error);
+        setMediaPermissionsModalOpen(true);
+      } else {
+        logError('[PsoDashboardPage] Failed to start stream', { error, psoEmail });
+        throw error; // Re-throw other errors
+      }
+    }
+  }, [startStreamBase, psoEmail]);
   useAutoReloadWhenIdle(isStreaming, { intervalMs: AUTO_RELOAD_INTERVAL_MS, onlyWhenVisible: false });
 
   // Handle START/STOP commands from WebSocket
@@ -77,23 +98,32 @@ const PsoDashboardPage: React.FC = () => {
   });
 
   // Streaming status and timer
-  const { status: streamingStatus } = usePsoStreamingStatus(psoEmail, isStreaming);
+  const { status: streamingStatus, loading: streamingStatusLoading } = usePsoStreamingStatus(psoEmail, isStreaming);
   const timerInfo = useSynchronizedTimer(
     streamingStatus?.lastSession?.stopReason || null,
     streamingStatus?.lastSession?.stoppedAt || null
   );
 
-  // Auto-resume logic: if disconnected with DISCONNECT reason within 5 minutes, auto-start streaming
+  // Auto-resume logic: if session was active or disconnected with DISCONNECT reason within 5 minutes, auto-start streaming
   // Similar to admin-web useBootstrap logic
   const hasInitializedRef = useRef<boolean>(false);
   useEffect(() => {
-    // Skip if already initialized, currently streaming, or missing required data
-    if (hasInitializedRef.current || isStreaming || !streamingStatus || !psoEmail) {
+    // Skip if already initialized, currently streaming, status is loading, or missing required data
+    if (hasInitializedRef.current || isStreaming || streamingStatusLoading || !streamingStatus || !psoEmail) {
       return;
     }
 
     const RESUME_WINDOW_MS = 5 * 60_000; // 5 minutes
 
+    // If session was active (hasActiveSession is true), auto-resume immediately
+    if (streamingStatus.hasActiveSession) {
+      logDebug('[PsoDashboardPage] Auto-resuming stream - session was active', { psoEmail });
+      hasInitializedRef.current = true;
+      void startStream();
+      return;
+    }
+
+    // Otherwise, check lastSession for DISCONNECT within window
     const lastSession = streamingStatus.lastSession;
     if (!lastSession) {
       hasInitializedRef.current = true;
@@ -102,20 +132,17 @@ const PsoDashboardPage: React.FC = () => {
 
     const { stopReason, stoppedAt } = lastSession;
     
-    // Only resume if:
-    // 1. No stop time (session was active)
-    // 2. OR stopped by DISCONNECT and within 5 minutes
+    // Only resume if stopped by DISCONNECT and within 5 minutes (using Costa Rica timezone)
     const withinWindow = stoppedAt
-      ? Date.now() - new Date(stoppedAt).getTime() < RESUME_WINDOW_MS
-      : true;
+      ? isWithinCentralAmericaWindow(stoppedAt, RESUME_WINDOW_MS)
+      : false;
 
-    if (!stoppedAt || (stopReason === StreamingStopReason.DISCONNECT && withinWindow)) {
-      logDebug('[PsoDashboardPage] Auto-resuming stream', { 
-        reason: stopReason || 'active', 
+    if (stopReason === StreamingStopReason.DISCONNECT && withinWindow) {
+      logDebug('[PsoDashboardPage] Auto-resuming stream - DISCONNECT within window', { 
+        reason: stopReason, 
         psoEmail,
         stoppedAt,
-        withinWindow,
-        elapsedMs: stoppedAt ? Date.now() - new Date(stoppedAt).getTime() : null
+        withinWindow
       });
       hasInitializedRef.current = true;
       void startStream();
@@ -124,15 +151,23 @@ const PsoDashboardPage: React.FC = () => {
         reason: stopReason,
         psoEmail,
         stoppedAt,
-        withinWindow,
-        elapsedMs: stoppedAt ? Date.now() - new Date(stoppedAt).getTime() : null
+        withinWindow
       });
       hasInitializedRef.current = true;
     }
-  }, [streamingStatus, isStreaming, psoEmail, startStream]);
+  }, [streamingStatus, streamingStatusLoading, isStreaming, psoEmail, startStream]);
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-[#542187]">
+    <>
+      <MediaPermissionsModal
+        open={mediaPermissionsModalOpen}
+        onClose={() => setMediaPermissionsModalOpen(false)}
+        cameras={mediaPermissionError?.cameras || []}
+        microphones={mediaPermissionError?.microphones || []}
+        cameraBlocked={mediaPermissionError?.cameraBlocked || false}
+        microphoneBlocked={mediaPermissionError?.microphoneBlocked || false}
+      />
+      <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-[#542187]">
       {supervisor && (
         <div className="mb-4 text-white text-lg font-semibold">
           Supervisor: {supervisor.fullName}
@@ -184,6 +219,7 @@ const PsoDashboardPage: React.FC = () => {
         )}
       </div>
     </div>
+    </>
   );
 };
 

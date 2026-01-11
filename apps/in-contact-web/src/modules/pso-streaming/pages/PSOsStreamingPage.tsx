@@ -207,7 +207,7 @@ const PSOsStreamingPage: React.FC = () => {
 
             return (
               <VideoGridItem
-                key={`${key}-${currentSupervisorEmail}`}
+                key={key}
                 itemIndex={i}
                 totalCount={displayList.length}
               >

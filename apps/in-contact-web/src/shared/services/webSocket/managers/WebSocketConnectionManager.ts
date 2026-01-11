@@ -15,6 +15,7 @@ import type { IConnectionEventHandlers } from '../types/webSocketManagerTypes';
 import { WEBSOCKET_GROUPS } from '../constants/webSocketConstants';
 import { WebSocketMessageParser } from '../utils/WebSocketMessageParser';
 import type { WebSocketGroupManager } from './WebSocketGroupManager';
+import { WebSocketHandshakeRetryManager } from './WebSocketHandshakeRetryManager';
 
 /**
  * WebSocket connection manager
@@ -24,10 +25,16 @@ import type { WebSocketGroupManager } from './WebSocketGroupManager';
  * - Event handler setup
  * - Lifecycle event management
  * - Group management integration
+ * - Handshake retry logic for 500 errors
  */
 export class WebSocketConnectionManager {
+  private static handshakeRetryManager = new WebSocketHandshakeRetryManager();
+
   /**
    * Creates a new WebSocket client and sets up event handlers
+   * 
+   * Uses handshake retry manager to handle 500 errors during WSS handshake.
+   * Checks for active connection before retrying to avoid redundant attempts.
    * 
    * @param params - Connection parameters
    * @returns Promise resolving to the created client
@@ -41,6 +48,7 @@ export class WebSocketConnectionManager {
     setConnected: (connected: boolean) => void;
     clearReconnectTimer: () => void;
     resetBackoff: () => void;
+    isConnected: () => boolean;
   }): Promise<WebPubSubClient> {
     const {
       currentUserEmail,
@@ -50,48 +58,61 @@ export class WebSocketConnectionManager {
       setConnected,
       clearReconnectTimer,
       resetBackoff,
+      isConnected,
     } = params;
 
-    // Negotiate token/URL
-    const negotiateResult = await this.negotiateConnection();
+    // Wrap the entire connection process in handshake retry logic
+    return await this.handshakeRetryManager.connectWithRetry(
+      async () => {
+        // Negotiate token/URL (this works fine, no retry needed here)
+        const negotiateResult = await this.negotiateConnection();
 
-    // Create client URL
-    const clientUrl = this.buildClientUrl(negotiateResult);
+        // Create client URL
+        const clientUrl = this.buildClientUrl(negotiateResult);
 
-    // Create client with JSON subprotocol
-    const client = new WebPubSubClient(clientUrl, {
-      protocol: WebPubSubJsonProtocol(),
-    });
+        // Create client with JSON subprotocol
+        const client = new WebPubSubClient(clientUrl, {
+          protocol: WebPubSubJsonProtocol(),
+        });
 
-    // Setup event handlers
-    this.setupMessageHandlers(client, eventHandlers);
-    this.setupLifecycleHandlers(client, {
-      currentUserEmail,
-      groupManager,
-      eventHandlers,
-      onReconnectNeeded,
-      setConnected,
-      clearReconnectTimer,
-      resetBackoff,
-    });
+        // Setup event handlers
+        this.setupMessageHandlers(client, eventHandlers);
+        this.setupLifecycleHandlers(client, {
+          currentUserEmail,
+          groupManager,
+          eventHandlers,
+          onReconnectNeeded,
+          setConnected,
+          clearReconnectTimer,
+          resetBackoff,
+        });
 
-    // Start the client (handshake)
-    try {
-      await client.start();
-      logInfo('WebSocket client started successfully', {
-        email: currentUserEmail,
-      });
-      return client;
-    } catch (error) {
-      logError('Failed to start WebSocket client', {
-        error,
-        email: currentUserEmail,
-      });
-      setConnected(false);
+        // Start the client (handshake) - THIS IS WHERE 500 ERROR OCCURS
+        try {
+          await client.start();
+          logInfo('WebSocket client started successfully', {
+            email: currentUserEmail,
+          });
+          return client;
+        } catch (error) {
+          // Check if it's a handshake error (will be caught by retry manager)
+          if (this.handshakeRetryManager.isHandshakeError(error)) {
+            logWarn('Handshake error detected', { error, email: currentUserEmail });
+            throw error; // Will be retried by connectWithRetry
+          }
 
-      onReconnectNeeded('start failed');
-      throw error;
-    }
+          // Not a handshake error, handle normally
+          logError('Failed to start WebSocket client (non-handshake error)', {
+            error,
+            email: currentUserEmail,
+          });
+          setConnected(false);
+          onReconnectNeeded('start failed');
+          throw error;
+        }
+      },
+      isConnected
+    );
   }
 
   /**

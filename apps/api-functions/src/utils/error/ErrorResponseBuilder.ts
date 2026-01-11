@@ -7,6 +7,7 @@
 
 import { Context } from "@azure/functions";
 import { ExpectedError } from '../../middleware/errorHandler';
+import { DomainError } from '../../domain/errors';
 import { ErrorHandlerOptions } from '../../domain/types/ErrorHandlerTypes';
 
 /**
@@ -15,17 +16,17 @@ import { ErrorHandlerOptions } from '../../domain/types/ErrorHandlerTypes';
  */
 export class ErrorResponseBuilder {
   /**
-   * Builds HTTP response for ExpectedError (4xx status codes)
+   * Builds HTTP response for ExpectedError or DomainError (4xx status codes)
    * @description Sets the Azure Functions context response with appropriate status code,
    * error message, and optional details. Skips if response is already populated.
-   * @param error - ExpectedError instance to build response from
+   * @param error - ExpectedError or DomainError instance to build response from
    * @param ctx - Azure Functions context
    * @example
    * const error = new ExpectedError('Invalid input', 400, { field: 'email' });
    * ErrorResponseBuilder.buildExpectedErrorResponse(error, ctx);
    */
   static buildExpectedErrorResponse(
-    error: ExpectedError,
+    error: ExpectedError | DomainError,
     ctx: Context
   ): void {
     if (!ctx.req) {
@@ -38,7 +39,7 @@ export class ErrorResponseBuilder {
     }
 
     const body: Record<string, unknown> = { error: error.message };
-    if (error.details !== undefined) {
+    if (error instanceof ExpectedError && error.details !== undefined) {
       body.details = error.details;
     }
 

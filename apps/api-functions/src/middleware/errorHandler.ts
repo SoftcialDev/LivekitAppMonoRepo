@@ -11,6 +11,7 @@ import { ServiceContainer } from "../infrastructure/container/ServiceContainer";
 import { IErrorLogService } from "../domain/interfaces/IErrorLogService";
 import { ErrorHandlerOptions } from "../domain/types/ErrorHandlerTypes";
 import { ErrorType } from "../domain/enums/ErrorType";
+import { DomainError } from "../domain/errors";
 import { ErrorContextExtractor } from "../utils/error/ErrorContextExtractor";
 import { ErrorTypeClassifier } from "../utils/error/ErrorTypeClassifier";
 import { ErrorLogger } from "../utils/error/ErrorLogger";
@@ -72,8 +73,21 @@ export function withErrorHandler<Args extends any[]>(
       await errorLogger.log(err, context, classification);
 
       if (classification.type === ErrorType.Expected) {
-        logExpectedError(ctx, err as ExpectedError);
-        ErrorResponseBuilder.buildExpectedErrorResponse(err as ExpectedError, ctx);
+        // Handle both ExpectedError and DomainError
+        if (err instanceof DomainError) {
+          ctx.log.warn(
+            {
+              event: "ExpectedError",
+              message: err.message,
+              statusCode: err.statusCode,
+              errorType: err.constructor.name,
+            },
+            "Domain error thrown by handler"
+          );
+        } else {
+          logExpectedError(ctx, err as ExpectedError);
+        }
+        ErrorResponseBuilder.buildExpectedErrorResponse(err as ExpectedError | DomainError, ctx);
         return;
       }
 

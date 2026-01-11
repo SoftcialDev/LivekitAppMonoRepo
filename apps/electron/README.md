@@ -1,12 +1,69 @@
-# InContact Electron App (LiveKitWrapper)
+# InContact Electron App
 
-Electron desktop client that serves the **admin-web** React build statically, with MSAL (Azure AD) auth, Windows service integration, and a system tray.
+Electron desktop application that serves the React web application statically with MSAL (Azure AD) authentication, Windows service integration, and system tray functionality.
 
----
+## What is Electron?
 
-## 🚀 Getting Started
+Electron is a framework that allows building cross-platform desktop applications using web technologies (HTML, CSS, and JavaScript/TypeScript). It combines the Chromium rendering engine and Node.js runtime, enabling developers to create desktop apps that can access both web APIs and native operating system features.
 
-Install dependencies before running any script. Do this once per environment or whenever dependencies change.
+### How We Use Electron
+
+In this project, Electron serves as a desktop wrapper for the React web application (`apps/in-contact-web`). Instead of running the web app in a browser, Electron provides:
+
+1. **Desktop Application Experience**: The React app runs as a native desktop application with its own window, system tray integration, and Windows service support
+2. **Native OS Integration**: Access to Windows services, file system, and other native capabilities that are not available in a standard web browser
+3. **Controlled Environment**: Consistent runtime environment across different machines without browser compatibility concerns
+4. **Offline Capabilities**: Ability to serve the application locally without requiring an external web server (in production mode)
+
+The Electron app does not rewrite the React application; it simply wraps it and provides a desktop container. All the React code, components, and business logic remain unchanged.
+
+## Architecture Overview
+
+The Electron app acts as a desktop wrapper for the React web application. In production, it serves the built React application statically via an Express server, while in development it loads the application from the Vite dev server.
+
+### How It Works
+
+**Development Mode:**
+- React app runs on Vite dev server at `http://localhost:5173`
+- Electron loads the application directly from the dev server URL
+- Hot module replacement and fast refresh work as normal
+
+**Production Mode:**
+- React app is built with `vite build --mode electron` into `apps/admin-web/dist`
+- During packaging, the `dist/` folder is copied into the Electron app under `resources/admin-web`
+- Electron's `main.js` starts an Express server on `http://localhost:3000`, serving the static files
+- BrowserWindow opens `http://localhost:3000`
+- All routes are handled with a catch-all route to `index.html` for client-side routing
+
+### Monorepo Layout
+
+```
+apps/
+├── admin-web/              # React app (Vite)
+│   ├── .env.electron      # Electron production env vars
+│   └── dist/              # Built UI output (vite build --mode electron)
+└── electron/              # Electron shell
+    ├── main.js            # Express server (prod), BrowserWindow, tray, service hooks
+    ├── preload.js         # LocalStorage <-> electron-store bridge
+    └── package.json       # Scripts wire up admin-web dev/build via npm --prefix
+```
+
+## Prerequisites
+
+Before running this project, ensure the following are installed:
+
+- **Node.js 18+** and npm
+- **Windows 10+** (for Windows service support)
+- **Azure AD App Registration** configured as SPA:
+  - Add Redirect URIs:
+    - `http://localhost:5173` (development)
+    - `http://localhost:3000` (production desktop)
+  - Use Authorization Code + PKCE (MSAL Browser)
+  - API scope must match `VITE_AZURE_AD_API_SCOPE_URI`
+
+## Installation
+
+Install dependencies in both applications:
 
 ```bash
 cd apps/admin-web
@@ -16,150 +73,101 @@ cd ../electron
 npm install
 ```
 
-With that in place, the commands defined in both `package.json` files will find their dependencies without warnings.
+## Configuration
 
----
+Create `apps/admin-web/.env.electron` file based on `.env.electron.example`:
 
-## 📂 Monorepo Layout (relevant parts)
-
-```
-apps/
-├─ admin-web/           # React app (Vite)
-│  ├─ .env.electron     # ← Electron (prod) env vars (you must create this)
-│  └─ dist/             # ← Built UI output (vite build --mode electron)
-└─ electron/            # Electron shell
-   ├─ main.js           # Express server (prod), BrowserWindow, tray, service hooks
-   ├─ preload.js        # LocalStorage <-> electron-store bridge
-   └─ package.json      # Scripts wire up admin-web dev/build via npm --prefix
-```
-
----
-
-## ⚙️ How it works
-
-* **Development (`npm start`)**
-
-  * `admin-web` runs on the **Vite dev server** at `http://localhost:5173`.
-  * Electron waits for that URL and loads it directly.
-* **Production (`npm run start:prod` or installer builds)**
-
-  * `admin-web` is built with **`vite build --mode electron`** into `apps/admin-web/dist`.
-  * During packaging, that `dist/` folder is copied into the Electron app under:
-
-    ```
-    <app>/resources/admin-web
-    ```
-  * **Electron’s `main.js`** starts **Express** on **`http://localhost:3000`**, serving those static files, with a catch-all route to `index.html`.
-  * The BrowserWindow opens `http://localhost:3000`.
-
-> In short: **Electron serves the UI statically** from `admin-web/dist` via Express in production.
-
----
-
-## ✅ Prerequisites
-
-* Node.js 18+ and npm
-* Windows 10+ (for Windows service support)
-* **Azure AD App Registration** (SPA):
-
-  * Add **Redirect URIs**:
-
-    * `http://localhost:5173` (dev)
-    * `http://localhost:3000` (production desktop)
-  * Use Authorization Code + PKCE (MSAL Browser)
-  * API scope must match `VITE_AZURE_AD_API_SCOPE_URI`
-
-> You do **not** need the “Mobile & desktop” platform unless you move to `msal-node`/`msal-electron`. With MSAL React in the renderer, treat this as an **SPA**.
-
----
-
-## 🔐 Environment variables
-
-Create **`apps/admin-web/.env.electron`**. This file is loaded by Vite when you run `vite build --mode electron`.
-
-Use the provided example (`apps/admin-web/.env.electron.example`) as your baseline and make sure every redirect URI in Electron mode points to **http://localhost:3000**.
-
-**Example `apps/admin-web/.env.electron`:**
-
-```ini
-# Azure AD (SPA) — client & tenant
-VITE_AZURE_AD_CLIENT_ID=9880433c-29f6-4522-a215-7bac089aa27c
-VITE_AZURE_AD_TENANT_ID=a080ad22-43aa-4696-b40b-9b68b702c9f3
+```env
+# Azure AD (SPA) - client & tenant
+VITE_AZURE_AD_CLIENT_ID=your-client-id
+VITE_AZURE_AD_TENANT_ID=your-tenant-id
 VITE_AZURE_AD_REDIRECT_URI=http://localhost:3000/
 VITE_AZURE_AD_POST_LOGOUT_REDIRECT_URI=http://localhost:3000/
-VITE_AZURE_AD_API_CLIENT_ID=875c2631-358c-4324-a128-1de60fb894a4
-VITE_AZURE_AD_API_SCOPE_URI=api://a080ad22-43aa-4696-b40b-9b68b702c9f3/livekit-app-prod-API/access_as_user  # change it to your api scope uri
-VITE_API_URL=https://livekit-agent-azure-func.azurewebsites.net
+VITE_AZURE_AD_API_CLIENT_ID=your-api-client-id
+VITE_AZURE_AD_API_SCOPE_URI=api://your-api-id/access_as_user
+VITE_API_URL=https://your-api-url.azurewebsites.net
 NODE_ENV=production
 VITE_AZURE_AD_DESKTOP_REDIRECT_URI=http://localhost:3000/
 VITE_IS_ELECTRON=TRUE
 ```
 
-> Only variables prefixed with `VITE_` are exposed to the frontend bundle.
-> Keep `http://localhost:3000/` for redirect URIs in Electron **production**.
+Important configuration notes:
+- Only variables prefixed with `VITE_` are exposed to the frontend bundle
+- All redirect URIs in Electron production mode must use `http://localhost:3000/`
+- The `VITE_IS_ELECTRON` flag can be used to detect Electron environment in the React app
 
----
+## Scripts
 
-## 🧩 Scripts (Electron)
+### Development
 
-`apps/electron/package.json`:
-
-```json
-{
-  "name": "in-contact-app",
-  "version": "1.0.0",
-  "main": "main.js",
-  "author": "Softcial",
-  "description": "In Contact Electron App for Collette Health",
-  "scripts": {
-    "start": "concurrently \"npm:ui:dev\" \"wait-on http://localhost:5173 && electron .\"",
-    "ui:dev": "npm --prefix ../admin-web run dev",
-    "ui:build": "npm --prefix ../admin-web run build:electron",
-    "start:prod": "npm run ui:build && cross-env NODE_ENV=production electron .",
-    "postinstall": "electron . --install-service",
-    "postuninstall": "electron . --uninstall-service",
-    "build": "npm run ui:build && electron-builder",
-    "dist:exe": "npm run ui:build && electron-builder --win nsis",
-    "dist:msi": "npm run ui:build && electron-builder --win msi",
-    "dist:win": "npm run ui:build && electron-builder --win nsis,msi"
-  },
-  "build": {
-    "appId": "com.example.livekitwrapper",
-    "productName": "In Contact App",
-    "icon": "icon",
-    "directories": { "output": "dist" },
-    "files": [
-      "main.js",
-      "preload.js",
-      "assets/**/*"
-    ],
-    "extraResources": [
-      { "from": "../admin-web/dist", "to": "admin-web", "filter": ["**/*"] }
-    ],
-    "win": {
-      "target": ["nsis", "msi"],
-      "protocols": [{ "name": "MyApp Protocol", "schemes": ["myapp"] }]
-    }
-  },
-  "devDependencies": {
-    "concurrently": "^9.2.0",
-    "cross-env": "^7.0.3",
-    "electron": "^28.3.3",
-    "electron-builder": "^26.0.12",
-    "wait-on": "^8.0.3"
-  },
-  "dependencies": {
-    "electron-store": "^10.1.0",
-    "express": "^4.19.2",
-    "livekit-client": "^2.13.8",
-    "node-windows": "^1.0.0-beta.8",
-    "react-router-dom": "^7.6.2"
-  },
-  "overrides": { "minimatch": "3.1.2" }
-}
+```bash
+cd apps/electron
+npm start
 ```
 
-**`apps/admin-web/package.json`** must define:
+This command:
+- Starts the React app on Vite dev server at `http://localhost:5173`
+- Waits for the server to be ready
+- Launches Electron pointing to the dev server URL
+
+### Production (Local Testing)
+
+```bash
+cd apps/electron
+npm run start:prod
+```
+
+This command:
+- Builds the React app with `--mode electron` (consuming `.env.electron`)
+- Starts Express server at `http://localhost:3000`
+- Launches Electron pointing at `http://localhost:3000`
+
+### Building Installers
+
+Generate Windows installers from the `apps/electron` directory:
+
+```bash
+# Package the Electron app and prepare artifacts
+npm run build
+
+# Produce Windows installer (.exe) using NSIS
+npm run dist:exe
+
+# Produce Windows installer (.msi)
+npm run dist:msi
+
+# Build both NSIS (.exe) and MSI outputs
+npm run dist:win
+```
+
+All commands reuse the React build under `apps/admin-web/dist`, so there is no need to run Vite separately.
+
+Finished installers are written to `apps/electron/dist/`:
+```
+dist/
+├── In Contact App Setup.exe    # NSIS-based installer
+├── In Contact App-1.0.0.msi    # MSI installer
+└── win-unpacked/               # Portable unpacked build
+```
+
+## Script Reference
+
+**`apps/electron/package.json` scripts:**
+
+| Script                 | Description                                    |
+| ---------------------- | ---------------------------------------------- |
+| `start`                | Starts dev mode (Vite + Electron)              |
+| `ui:dev`               | Starts React app on Vite dev server            |
+| `ui:build`             | Builds React app for Electron                  |
+| `start:prod`           | Builds React app and starts Electron in prod   |
+| `build`                | Packages Electron app                          |
+| `dist:exe`             | Creates NSIS installer (.exe)                  |
+| `dist:msi`             | Creates MSI installer                          |
+| `dist:win`             | Creates both NSIS and MSI installers           |
+| `postinstall`          | Installs Windows service (if applicable)       |
+| `postuninstall`        | Uninstalls Windows service (if applicable)     |
+
+**`apps/admin-web/package.json` must define:**
 
 ```json
 {
@@ -168,89 +176,96 @@ VITE_IS_ELECTRON=TRUE
     "build": "vite build",
     "build:electron": "vite build --mode electron",
     "preview": "vite preview"
-  },
-  "devDependencies": {
-    "vite": "^6.3.0"
   }
 }
 ```
 
----
+## Windows Service Integration
 
-## ▶️ Run
+The Electron app can be installed as a Windows service. The service integration is handled through command-line arguments:
 
-### Dev
+- `electron . --install-service`: Installs the Windows service
+- `electron . --uninstall-service`: Uninstalls the Windows service
 
-```bash
-cd apps/electron
-npm install
-npm start
-```
+These commands are automatically executed via `postinstall` and `postuninstall` npm scripts.
 
-* Starts `admin-web` at `http://localhost:5173`
-* Launches Electron pointing to that URL
+## Debugging
 
-### Prod (local)
+### DevTools
 
-```bash
-cd apps/electron
-npm run start:prod
-```
+Open DevTools in Electron:
+- Press `Ctrl+Shift+I` to open DevTools
 
-* Builds `admin-web` with `--mode electron` (consuming `.env.electron`)
-* Starts Express at `http://localhost:3000`
-* Launches Electron pointing at `http://localhost:3000`
-* Requires `.env.electron` and the dependencies installed (see [Getting Started](#-getting-started))
+### Console Output
 
----
+Watch the Electron console for:
+- `✔️ UI (build) served at http://localhost:3000` (production)
+- `Loading: http://localhost:5173` or `http://localhost:3000`
 
-## 📦 Build Installers
+### Common Issues
 
-Generate installers from the `apps/electron` directory. All commands reuse the React build under `apps/admin-web/dist`, so there is no need to run Vite separately.
+**ERR_FILE_NOT_FOUND trying to open `/login`:**
+- This means you're loading `file://` with `BrowserRouter`
+- This setup avoids that by using HTTP (Vite/Express)
 
-```bash
-npm run build         # Packages the Electron app and prepares artifacts
-npm run dist:exe      # Produces a Windows installer (.exe) using NSIS
-npm run dist:msi      # Produces a Windows installer (.msi)
-npm run dist:win      # Builds both NSIS (.exe) and MSI outputs in one go
-```
+**Redirect URI mismatch:**
+- Ensure all redirect URIs in `.env.electron` point to `http://localhost:3000/`
+- Verify Azure AD app registration has both `http://localhost:5173` and `http://localhost:3000` registered
 
-> Tip: electron-builder downloads NSIS and the required binaries automatically. All you need is Windows 10+ with PowerShell; if your antivirus blocks the downloads, whitelist them.
+## MSAL Configuration Notes
 
-Finished installers are written to `apps/electron/dist/`. After running any of the commands above you should see, for example:
+Keep `redirectUri` and `postLogoutRedirectUri` aligned with the origin you load:
 
-```
-dist/
-├─ In Contact App Setup.exe    # NSIS-based installer
-├─ In Contact App-1.0.0.msi    # MSI installer
-└─ win-unpacked/               # Portable unpacked build for inspection or debugging
-```
+- **Development**: `http://localhost:5173/`
+- **Production**: `http://localhost:3000/`
 
----
+In MSAL config, using `redirectUri: window.location.origin` is safe so long as the Azure app registration has both URLs registered.
 
-## 🧰 Debugging
+## Architecture Details
 
-* **DevTools**: `Ctrl+Shift+I`
-* Watch the Electron console for:
+### Main Process (`main.js`)
 
-  * `✔️ UI (build) served at http://localhost:3000` (prod)
-  * `Loading: http://localhost:5173` or `http://localhost:3000`
-* If you ever see `ERR_FILE_NOT_FOUND` trying to open `/login`, it means you’re loading `file://` with `BrowserRouter`. This setup avoids that by using HTTP (Vite/Express).
+The main process handles:
+- Express server (production mode only)
+- BrowserWindow creation and management
+- System tray functionality
+- Windows service integration
+- Application lifecycle management
 
----
+### Preload Script (`preload.js`)
 
-## 🔒 Notes on MSAL
+The preload script provides:
+- Bridge between renderer process and Node.js APIs
+- LocalStorage to electron-store synchronization
+- Secure API exposure to renderer process
 
-* Keep `redirectUri` and `postLogoutRedirectUri` aligned with **the origin you load**:
+### Express Server (Production)
 
-  * Dev: `http://localhost:5173/`
-  * Prod: `http://localhost:3000/`
-* In your MSAL config, using `redirectUri: window.location.origin` is safe so long as the Azure app registration has both URLs registered.
+In production mode, the Express server:
+- Serves static files from `resources/admin-web` directory
+- Provides catch-all route to `index.html` for client-side routing
+- Runs on `http://localhost:3000`
+- Only started in production mode
 
----
+## Key Dependencies
 
-## ✅ Summary
+| Package            | Purpose                          |
+| ------------------ | -------------------------------- |
+| `electron`         | Electron framework               |
+| `express`          | Static file server (production)  |
+| `electron-store`   | Persistent storage               |
+| `node-windows`     | Windows service integration      |
+| `electron-builder` | Installer generation             |
+| `concurrently`     | Run multiple scripts             |
+| `wait-on`          | Wait for server to be ready      |
+| `cross-env`        | Cross-platform env vars          |
 
-* Electron **serves the UI statically** from `admin-web/dist` via Express on **port 3000** in production.
-* Create **`apps/admin-web/.env.electron`** (based on `.env.electron.example`) and ensure **all redirect URIs use `http://localhost:3000/`**.
-* Use the provided scripts to **build, run, and package** the app cleanly from the Electron folder.
+## Notes
+
+- Electron serves the UI statically from `admin-web/dist` via Express on port 3000 in production
+- Create `apps/admin-web/.env.electron` based on `.env.electron.example`
+- Ensure all redirect URIs use `http://localhost:3000/` in Electron production mode
+- Use the provided scripts to build, run, and package the app cleanly
+- DevTools accessible via `Ctrl+Shift+I`
+- Windows service integration available via command-line arguments
+- All routes handled with catch-all to `index.html` for client-side routing support

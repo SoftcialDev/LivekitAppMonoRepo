@@ -9,6 +9,7 @@
 import { useCallback, useRef } from 'react';
 import { LocalVideoTrack, createLocalVideoTrack } from 'livekit-client';
 import { logWarn, logError } from '@/shared/utils/logger';
+import { MediaPermissionError } from '@/shared/errors';
 import { VIDEO_RESOLUTION, VIDEO_FRAME_RATE, BLOCKED_CAMERA_MODELS, PREFERRED_CAMERA_MODEL } from '../../constants';
 
 /**
@@ -29,12 +30,18 @@ async function ensureCameraPermission(): Promise<void> {
     const error = err as DOMException;
     if (error?.name === 'NotAllowedError') {
       const devices = await navigator.mediaDevices.enumerateDevices();
-      const cams = devices.filter(d => d.kind === 'videoinput').map(c => c.label || c.deviceId);
-      alert(
-        `Camera access blocked.\nDetected cameras: ${cams.join(', ')}\n\n` +
-          `Enable camera permissions for this site and refresh.`
+      // Only include devices that have labels (permissions were granted previously)
+      // If permissions are blocked, enumerateDevices() returns devices but without labels
+      const cameras = devices.filter(d => d.kind === 'videoinput' && d.label);
+      const microphones = devices.filter(d => d.kind === 'audioinput' && d.label);
+      
+      throw new MediaPermissionError(
+        'Camera access blocked. Please enable camera permissions for this site and refresh.',
+        cameras,
+        microphones,
+        true, // cameraBlocked
+        false // microphoneBlocked (we only requested video)
       );
-      throw error;
     }
     if (error?.name === 'NotReadableError') {
       logWarn('[MediaDevices] Default device busy, will try others', { error });
@@ -86,8 +93,13 @@ async function createVideoTrackWithFallback(cameras: MediaDeviceInfo[]): Promise
       return track;
     } catch (err: unknown) {
       const error = err as DOMException;
-      if (error?.name === 'NotReadableError') {
-        logWarn('[MediaDevices] Camera busy, trying next', { label: cam.label, error });
+      // Handle camera busy or timeout errors - try next camera
+      if (error?.name === 'NotReadableError' || error?.name === 'AbortError') {
+        logWarn('[MediaDevices] Camera busy or timeout, trying next', { 
+          label: cam.label, 
+          errorName: error.name,
+          errorMessage: error.message 
+        });
         continue;
       }
       logError('[MediaDevices] Failed to create video track from camera', { label: cam.label, error });

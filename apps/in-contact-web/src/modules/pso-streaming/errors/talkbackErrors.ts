@@ -27,6 +27,16 @@ export class TalkbackActiveSessionError extends PSOStreamingError {
 }
 
 /**
+ * Error thrown when admin already has an active talk session and tries to start another one
+ */
+export class TalkbackAdminAlreadyActiveError extends PSOStreamingError {
+  constructor(message: string, cause?: Error) {
+    super(message, cause);
+    this.name = 'TalkbackAdminAlreadyActiveError';
+  }
+}
+
+/**
  * Error thrown when microphone track fails to publish
  */
 export class TalkbackMicrophonePublishError extends PSOStreamingError {

@@ -25,10 +25,10 @@ class PrismaClientSingleton {
   public static getInstance(): PrismaClient {
     if (!PrismaClientSingleton.instance) {
       // Create connection pool with connection settings
-      const connectionString = config.databaseUrl + '?connection_limit=100&pool_timeout=20&connect_timeout=10';
+      const connectionString = config.databaseUrl + '?connection_limit=400&pool_timeout=20&connect_timeout=10';
       const pool = new Pool({
         connectionString: connectionString,
-        max: 100,
+        max: 400,
         connectionTimeoutMillis: 10000,
         idleTimeoutMillis: 20000,
       });

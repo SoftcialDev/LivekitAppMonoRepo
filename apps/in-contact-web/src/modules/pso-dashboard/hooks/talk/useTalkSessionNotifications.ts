@@ -93,20 +93,28 @@ export function useTalkSessionNotifications(
           }
           
           logDebug('[useTalkSessionNotifications] Talk session ended', { psoEmail });
-          playHangUpSound();
+          const hangUpSoundPromise = playHangUpSound();
           
           setIsTalkActive(false);
           setIsIncoming(false);
           setJustEnded(true);
           setSupervisorName(null);
           
-          // Reset justEnded after a short delay
+          // Reset justEnded when the hang up sound finishes playing
           if (justEndedTimeoutRef.current) {
             clearTimeout(justEndedTimeoutRef.current);
+            justEndedTimeoutRef.current = null;
           }
-          justEndedTimeoutRef.current = setTimeout(() => {
-            setJustEnded(false);
-          }, 3000);
+          hangUpSoundPromise
+            .then(() => {
+              setJustEnded(false);
+            })
+            .catch(() => {
+              // Fallback: hide banner after 2 seconds if sound fails
+              justEndedTimeoutRef.current = setTimeout(() => {
+                setJustEnded(false);
+              }, 2000);
+            });
           
           if (onTalkSessionEnd) {
             onTalkSessionEnd();

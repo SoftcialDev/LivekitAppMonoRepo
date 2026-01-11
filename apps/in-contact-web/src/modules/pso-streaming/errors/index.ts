@@ -17,6 +17,7 @@ export {
 export {
   TalkbackRoomNotConnectedError,
   TalkbackActiveSessionError,
+  TalkbackAdminAlreadyActiveError,
   TalkbackMicrophonePublishError,
 } from './talkbackErrors';
 

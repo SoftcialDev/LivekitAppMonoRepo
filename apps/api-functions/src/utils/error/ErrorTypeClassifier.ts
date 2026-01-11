@@ -8,7 +8,7 @@
 import { ExpectedError } from '../../middleware/errorHandler';
 import { ErrorSeverity } from '../../domain/enums/ErrorSeverity';
 import { ErrorType } from '../../domain/enums/ErrorType';
-import { AuthError, ValidationError, MessagingError } from '../../domain/errors';
+import { DomainError } from '../../domain/errors';
 import { ErrorClassification } from '../../domain/types/ErrorTypes';
 
 /**
@@ -19,8 +19,8 @@ export class ErrorTypeClassifier {
   /**
    * Classifies an error and determines its characteristics
    * @description Analyzes the error type and returns classification including status code,
-   * logging requirements, and severity. ExpectedError and domain errors (AuthError, ValidationError,
-   * MessagingError) are classified as 'expected', Error instances as 'unexpected', and other types as 'unknown'.
+   * logging requirements, and severity. ExpectedError and domain errors (DomainError and subclasses)
+   * are classified as 'expected', Error instances as 'unexpected', and other types as 'unknown'.
    * @param error - Unknown error to classify
    * @returns ErrorClassification with type, statusCode, shouldLog, and severity
    * @example
@@ -39,7 +39,7 @@ export class ErrorTypeClassifier {
       };
     }
 
-    if (error instanceof AuthError || error instanceof ValidationError || error instanceof MessagingError) {
+    if (error instanceof DomainError) {
       return {
         type: ErrorType.Expected,
         statusCode: error.statusCode,

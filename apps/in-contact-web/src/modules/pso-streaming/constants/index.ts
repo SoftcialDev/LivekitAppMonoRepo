@@ -12,6 +12,7 @@ export {
 export {
   INIT_FETCH_DELAY_MS,
   PENDING_TIMEOUT_MS,
+  START_CONNECTION_TIMEOUT_MS,
   STOP_STATUS_FETCH_DELAY_MS,
 } from './streamingConstants';
 

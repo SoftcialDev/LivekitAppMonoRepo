@@ -4,4 +4,5 @@
  */
 
 export * from './TalkActiveBanner';
+export * from './MediaPermissionsModal';
 

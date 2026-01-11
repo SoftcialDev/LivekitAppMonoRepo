@@ -6,7 +6,8 @@
  */
 
 import { useCallback } from 'react';
-import type { Room, LocalVideoTrack } from 'livekit-client';
+import type { Room, LocalVideoTrack, RemoteParticipant, RemoteAudioTrack } from 'livekit-client';
+import { ParticipantEvent, RoomEvent } from 'livekit-client';
 import { logWarn, logError, logDebug, logInfo } from '@/shared/utils/logger';
 import { VIDEO_ENCODING } from '../../constants';
 import type { IUseLiveKitRoomSetupOptions, ISetupRoomEventListenersOptions } from './types/useLiveKitRoomSetupTypes';
@@ -111,17 +112,70 @@ function setupVideoTrackMonitoring(
 }
 
 /**
- * Sets up audio routing for the room
+ * Attaches remote participant audio to an audio element
+ *
+ * @param participant - Remote participant whose audio should be rendered
+ * @param audioElement - HTML audio element to attach audio to
+ */
+function attachParticipantAudio(
+  participant: RemoteParticipant, 
+  audioElement: HTMLAudioElement
+): void {
+  // Attach already-subscribed audio
+  participant.getTrackPublications().forEach((pub: any) => {
+    if (pub?.kind === 'audio' && pub.isSubscribed && pub.audioTrack && audioElement) {
+      (pub.audioTrack as RemoteAudioTrack).attach(audioElement);
+      audioElement.muted = false;
+      audioElement.play?.().catch(() => {});
+    }
+  });
+
+  // New audio subscriptions
+  participant.on(ParticipantEvent.TrackSubscribed, (track) => {
+    const kind = (track as any)?.kind;
+    if (kind === 'audio' && audioElement) {
+      (track as RemoteAudioTrack).attach(audioElement);
+      audioElement.muted = false;
+      audioElement.play?.().catch(() => {});
+    }
+  });
+
+  // Audio unsubscriptions
+  participant.on(ParticipantEvent.TrackUnsubscribed, (track) => {
+    const kind = (track as any)?.kind;
+    if (kind === 'audio' && audioElement) {
+      try {
+        (track as RemoteAudioTrack).detach(audioElement);
+      } catch {
+        // Ignore detach errors
+      }
+    }
+  });
+}
+
+/**
+ * Sets up audio routing for all remote participants in the room
  *
  * @param room - LiveKit room instance
+ * @param audioElement - HTML audio element to attach audio to
  */
-function setupAudioRouting(room: Room): void {
+function setupAudioRouting(room: Room, audioElement: HTMLAudioElement): void {
   try {
-    // Configure audio output to ensure proper routing
-    if (room.localParticipant) {
-      // Audio routing is typically handled automatically by LiveKit
-      logDebug('[LiveKit] Audio routing configured');
-    }
+    // Attach audio for participants already in the room (exclude self)
+    room.remoteParticipants.forEach((p) => {
+      if (p.sid !== room.localParticipant.sid) {
+        attachParticipantAudio(p, audioElement);
+      }
+    });
+
+    // Attach audio for participants that join later (exclude self)
+    room.on(RoomEvent.ParticipantConnected, (p) => {
+      if (p.sid !== room.localParticipant.sid) {
+        attachParticipantAudio(p, audioElement);
+      }
+    });
+    
+    logDebug('[LiveKit] Audio routing configured for remote participants');
   } catch (err) {
     logWarn('[LiveKit] Failed to configure audio routing', { error: err });
   }
@@ -187,11 +241,13 @@ export function useLiveKitRoomSetup(options?: IUseLiveKitRoomSetupOptions) {
    * 
    * @param room - The LiveKit room instance
    * @param videoTrack - The video track to publish (240p at 15 fps)
+   * @param audioRef - Optional reference to HTML audio element for remote participant audio
    * @returns Promise that resolves when setup is complete
    */
   const setupRoom = useCallback(async (
     room: Room, 
-    videoTrack: LocalVideoTrack
+    videoTrack: LocalVideoTrack,
+    audioRef?: React.RefObject<HTMLAudioElement>
   ): Promise<void> => {
     logDebug('[LiveKit] Setting up room');
     
@@ -219,8 +275,10 @@ export function useLiveKitRoomSetup(options?: IUseLiveKitRoomSetupOptions) {
       });
     }
     
-    // Set up audio routing
-    setupAudioRouting(room);
+    // Set up audio routing for remote participants
+    if (audioRef?.current) {
+      setupAudioRouting(room, audioRef.current);
+    }
     
     // Publish video track
     await publishVideoTrack(room, videoTrack);

@@ -164,12 +164,12 @@ export function useStreamingDashboard(): IUseStreamingDashboardReturn {
         await Promise.race([connectPromise, timeoutPromise]);
         roomRef.current = room;
 
-        // Set up room and publish video track using roomSetupRef
+        // Set up room and publish video track using roomSetupRef (with audioRef for remote participant audio)
         const currentRoomSetup = roomSetupRef.current;
         if (!currentRoomSetup) {
           throw new Error('Room setup not available for reconnection');
         }
-        await currentRoomSetup.setupRoom(room, track);
+        await currentRoomSetup.setupRoom(room, track, audioRef);
 
         // Notify backend of reconnection (like admin-web)
         try {
@@ -286,8 +286,8 @@ export function useStreamingDashboard(): IUseStreamingDashboardReturn {
       await room.connect(livekitUrl, token);
       roomRef.current = room;
 
-      // Set up room and publish video track
-      await roomSetup.setupRoom(room, track);
+      // Set up room and publish video track (with audioRef for remote participant audio)
+      await roomSetup.setupRoom(room, track, audioRef);
 
       // Notify backend
       await streamingClientRef.current.setActive();
