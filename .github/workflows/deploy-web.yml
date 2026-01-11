@@ -7,8 +7,8 @@ on:
     branches:
       - main
     paths:
-      - 'apps/admin-web/**'
-      - '.github/workflows/deploy-admin-web.yml'
+      - 'apps/in-contact-web/**'
+      - '.github/workflows/deploy-web.yml'
 
 # Permissions: id-token write is only needed if you perform OIDC login.
 # For Azure Static Web Apps deploy via its action, you typically only need the deploy token.
@@ -50,7 +50,7 @@ jobs:
 
       # 3) Install dependencies and build the Vite app
       - name: Install dependencies & build
-        working-directory: apps/admin-web
+        working-directory: apps/in-contact-web
         run: |
           npm ci
           npm run build
@@ -64,6 +64,6 @@ jobs:
           # GitHub token for PR comments/status updates
           repo_token:                     ${{ secrets.PERSONAL_TOKEN }}
           action:                         upload
-          app_location:                   apps/admin-web
+          app_location:                   apps/in-contact-web
           api_location:                   ''
           app_artifact_location:          dist

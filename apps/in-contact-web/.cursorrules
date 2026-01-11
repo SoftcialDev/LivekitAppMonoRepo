@@ -1,0 +1,861 @@
+# In-Contact-Web Frontend: Best Practices and Architecture Rules
+
+## Architecture Pattern: Screaming Architecture
+
+The `in-contact-web` application follows **Screaming Architecture** principles, organizing code by domain/feature rather than technical layers.
+
+### Folder Structure
+
+```
+apps/in-contact-web/src/
+├── app/                      # Application configuration and bootstrap
+│   ├── layouts/             # Layout components (DashboardLayout, etc.)
+│   │   └── types/           # Layout type definitions
+│   ├── routing/             # Router configuration (AppRouter, routes)
+│   └── stores/              # App-level Zustand stores
+│       └── {store-name}/     # Organized store with subfolders
+│           ├── constants/   # Store constants (e.g., DEFAULT_HEADER)
+│           │   └── {store}Constants.ts
+│           ├── types/       # Store type definitions
+│           │   └── {store}StoreTypes.ts
+│           ├── hooks/       # Store hooks
+│           │   └── use{HookName}.ts
+│           ├── use{Store}Store.ts  # Zustand store definition
+│           └── index.ts     # Barrel export
+├── modules/                 # Feature modules (Screaming Architecture)
+│   └── {module-name}/       # Each module is self-contained
+│       ├── api/            # Module-specific API clients
+│       │   └── {module}Client.ts
+│       ├── components/     # Module-specific components
+│       │   ├── types/      # Component type definitions
+│       │   │   └── {module}ComponentsTypes.ts
+│       │   ├── {Component}.tsx
+│       │   └── index.ts
+│       ├── constants/      # Module constants
+│       │   └── {constantFile}.ts
+│       ├── contexts/       # React contexts (only if necessary)
+│       ├── enums/          # Module enumerations (fixed sets of constants)
+│       │   └── {EnumName}.ts
+│       ├── errors/         # Module-specific error classes
+│       │   └── {module}Errors.ts
+│       ├── hooks/          # Custom hooks
+│       │   └── use{HookName}.ts
+│       ├── interfaces/     # Module interfaces (contracts/ports)
+│       │   └── {module}Interfaces.ts
+│       ├── pages/          # Page components
+│       │   ├── constants/  # Page-specific constants
+│       │   ├── {PageName}.tsx
+│       │   └── index.ts
+│       ├── routes.tsx      # Route definitions (returns RouteObject[])
+│       ├── services/       # Services (e.g., localStorage, API wrappers)
+│       │   └── {ServiceName}.ts
+│       ├── stores/         # Module-specific Zustand stores
+│       │   └── {store-name}/
+│       │       ├── constants/
+│       │       ├── types/
+│       │       ├── hooks/
+│       │       └── use{Store}Store.ts
+│       ├── types/          # Module type definitions (data structures)
+│       │   └── {module}Types.ts
+│       ├── utils/          # Module utilities
+│       │   └── {module}Utils.ts
+│       └── index.ts        # Barrel export (public API)
+├── shared/                 # Shared utilities and infrastructure
+│   ├── api/               # API client base (apiClient.ts)
+│   ├── assets/            # Static assets (images, icons)
+│   ├── config/            # Configuration management
+│   │   ├── types.ts       # Config type definitions
+│   │   └── index.ts
+│   ├── errors/            # Shared error classes
+│   │   ├── AppError.ts
+│   │   ├── ApiError.ts
+│   │   ├── ConfigurationError.ts
+│   │   ├── ContextError.ts
+│   │   ├── BootstrapError.ts
+│   │   └── index.ts
+│   ├── enums/             # Shared enumerations
+│   │   └── LogLevel.ts
+│   ├── styles/            # Global styles (tailwind.css)
+│   ├── types/             # Shared type definitions
+│   │   └── apiTypes.ts
+│   └── utils/             # Shared utilities
+│       ├── logger.ts
+│       ├── errorUtils.ts
+│       ├── time.ts
+│       └── validation.ts
+├── ui-kit/                 # Reusable UI components (generic, feature-agnostic)
+│   └── {component-name}/   # Each component in its own folder
+│       ├── components/    # Sub-components (if needed)
+│       │   └── index.ts
+│       ├── types/         # Component type definitions
+│       │   └── {component}Types.ts
+│       ├── constants/     # Component constants (if needed)
+│       ├── {Component}.tsx # Main component
+│       └── index.ts       # Barrel export
+└── main.tsx               # Application entry point
+```
+
+## Module Organization Rules
+
+### Type Organization: enums, types, interfaces
+
+**CRITICAL**: Separate `enums`, `types`, and `interfaces` into different directories:
+
+- **`enums/`**: Fixed sets of constant values (e.g., `UserRole`, `ErrorSeverity`)
+  - Use PascalCase for enum name (e.g., `UserRole`)
+  - Use string values for enum members (e.g., `SuperAdmin = "SuperAdmin"`)
+  
+- **`types/`**: Data structures and type definitions (e.g., `UserInfo`, `IUseRetryUserInfoReturn`)
+  - Use for interfaces that represent data shapes
+  - No methods, only data
+  - Use `I` prefix for interfaces that represent data structures (e.g., `IUserInfo`)
+  
+- **`interfaces/`**: Contracts/ports that define behavior (e.g., `IAuthContextValue`, `IUserRepository`)
+  - Use for interfaces that define method signatures
+  - Use `I` prefix for contracts (e.g., `IValidator`, `IAuthContextValue`)
+
+**Example structure:**
+
+```
+modules/auth/
+├── enums/
+│   └── UserRole.ts        # enum UserRole { SuperAdmin = "SuperAdmin" }
+├── types/
+│   └── authTypes.ts       # interface UserInfo { ... }, interface IUseRetryUserInfoReturn { ... }
+└── interfaces/
+    └── authInterfaces.ts  # interface IAuthContextValue { login(): Promise<...> }
+```
+
+### Routing Pattern: React Router Data API
+
+**ALWAYS** use `createBrowserRouter` (Data API) instead of component-based routing:
+
+```typescript
+// ✅ CORRECT: modules/auth/routes.tsx
+import type { RouteObject } from 'react-router-dom';
+import { LoginPage, LoadingPage } from './pages';
+
+/**
+ * Returns route configuration objects for the authentication module
+ * @returns Array of route configuration objects
+ */
+export function authRoutes(): RouteObject[] {
+  return [
+    {
+      path: '/login',
+      element: <LoginPage />,
+    },
+    {
+      path: '/loading',
+      element: <LoadingPage />,
+    },
+  ];
+}
+
+// ✅ CORRECT: app/routing/AppRouter.tsx
+import { createBrowserRouter, RouterProvider, Outlet } from 'react-router-dom';
+import { authRoutes } from '@/modules/auth/routes';
+import { errorLogsRoutes } from '@/modules/error-logs/routes';
+
+const router = createBrowserRouter([
+  {
+    element: <AppProviders />,
+    children: [
+      ...authRoutes(),
+      {
+        element: <DashboardLayout />,
+        children: [
+          ...errorLogsRoutes(),
+        ],
+      },
+    ],
+  },
+]);
+
+export const AppRouter: React.FC = () => {
+  return <RouterProvider router={router} />;
+};
+
+// ❌ WRONG: Don't use component-based routing with Fragments
+export const AuthRoutes = () => (
+  <>
+    <Route path="/login" element={<LoginPage />} />
+  </>
+);
+```
+
+### State Management: Zustand vs Context API
+
+**Decision Tree for State Management:**
+
+```
+Does the state need to be global?
+├─ NO → Use useState or useReducer in component
+│
+├─ YES → Does it update frequently?
+│   ├─ YES → Does it need persistence?
+│   │   ├─ YES → Use Zustand store
+│   │   └─ NO → Use Zustand store (better performance)
+│   │
+│   └─ NO → Is it provider configuration?
+│       ├─ YES → Use Context API (AuthProvider, ToastProvider)
+│       └─ NO → Use Zustand store (consistency)
+```
+
+**When to use Zustand:**
+
+- ✅ Global state that updates frequently (e.g., header info, user info)
+- ✅ State that needs persistence (localStorage)
+- ✅ State accessed across many components
+- ✅ Performance-critical state (avoids unnecessary re-renders)
+- ✅ Simple state without complex provider logic
+
+**When to use Context API:**
+
+- ✅ Provider configuration (e.g., `AuthProvider`, `ToastProvider`)
+- ✅ Libraries that require context (e.g., MSAL)
+- ✅ State that needs to be provided at app level
+- ✅ Infrequently updated state (acceptable performance impact)
+
+### Zustand Store Organization
+
+**ALWAYS** organize stores with subfolders:
+
+```
+stores/
+└── {store-name}/            # e.g., user-info-store, header-store
+    ├── constants/
+    │   └── {store}Constants.ts    # Store constants (e.g., INITIAL_STATE, DEFAULT_HEADER)
+    ├── types/
+    │   └── {store}StoreTypes.ts   # Store state interface (e.g., IUserInfoState)
+    ├── hooks/
+    │   └── use{HookName}.ts       # Custom hooks for consuming store
+    ├── use{Store}Store.ts         # Zustand store definition
+    └── index.ts                   # Barrel export
+```
+
+**Example:**
+
+```typescript
+// stores/user-info-store/constants/userInfoConstants.ts
+export const INITIAL_USER_INFO_STATE = {
+  userInfo: null,
+  isLoading: false,
+} as const;
+
+// stores/user-info-store/types/userInfoStoreTypes.ts
+export interface IUserInfoState {
+  userInfo: UserInfo | null;
+  isLoading: boolean;
+  loadUserInfo: () => Promise<void>;
+  clearUserInfo: () => void;
+}
+
+// stores/user-info-store/useUserInfoStore.ts
+export const useUserInfoStore = create<IUserInfoState>((set) => ({
+  ...INITIAL_USER_INFO_STATE,
+  loadUserInfo: async () => {
+    // Implementation
+  },
+}));
+
+// stores/user-info-store/hooks/useUserInfo.ts
+export function useUserInfo() {
+  const hasInitializedRef = useRef<boolean>(false);
+  
+  useEffect(() => {
+    if (!hasInitializedRef.current) {
+      hasInitializedRef.current = true;
+      const initialize = useUserInfoStore.getState().initialize;
+      initialize();
+    }
+  }, []);
+  
+  return useUserInfoStore((state) => ({
+    userInfo: state.userInfo,
+    isLoading: state.isLoading,
+    // Don't return functions - use getState() when needed
+  }));
+}
+```
+
+### React Hooks Best Practices
+
+#### 1. Preventing Infinite Loops in useEffect
+
+**NEVER** include functions from hooks or Zustand stores directly in dependency arrays:
+
+```typescript
+// ❌ WRONG: Causes infinite loops
+useEffect(() => {
+  loadUserInfo();
+}, [loadUserInfo]); // loadUserInfo changes on every render
+
+// ✅ CORRECT: Use getState() for stable references
+useEffect(() => {
+  const loadUserInfo = useUserInfoStore.getState().loadUserInfo;
+  loadUserInfo();
+}, [account]); // Only depend on primitive values
+
+// ✅ CORRECT: Use refs to track if already called
+const hasTriggeredRef = useRef<boolean>(false);
+const accountIdRef = useRef<string | null>(null);
+
+useEffect(() => {
+  if (!account) return;
+  
+  const currentAccountId = account.localAccountId;
+  if (!hasTriggeredRef.current && accountIdRef.current !== currentAccountId) {
+    hasTriggeredRef.current = true;
+    accountIdRef.current = currentAccountId;
+    retryLoadUserInfo();
+  }
+}, [account]); // Only account as dependency
+```
+
+#### 2. useCallback Dependencies
+
+**Avoid** including state values that change frequently in `useCallback` dependencies:
+
+```typescript
+// ❌ WRONG: Causes function to be recreated constantly
+const retryLoadUserInfo = useCallback(async () => {
+  if (isRetrying) return; // isRetrying changes frequently
+  await loadUserInfo();
+}, [isRetrying, loadUserInfo]); // Both change frequently
+
+// ✅ CORRECT: Use refs for checking state, no dependencies
+const isRetryingRef = useRef<boolean>(false);
+const accountRef = useRef(account);
+const getApiTokenRef = useRef(getApiToken);
+
+useEffect(() => {
+  accountRef.current = account;
+  getApiTokenRef.current = getApiToken;
+}, [account, getApiToken]);
+
+const retryLoadUserInfo = useCallback(async () => {
+  if (isRetryingRef.current) return;
+  
+  // Use refs for latest values
+  if (accountRef.current) {
+    setTokenGetter(getApiTokenRef.current);
+  }
+  
+  const loadUserInfo = useUserInfoStore.getState().loadUserInfo;
+  await loadUserInfo();
+}, []); // No dependencies - use refs for all values
+```
+
+#### 3. Preventing Multiple API Calls
+
+**ALWAYS** use refs to prevent multiple concurrent calls:
+
+```typescript
+// ✅ CORRECT: Prevent multiple calls with refs
+const hasTriggeredRef = useRef<boolean>(false);
+const accountIdRef = useRef<string | null>(null);
+
+useEffect(() => {
+  if (!account) return;
+  if (hasFailed || userInfo) return; // Early return if already done
+  
+  const currentAccountId = account.localAccountId;
+  
+  // Only trigger once per account
+  if (!hasTriggeredRef.current && accountIdRef.current !== currentAccountId) {
+    hasTriggeredRef.current = true;
+    accountIdRef.current = currentAccountId;
+    logDebug('Starting user info load', { accountId: currentAccountId });
+    
+    retryLoadUserInfo().catch(() => {
+      // Error handling done by hook
+    });
+  }
+}, [account, hasFailed, userInfo]); // Only primitive dependencies
+
+// ✅ CORRECT: In hook, use refs to prevent concurrent execution
+const hasStartedRef = useRef<boolean>(false);
+
+const retryLoadUserInfo = useCallback(async () => {
+  if (hasStartedRef.current) {
+    logDebug('Retry already in progress, skipping');
+    return; // Prevent concurrent calls
+  }
+  
+  hasStartedRef.current = true;
+  
+  // Internal recursive function - doesn't cause re-renders
+  const attemptLoad = async (): Promise<void> => {
+    try {
+      const loadUserInfo = useUserInfoStore.getState().loadUserInfo;
+      await loadUserInfo();
+      hasStartedRef.current = false; // Reset on success
+    } catch (err) {
+      // Handle retry logic
+      retryTimeoutRef.current = setTimeout(() => {
+        attemptLoad(); // Recursive call - stable reference
+      }, RETRY_INTERVAL_MS);
+    }
+  };
+  
+  attemptLoad();
+}, []); // No dependencies - use refs and getState()
+```
+
+#### 4. Zustand Store Selectors
+
+**ALWAYS** use `getState()` for functions to avoid recreating them:
+
+```typescript
+// ❌ WRONG: Selector returns new function reference each time
+const { loadUserInfo } = useUserInfoStore((state) => ({
+  loadUserInfo: state.loadUserInfo,
+})); // Returns new object, causes re-renders
+
+// ✅ CORRECT: Use getState() when calling inside callbacks/hooks
+const retryLoadUserInfo = useCallback(async () => {
+  const loadUserInfo = useUserInfoStore.getState().loadUserInfo;
+  await loadUserInfo();
+}, []); // Stable function
+
+// ✅ CORRECT: Use single selector if you need state only (no functions)
+const { userInfo, isLoading } = useUserInfoStore((state) => ({
+  userInfo: state.userInfo,
+  isLoading: state.isLoading,
+})); // OK for reading state
+
+// ✅ CORRECT: Create custom hook that initializes once
+export function useUserInfo() {
+  const hasInitializedRef = useRef<boolean>(false);
+  
+  useEffect(() => {
+    if (!hasInitializedRef.current) {
+      hasInitializedRef.current = true;
+      const initialize = useUserInfoStore.getState().initialize;
+      initialize(); // Only once
+    }
+  }, []); // Empty deps - only run once
+  
+  return useUserInfoStore((state) => ({
+    userInfo: state.userInfo,
+    isLoading: state.isLoading,
+    // Don't return functions - use getState() when needed
+  }));
+}
+```
+
+#### 5. Retry Logic Pattern
+
+When implementing retry logic, use internal recursive functions to avoid recreating callbacks:
+
+```typescript
+// ✅ CORRECT: Internal recursive function pattern
+const retryLoadUserInfo = useCallback(async (): Promise<void> => {
+  if (hasStartedRef.current) {
+    logDebug('Retry already in progress, skipping');
+    return;
+  }
+  
+  hasStartedRef.current = true;
+  retryCountRef.current = 0;
+  startTimeRef.current = Date.now();
+  setIsRetrying(true);
+  
+  // Internal recursive function - doesn't cause re-renders
+  const attemptLoad = async (): Promise<void> => {
+    try {
+      // Check time limit
+      if (startTimeRef.current) {
+        const elapsed = Date.now() - startTimeRef.current;
+        if (elapsed >= MAX_RETRY_TIME_MS) {
+          throw new Error('Maximum retry time exceeded');
+        }
+      }
+      
+      // Use getState() for stable function reference
+      const loadUserInfo = useUserInfoStore.getState().loadUserInfo;
+      await loadUserInfo();
+      
+      // Success: reset
+      hasStartedRef.current = false;
+      setIsRetrying(false);
+    } catch (err) {
+      retryCountRef.current += 1;
+      
+      if (retryCountRef.current >= MAX_RETRY_ATTEMPTS) {
+        hasStartedRef.current = false;
+        setIsRetrying(false);
+        setHasFailed(true);
+        throw err;
+      }
+      
+      // Schedule next retry using internal function
+      retryTimeoutRef.current = setTimeout(() => {
+        attemptLoad(); // Recursive call - stable reference
+      }, RETRY_INTERVAL_MS);
+    }
+  };
+  
+  attemptLoad(); // Start first attempt
+}, []); // No dependencies - all values via refs
+```
+
+### Constants Organization
+
+**ALWAYS** extract magic numbers and strings to constants files:
+
+```typescript
+// ✅ CORRECT: modules/auth/pages/constants/loadingPageConstants.ts
+/**
+ * Maximum total time to spend retrying in milliseconds
+ * @constant
+ * @default 60000 (1 minute)
+ */
+export const MAX_RETRY_TIME_MS = 60000;
+
+/**
+ * Maximum number of retry attempts
+ * @constant
+ * @default 4
+ */
+export const MAX_RETRY_ATTEMPTS = 4;
+
+/**
+ * Time interval between retry attempts in milliseconds
+ * Calculated as: MAX_RETRY_TIME_MS / MAX_RETRY_ATTEMPTS
+ * @constant
+ * @default 15000 (15 seconds)
+ */
+export const RETRY_INTERVAL_MS = Math.floor(MAX_RETRY_TIME_MS / MAX_RETRY_ATTEMPTS);
+
+// Export from constants/index.ts
+export {
+  RETRY_INTERVAL_MS,
+  MAX_RETRY_TIME_MS,
+  MAX_RETRY_ATTEMPTS,
+} from './loadingPageConstants';
+```
+
+### Component Composition Patterns
+
+**ALWAYS** extract reusable UI patterns into components:
+
+```typescript
+// ✅ CORRECT: Extract common patterns
+// ui-kit/details/DetailField.tsx
+export const DetailField: React.FC<IDetailFieldProps> = ({ label, value }) => (
+  <div className="mb-4">
+    <label className="text-sm font-semibold">{label}</label>
+    <p className="mt-1">{value}</p>
+  </div>
+);
+
+// ✅ CORRECT: Extract icons to dedicated directory
+// ui-kit/icons/CancelIcon.tsx, PlusIcon.tsx, SignInIcon.tsx, etc.
+// All icons in ui-kit/icons/, never in ui-kit/buttons/
+```
+
+### Error Handling in Frontend
+
+**ALWAYS** use domain-specific error classes, never generic `Error`:
+
+```typescript
+// ✅ CORRECT: Use domain-specific errors
+import { ContextError } from '@/shared/errors';
+import { AuthenticationError, NotSignedInError } from '@/modules/auth/errors';
+
+if (!context) {
+  throw new ContextError(
+    'useAuth must be used within an AuthProvider'
+  );
+}
+
+if (!account) {
+  throw new NotSignedInError('User is not signed in');
+}
+
+// ❌ WRONG: Never use generic Error
+throw new Error('Context not found');
+```
+
+### Logging in Frontend
+
+**NEVER** use `console.log`, `console.error`, `console.warn`, or `console.debug`:
+
+```typescript
+// ✅ CORRECT: Use structured logging
+import { logInfo, logError, logDebug, logWarn } from '@/shared/utils/logger';
+
+logError('Failed to load user data', { error, attempt: 1, maxAttempts: 4 });
+logDebug('Scheduling retry for user data load', { delayMs: 15000 });
+logInfo('User info loaded successfully', { userId: userInfo.id });
+
+// ❌ WRONG: Never use console.*
+console.log('User loaded');
+console.error('Error:', error);
+console.warn('Retrying...');
+console.debug('State:', state);
+```
+
+### Configuration Access
+
+**NEVER** access `import.meta.env` directly outside `shared/config/index.ts`:
+
+```typescript
+// ✅ CORRECT: Use config module
+import { config } from '@/shared/config';
+const apiUrl = config.apiUrl;
+const azureAdClientId = config.azureAdClientId;
+
+// ❌ WRONG: Never access import.meta.env directly
+const apiUrl = import.meta.env.VITE_API_URL;
+```
+
+## Anti-Patterns to Avoid in React
+
+### Infinite Loops
+
+❌ **Don't**: Include functions from hooks in dependency arrays
+```typescript
+// ❌ WRONG: Causes infinite loop
+useEffect(() => {
+  loadUserInfo();
+}, [loadUserInfo]); // loadUserInfo changes every render
+```
+
+✅ **Do**: Use `getState()` or refs for stable references
+```typescript
+// ✅ CORRECT
+useEffect(() => {
+  const loadUserInfo = useUserInfoStore.getState().loadUserInfo;
+  loadUserInfo();
+}, [account]); // Only primitive dependencies
+```
+
+### Multiple API Calls
+
+❌ **Don't**: Call API functions without guards
+```typescript
+// ❌ WRONG: Can cause multiple calls
+useEffect(() => {
+  if (account) {
+    retryLoadUserInfo(); // Called on every render if dependencies change
+  }
+}, [account, retryLoadUserInfo]); // Both can change
+```
+
+✅ **Do**: Use refs to prevent multiple calls
+```typescript
+// ✅ CORRECT: Prevent multiple calls with refs
+const hasTriggeredRef = useRef<boolean>(false);
+const accountIdRef = useRef<string | null>(null);
+
+useEffect(() => {
+  if (!account) return;
+  if (hasFailed || userInfo) return;
+  
+  const currentAccountId = account.localAccountId;
+  if (!hasTriggeredRef.current && accountIdRef.current !== currentAccountId) {
+    hasTriggeredRef.current = true;
+    accountIdRef.current = currentAccountId;
+    retryLoadUserInfo();
+  }
+}, [account, hasFailed, userInfo]); // Only primitive values
+```
+
+### useCallback Dependencies
+
+❌ **Don't**: Include frequently changing state in `useCallback` dependencies
+```typescript
+// ❌ WRONG: Function recreated constantly
+const fn = useCallback(() => {
+  if (isLoading) return;
+  doSomething();
+}, [isLoading, doSomething]); // Both change frequently
+```
+
+✅ **Do**: Use refs to track state without causing re-renders
+```typescript
+// ✅ CORRECT: Use refs, no dependencies
+const isLoadingRef = useRef(false);
+const fn = useCallback(() => {
+  if (isLoadingRef.current) return;
+  const doSomething = useStore.getState().doSomething;
+  doSomething();
+}, []); // No dependencies
+```
+
+### Routing
+
+❌ **Don't**: Use component-based routing with Fragments
+```typescript
+// ❌ WRONG: React Router doesn't accept Fragment as child
+export const AuthRoutes = () => (
+  <>
+    <Route path="/login" element={<LoginPage />} />
+  </>
+);
+```
+
+✅ **Do**: Use Data API with functions returning RouteObject[]
+```typescript
+// ✅ CORRECT: Data API pattern
+export function authRoutes(): RouteObject[] {
+  return [
+    { path: '/login', element: <LoginPage /> },
+    { path: '/loading', element: <LoadingPage /> },
+  ];
+}
+```
+
+### Store Usage
+
+❌ **Don't**: Return functions from Zustand selectors in dependency arrays
+```typescript
+// ❌ WRONG: Function reference changes every render
+const { loadUserInfo } = useUserInfoStore((state) => ({
+  loadUserInfo: state.loadUserInfo,
+}));
+
+useEffect(() => {
+  loadUserInfo();
+}, [loadUserInfo]); // loadUserInfo changes every render
+```
+
+✅ **Do**: Use `getState()` for stable function references
+```typescript
+// ✅ CORRECT: Use getState() for functions
+useEffect(() => {
+  const loadUserInfo = useUserInfoStore.getState().loadUserInfo;
+  loadUserInfo();
+}, [account]); // Only primitive dependencies
+
+// ✅ CORRECT: Or use selector only for state, not functions
+const { userInfo, isLoading } = useUserInfoStore((state) => ({
+  userInfo: state.userInfo,
+  isLoading: state.isLoading,
+})); // OK for reading state
+```
+
+## Checklist for Creating New Features
+
+When creating a new module or feature, ensure:
+
+1. ✅ Module folder created in `modules/{module-name}/`
+2. ✅ Separated `enums/`, `types/`, and `interfaces/` into their own directories
+3. ✅ Created `routes.tsx` that exports a function returning `RouteObject[]`
+4. ✅ Used `createBrowserRouter` pattern (not component-based)
+5. ✅ Extracted constants to `constants/` subdirectory
+6. ✅ Created domain-specific error classes in `errors/`
+7. ✅ Used Zustand for frequently updated state, Context for providers only
+8. ✅ Organized stores with `constants/`, `types/`, and `hooks/` subfolders
+9. ✅ Used refs to prevent infinite loops and multiple API calls
+10. ✅ Used `getState()` for Zustand functions in callbacks/hooks
+11. ✅ Documented with JSDoc (English only, no Spanish, no AI comments)
+12. ✅ Exported from `index.ts` (barrel exports)
+13. ✅ Never used `console.*` - used structured logging
+14. ✅ Never used `throw new Error()` - used domain-specific errors
+15. ✅ Never accessed `import.meta.env` directly - used config module
+16. ✅ All interfaces moved to appropriate locations (not inline)
+17. ✅ Icons extracted to `ui-kit/icons/` directory
+18. ✅ Reusable UI patterns extracted to components (e.g., DetailField)
+19. ✅ CSS classes used instead of inline Tailwind when appropriate
+20. ✅ Type safety enforced (no `any`, no `as any`)
+
+## Common Patterns
+
+### Pattern: Retry Logic with Time Limits
+
+```typescript
+// ✅ CORRECT: Retry pattern with time and attempt limits
+const retryLoadUserInfo = useCallback(async (): Promise<void> => {
+  if (hasStartedRef.current) return; // Prevent concurrent calls
+  
+  hasStartedRef.current = true;
+  retryCountRef.current = 0;
+  startTimeRef.current = Date.now();
+  
+  const attemptLoad = async (): Promise<void> => {
+    try {
+      // Check time limit
+      if (startTimeRef.current) {
+        const elapsed = Date.now() - startTimeRef.current;
+        if (elapsed >= MAX_RETRY_TIME_MS) {
+          throw new Error('Maximum retry time exceeded');
+        }
+      }
+      
+      // Attempt operation
+      const loadUserInfo = useUserInfoStore.getState().loadUserInfo;
+      await loadUserInfo();
+      
+      // Success
+      hasStartedRef.current = false;
+    } catch (err) {
+      retryCountRef.current += 1;
+      
+      // Check attempt limit
+      if (retryCountRef.current >= MAX_RETRY_ATTEMPTS) {
+        hasStartedRef.current = false;
+        setHasFailed(true);
+        throw err;
+      }
+      
+      // Schedule next retry
+      retryTimeoutRef.current = setTimeout(() => {
+        attemptLoad(); // Recursive call
+      }, RETRY_INTERVAL_MS);
+    }
+  };
+  
+  attemptLoad();
+}, []); // No dependencies
+```
+
+### Pattern: Prevent Multiple useEffect Executions
+
+```typescript
+// ✅ CORRECT: Use refs to track execution
+const hasTriggeredRef = useRef<boolean>(false);
+const accountIdRef = useRef<string | null>(null);
+
+useEffect(() => {
+  if (!account) return;
+  if (hasFailed || userInfo) return; // Early returns
+  
+  const currentAccountId = account.localAccountId;
+  
+  // Only trigger once per account
+  if (!hasTriggeredRef.current && accountIdRef.current !== currentAccountId) {
+    hasTriggeredRef.current = true;
+    accountIdRef.current = currentAccountId;
+    retryLoadUserInfo();
+  }
+}, [account, hasFailed, userInfo]); // Only primitive dependencies
+```
+
+### Pattern: Stable Function References
+
+```typescript
+// ✅ CORRECT: Use refs for latest values, getState() for functions
+const accountRef = useRef(account);
+const getApiTokenRef = useRef(getApiToken);
+
+useEffect(() => {
+  accountRef.current = account;
+  getApiTokenRef.current = getApiToken;
+}, [account, getApiToken]);
+
+const stableFunction = useCallback(async () => {
+  // Use refs for latest values
+  if (accountRef.current) {
+    setTokenGetter(getApiTokenRef.current);
+  }
+  
+  // Use getState() for store functions
+  const loadUserInfo = useUserInfoStore.getState().loadUserInfo;
+  await loadUserInfo();
+}, []); // No dependencies - all via refs/getState()
+```
+

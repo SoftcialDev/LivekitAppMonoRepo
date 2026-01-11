@@ -1,0 +1,33 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "jsx": "react-jsx",
+    "module": "ESNext",
+    "moduleResolution": "Node",
+    "lib": ["DOM", "DOM.Iterable", "ESNext"],
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "allowSyntheticDefaultImports": true,
+    "isolatedModules": true,
+    "resolveJsonModule": true,
+    "forceConsistentCasingInFileNames": true,
+    "esModuleInterop": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "@/modules/*": ["src/modules/*"],
+      "@/ui-kit/*": ["src/ui-kit/*"],
+      "@/shared/*": ["src/shared/*"],
+      "@/app/*": ["src/app/*"],
+      "@assets/*": ["src/shared/assets/*"]
+    },
+    "types": [
+      "vite/client",
+      "node"
+    ]
+  },
+  "include": ["src", "src/**/*.d.ts"],
+  "exclude": ["node_modules", "dist"]
+}
+

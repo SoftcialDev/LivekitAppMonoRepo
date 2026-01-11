@@ -1,0 +1,267 @@
+/**
+ * @fileoverview Global styles and Tailwind CSS configuration
+ * @description Main stylesheet for the In Contact Web application
+ * 
+ * This file contains:
+ * - Tailwind CSS imports and configuration
+ * - CSS custom properties (CSS variables) for theme colors
+ * - Global font configuration
+ * - Reusable utility classes (custom scrollbar)
+ */
+
+/* Import Montserrat font from Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap');
+
+/* Import Tailwind CSS base, components, and utilities */
+@import "tailwindcss";
+
+/**
+ * CSS Custom Properties (Theme Variables)
+ * 
+ * These variables define the application's color palette and can be used
+ * throughout the application using var(--variable-name) syntax.
+ */
+:root {
+  /* Primary color palette */
+  --color-primary:        #764E9F;  /* Main brand purple */
+  --color-primary-dark:   #542187;  /* Darker shade for hover states */
+  --color-primary-light:  #653793;  /* Lighter shade for active states */
+  
+  /* Secondary color palette */
+  --color-secondary:      #ABDE80;  /* Main secondary green */
+  --color-secondary-hover: rgba(171, 222, 128, 0.9); /* Secondary with opacity */
+  
+  /* Tertiary and neutral colors */
+  --color-tertiary:       #BBA6CF;  /* Light purple accent */
+  --color-white:          #FFFFFF;  /* Pure white */
+  
+  /* Contact Manager status colors */
+  --color-cm-break:       #F59E0B;  /* Amber - break status */
+  --color-cm-busy:        #3B82F6;  /* Blue - busy status */
+  --color-cm-unavailable: #ef4444;  /* Red - unavailable status */
+
+  /* Error severity colors */
+  --color-severity-critical: #ef4444;  /* Red - Critical severity */
+  --color-severity-high:     #f97316;  /* Orange - High severity */
+  --color-severity-medium:   #eab308;  /* Yellow - Medium severity */
+  --color-severity-low:      #22c55e;  /* Green - Low severity */
+  --color-severity-default:  #6b7280;  /* Gray - Default/Unknown severity */
+
+  /* Resolved status colors */
+  --color-resolved:     #22c55e;  /* Green - Resolved status */
+  --color-unresolved:   #ef4444;  /* Red - Unresolved status */
+
+  /* Action button colors */
+  --color-button-view:      var(--color-primary);        /* Primary purple for view button */
+  --color-button-view-hover: var(--color-primary-light); /* Lighter purple on hover */
+  --color-button-resolve:   #16a34a;  /* Green for resolve button */
+  --color-button-resolve-hover: #15803d;  /* Darker green on hover */
+  --color-button-delete-selected: #dc2626;  /* Red for delete selected */
+  --color-button-delete-selected-hover: #b91c1c;  /* Darker red on hover */
+  --color-button-delete-all: #991b1b;  /* Dark red for delete all */
+  --color-button-delete-all-hover: #7f1d1d;  /* Darker red on hover */
+  --color-button-migrations: #2563eb;  /* Blue for migrations button */
+  --color-button-migrations-hover: #1d4ed8;  /* Darker blue on hover */
+}
+
+/**
+ * Global Font Configuration
+ * 
+ * Sets Montserrat as the default font family for the entire application.
+ */
+html {
+  font-family: 'Montserrat', sans-serif;
+}
+
+/**
+ * Global Button Styles
+ * 
+ * Ensures all button elements have a pointer cursor for better UX.
+ */
+button {
+  cursor: pointer;
+}
+
+/**
+ * Custom Scrollbar Utility Class
+ * 
+ * Provides a styled scrollbar that matches the application's color scheme.
+ * Apply the 'custom-scrollbar' class to any scrollable element.
+ * 
+ * Browser support:
+ * - Webkit browsers (Chrome, Safari, Edge): Uses webkit-scrollbar pseudo-elements
+ * - Firefox: Uses scrollbar-width and scrollbar-color properties
+ */
+.custom-scrollbar {
+  /* Firefox scrollbar styling */
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-secondary) var(--color-primary);
+}
+
+/* Webkit scrollbar styling (Chrome, Safari, Edge) */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: var(--color-primary);
+  border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--color-secondary);
+  border-radius: 4px;
+  border: 1px solid var(--color-primary);
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--color-tertiary);
+}
+
+.custom-scrollbar::-webkit-scrollbar-corner {
+  background: var(--color-primary);
+}
+
+/**
+ * Error Severity Badge Utility Classes
+ * 
+ * Provides color-coded classes for displaying error severity levels.
+ * These classes use CSS custom properties defined in :root for consistent theming.
+ * 
+ * Usage:
+ * - .severity-critical: Red text for critical errors
+ * - .severity-high: Orange text for high severity errors
+ * - .severity-medium: Yellow text for medium severity errors
+ * - .severity-low: Green text for low severity errors
+ * - .severity-default: Gray text for unknown/default severity
+ */
+.severity-critical {
+  color: var(--color-severity-critical);
+}
+
+.severity-high {
+  color: var(--color-severity-high);
+}
+
+.severity-medium {
+  color: var(--color-severity-medium);
+}
+
+.severity-low {
+  color: var(--color-severity-low);
+}
+
+.severity-default {
+  color: var(--color-severity-default);
+}
+
+/**
+ * Resolved Status Badge Utility Classes
+ * 
+ * Provides color-coded classes for displaying resolved/unresolved status.
+ * These classes use CSS custom properties defined in :root for consistent theming.
+ * 
+ * Usage:
+ * - .resolved: Green text for resolved status
+ * - .unresolved: Red text for unresolved status
+ */
+.resolved {
+  color: var(--color-resolved);
+}
+
+.unresolved {
+  color: var(--color-unresolved);
+}
+
+/**
+ * Error Log Action Button Utility Classes
+ * 
+ * Provides styled button classes for error log actions.
+ * These classes use CSS custom properties for consistent theming.
+ * 
+ * Usage:
+ * - .btn-error-view: Primary button for viewing error details
+ * - .btn-error-resolve: Success button for resolving errors
+ * - .btn-error-delete-selected: Danger button for deleting selected items
+ * - .btn-error-delete-all: Dark danger button for deleting all items
+ * - .btn-error-migrations: Info button for running database migrations
+ */
+.btn-error-view {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.875rem;
+  background-color: var(--color-button-view);
+  color: var(--color-white);
+  border-radius: 0.25rem;
+  transition: background-color 0.15s ease-in-out;
+}
+
+.btn-error-view:hover {
+  background-color: var(--color-button-view-hover);
+}
+
+.btn-error-resolve {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.875rem;
+  background-color: var(--color-button-resolve);
+  color: var(--color-white);
+  border-radius: 0.25rem;
+  transition: background-color 0.15s ease-in-out;
+}
+
+.btn-error-resolve:hover {
+  background-color: var(--color-button-resolve-hover);
+}
+
+.btn-error-delete-selected {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background-color: var(--color-button-delete-selected);
+  color: var(--color-white);
+  font-weight: 600;
+  border-radius: 9999px;
+  transition: background-color 0.15s ease-in-out;
+}
+
+.btn-error-delete-selected:hover:not(:disabled) {
+  background-color: var(--color-button-delete-selected-hover);
+}
+
+.btn-error-delete-selected:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-error-delete-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background-color: var(--color-button-delete-all);
+  color: var(--color-white);
+  font-weight: 600;
+  border-radius: 9999px;
+  transition: background-color 0.15s ease-in-out;
+}
+
+.btn-error-delete-all:hover {
+  background-color: var(--color-button-delete-all-hover);
+}
+
+.btn-error-migrations {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background-color: var(--color-button-migrations);
+  color: var(--color-white);
+  font-weight: 600;
+  border-radius: 9999px;
+  transition: background-color 0.15s ease-in-out;
+}
+
+.btn-error-migrations:hover {
+  background-color: var(--color-button-migrations-hover);
+}
+

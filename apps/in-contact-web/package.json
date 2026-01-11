@@ -1,0 +1,46 @@
+{
+  "name": "in-contact-web",
+  "version": "1.0.0",
+  "description": "In Contact Web Application - Refactored with Screaming Architecture",
+  "main": "index.js",
+  "scripts": {
+    "dev": "vite",
+    "dev:electron": "vite --mode electron",
+    "build": "vite build",
+    "build:electron": "vite build --mode electron",
+    "preview": "vite preview"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "@azure/msal-browser": "^4.13.2",
+    "@azure/msal-react": "^3.0.13",
+    "@azure/web-pubsub-client": "^1.0.2",
+    "@heroicons/react": "^2.2.0",
+    "axios": "^1.10.0",
+    "livekit-client": "^2.14.0",
+    "lucide-react": "^0.540.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-router-dom": "^6.9.0",
+    "zustand": "^5.0.6"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.1.10",
+    "@types/node": "^24.0.3",
+    "@types/react": "^18.3.23",
+    "@types/react-dom": "^18.3.7",
+    "@vitejs/plugin-react": "^4.5.2",
+    "autoprefixer": "^10.4.21",
+    "dayjs": "^1.11.18",
+    "postcss": "^8.5.6",
+    "rollup-plugin-copy": "^3.5.0",
+    "tailwindcss": "^4.1.10",
+    "typescript": "^5.8.3",
+    "vite": "^6.3.5",
+    "vite-plugin-svgr": "^4.3.0"
+  }
+}
+
