@@ -33,5 +33,6 @@ export interface IPollTrackSubscriptionOptions {
   kind: 'video' | 'audio';
   onSubscribed: (publication: any) => void;
   pollIntervals: Set<NodeJS.Timeout>;
+  onTimeout?: () => void;
 }
 

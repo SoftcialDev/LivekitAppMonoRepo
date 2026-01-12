@@ -26,6 +26,8 @@ export function useTrackSubscriptions(
 
   const participantTrackHandlersRef = useRef(new Map<RemoteParticipant, (pub: any) => void>());
   const pollIntervalsRef = useRef<Set<NodeJS.Timeout>>(new Set());
+  // Track which tracks are currently being processed to avoid duplicate subscription attempts
+  const processingTracksRef = useRef<Set<string>>(new Set());
 
   const handleTrackSubscribed = useCallback(
     (pub: any, participant: RemoteParticipant): void => {
@@ -93,6 +95,19 @@ export function useTrackSubscriptions(
         });
         onTrackReady(publication, participant);
       } else if (publication.trackSid) {
+        // Check if we're already processing this track to avoid duplicate attempts
+        const trackKey = `${participant.identity}-${publication.trackSid}`;
+        if (processingTracksRef.current.has(trackKey)) {
+          logDebug('[useTrackSubscriptions] Track already being processed, skipping duplicate attempt', {
+            trackSid: publication.trackSid,
+            kind: publication.kind,
+          });
+          return;
+        }
+
+        // Mark track as being processed
+        processingTracksRef.current.add(trackKey);
+
         // Track published but not subscribed yet - poll until subscribed
         logDebug('[useTrackSubscriptions] Track published but not subscribed, polling', {
           trackSid: publication.trackSid,
@@ -103,8 +118,16 @@ export function useTrackSubscriptions(
           participant,
           trackSid: publication.trackSid,
           kind: publication.kind as 'video' | 'audio',
-          onSubscribed: (pub) => onTrackReady(pub, participant),
+          onSubscribed: (pub) => {
+            // Remove from processing set when subscribed
+            processingTracksRef.current.delete(trackKey);
+            onTrackReady(pub, participant);
+          },
           pollIntervals: pollIntervalsRef.current,
+          onTimeout: () => {
+            // Remove from processing set on timeout
+            processingTracksRef.current.delete(trackKey);
+          },
         });
       }
     },
@@ -121,6 +144,7 @@ export function useTrackSubscriptions(
       clearInterval(interval);
     });
     pollIntervalsRef.current.clear();
+    processingTracksRef.current.clear();
   }, []);
 
   return {
