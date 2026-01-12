@@ -4,19 +4,50 @@
  * @description Utility functions for playing audio notifications (incoming call, hang up)
  */
 
+// Keep track of the current incoming call audio to stop it if needed
+let currentIncomingCallAudio: HTMLAudioElement | null = null;
+let incomingCallTimeout: NodeJS.Timeout | null = null;
+
 /**
  * Plays the incoming call sound notification
  * 
  * Creates a new Audio instance for each call to allow overlapping sounds
- * and ensures the sound plays even if the previous one is still playing
+ * and ensures the sound plays even if the previous one is still playing.
+ * Stops the sound after 3 seconds as per requirements.
  */
 export function playIncomingCallSound(): void {
   try {
+    // Stop any currently playing incoming call sound
+    if (currentIncomingCallAudio) {
+      currentIncomingCallAudio.pause();
+      currentIncomingCallAudio.currentTime = 0;
+      currentIncomingCallAudio = null;
+    }
+    
+    // Clear any existing timeout
+    if (incomingCallTimeout) {
+      clearTimeout(incomingCallTimeout);
+      incomingCallTimeout = null;
+    }
+    
     const audio = new Audio('/sounds/incoming-call.wav');
     audio.volume = 0.7;
+    currentIncomingCallAudio = audio;
+    
     audio.play().catch((error) => {
       console.warn('[audioPlayer] Failed to play incoming call sound:', error);
+      currentIncomingCallAudio = null;
     });
+    
+    // Stop the audio after 3 seconds
+    incomingCallTimeout = setTimeout(() => {
+      if (currentIncomingCallAudio) {
+        currentIncomingCallAudio.pause();
+        currentIncomingCallAudio.currentTime = 0;
+        currentIncomingCallAudio = null;
+      }
+      incomingCallTimeout = null;
+    }, 3000);
   } catch (error) {
     console.warn('[audioPlayer] Error creating incoming call sound:', error);
   }
