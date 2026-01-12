@@ -56,7 +56,7 @@ export const RoleProtectedRoute: React.FC<IRoleProtectedRouteProps> = ({
 
   // 3) if still loading, show loading
   if (isLoading || !userInfo) {
-    return <div className="h-full w-full bg-(--color-primary-dark) flex items-center justify-center text-white">Loading...</div>;
+    return <div>Loading...</div>;
   }
 
   // 4) check if user's role is in allowedRoles

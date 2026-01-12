@@ -148,7 +148,7 @@ export function SearchableDropdown<Value>({
         }}
       >
         {isLoading && (
-          <div className="px-4 py-2 text-xs text-white font-medium bg-[var(--color-primary-dark)]">
+          <div className="px-4 py-2 text-xs text-white font-medium">
             Loading...
           </div>
         )}
