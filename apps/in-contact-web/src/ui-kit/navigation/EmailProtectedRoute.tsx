@@ -55,7 +55,7 @@ export const EmailProtectedRoute: React.FC<IEmailProtectedRouteProps> = ({
 
   // 3) if still loading, show loading
   if (isLoading || !userInfo) {
-    return <div>Loading...</div>;
+    return <div className="h-full w-full bg-(--color-primary-dark) flex items-center justify-center text-white">Loading...</div>;
   }
 
   // 4) check if email contains the pattern
