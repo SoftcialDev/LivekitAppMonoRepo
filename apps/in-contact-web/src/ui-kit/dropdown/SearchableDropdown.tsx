@@ -153,7 +153,6 @@ export function SearchableDropdown<Value>({
               onMouseDown={(e) => {
                 // Stop propagation to prevent interference from parent handlers
                 e.stopPropagation();
-                e.stopImmediatePropagation();
               }}
               onClick={(e) => {
                 // Handle click on entire row - works for both checkbox area and rest of row
