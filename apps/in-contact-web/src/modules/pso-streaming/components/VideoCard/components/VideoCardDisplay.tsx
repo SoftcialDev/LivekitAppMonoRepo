@@ -36,7 +36,7 @@ export const VideoCardDisplay: React.FC<IVideoCardDisplayProps> = ({
   const showVideo = shouldStream;
 
   return (
-    <div className="relative w-full pb-[56.25%] bg-black rounded-xl">
+    <div className="relative w-full pb-[56.25%] bg-black! rounded-xl" style={{ backgroundColor: '#000000' }}>
       {showVideo ? (
         <>
           <video
@@ -65,7 +65,7 @@ export const VideoCardDisplay: React.FC<IVideoCardDisplayProps> = ({
           </audio>
         </>
       ) : (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black rounded-xl">
+        <div className="absolute inset-0 flex flex-col items-center justify-center rounded-xl video-card-placeholder" style={{ backgroundColor: '#000000' }}>
           {statusMessage && (
             <span className="text-xl font-medium text-yellow-400 mb-2">
               {statusMessage}

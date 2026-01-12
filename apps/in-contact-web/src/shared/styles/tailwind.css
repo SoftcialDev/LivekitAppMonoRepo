@@ -265,3 +265,18 @@ button {
   background-color: var(--color-button-migrations-hover);
 }
 
+/**
+ * Video Card Background Override
+ * 
+ * Forces video card DISPLAY area (video/placeholder) to have black background instead of purple
+ * Does NOT affect the card container or header - those remain purple
+ */
+.video-card-wrapper .video-card-placeholder {
+  background-color: #000000 !important;
+}
+
+/* Only target the video display container, not the entire card */
+.video-card-wrapper > div[class*="flex"][class*="flex-col"][class*="rounded-xl"] > div[class*="relative"][class*="w-full"][class*="pb-"] {
+  background-color: #000000 !important;
+}
+
