@@ -33,7 +33,7 @@ export const Loading: React.FC<ILoadingProps> = ({
       ${bgClassName}
     `}
   >
-    <div role="status">
+    <output>
       <svg
         aria-hidden="true"
         className="
@@ -71,7 +71,7 @@ export const Loading: React.FC<ILoadingProps> = ({
         />
       </svg>
       <span className="sr-only">Loading...</span>
-    </div>
+    </output>
     <div className="mt-4 text-2xl font-bold">Loading…</div>
     <div className="mt-2 text-center">
       Please wait while system <strong>{action}</strong>

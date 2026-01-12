@@ -8,6 +8,16 @@ import { RecordingStatus } from '@prisma/client';
 import { getCentralAmericaTime } from '../../utils/dateUtils';
 
 /**
+ * Type alias for startedAt values from Prisma
+ */
+type StartedAtValue = Date | string | null;
+
+/**
+ * Type alias for stoppedAt values from Prisma
+ */
+type StoppedAtValue = Date | string | null;
+
+/**
  * Domain entity for recording sessions
  * 
  * @param id - Unique identifier for the recording session
@@ -49,6 +59,36 @@ export class RecordingSession {
   ) {}
 
   /**
+   * Parses startedAt from Prisma data
+   * @param startedAt - StartedAt value from Prisma (Date, string, or null)
+   * @returns Parsed Date
+   */
+  private static parseStartedAt(startedAt: StartedAtValue): Date {
+    if (!startedAt) {
+      return getCentralAmericaTime();
+    }
+    if (startedAt instanceof Date) {
+      return startedAt;
+    }
+    return new Date(startedAt);
+  }
+
+  /**
+   * Parses stoppedAt from Prisma data
+   * @param stoppedAt - StoppedAt value from Prisma (Date, string, or null)
+   * @returns Parsed Date or null
+   */
+  private static parseStoppedAt(stoppedAt: StoppedAtValue): Date | null {
+    if (!stoppedAt) {
+      return null;
+    }
+    if (typeof stoppedAt === 'string') {
+      return new Date(stoppedAt);
+    }
+    return stoppedAt;
+  }
+
+  /**
    * Creates RecordingSession from Prisma data
    * @param prismaSession - Raw Prisma recording session data
    * @returns RecordingSession entity instance
@@ -62,8 +102,8 @@ export class RecordingSession {
     subjectUserId: string | null;
     subjectLabel: string | null;
     status: string;
-    startedAt: Date | string | null;
-    stoppedAt: Date | string | null;
+    startedAt: StartedAtValue;
+    stoppedAt: StoppedAtValue;
     blobUrl: string | null;
     blobPath: string | null;
     createdAt: Date;
@@ -79,8 +119,8 @@ export class RecordingSession {
       prismaSession.subjectUserId,
       prismaSession.subjectLabel,
       prismaSession.status as RecordingStatus,
-      prismaSession.startedAt ? (prismaSession.startedAt instanceof Date ? prismaSession.startedAt : new Date(prismaSession.startedAt)) : getCentralAmericaTime(),
-      prismaSession.stoppedAt ? (typeof prismaSession.stoppedAt === 'string' ? new Date(prismaSession.stoppedAt) : prismaSession.stoppedAt) : null,
+      RecordingSession.parseStartedAt(prismaSession.startedAt),
+      RecordingSession.parseStoppedAt(prismaSession.stoppedAt),
       prismaSession.blobUrl,
       prismaSession.blobPath,
       prismaSession.createdAt,
@@ -124,7 +164,7 @@ export class RecordingSession {
     const startMs = this.startedAt.getTime();
     const endMs = this.stoppedAt ? this.stoppedAt.getTime() : getCentralAmericaTime().getTime();
     
-    if (isNaN(startMs) || isNaN(endMs)) return 0;
+    if (Number.isNaN(startMs) || Number.isNaN(endMs)) return 0;
     
     return Math.max(0, Math.floor((endMs - startMs) / 1000));
   }

@@ -119,7 +119,9 @@ const PsoDashboardPage: React.FC = () => {
     if (streamingStatus.hasActiveSession) {
       logDebug('[PsoDashboardPage] Auto-resuming stream - session was active', { psoEmail });
       hasInitializedRef.current = true;
-      void startStream();
+      startStream().catch((error) => {
+        logError('[PsoDashboardPage] Failed to auto-resume stream', { error, psoEmail });
+      });
       return;
     }
 
@@ -145,7 +147,9 @@ const PsoDashboardPage: React.FC = () => {
         withinWindow
       });
       hasInitializedRef.current = true;
-      void startStream();
+      startStream().catch((error) => {
+        logError('[PsoDashboardPage] Failed to auto-resume stream', { error, psoEmail });
+      });
     } else {
       logDebug('[PsoDashboardPage] Not auto-resuming stream', {
         reason: stopReason,
@@ -189,8 +193,12 @@ const PsoDashboardPage: React.FC = () => {
           controls={false}
           className="w-full h-full"
           poster="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='640' height='360'%3E%3Crect fill='%23000' width='640' height='360'/%3E%3Ctext fill='%23fff' font-family='Arial' font-size='24' x='50%25' y='50%25' text-anchor='middle' dominant-baseline='middle'%3ENo Stream%3C/text%3E%3C/svg%3E"
-        />
-        <audio ref={audioRef} autoPlay hidden />
+        >
+          <track kind="captions" srcLang="en" label="English" />
+        </video>
+        <audio ref={audioRef} autoPlay hidden>
+          <track kind="captions" srcLang="en" label="English" />
+        </audio>
 
         {!isStreaming && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-black">

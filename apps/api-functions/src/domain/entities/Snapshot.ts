@@ -5,7 +5,6 @@
  */
 
 import { SnapshotReason } from '../enums/SnapshotReason';
-import { getCentralAmericaTime } from '../../utils/dateUtils';
 
 /**
  * Domain entity representing a Snapshot with business logic.
@@ -83,10 +82,10 @@ export class Snapshot {
       description: prismaSnapshot.description,
       takenAt: prismaSnapshot.takenAt,
       imageUrl: prismaSnapshot.imageUrl,
-      supervisor: prismaSnapshot.supervisor && prismaSnapshot.supervisor.fullName ? {
+      supervisor: prismaSnapshot.supervisor?.fullName ? {
         fullName: prismaSnapshot.supervisor.fullName
       } : undefined,
-      pso: prismaSnapshot.pso && prismaSnapshot.pso.fullName ? {
+      pso: prismaSnapshot.pso?.fullName ? {
         fullName: prismaSnapshot.pso.fullName,
         email: prismaSnapshot.pso.email
       } : undefined,

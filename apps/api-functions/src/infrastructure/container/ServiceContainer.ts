@@ -53,6 +53,7 @@ import { ContactManagerDomainService } from '../../domain/services/ContactManage
 import { SuperAdminDomainService } from '../../domain/services/SuperAdminDomainService';
 import { PendingCommandDomainService } from '../../domain/services/PendingCommandDomainService';
 import { StreamingSessionDomainService } from '../../domain/services/StreamingSessionDomainService';
+import { StreamingStatusBatchDomainService } from '../../domain/services/StreamingStatusBatchDomainService';
 import { RecordingDomainService } from '../../domain/services/RecordingDomainService';
 import { LivekitRecordingDomainService } from '../../domain/services/LivekitRecordingDomainService';
 import { DeleteRecordingDomainService } from '../../domain/services/DeleteRecordingDomainService';
@@ -163,8 +164,7 @@ import { RecordingErrorLoggerService } from '../services/RecordingErrorLoggerSer
 import { LiveKitService } from '../services/LiveKitService';
 import { WebPubSubService } from '../services/WebPubSubService';
 
-// Config and Prisma
-import { config } from '../../config';
+// Prisma
 import { PrismaClient } from '@prisma/client';
 import prisma from '../database/PrismaClientService';
 
@@ -173,8 +173,16 @@ import prisma from '../database/PrismaClientService';
  */
 export class ServiceContainer {
   private static instance: ServiceContainer;
-  public static initialized: boolean = false;
-  private services: Map<string, any> = new Map();
+  private static _initialized: boolean = false;
+  private readonly services: Map<string, any> = new Map();
+
+  /**
+   * Gets whether the service container has been initialized
+   * @returns True if initialized, false otherwise
+   */
+  public static get initialized(): boolean {
+    return ServiceContainer._initialized;
+  }
 
   /**
    * Gets the singleton instance of ServiceContainer
@@ -379,6 +387,11 @@ export class ServiceContainer {
             return new StreamingSessionDomainService(streamingSessionRepository, userRepository);
           });
 
+          this.register<StreamingStatusBatchDomainService>('StreamingStatusBatchDomainService', () => {
+            const streamingSessionRepository = this.resolve<IStreamingSessionRepository>('StreamingSessionRepository');
+            return new StreamingStatusBatchDomainService(streamingSessionRepository);
+          });
+
           this.register<FetchStreamingSessionHistoryApplicationService>('FetchStreamingSessionHistoryApplicationService', () => {
             const streamingSessionDomainService = this.resolve<StreamingSessionDomainService>('StreamingSessionDomainService');
             return new FetchStreamingSessionHistoryApplicationService(streamingSessionDomainService);
@@ -390,9 +403,9 @@ export class ServiceContainer {
           });
 
           this.register<StreamingStatusBatchApplicationService>('StreamingStatusBatchApplicationService', () => {
-            const streamingSessionRepository = this.resolve<IStreamingSessionRepository>('StreamingSessionRepository');
+            const streamingStatusBatchDomainService = this.resolve<StreamingStatusBatchDomainService>('StreamingStatusBatchDomainService');
             const authorizationService = this.resolve<AuthorizationService>('AuthorizationService');
-            return new StreamingStatusBatchApplicationService(streamingSessionRepository, authorizationService);
+            return new StreamingStatusBatchApplicationService(streamingStatusBatchDomainService, authorizationService);
           });
 
           // Register Recording Session services
@@ -870,7 +883,7 @@ export class ServiceContainer {
             return new DeleteErrorLogsApplicationService(deleteErrorLogsDomainService);
           });
     
-    ServiceContainer.initialized = true;
+    ServiceContainer._initialized = true;
   }
 }
 

@@ -9,21 +9,19 @@
 
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { useHeader } from '@/app/stores/header-store/hooks/useHeader';
-import { useAuth } from '@/modules/auth';
-import { useUserInfo, useUserInfoStore } from '@/modules/auth';
+import { useAuth, useUserInfo, useUserInfoStore } from '@/modules/auth';
 import { usePresenceStore } from '@/modules/presence';
 import { useSupervisorChange } from '@/modules/supervisor';
 import { Dropdown, SearchableDropdown } from '@/ui-kit/dropdown';
 import { Loading } from '@/ui-kit/feedback';
+import { logError } from '@/shared/utils/logger';
 import { SimpleVideoCard, VideoGridContainer, VideoGridItem } from '../components';
 import { TalkNavigationGuard } from '../components/TalkNavigationGuard';
-import { useIsolatedStreams, useStablePSOs } from '../hooks';
-import { useVideoActions } from '../hooks';
+import { useIsolatedStreams, useStablePSOs, useVideoActions } from '../hooks';
 import { useSupervisorsStore } from '../stores/supervisors-store';
 import { useSnapshotReasonsStore } from '../stores/snapshot-reasons-store';
-import { loadLayout, loadFixed, getStatusMessage } from '../utils';
+import { loadLayout, loadFixed, getStatusMessage, lsKey } from '../utils';
 import { LAYOUT_OPTIONS, DEFAULT_LAYOUT } from '../constants';
-import { lsKey } from '../utils';
 import { StreamingStopReason } from '../enums';
 import monitorIcon from '@/shared/assets/monitor-icon.png';
 import type { LayoutOption } from '../types';
@@ -79,14 +77,20 @@ const PSOsStreamingPage: React.FC = () => {
   // Load supervisors once at page level (shared across all SupervisorSelector components)
   useEffect(() => {
     const loadSupervisors = useSupervisorsStore.getState().loadSupervisors;
-    void loadSupervisors(true);
+    loadSupervisors(true).catch((err) => {
+      // Error is already logged in the store
+      logError('[PSOsStreamingPage] Error loading supervisors', { error: err });
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Load snapshot reasons once at page level (shared across all VideoCard components)
   useEffect(() => {
     const loadSnapshotReasons = useSnapshotReasonsStore.getState().loadSnapshotReasons;
-    void loadSnapshotReasons(true);
+    loadSnapshotReasons(true).catch((err) => {
+      // Error is already logged in the store
+      logError('[PSOsStreamingPage] Error loading snapshot reasons', { error: err });
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -105,9 +109,9 @@ const PSOsStreamingPage: React.FC = () => {
 
   // Persist preferences to localStorage
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    window.localStorage.setItem(lsKey(viewerEmail, 'fixed'), JSON.stringify(fixedEmails));
-    window.localStorage.setItem(lsKey(viewerEmail, 'layout'), String(layout));
+    if (globalThis.window === undefined) return;
+    globalThis.localStorage.setItem(lsKey(viewerEmail, 'fixed'), JSON.stringify(fixedEmails));
+    globalThis.localStorage.setItem(lsKey(viewerEmail, 'layout'), String(layout));
   }, [viewerEmail, fixedEmails, layout]);
 
   // Get target emails for streaming
@@ -118,8 +122,8 @@ const PSOsStreamingPage: React.FC = () => {
   // Get streaming credentials for all PSOs
   const credsMap = useIsolatedStreams(viewerEmail, targetEmails);
 
-  // Video actions
-  const { handlePlay, handleStop, handleChat } = useVideoActions();
+  // Video actions (currently unused but may be needed in future)
+  useVideoActions();
 
   // Calculate display list based on fixed emails and layout
   const displayList = useMemo(() => {
@@ -173,17 +177,24 @@ const PSOsStreamingPage: React.FC = () => {
         />
       </div>
 
-      {presenceLoading ? (
-        <div className="flex flex-1 items-center justify-center">
-          <Loading action="Loading PSOs…" />
-        </div>
-      ) : displayList.length === 0 ? (
-        <div className="flex flex-1 items-center justify-center text-white">
-          <div className="max-w-2xl text-center px-4">
-            No PSOs to display
-          </div>
-        </div>
-      ) : (
+      {(() => {
+        if (presenceLoading) {
+          return (
+            <div className="flex flex-1 items-center justify-center">
+              <Loading action="Loading PSOs…" />
+            </div>
+          );
+        }
+        if (displayList.length === 0) {
+          return (
+            <div className="flex flex-1 items-center justify-center text-white">
+              <div className="max-w-2xl text-center px-4">
+                No PSOs to display
+              </div>
+            </div>
+          );
+        }
+        return (
         <VideoGridContainer itemCount={displayList.length}>
           {displayList.map((p, i) => {
             const key = p.email.toLowerCase();
@@ -236,7 +247,8 @@ const PSOsStreamingPage: React.FC = () => {
             );
           })}
         </VideoGridContainer>
-      )}
+        );
+      })()}
 
       {/* Talk navigation guard - intercepts navigation during active talk sessions */}
       <TalkNavigationGuard />

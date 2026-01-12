@@ -8,9 +8,8 @@ import React, { useEffect, useState, useCallback } from 'react';
 import managementIcon from '@/shared/assets/manage_icon_sidebar.png';
 import { useHeader } from '@/app/stores/header-store';
 import { useAuth } from '@/modules/auth';
-import { useToast } from '@/ui-kit/feedback';
+import { useToast, Loading } from '@/ui-kit/feedback';
 import { Dropdown } from '@/ui-kit/dropdown';
-import { Loading } from '@/ui-kit/feedback';
 import { logError, logInfo } from '@/shared/utils/logger';
 import { getMyContactManagerStatus, updateMyContactManagerStatus } from '../api/contactManagerDashboardClient';
 import { STATUS_OPTIONS } from '../constants';
@@ -122,13 +121,13 @@ export const ContactManagerDashboardPage: React.FC = (): JSX.Element => {
       <div className="w-full max-w-sm bg-(--color-primary) rounded-lg shadow-md p-6">
         {/* Your Current Status Container */}
         <div className="text-white rounded-md p-4 mb-4">
-          <label className="block font-medium mb-2">Your Current Status:</label>
+          <div className="block font-medium mb-2">Your Current Status:</div>
           <div className="text-lg">{status || '—'}</div>
         </div>
 
         {/* Change Status Container with Dropdown */}
         <div className="text-white rounded-md p-4">
-          <label className="block font-medium mb-2">Change Status:</label>
+          <div className="block font-medium mb-2">Change Status:</div>
           <div className="relative">
             <Dropdown
               value={status || ''}

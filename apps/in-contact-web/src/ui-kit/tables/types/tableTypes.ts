@@ -325,6 +325,184 @@ export interface ITableComponentProps<T> {
 }
 
 /**
+ * Props for TableSearchInput component
+ */
+export interface ITableSearchInputProps {
+  /**
+   * Current search term value
+   */
+  searchTerm: string;
+
+  /**
+   * Callback when search term changes
+   */
+  onSearchChange: (value: string) => void;
+
+  /**
+   * Placeholder text for the input
+   */
+  placeholder?: string;
+
+  /**
+   * Whether modal mode is active (affects padding)
+   */
+  isModalMode: boolean;
+}
+
+/**
+ * Props for TableHeader component
+ * 
+ * @template T Row data type
+ */
+export interface ITableHeaderProps<T> {
+  /**
+   * Column definitions
+   */
+  columns: IColumn<T>[];
+
+  /**
+   * Selection configuration (if undefined, no checkbox is shown)
+   */
+  selection?: ISelectionConfig<T>;
+
+  /**
+   * Whether all visible rows are selected
+   */
+  allVisibleSelected: boolean;
+
+  /**
+   * Whether some visible rows are selected
+   */
+  someVisibleSelected: boolean;
+
+  /**
+   * Callback when "select all" checkbox changes
+   */
+  onToggleAll: (checked: boolean) => void;
+
+  /**
+   * Header background CSS class
+   */
+  headerBg: string;
+}
+
+/**
+ * Props for TableBody component
+ * 
+ * @template T Row data type
+ */
+export interface ITableBodyProps<T> {
+  /**
+   * Data rows to display
+   */
+  displayData: T[];
+
+  /**
+   * Column definitions
+   */
+  columns: IColumn<T>[];
+
+  /**
+   * Selection configuration (if undefined, no checkboxes are shown)
+   */
+  selection?: ISelectionConfig<T>;
+
+  /**
+   * Function to get row key
+   */
+  getRowKey: (row: T, idx: number) => string;
+
+  /**
+   * Whether table is in loading state
+   */
+  loading: boolean;
+
+  /**
+   * Loading action text
+   */
+  loadingAction: string;
+
+  /**
+   * Whether selection is enabled
+   */
+  showSelection: boolean;
+
+  /**
+   * Whether modal mode is active
+   */
+  isModalMode: boolean;
+}
+
+/**
+ * Props for TableRow component
+ * 
+ * @template T Row data type
+ */
+export interface ITableRowProps<T> {
+  /**
+   * Row data object
+   */
+  row: T;
+
+  /**
+   * Row index
+   */
+  rowIndex: number;
+
+  /**
+   * Column definitions
+   */
+  columns: IColumn<T>[];
+
+  /**
+   * Selection configuration (if undefined, no checkbox is shown)
+   */
+  selection?: ISelectionConfig<T>;
+
+  /**
+   * Row key for selection
+   */
+  rowKey: string;
+
+  /**
+   * Whether modal mode is active
+   */
+  isModalMode: boolean;
+}
+
+/**
+ * Props for TableCell component
+ * 
+ * @template T Row data type
+ */
+export interface ITableCellProps<T> {
+  /**
+   * Row data object
+   */
+  row: T;
+
+  /**
+   * Column definition
+   */
+  column: IColumn<T>;
+
+  /**
+   * Row index (for unique keys)
+   */
+  rowIndex: number;
+
+  /**
+   * Column index (for unique keys)
+   */
+  columnIndex: number;
+
+  /**
+   * Whether modal mode is active (affects padding)
+   */
+  isModalMode: boolean;
+}
+
+/**
  * Props for TableCheckbox component
  */
 export interface ITableCheckboxProps {
@@ -464,5 +642,109 @@ export interface IDataTableProps<T> {
    * @returns Filtered array of data
    */
   customFilter?: (data: T[]) => T[];
+}
+
+/**
+ * Options for useTableData hook
+ * 
+ * @template T Row data type
+ */
+export interface IUseTableDataOptions<T> {
+  /**
+   * Raw data array
+   */
+  data: T[];
+
+  /**
+   * Column definitions for filtering
+   */
+  columns: IColumn<T>[];
+
+  /**
+   * Whether local search is enabled
+   */
+  enableLocalSearch: boolean;
+
+  /**
+   * Whether local pagination is enabled
+   */
+  enableLocalPagination: boolean;
+
+  /**
+   * Page size for local pagination
+   */
+  pageSize: number;
+
+  /**
+   * Selection configuration
+   */
+  selection?: ISelectionConfig<T>;
+}
+
+/**
+ * Return type for useTableData hook
+ * 
+ * @template T Row data type
+ */
+export interface IUseTableDataReturn<T> {
+  /**
+   * Current search term
+   */
+  searchTerm: string;
+
+  /**
+   * Function to update search term
+   */
+  setSearchTerm: (term: string) => void;
+
+  /**
+   * Current page number
+   */
+  currentPage: number;
+
+  /**
+   * Function to change page
+   */
+  handlePageChange: (page: number) => void;
+
+  /**
+   * Filtered data based on search term
+   */
+  filteredData: T[];
+
+  /**
+   * Paginated data (if pagination is enabled)
+   */
+  paginatedData: T[];
+
+  /**
+   * Data to display (paginated or filtered)
+   */
+  displayData: T[];
+
+  /**
+   * Total number of pages
+   */
+  totalPages: number;
+
+  /**
+   * Visible row keys for selection
+   */
+  visibleRowKeys: string[];
+
+  /**
+   * Whether all visible rows are selected
+   */
+  allVisibleSelected: boolean;
+
+  /**
+   * Whether some visible rows are selected
+   */
+  someVisibleSelected: boolean;
+
+  /**
+   * Function to toggle all visible rows
+   */
+  handleToggleAll: (checked: boolean) => void;
 }
 

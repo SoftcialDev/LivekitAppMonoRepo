@@ -4,8 +4,7 @@
  * @description Duration constants, color mappings, and label mappings for timers
  */
 
-import { TimerType, TimerColor } from '../enums';
-import { StreamingStopReason } from '../enums';
+import { TimerType, TimerColor, StreamingStopReason } from '../enums';
 
 /**
  * Duration for each timer type in minutes

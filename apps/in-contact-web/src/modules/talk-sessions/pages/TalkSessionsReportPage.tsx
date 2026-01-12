@@ -12,6 +12,7 @@ import { useAuth } from '@/modules/auth';
 import { useToast } from '@/ui-kit/feedback';
 import { DataTable } from '@/ui-kit/tables';
 import { logError } from '@/shared/utils/logger';
+import { useTableSelection } from '@/shared/hooks/useTableSelection';
 import { createTalkSessionsReportColumns } from './config/talkSessionsReportPageConfig';
 import type { TalkSessionReport } from '../types/talkSessionTypes';
 
@@ -61,29 +62,23 @@ export const TalkSessionsReportPage: React.FC = () => {
   }, [initialized, fetchSessions]);
 
   // Selection config for checkboxes
-  const selection = useMemo(
-    () => ({
-      selectedKeys: selectedIds,
-      onToggleRow: (key: string, checked: boolean) => {
-        setSelectedIds((prev) =>
-          checked
-            ? Array.from(new Set([...prev, key]))
-            : prev.filter((k) => k !== key)
-        );
-      },
-      onToggleAll: (checked: boolean, keys: string[]) => {
-        setSelectedIds((prev) =>
-          checked
-            ? Array.from(new Set([...prev, ...keys]))
-            : prev.filter((k) => !keys.includes(k))
-        );
-      },
-      getRowKey: (row: TalkSessionReport) => row.id,
-    }),
-    [selectedIds]
-  );
+  const selection = useTableSelection<TalkSessionReport>({
+    selectedKeys: selectedIds,
+    setSelectedKeys: setSelectedIds,
+    getRowKey: (row: TalkSessionReport) => row.id,
+  });
 
   const columns = useMemo(() => createTalkSessionsReportColumns(), []);
+
+  // Create data fetch handler
+  const handleDataFetch = useCallback(async (limit: number, offset: number) => {
+    const paginated = sessions.slice(offset, offset + limit);
+    return {
+      data: paginated,
+      total: sessions.length,
+      count: paginated.length,
+    };
+  }, [sessions]);
 
   return (
     <div className="flex flex-col flex-1 min-h-0 bg-(--color-primary-dark) p-4">
@@ -92,14 +87,7 @@ export const TalkSessionsReportPage: React.FC = () => {
           columns={columns}
           dataLoader={{
             totalCount: sessions.length,
-            onFetch: async (limit: number, offset: number) => {
-              const paginated = sessions.slice(offset, offset + limit);
-              return {
-                data: paginated,
-                total: sessions.length,
-                count: paginated.length,
-              };
-            },
+            onFetch: handleDataFetch,
             initialFetchSize: 200,
             fetchSize: 200,
           }}

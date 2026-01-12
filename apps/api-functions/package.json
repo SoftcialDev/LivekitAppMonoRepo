@@ -16,7 +16,6 @@
     "prepare": "npm run prisma:generate",
     "postinstall": "npm run prepare",
     "start": "func start --script-root dist",
-    "seed:snapshot-reasons": "ts-node src/infrastructure/seed/seedSnapshotReasons.ts",
     "test:unit": "jest",
     "test:unit:coverage": "jest --coverage"
   },

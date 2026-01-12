@@ -7,7 +7,6 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { MutableRefObject } from 'react';
 import type { Room } from 'livekit-client';
 import { LocalAudioTrack } from 'livekit-client';
 import { TalkSessionClient } from '../../api/talkSessionClient';
@@ -53,7 +52,13 @@ export function useTalkback(options: IUseTalkbackOptions): IUseTalkbackReturn {
 
   /**
    * Stops the talk session via API
-   * Prevents duplicate stops by checking hasStoppedRef
+   * 
+   * Prevents duplicate stops by checking hasStoppedRef. This ensures that
+   * even if stopTalkSession is called multiple times, it only executes once.
+   * Errors during stop are silently ignored as they typically occur during cleanup.
+   *
+   * @param reason - Reason for stopping the talk session
+   * @returns Promise that resolves when the stop operation completes
    */
   const stopTalkSession = useCallback(async (reason: TalkStopReason): Promise<void> => {
     if (!talkSessionIdRef.current || hasStoppedRef.current) {
@@ -73,6 +78,10 @@ export function useTalkback(options: IUseTalkbackOptions): IUseTalkbackReturn {
 
   /**
    * Cancels an active countdown and stops the talk session if started
+   * 
+   * This function is called when the user manually cancels the countdown
+   * or when an error occurs during the start process. It cleans up the
+   * countdown state and stops any active talk session.
    */
   const cancel = useCallback(() => {
     if (cancelCountdownRef.current) {
@@ -84,12 +93,21 @@ export function useTalkback(options: IUseTalkbackOptions): IUseTalkbackReturn {
     setIsCountdownActive(false);
 
     if (talkSessionIdRef.current && psoEmail) {
-      void stopTalkSession(TalkStopReason.USER_STOP);
+      stopTalkSession(TalkStopReason.USER_STOP).catch((err) => {
+        logError('[useTalkback] Error stopping talk session in cancel', { error: err });
+      });
     }
   }, [psoEmail, stopTalkSession]);
 
   /**
    * Starts a talk session via API
+   * 
+   * Validates that no active session exists for the PSO, then creates a new
+   * talk session. The session ID is stored in talkSessionIdRef for later use
+   * in stop operations. Resets the stop flag when starting a new session.
+   *
+   * @returns Promise that resolves when the session is started
+   * @throws Error if psoEmail is not provided or if validation fails
    */
   const startTalkSession = useCallback(async (): Promise<void> => {
     if (!psoEmail) {
@@ -109,7 +127,52 @@ export function useTalkback(options: IUseTalkbackOptions): IUseTalkbackReturn {
   }, [psoEmail]);
 
   /**
+   * Creates the stop function for session registration
+   * 
+   * This function factory creates a cleanup function that is registered with
+   * the talk session guard store. The returned function handles:
+   * - Canceling active countdowns
+   * - Stopping the talk session via API
+   * - Cleaning up local microphone tracks
+   * - Resetting all state
+   * - Unregistering from the guard store
+   *
+   * @returns Async function that performs complete cleanup of the talk session
+   */
+  const createStopFunction = useCallback((): (() => Promise<void>) => {
+    return async (): Promise<void> => {
+      // Cancel countdown if active
+      if (cancelCountdownRef.current) {
+        cancelCountdownRef.current();
+        cancelCountdownRef.current = null;
+      }
+      // Stop the talk session with USER_STOP reason when navigating away
+      await stopTalkSession(TalkStopReason.USER_STOP);
+      // Cleanup local track if it exists (may not exist yet if countdown hasn't completed)
+      if (localTrackRef.current) {
+        cleanupMicrophoneTrack(roomRef.current, localTrackRef.current, stopOnUnpublish);
+        localTrackRef.current = null;
+      }
+      setIsTalking(false);
+      setIsCountdownActive(false);
+      setCountdown(null);
+      // Unregister from guard store after stopping
+      if (psoEmail) {
+        unregisterSession(psoEmail);
+      }
+    };
+  }, [stopTalkSession, roomRef, stopOnUnpublish, psoEmail, unregisterSession]);
+
+  /**
    * Handles successful microphone publishing after countdown
+   * 
+   * This function is called when the countdown completes and the microphone
+   * track is successfully published to the LiveKit room. It updates the
+   * session registration in the guard store with the final stop function
+   * that includes track cleanup.
+   *
+   * @param room - The LiveKit room instance
+   * @returns Promise that resolves when publishing is complete
    */
   const handleMicrophonePublished = useCallback(async (room: Room): Promise<void> => {
     const track = await publishMicrophoneTrack(room, localTrackRef.current);
@@ -119,32 +182,23 @@ export function useTalkback(options: IUseTalkbackOptions): IUseTalkbackReturn {
     // Update session in guard store with final stop function that includes track cleanup
     // The session was already registered in start() before countdown, now we update it
     if (psoEmail) {
-      const stopFunction = async (): Promise<void> => {
-        // Cancel countdown if active
-        if (cancelCountdownRef.current) {
-          cancelCountdownRef.current();
-          cancelCountdownRef.current = null;
-        }
-        // Stop the talk session with USER_STOP reason when navigating away
-        await stopTalkSession(TalkStopReason.USER_STOP);
-        // Cleanup local track
-        if (localTrackRef.current) {
-          cleanupMicrophoneTrack(roomRef.current, localTrackRef.current, stopOnUnpublish);
-          localTrackRef.current = null;
-        }
-        setIsTalking(false);
-        setIsCountdownActive(false);
-        setCountdown(null);
-        // Unregister from guard store after stopping
-        unregisterSession(psoEmail);
-      };
-      registerSession(psoEmail, stopFunction); // Update the stop function with track cleanup
+      const stopFunction = createStopFunction();
+      registerSession(psoEmail, stopFunction);
       logDebug('[useTalkback] Updated session in guard store with track cleanup', { email: psoEmail });
     }
-  }, [psoEmail, stopTalkSession, registerSession, unregisterSession, roomRef, stopOnUnpublish]);
+  }, [psoEmail, registerSession, createStopFunction]);
 
   /**
    * Handles errors during microphone publishing
+   * 
+   * This function is called when an error occurs while publishing the
+   * microphone track. It performs cleanup (track removal, state reset)
+   * and stops the talk session with a CONNECTION_ERROR reason before
+   * re-throwing the error.
+   *
+   * @param error - The error that occurred during publishing
+   * @returns Promise that rejects with the original error
+   * @throws The original error after cleanup is complete
    */
   const handleMicrophonePublishError = useCallback(async (error: unknown): Promise<void> => {
     cleanupMicrophoneTrack(roomRef.current, localTrackRef.current, stopOnUnpublish);
@@ -160,6 +214,20 @@ export function useTalkback(options: IUseTalkbackOptions): IUseTalkbackReturn {
 
   /**
    * Starts a talk session with countdown and microphone publishing
+   * 
+   * This is the main entry point for starting a talk session. It:
+   * 1. Validates that no active session exists
+   * 2. Waits for room connection
+   * 3. Starts the talk session via API
+   * 4. Registers the session in the guard store for navigation blocking
+   * 5. Starts a countdown before publishing the microphone
+   * 6. Publishes the microphone track after countdown completes
+   *
+   * The function is idempotent - calling it multiple times while already
+   * starting/talking will be ignored.
+   *
+   * @returns Promise that resolves when the session is fully started
+   * @throws Error if validation fails, room connection fails, or publishing fails
    */
   const start = useCallback(async () => {
     if (loading || isTalking || isCountdownActive) {
@@ -185,25 +253,7 @@ export function useTalkback(options: IUseTalkbackOptions): IUseTalkbackReturn {
       // Register session in guard store for navigation blocking (including during countdown)
       // This allows navigation blocking from the start, even before microphone is published
       if (psoEmail) {
-        const stopFunction = async (): Promise<void> => {
-          // Cancel countdown if active
-          if (cancelCountdownRef.current) {
-            cancelCountdownRef.current();
-            cancelCountdownRef.current = null;
-          }
-          // Stop the talk session with USER_STOP reason when navigating away
-          await stopTalkSession(TalkStopReason.USER_STOP);
-          // Cleanup local track if it exists (may not exist yet if countdown hasn't completed)
-          if (localTrackRef.current) {
-            cleanupMicrophoneTrack(roomRef.current, localTrackRef.current, stopOnUnpublish);
-            localTrackRef.current = null;
-          }
-          setIsTalking(false);
-          setIsCountdownActive(false);
-          setCountdown(null);
-          // Unregister from guard store after stopping
-          unregisterSession(psoEmail);
-        };
+        const stopFunction = createStopFunction();
         registerSession(psoEmail, stopFunction);
         logDebug('[useTalkback] Registered session in guard store (during countdown)', { email: psoEmail });
       }
@@ -244,16 +294,23 @@ export function useTalkback(options: IUseTalkbackOptions): IUseTalkbackReturn {
     cancel,
     psoEmail,
     registerSession,
-    unregisterSession,
-    stopTalkSession,
-    roomRef,
-    stopOnUnpublish,
+    createStopFunction,
     hasActiveSessions,
     getActiveSessionEmails,
   ]);
 
   /**
    * Stops the talk session and unpublishes the microphone track
+   * 
+   * This function stops the talk session and cleans up all resources:
+   * - Cancels any active countdown
+   * - Unpublishes and stops the microphone track
+   * - Unregisters from the guard store
+   * - Stops the talk session via API
+   *
+   * The function is idempotent - calling it multiple times is safe.
+   *
+   * @returns Promise that resolves when the session is fully stopped
    */
   const stop = useCallback(async () => {
     cancel();
@@ -283,6 +340,13 @@ export function useTalkback(options: IUseTalkbackOptions): IUseTalkbackReturn {
 
   /**
    * Cleanup on unmount: unpublish and stop any active mic track
+   * 
+   * This effect runs cleanup when the component unmounts. It:
+   * - Cancels any active countdown
+   * - Cleans up the microphone track
+   * - Resets all state
+   * - Unregisters from the guard store
+   * - Stops the talk session with BROWSER_REFRESH reason
    */
   useEffect(() => {
     return () => {
@@ -299,7 +363,9 @@ export function useTalkback(options: IUseTalkbackOptions): IUseTalkbackReturn {
       }
 
       if (talkSessionIdRef.current) {
-        void stopTalkSession(TalkStopReason.BROWSER_REFRESH);
+        stopTalkSession(TalkStopReason.BROWSER_REFRESH).catch((err) => {
+          logError('[useTalkback] Error stopping talk session on unmount', { error: err });
+        });
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -307,15 +373,22 @@ export function useTalkback(options: IUseTalkbackOptions): IUseTalkbackReturn {
 
   /**
    * Handle browser refresh/unload using fetch with keepalive
+   * 
+   * This effect sets up a beforeunload event listener to send a beacon
+   * request to stop the talk session when the user refreshes or closes
+   * the browser tab. Uses sendBeaconStop which uses fetch with keepalive
+   * to ensure the request completes even if the page is unloading.
    */
   useEffect(() => {
     const handleBeforeUnload = () => {
       if (talkSessionIdRef.current) {
-        void talkSessionClientRef.current.sendBeaconStop(
+        talkSessionClientRef.current.sendBeaconStop(
           talkSessionIdRef.current,
           TalkStopReason.BROWSER_REFRESH,
           getApiToken
-        );
+        ).catch((err) => {
+          logError('[useTalkback] Error sending beacon stop on beforeunload', { error: err });
+        });
       }
     };
 

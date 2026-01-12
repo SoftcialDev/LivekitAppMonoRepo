@@ -42,11 +42,11 @@ export function scheduleDelayedDetach(
     pendingMap.delete(trackSid);
 
     // Only detach if this is still not the current track (no replacement found)
-    if (currentTrackSidRef.current !== trackSid) {
+    if (currentTrackSidRef.current === trackSid) {
+      logDebug('[trackTransitionUtils] Skipping detach - new track already attached', { trackSid });
+    } else {
       detachVideoTrack(track, videoElement, trackSid);
       logDebug('[trackTransitionUtils] Track detached after delay (no replacement)', { trackSid });
-    } else {
-      logDebug('[trackTransitionUtils] Skipping detach - new track already attached', { trackSid });
     }
   }, delayMs);
 

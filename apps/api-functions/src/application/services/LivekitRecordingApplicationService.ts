@@ -83,8 +83,9 @@ export class LivekitRecordingApplicationService {
 
       // Fallback to caller if subject not found
       return fallbackUser;
-    } catch (error) {
+    } catch {
       // If resolution fails, use fallback user
+      // Error is intentionally ignored as fallback is available
       return fallbackUser;
     }
   }

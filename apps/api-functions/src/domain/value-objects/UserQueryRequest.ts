@@ -59,8 +59,8 @@ export class UserQueryRequest {
 
     return new UserQueryRequest(
       roles,
-      parseInt(query.page) || 1,
-      parseInt(query.pageSize) || 50
+      Number.parseInt(String(query.page), 10) || 1,
+      Number.parseInt(String(query.pageSize), 10) || 50
     );
   }
 

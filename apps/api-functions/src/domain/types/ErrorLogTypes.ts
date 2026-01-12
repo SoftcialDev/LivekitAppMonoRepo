@@ -6,6 +6,7 @@
 
 import { ErrorSeverity } from '../enums/ErrorSeverity';
 import { ErrorSource } from '../enums/ErrorSource';
+import { Prisma } from '@prisma/client';
 
 /**
  * Data structure for creating a new error log entry
@@ -118,4 +119,28 @@ export interface ErrorLogQueryParams {
    */
   offset?: number;
 }
+
+/**
+ * Prisma error log model type
+ * @description Represents the structure of an error log as returned from Prisma
+ */
+export type PrismaErrorLog = {
+  id: string;
+  severity: string;
+  source: string;
+  endpoint: string | null;
+  functionName: string | null;
+  errorName: string | null;
+  errorMessage: string | null;
+  stackTrace: string | null;
+  httpStatusCode: number | null;
+  userId: string | null;
+  userEmail: string | null;
+  requestId: string | null;
+  context: Prisma.JsonValue;
+  resolved: boolean;
+  resolvedAt: Date | null;
+  resolvedBy: string | null;
+  createdAt: Date;
+};
 

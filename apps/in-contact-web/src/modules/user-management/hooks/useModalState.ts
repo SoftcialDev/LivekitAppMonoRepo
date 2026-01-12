@@ -21,14 +21,14 @@ import type { UseModalStateReturn } from './types/useModalStateTypes';
  * ```
  */
 export function useModalState(): UseModalStateReturn {
-  const [isModalOpen, setModalOpen] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const handleOpenModal = useCallback((): void => {
-    setModalOpen(true);
+    setIsModalOpen(true);
   }, []);
 
   const handleCloseModal = useCallback((): void => {
-    setModalOpen(false);
+    setIsModalOpen(false);
   }, []);
 
   return {

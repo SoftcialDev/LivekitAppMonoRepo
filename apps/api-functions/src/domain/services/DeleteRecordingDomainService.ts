@@ -51,8 +51,9 @@ export class DeleteRecordingDomainService {
       try {
         blobDeleted = await this.blobStorageService.deleteRecordingByPath(blobPath);
         blobMissing = !blobDeleted;
-      } catch (error) {
+      } catch {
         // If blob deletion fails, mark as missing but continue with DB deletion
+        // Error is intentionally ignored as we want to continue with DB deletion
         blobMissing = true;
       }
     } else {
@@ -105,7 +106,7 @@ export class DeleteRecordingDomainService {
       const pathParts = urlObj.pathname.split('/');
       
       // Look for container name and extract path after it
-      const containerIndex = pathParts.findIndex(part => part === 'recordings');
+      const containerIndex = pathParts.indexOf('recordings');
       if (containerIndex !== -1 && containerIndex < pathParts.length - 1) {
         return pathParts.slice(containerIndex + 1).join('/');
       }

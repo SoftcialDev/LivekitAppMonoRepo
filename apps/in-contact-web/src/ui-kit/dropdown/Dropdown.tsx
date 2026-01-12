@@ -5,7 +5,7 @@
  */
 
 import React, { useState, useRef } from 'react';
-import type { IDropdownProps, IDropdownOption } from './types/dropdownTypes';
+import type { IDropdownProps } from './types/dropdownTypes';
 import { useClickOutside } from './hooks/useClickOutside';
 
 /**
@@ -17,16 +17,6 @@ import { useClickOutside } from './hooks/useClickOutside';
  * @param props - Component props
  * @returns JSX element with dropdown
  * 
- * @example
- * ```tsx
- * <Dropdown
- *   value={selected}
- *   onSelect={setSelected}
- *   options={[
- *     { label: 'Option 1', value: 1 },
- *     { label: 'Option 2', value: 2 },
- *   ]}
- * />
  * ```
  */
 export const Dropdown: React.FC<IDropdownProps> = ({
@@ -74,14 +64,14 @@ export const Dropdown: React.FC<IDropdownProps> = ({
     rounded-lg shadow-lg
     z-50 w-11/12
   `
-    .replace(/\s+/g, ' ')
+    .replaceAll(/\s+/g, ' ')
     .trim();
 
   const menuContainerClass = (
     menuClassNameOverride?.trim() ||
     `${defaultMenuContainer} ${menuBgClassName} ${menuClassName}`.trim()
   )
-    .replace(/\s+/g, ' ')
+    .replaceAll(/\s+/g, ' ')
     .trim();
 
   return (
@@ -89,7 +79,7 @@ export const Dropdown: React.FC<IDropdownProps> = ({
       <button
         type="button"
         className={`
-          text-[var(--color-primary-dark)]
+          text-(--color-primary-dark)
           focus:ring-0 focus:outline-none
           font-medium rounded-full text-l px-5 py-2.5 text-center
           inline-flex items-center gap-2
@@ -140,9 +130,9 @@ export const Dropdown: React.FC<IDropdownProps> = ({
           }
           style={menuStyle}
         >
-          <ul role="listbox" className={`rounded-lg border-0 ${menuBgClassName}`}>
+          <ul className={`rounded-lg border-0 ${menuBgClassName}`}>
             {options.map((option) => (
-              <li key={option.value} role="option" aria-selected={option.value === value}>
+              <li key={option.value}>
                 <button
                   type="button"
                   onClick={() => {
@@ -153,7 +143,7 @@ export const Dropdown: React.FC<IDropdownProps> = ({
                     w-full text-left px-4 py-2
                     rounded-lg transition-colors
                     ${menuBgClassName}
-                    hover:bg-[var(--color-primary)]
+                    hover:bg-(--color-primary)
                   `}
                 >
                   {option.label}

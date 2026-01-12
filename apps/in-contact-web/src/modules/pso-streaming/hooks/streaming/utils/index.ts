@@ -13,6 +13,13 @@ export {
 export { parseWebSocketMessage } from './messageParsing';
 
 export {
+  handlePendingMessage,
+  handleFailedMessage,
+  handleStartedMessage,
+  handleStoppedMessage,
+} from './messageHandlers';
+
+export {
   fetchAndDistributeCredentials,
   fetchCredentialsForEmail,
 } from './credentialManagement';

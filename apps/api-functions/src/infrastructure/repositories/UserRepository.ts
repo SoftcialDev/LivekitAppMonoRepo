@@ -160,7 +160,6 @@ export class UserRepository implements IUserRepository {
    * @returns Promise that resolves to created user entity
    */
   async createPSO(email: string, fullName: string, supervisorId: string | null = null): Promise<User> {
-    const now = getCentralAmericaTime();
     const prismaUser = await prisma.user.create({
       data: {
         email: email.toLowerCase(),
@@ -430,8 +429,6 @@ export class UserRepository implements IUserRepository {
    * @returns Promise that resolves to the created ContactManagerProfile entity
    */
   async createContactManagerProfile(userId: string, status: ContactManagerStatus): Promise<ContactManagerProfile> {
-    const now = getCentralAmericaTime();
-    
     const prismaProfile = await prisma.contactManagerProfile.create({
       data: {
         userId,
@@ -663,12 +660,10 @@ export class UserRepository implements IUserRepository {
         });
         
         // If not found by azureAdObjectId, try by id
-        if (!supervisor) {
-          supervisor = await prisma.user.findUnique({
-            where: { id: supervisorId },
-            select: { id: true, email: true, fullName: true, role: true, azureAdObjectId: true }
-          });
-        }
+        supervisor ??= await prisma.user.findUnique({
+          where: { id: supervisorId },
+          select: { id: true, email: true, fullName: true, role: true, azureAdObjectId: true }
+        });
         
         if (!supervisor) {
           return [];
@@ -784,7 +779,7 @@ export class UserRepository implements IUserRepository {
     for (const assignment of user.userRoleAssignments) {
       const rp = assignment.role?.rolePermissions || [];
       for (const link of rp) {
-        if (link.permission && link.permission.isActive) {
+        if (link.permission?.isActive) {
           codes.add(link.permission.code);
         }
       }
@@ -804,7 +799,7 @@ export class UserRepository implements IUserRepository {
 
       const rp = role?.rolePermissions || [];
       for (const link of rp) {
-        if (link.permission && link.permission.isActive) {
+        if (link.permission?.isActive) {
           codes.add(link.permission.code);
         }
       }

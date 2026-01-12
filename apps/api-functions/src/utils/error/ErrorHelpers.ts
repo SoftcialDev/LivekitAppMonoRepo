@@ -182,8 +182,8 @@ export function extractEgressErrorDetails(info: unknown): EgressErrorDetails {
       const result = extractErrorProperty(info, 'result') as Record<string, unknown> | undefined;
       return result?.['fileResults'];
     })(),
-    streamResults: extractErrorProperty(info, 'streamResults') as unknown,
-    segmentResults: extractErrorProperty(info, 'segmentResults') as unknown,
+    streamResults: extractErrorProperty(info, 'streamResults'),
+    segmentResults: extractErrorProperty(info, 'segmentResults'),
   };
 }
 

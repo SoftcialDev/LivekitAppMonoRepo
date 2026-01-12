@@ -28,7 +28,7 @@ import { WebSocketHandshakeRetryManager } from './WebSocketHandshakeRetryManager
  * - Handshake retry logic for 500 errors
  */
 export class WebSocketConnectionManager {
-  private static handshakeRetryManager = new WebSocketHandshakeRetryManager();
+  private static readonly handshakeRetryManager = new WebSocketHandshakeRetryManager();
 
   /**
    * Creates a new WebSocket client and sets up event handlers
@@ -195,7 +195,7 @@ export class WebSocketConnectionManager {
    * @param event - Raw event
    * @returns Parsed message or null
    */
-  private static parseMessage(event: unknown): unknown | null {
+  private static parseMessage(event: unknown): unknown {
     return WebSocketMessageParser.parse(event);
   }
 

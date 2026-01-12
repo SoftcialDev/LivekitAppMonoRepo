@@ -14,7 +14,7 @@ import { config } from '../../config';
  * Infrastructure service for blob storage operations
  */
 export class BlobStorageService implements IBlobStorageService {
-  private containerClient: ContainerClient;
+  private readonly containerClient: ContainerClient;
 
   constructor() {
     const connStr = config.storageConnectionString;

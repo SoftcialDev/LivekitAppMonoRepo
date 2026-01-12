@@ -8,7 +8,6 @@ import apiClient from '@/shared/api/apiClient';
 import { handleApiError } from '@/shared/utils/errorUtils';
 import type {
   SuperAdminDto,
-  BackendSuperAdminDto,
   ListSuperAdminsResponse,
   CreateSuperAdminRequest,
   CreateSuperAdminResponse,

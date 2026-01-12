@@ -48,7 +48,7 @@ export function useRetryUserInfo(): IUseRetryUserInfoReturn {
   const [isRetrying, setIsRetrying] = useState<boolean>(false);
   const [hasFailed, setHasFailed] = useState<boolean>(false);
   const [currentAttempt, setCurrentAttempt] = useState<number>(0);
-  const [error, setError] = useState<unknown | null>(null);
+  const [error, setError] = useState<unknown>(null);
 
   const retryCountRef = useRef<number>(0);
   const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -82,6 +82,83 @@ export function useRetryUserInfo(): IUseRetryUserInfoReturn {
   }, []);
 
   /**
+   * Checks if maximum retry time has been exceeded
+   * @returns True if maximum time exceeded
+   */
+  const hasExceededMaxTime = useCallback((): boolean => {
+    if (!startTimeRef.current) {
+      return false;
+    }
+    const elapsed = Date.now() - startTimeRef.current;
+    return elapsed >= 60000;
+  }, []);
+
+  /**
+   * Cleans up retry state and timeout
+   */
+  const cleanupRetryState = useCallback((): void => {
+    if (retryTimeoutRef.current) {
+      clearTimeout(retryTimeoutRef.current);
+      retryTimeoutRef.current = null;
+    }
+  }, []);
+
+  /**
+   * Sets success state and cleans up
+   */
+  const handleRetrySuccess = useCallback((): void => {
+    hasStartedRef.current = false;
+    setIsRetrying(false);
+    retryCountRef.current = 0;
+    setCurrentAttempt(0);
+    setError(null);
+    startTimeRef.current = null;
+    cleanupRetryState();
+  }, [cleanupRetryState]);
+
+  /**
+   * Sets failure state and cleans up
+   * @param err - Error that caused failure
+   */
+  const handleRetryFailure = useCallback((err: unknown): void => {
+    hasStartedRef.current = false;
+    setIsRetrying(false);
+    setHasFailed(true);
+    setError(err);
+    cleanupRetryState();
+  }, [cleanupRetryState]);
+
+  /**
+   * Handles error and decides whether to retry
+   * @param err - Error that occurred
+   * @returns True if should retry, false otherwise
+   */
+  const handleRetryError = useCallback((err: unknown): boolean => {
+    retryCountRef.current += 1;
+    setCurrentAttempt(retryCountRef.current);
+
+    logError('Failed to load user data', {
+      error: err,
+      attempt: retryCountRef.current,
+      maxAttempts: MAX_RETRY_ATTEMPTS,
+    });
+
+    // Check if we've reached max attempts
+    if (retryCountRef.current >= MAX_RETRY_ATTEMPTS) {
+      handleRetryFailure(err);
+      throw err;
+    }
+
+    // Check if we've exceeded maximum time
+    if (hasExceededMaxTime()) {
+      handleRetryFailure(err);
+      throw err;
+    }
+
+    return true; // Should retry
+  }, [hasExceededMaxTime, handleRetryFailure]);
+
+  /**
    * Attempts to load user data with retry logic
    * 
    * Retries the request every 15 seconds if it fails, up to 4 attempts (1 minute total).
@@ -110,15 +187,10 @@ export function useRetryUserInfo(): IUseRetryUserInfoReturn {
     const attemptLoad = async (): Promise<void> => {
       try {
         // Check if we've exceeded maximum time (1 minute)
-        if (startTimeRef.current) {
-          const elapsed = Date.now() - startTimeRef.current;
-          if (elapsed >= 60000) {
-            logDebug('Maximum retry time exceeded, stopping retries');
-            hasStartedRef.current = false;
-            setIsRetrying(false);
-            setHasFailed(true);
-            throw new Error('Maximum retry time exceeded');
-          }
+        if (hasExceededMaxTime()) {
+          logDebug('Maximum retry time exceeded, stopping retries');
+          handleRetryFailure(new Error('Maximum retry time exceeded'));
+          throw new Error('Maximum retry time exceeded');
         }
 
         // Configure token getter for API requests
@@ -131,58 +203,12 @@ export function useRetryUserInfo(): IUseRetryUserInfoReturn {
         await loadUserInfo();
 
         // Success: reset retry state
-        hasStartedRef.current = false;
-        setIsRetrying(false);
-        retryCountRef.current = 0;
-        setCurrentAttempt(0);
-        setError(null);
-        startTimeRef.current = null;
-
-        if (retryTimeoutRef.current) {
-          clearTimeout(retryTimeoutRef.current);
-          retryTimeoutRef.current = null;
-        }
+        handleRetrySuccess();
       } catch (err: unknown) {
-        retryCountRef.current += 1;
-        setCurrentAttempt(retryCountRef.current);
-
-        logError('Failed to load user data', {
-          error: err,
-          attempt: retryCountRef.current,
-          maxAttempts: MAX_RETRY_ATTEMPTS,
-        });
-
-        // Check if we've reached max attempts
-        if (retryCountRef.current >= MAX_RETRY_ATTEMPTS) {
-          hasStartedRef.current = false;
-          setIsRetrying(false);
-          setHasFailed(true);
-          setError(err);
-
-          if (retryTimeoutRef.current) {
-            clearTimeout(retryTimeoutRef.current);
-            retryTimeoutRef.current = null;
-          }
-
-          throw err;
-        }
-
-        // Check if we've exceeded maximum time
-        if (startTimeRef.current) {
-          const elapsed = Date.now() - startTimeRef.current;
-          if (elapsed >= 60000) {
-            hasStartedRef.current = false;
-            setIsRetrying(false);
-            setHasFailed(true);
-            setError(err);
-
-            if (retryTimeoutRef.current) {
-              clearTimeout(retryTimeoutRef.current);
-              retryTimeoutRef.current = null;
-            }
-
-            throw err;
-          }
+        const shouldRetry = handleRetryError(err);
+        
+        if (!shouldRetry) {
+          return; // Error handler already threw
         }
 
         // Schedule next retry
@@ -199,7 +225,7 @@ export function useRetryUserInfo(): IUseRetryUserInfoReturn {
 
     // Start first attempt
     attemptLoad();
-  }, []); // No dependencies - use refs for account and getApiToken
+  }, [hasExceededMaxTime, handleRetrySuccess, handleRetryError, handleRetryFailure]); // No dependencies - use refs for account and getApiToken
 
   // Cleanup on unmount
   useEffect(() => {

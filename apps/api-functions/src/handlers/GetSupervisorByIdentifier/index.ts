@@ -5,7 +5,7 @@ import { withCallerId } from '../../middleware/callerId';
 import { withQueryValidation } from '../../middleware/validate';
 import { requirePermission } from '../../middleware/permissions';
 import { Permission } from '../../domain/enums/Permission';
-import { ok, badRequest } from '../../utils/response';
+import { ok } from '../../utils/response';
 import { ServiceContainer } from '../../infrastructure/container/ServiceContainer';
 import { GetSupervisorByIdentifierRequest } from '../../domain/value-objects/GetSupervisorByIdentifierRequest';
 import { GetSupervisorByIdentifierApplicationService } from '../../application/services/GetSupervisorByIdentifierApplicationService';

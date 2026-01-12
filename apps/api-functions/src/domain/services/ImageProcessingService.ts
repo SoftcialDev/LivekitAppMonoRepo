@@ -8,12 +8,13 @@ import { ImageUploadRequest } from '../value-objects/ImageUploadRequest';
 import { ApplicationError } from '../errors/DomainError';
 import { ApplicationErrorCode } from '../errors/ErrorCodes';
 import { extractErrorMessage } from '../../utils/error/ErrorHelpers';
+import { stripTrailingPadding } from '../utils/RegexUtils';
 
 /**
  * Domain service for image processing operations
  */
 export class ImageProcessingService {
-  constructor(private blobStorageService: IBlobStorageService) {}
+  constructor(private readonly blobStorageService: IBlobStorageService) {}
 
   /**
    * Processes and uploads an image
@@ -57,8 +58,7 @@ export class ImageProcessingService {
     try {
       const buffer = Buffer.from(base64Data, 'base64');
       const reencoded = buffer.toString('base64');
-      const stripPad = (s: string) => s.replace(/=+$/, '');
-      return stripPad(reencoded) === stripPad(base64Data);
+      return stripTrailingPadding(reencoded) === stripTrailingPadding(base64Data);
     } catch {
       return false;
     }

@@ -5,7 +5,6 @@
  */
 
 import apiClient from '@/shared/api/apiClient';
-import { handleApiError } from '@/shared/utils/errorUtils';
 import { LiveKitTokenError } from '../errors';
 import type { LiveKitTokenResponse } from './types';
 

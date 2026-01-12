@@ -49,14 +49,16 @@ export const SupervisorSelector: React.FC<ISupervisorSelectorProps> = ({
   useEffect(() => {
     const refetch = () => {
       const loadSupervisorsFromStore = useSupervisorsStore.getState().loadSupervisors;
-      void loadSupervisorsFromStore(true);
+      loadSupervisorsFromStore(true).catch((err) => {
+        logError('Error refetching supervisors from store', { error: err });
+      });
     };
 
-    window.addEventListener('supervisorChange', refetch);
-    window.addEventListener('supervisorListChanged', refetch);
+    globalThis.addEventListener('supervisorChange', refetch);
+    globalThis.addEventListener('supervisorListChanged', refetch);
     return () => {
-      window.removeEventListener('supervisorChange', refetch);
-      window.removeEventListener('supervisorListChanged', refetch);
+      globalThis.removeEventListener('supervisorChange', refetch);
+      globalThis.removeEventListener('supervisorListChanged', refetch);
     };
     // No dependencies - refetch function is stable and event listeners don't need to re-register
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -67,7 +69,10 @@ export const SupervisorSelector: React.FC<ISupervisorSelectorProps> = ({
       return;
     }
     
-    const newSupervisorEmail = selectedEmails[selectedEmails.length - 1];
+    const newSupervisorEmail = selectedEmails.at(-1);
+    if (!newSupervisorEmail) {
+      return;
+    }
     
     if (newSupervisorEmail !== currentSupervisorEmail) {
       try {
@@ -137,7 +142,7 @@ export const SupervisorSelector: React.FC<ISupervisorSelectorProps> = ({
             text-white font-normal text-base
           "
           itemClassName="
-            flex items-center px-3 py-2
+            w-full flex items-center px-3 py-2
             text-white font-normal text-base
             hover:bg-[var(--color-primary)] cursor-pointer
             border-b border-[var(--color-primary)] last:border-b-0

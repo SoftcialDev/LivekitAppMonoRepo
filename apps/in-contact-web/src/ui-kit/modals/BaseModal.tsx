@@ -56,8 +56,8 @@ export const BaseModal: React.FC<IBaseModalProps> = ({
     if (!modal) return;
     const { offsetWidth: w, offsetHeight: h } = modal;
     setPos({
-      x: window.innerWidth / 2 - w / 2,
-      y: window.innerHeight / 2 - h / 2,
+      x: globalThis.window.innerWidth / 2 - w / 2,
+      y: globalThis.window.innerHeight / 2 - h / 2,
     });
   }, [open]);
 
@@ -121,7 +121,7 @@ export const BaseModal: React.FC<IBaseModalProps> = ({
     border-2 border-white
     rounded-lg shadow-xl
     w-[90%]
-  `.replace(/\s+/g, ' ').trim();
+  `.replaceAll(/\s+/g, ' ').trim();
 
   // Final container class calculation:
   // - If classNameOverride is provided, use that exactly
@@ -129,12 +129,30 @@ export const BaseModal: React.FC<IBaseModalProps> = ({
   const containerClass =
     classNameOverride?.trim() || `${defaultContainer} ${className || ''}`.trim();
 
+  // Handle Escape key to close modal
+  useEffect(() => {
+    if (!open) return;
+    
+    const handleEscape = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [open, onClose]);
+
   if (!open) return null;
 
   const modalContent = (
     <div 
       className="fixed inset-0 z-9999" 
       style={{ zIndex }}
+      role="dialog"
+      aria-modal="true"
       onClick={(e) => {
         // Close on overlay click (optional - can be removed if not desired)
         if (e.target === e.currentTarget) {
@@ -146,13 +164,30 @@ export const BaseModal: React.FC<IBaseModalProps> = ({
         ref={modalRef}
         className={containerClass}
         style={classNameOverride ? {} : { left: pos.x, top: pos.y }}
-        onClick={(e) => e.stopPropagation()}
       >
-        {customHeader ? (
-          <div onMouseDown={draggable ? handleMouseDown : undefined}>
-            {customHeader}
-          </div>
-        ) : null}
+        {(() => {
+          if (!customHeader) {
+            return null;
+          }
+          if (draggable) {
+            return (
+              <button
+                type="button"
+                aria-label="Drag to move modal"
+                onMouseDown={handleMouseDown}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                  }
+                }}
+                className="w-full cursor-move"
+              >
+                {customHeader}
+              </button>
+            );
+          }
+          return <div>{customHeader}</div>;
+        })()}
         {children}
         {customFooter}
       </div>

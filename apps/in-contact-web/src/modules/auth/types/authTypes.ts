@@ -4,7 +4,6 @@
  * @description Defines types for user information, authentication results, and related data structures
  */
 
-import type { AccountInfo, AuthenticationResult } from '@azure/msal-browser';
 import { UserRole } from '../enums';
 
 /**
@@ -132,7 +131,7 @@ export interface IUseRetryUserInfoReturn {
   /**
    * Error that occurred during the last failed attempt
    */
-  error: unknown | null;
+  error: unknown;
 
   /**
    * Function to trigger the user info loading with retry logic

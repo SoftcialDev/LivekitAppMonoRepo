@@ -25,7 +25,7 @@ export function generateSnapshotFileName(report: SnapshotReport): string {
 
   // Format date and time from takenAt
   const takenAt = report.takenAt ? new Date(report.takenAt) : new Date();
-  const dateStr = takenAt.toISOString().slice(0, 10).replace(/-/g, '');
+  const dateStr = takenAt.toISOString().slice(0, 10).replaceAll('-', '');
   const hours = String(takenAt.getHours()).padStart(2, '0');
   const minutes = String(takenAt.getMinutes()).padStart(2, '0');
   const seconds = String(takenAt.getSeconds()).padStart(2, '0');

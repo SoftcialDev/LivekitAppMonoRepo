@@ -16,12 +16,10 @@ import { config } from '../../config';
 import { GraphChatMember } from '../../domain/types/GraphTypes';
 
 export class ChatService implements IChatService {
-  private tenantId = config.azureTenantId;
-  private clientId = config.azureClientId;
-  private clientSecret = config.azureClientSecret;
+  private readonly tenantId = config.azureTenantId;
+  private readonly clientId = config.azureClientId;
+  private readonly clientSecret = config.azureClientSecret;
   private readonly appScopes = ['https://graph.microsoft.com/.default'];
-
-  constructor() {}
 
   /**
    * Retrieves or creates a chat.
@@ -113,11 +111,11 @@ export class ChatService implements IChatService {
 
     let chatId: string;
 
-    if (!record) {
-      chatId = await this.createGraphChatWithClient(graph, desired, chatTopic);
-    } else {
+    if (record) {
       chatId = record.id;
       await this.syncChatMembersWithClient(graph, chatId, desired);
+    } else {
+      chatId = await this.createGraphChatWithClient(graph, desired, chatTopic);
     }
 
     await this.ensureChatRecordAndMembers(chatId, chatTopic, desired);
@@ -146,8 +144,6 @@ export class ChatService implements IChatService {
       );
     }
 
-    const participantsWithoutOid = participants.filter((user: any) => !user.azureAdObjectId);
-
     return participants
       .filter((user: any) => user.azureAdObjectId)
       .map((user: any) => ({
@@ -169,6 +165,206 @@ export class ChatService implements IChatService {
   }
 
   /**
+   * Creates image card element for adaptive card
+   * @param imageUrl - Image URL
+   * @returns Image card element
+   */
+  private createImageCardElement(imageUrl: string): Record<string, unknown> {
+    return {
+      type: 'Image',
+      url: imageUrl,
+      size: 'Large',
+      style: 'Default',
+      width: '100%',
+      height: 'auto',
+      selectAction: {
+        type: 'Action.OpenUrl',
+        url: imageUrl
+      }
+    };
+  }
+
+  /**
+   * Converts a value to a string representation safely
+   * @param value - Value to convert
+   * @returns String representation of the value
+   */
+  private valueToString(value: unknown): string {
+    if (typeof value === 'string') {
+      return value;
+    }
+    if (typeof value === 'object' && value !== null) {
+      return JSON.stringify(value);
+    }
+    return String(value);
+  }
+
+  /**
+   * Creates a text block element for adaptive cards
+   * @param label - Label for the field
+   * @param value - Value to display
+   * @returns TextBlock element or null if value is falsy
+   */
+  private createTextBlock(label: string, value: unknown): any {
+    if (!value) {
+      return null;
+    }
+    return {
+      type: 'TextBlock',
+      text: `**${label}:** ${this.valueToString(value)}`,
+      wrap: true
+    };
+  }
+
+  /**
+   * Builds adaptive card body for snapshot report message
+   * @param message - Message data
+   * @returns Array of card body elements
+   */
+  private buildSnapshotReportCardBody(message: Record<string, unknown>): any[] {
+    const cardBody: any[] = [];
+
+    const fields = [
+      { key: 'psoEmail', label: 'Email' },
+      { key: 'capturedAt', label: 'Captured At (Central Time)' },
+      { key: 'capturedBy', label: 'Captured By' },
+      { key: 'reason', label: 'Reason' }
+    ];
+
+    for (const field of fields) {
+      const textBlock = this.createTextBlock(field.label, message[field.key]);
+      if (textBlock) {
+        cardBody.push(textBlock);
+      }
+    }
+
+    if (message.imageUrl && typeof message.imageUrl === 'string') {
+      cardBody.push(this.createImageCardElement(message.imageUrl));
+    }
+
+    return cardBody;
+  }
+
+  /**
+   * Builds adaptive card body for form report message
+   * @param message - Message data
+   * @returns Array of card body elements
+   */
+  private buildFormReportCardBody(message: Record<string, unknown>): any[] {
+    const cardBody: any[] = [];
+    const formType = typeof message.formType === 'string' ? message.formType : undefined;
+    const formTypeLabel = formType ? this.humanizeFormType(formType) : 'Form';
+
+    if (message.senderEmail && typeof message.senderEmail === 'string') {
+      cardBody.push({
+        type: 'TextBlock',
+        text: `**Email:** ${message.senderEmail}`,
+        wrap: true
+      });
+    }
+
+    cardBody.push({
+      type: 'TextBlock',
+      text: `**Form Type:** ${formTypeLabel}`,
+      wrap: true
+    });
+
+    if (message.data && typeof message.data === 'object') {
+      cardBody.push(
+        ...Object.entries(message.data).map(([key, value]: [string, any]) => ({
+          type: 'TextBlock',
+          text: `**${this.humanizeKey(key)}:** ${value}`,
+          wrap: true
+        }))
+      );
+    }
+
+    if (message.imageUrl && typeof message.imageUrl === 'string') {
+      cardBody.push(this.createImageCardElement(message.imageUrl));
+    }
+
+    return cardBody;
+  }
+
+  /**
+   * Builds complete adaptive card body based on message type
+   * @param message - Message data
+   * @param subjectText - Subject text for card header
+   * @returns Array of card body elements
+   */
+  private buildAdaptiveCardBody(message: Record<string, unknown>, subjectText: string): any[] {
+    const messageType = message?.type ?? 'contactManagerForm';
+    const cardBody: any[] = [
+      {
+        type: 'TextBlock',
+        text: subjectText,
+        weight: 'Bolder',
+        size: 'Medium',
+        wrap: true
+      }
+    ];
+
+    if (messageType === 'snapshotReport') {
+      /**
+       * Converts psoName to string safely
+       * Handles objects by JSON.stringify, null/undefined by default value, and primitive types
+       * @param value - psoName value
+       * @returns String representation of the value
+       */
+      const psoNameToString = (value: unknown): string => {
+        if (typeof value === 'string') {
+          return value;
+        }
+        if (value == null) {
+          return 'Unknown';
+        }
+        if (typeof value === 'object') {
+          return JSON.stringify(value);
+        }
+        // At this point, value is a primitive (number, boolean, symbol, bigint, function, undefined)
+        // Handle each primitive type explicitly to avoid object stringification
+        if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') {
+          return String(value);
+        }
+        if (typeof value === 'symbol') {
+          return value.toString();
+        }
+        if (typeof value === 'function') {
+          return value.toString();
+        }
+        // This should never be reached in practice, but provide a safe fallback
+        return 'Unknown';
+      };
+      
+      const psoNameStr = psoNameToString(message.psoName);
+      cardBody.push(
+        {
+          type: 'TextBlock',
+          text: 'A new snapshot report has been received.',
+          wrap: true
+        },
+        {
+          type: 'TextBlock',
+          text: `**PSO:** ${psoNameStr}`,
+          wrap: true
+        },
+        ...this.buildSnapshotReportCardBody(message)
+      );
+    } else {
+      cardBody.push(
+        {
+          type: 'TextBlock',
+          text: `**PSO** **${message.senderName}** has submitted the following report:`,
+          wrap: true
+        },
+        ...this.buildFormReportCardBody(message)
+      );
+    }
+
+    return cardBody;
+  }
+
+  /**
    * Posts an adaptive card message to the given chat.
    * @param graph - Graph client already authenticated.
    * @param chatId - Chat identifier.
@@ -176,132 +372,11 @@ export class ChatService implements IChatService {
    */
   private async sendMessageToChat(graph: Client, chatId: string, message: Record<string, unknown>): Promise<void> {
     try {
-      const messageType = message?.type ?? 'contactManagerForm';
-      const subjectText = message?.subject ?? 'Notification';
-
-      const cardBody: any[] = [
-        {
-          type: 'TextBlock',
-          text: subjectText,
-          weight: 'Bolder',
-          size: 'Medium',
-          wrap: true
-        }
-      ];
-
-      if (messageType === 'snapshotReport') {
-        cardBody.push(
-          {
-            type: 'TextBlock',
-            text: 'A new snapshot report has been received.',
-            wrap: true
-          },
-          {
-            type: 'TextBlock',
-            text: `**PSO:** ${message.psoName ?? 'Unknown'}`,
-            wrap: true
-          }
-        );
-
-        if (message.psoEmail) {
-          cardBody.push({
-            type: 'TextBlock',
-            text: `**Email:** ${message.psoEmail}`,
-            wrap: true
-          });
-        }
-
-        if (message.capturedAt) {
-          cardBody.push({
-            type: 'TextBlock',
-            text: `**Captured At (Central Time):** ${message.capturedAt}`,
-            wrap: true
-          });
-        }
-
-        if (message.capturedBy) {
-          cardBody.push({
-            type: 'TextBlock',
-            text: `**Captured By:** ${message.capturedBy}`,
-            wrap: true
-          });
-        }
-
-        if (message.reason) {
-          cardBody.push({
-            type: 'TextBlock',
-            text: `**Reason:** ${message.reason}`,
-            wrap: true
-          });
-        }
-
-        if (message.imageUrl) {
-          cardBody.push({
-            type: 'Image',
-            url: message.imageUrl,
-            size: 'Large',
-            style: 'Default',
-            width: '100%',
-            height: 'auto',
-            selectAction: {
-              type: 'Action.OpenUrl',
-              url: message.imageUrl
-            }
-          });
-        }
-      } else {
-        const formType = typeof message.formType === 'string' ? message.formType : undefined;
-        const formTypeLabel = formType ? this.humanizeFormType(formType) : 'Form';
-        cardBody.push(
-          {
-            type: 'TextBlock',
-            text: `**PSO** **${message.senderName}** has submitted the following report:`,
-            wrap: true
-          },
-        );
-
-        if (message.senderEmail) {
-          cardBody.push({
-            type: 'TextBlock',
-            text: `**Email:** ${message.senderEmail}`,
-            wrap: true
-          });
-        }
-
-        cardBody.push({
-          type: 'TextBlock',
-          text: `**Form Type:** ${formTypeLabel}`,
-          wrap: true
-        });
-
-        if (message.data) {
-          cardBody.push(
-            ...Object.entries(message.data).map(([key, value]: [string, any]) => ({
-              type: 'TextBlock',
-              text: `**${this.humanizeKey(key)}:** ${value}`,
-              wrap: true
-            }))
-          );
-        }
-
-        if (message.imageUrl) {
-          cardBody.push({
-            type: 'Image',
-            url: message.imageUrl,
-            size: 'Large',
-            style: 'Default',
-            width: '100%',
-            height: 'auto',
-            selectAction: {
-              type: 'Action.OpenUrl',
-              url: message.imageUrl
-            }
-          });
-        }
-      }
+      const subjectText = (typeof message?.subject === 'string' ? message.subject : null) ?? 'Notification';
+      const cardBody = this.buildAdaptiveCardBody(message, subjectText);
 
       const cardPayload = {
-        $schema: 'http://adaptivecards.io/schemas/adaptive-card.json',
+        $schema: 'https://adaptivecards.io/schemas/adaptive-card.json',
         type: 'AdaptiveCard',
         version: '1.3',
         body: cardBody
@@ -508,7 +583,7 @@ export class ChatService implements IChatService {
           })
         )
           .map((record) => record?.azureAdObjectId)
-          .filter((oid): oid is string => Boolean(oid))
+          .filter((oid): oid is string => typeof oid === 'string' && oid !== '')
           .map((oid) => oid.toLowerCase())
       );
 
@@ -587,30 +662,24 @@ export class ChatService implements IChatService {
       where: { id: chatId }
     });
 
-    if (!existing) {
-      await prisma.chat.create({
-        data: {
-          id: chatId,
-          topic,
-          createdAt: getCentralAmericaTime(),
-          updatedAt: getCentralAmericaTime(),
-          members: {
-            create: participants.map((p) => ({
-              userId: p.userId,
-              joinedAt: getCentralAmericaTime()
-            }))
-          }
-        }
-      });
-    } else {
-      await prisma.chat.update({
-        where: { id: chatId },
-        data: {
-          topic,
-          updatedAt: getCentralAmericaTime()
-        }
-      });
+    if (existing) {
+      return;
     }
+
+    await prisma.chat.create({
+      data: {
+        id: chatId,
+        topic,
+        createdAt: getCentralAmericaTime(),
+        updatedAt: getCentralAmericaTime(),
+        members: {
+          create: participants.map((p) => ({
+            userId: p.userId,
+            joinedAt: getCentralAmericaTime()
+          }))
+        }
+      }
+    });
 
     await this.syncChatParticipantsInDb(chatId, participants);
   }
@@ -634,7 +703,7 @@ export class ChatService implements IChatService {
     }
 
     const [p1, p2] = participants;
-    const participantIds = [p1.userId, p2.userId].sort();
+    const participantIds = [p1.userId, p2.userId].sort((a, b) => a.localeCompare(b));
 
     // Check for existing chat
     const existingChat = await prisma.chat.findFirst({
@@ -718,8 +787,8 @@ export class ChatService implements IChatService {
    */
   private humanizeKey(key: string): string {
     return key
-      .replace(/([A-Z])/g, ' $1')
-      .replace(/^./, str => str.toUpperCase())
+      .replaceAll(/([A-Z])/g, ' $1')
+      .replace(/^./, (str: string) => str.toUpperCase())
       .trim();
   }
 

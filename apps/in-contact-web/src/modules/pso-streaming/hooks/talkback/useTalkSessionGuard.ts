@@ -10,6 +10,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useTalkSessionGuardStore } from '../../stores/talk-session-guard-store';
 import { logDebug, logWarn } from '@/shared/utils/logger';
+import { createNavigationClickHandler } from '@/shared/utils/navigationUtils';
 import type {
   IUseTalkSessionGuardOptions,
   IUseTalkSessionGuardReturn,
@@ -58,7 +59,7 @@ export function useTalkSessionGuard(
       if (hasActiveSessions()) {
         // Show browser's default confirmation dialog
         e.preventDefault();
-        e.returnValue = ''; // Required for Chrome
+        e.preventDefault(); // Modern way to prevent navigation
         logDebug('[TalkSessionGuard] Blocking page unload due to active talk session');
       }
     };
@@ -80,43 +81,25 @@ export function useTalkSessionGuard(
     /**
      * Handle link clicks to intercept navigation
      */
-    const handleClick = (e: MouseEvent): void => {
-      const target = e.target as HTMLElement;
-      const anchor = target.closest('a[href]') as HTMLAnchorElement;
-      
-      if (!anchor) {
-        return;
-      }
-
-      const href = anchor.getAttribute('href');
-      if (!href || !href.startsWith('/')) {
-        // External link or non-navigation link
-        return;
-      }
-
-      // Check if there are active talk sessions
-      if (hasActiveSessions() && href !== location.pathname) {
-        // Block navigation
-        e.preventDefault();
-        e.stopPropagation();
-        e.stopImmediatePropagation();
-        
-        // Store pending navigation and show modal
+    const handleClick = createNavigationClickHandler({
+      hasActiveSessions,
+      currentPathname: location.pathname,
+      onBlockNavigation: (href: string) => {
         pendingNavigationRef.current = href;
         setShowModal(true);
-        logDebug('[TalkSessionGuard] Blocking navigation due to active talk session', { href });
-      }
-    };
+      },
+      logPrefix: 'TalkSessionGuard',
+    });
 
     /**
      * Handle popstate events (back/forward button)
      */
     const handlePopState = (e: PopStateEvent): void => {
-      if (hasActiveSessions() && window.location.pathname !== location.pathname) {
+      if (hasActiveSessions() && globalThis.location.pathname !== location.pathname) {
         // Block navigation by pushing current state back
         e.preventDefault();
-        window.history.pushState(null, '', location.pathname);
-        pendingNavigationRef.current = window.location.pathname;
+        globalThis.history.pushState(null, '', location.pathname);
+        pendingNavigationRef.current = globalThis.location.pathname;
         setShowModal(true);
         logDebug('[TalkSessionGuard] Blocking popstate navigation due to active talk session');
       }
@@ -124,11 +107,11 @@ export function useTalkSessionGuard(
 
     // Listen for link clicks in capture phase (before React Router)
     document.addEventListener('click', handleClick, true);
-    window.addEventListener('popstate', handlePopState);
+    globalThis.addEventListener('popstate', handlePopState);
 
     return () => {
       document.removeEventListener('click', handleClick, true);
-      window.removeEventListener('popstate', handlePopState);
+      globalThis.removeEventListener('popstate', handlePopState);
     };
   }, [enabled, hasActiveSessions, location.pathname]);
 

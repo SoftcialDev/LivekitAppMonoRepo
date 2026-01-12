@@ -92,7 +92,6 @@ const getUserDebug: AzureFunction = withErrorHandler(
           serviceContainer.initialize();
 
           const extendedCtx = ensureBindings(ctx);
-          const callerId = extendedCtx.bindings.callerId as string;
           const validatedQuery = extendedCtx.bindings.validatedQuery as GetUserDebugQuery;
 
           const applicationService = serviceContainer.resolve<GetUserDebugApplicationService>(

@@ -46,7 +46,7 @@ export function useClickOutsideMultiple({
 
       // Check if click is inside any of the referenced elements
       const clickedInside = refs.some((ref) => {
-        return ref.current && ref.current.contains(target);
+        return ref.current?.contains(target);
       });
 
       if (!clickedInside) {

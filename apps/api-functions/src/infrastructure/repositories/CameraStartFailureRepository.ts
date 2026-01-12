@@ -87,9 +87,9 @@ export class CameraStartFailureRepository implements ICameraStartFailureReposito
     errorName: string | null;
     errorMessage: string | null;
     deviceCount: number | null;
-    devicesSnapshot: unknown | null;
-    attempts: unknown | null;
-    metadata: unknown | null;
+    devicesSnapshot: unknown;
+    attempts: unknown;
+    metadata: unknown;
     createdAt: Date;
     createdAtCentralAmerica: string | null;
   }): CameraStartFailure {

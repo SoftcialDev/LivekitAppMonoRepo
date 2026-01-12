@@ -33,9 +33,9 @@ export const SignOutButton: React.FC = () => {
   /**
    * Handle click on "Sign Out": performs logout, clears localStorage, then navigates to login page
    */
-  const handleSignOut = async (): Promise<void> => {
+  const handleSignOut = (): void => {
     try {
-      await logout();
+      logout();
 
       // Clear all localStorage data
       localStorage.clear();
@@ -52,15 +52,15 @@ export const SignOutButton: React.FC = () => {
       onClick={handleSignOut}
       className="
         flex items-center space-x-2
-        px-8 py-2 border-2 border-[var(--color-secondary)]
-        text-[var(--color-secondary)] font-semibold
+        px-8 py-2 border-2 border-(--color-secondary)
+        text-(--color-secondary) font-semibold
         rounded-full
-        hover:bg-[var(--color-primary-light)] hover:text-white
+        hover:bg-(--color-primary-light) hover:text-white
         transition-colors
       "
     >
       {/* Icon before text */}
-      <SignOutIcon className="flex-shrink-0" />
+      <SignOutIcon className="shrink-0" />
 
       <span>Sign Out</span>
     </button>

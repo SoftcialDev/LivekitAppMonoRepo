@@ -24,33 +24,37 @@ export const Header: React.FC = () => {
   const header = useHeaderStore((state) => state.header);
   const { title, iconSrc, iconAlt, iconNode } = header;
 
+  const renderHeaderContent = () => {
+    if (!title) {
+      return <></>;
+    }
+
+    if (iconNode) {
+      return <>{iconNode}</>;
+    }
+
+    if (iconSrc) {
+      return (
+        <IconWithLabel
+          src={iconSrc}
+          alt={iconAlt || title}
+          imgSize="h-6 w-6"
+          textSize="text-lg font-semibold"
+          className="flex items-center"
+          fillContainer={false}
+        >
+          {title}
+        </IconWithLabel>
+      );
+    }
+
+    return <span className="text-white text-lg font-semibold">{title}</span>;
+  };
+
   return (
     <header className="flex items-center justify-between bg-[var(--color-primary-dark)] px-6 py-4">
       <div className="flex items-center">
-        {title ? (
-          iconNode ? (
-            // Render custom ReactNode icon (e.g. <UserIndicator ... />)
-            <>{iconNode}</>
-          ) : iconSrc ? (
-            // Render icon + label via IconWithLabel
-            <IconWithLabel
-              src={iconSrc}
-              alt={iconAlt || title}
-              imgSize="h-6 w-6"
-              textSize="text-lg font-semibold"
-              className="flex items-center"
-              fillContainer={false}
-            >
-              {title}
-            </IconWithLabel>
-          ) : (
-            // Only title text
-            <span className="text-white text-lg font-semibold">{title}</span>
-          )
-        ) : (
-          // No title: render nothing (or you could render a default logo here)
-          <></>
-        )}
+        {renderHeaderContent()}
       </div>
 
       <SignOutButton />

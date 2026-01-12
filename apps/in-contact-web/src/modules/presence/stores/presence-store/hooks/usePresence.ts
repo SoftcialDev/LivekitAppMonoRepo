@@ -122,19 +122,20 @@ export function usePresence() {
       
       // Only disconnect if account is null (actual logout)
       // DO NOT disconnect if account still exists (navigation or re-render)
-      if (!currentAccount?.username) {
-        logDebug('usePresence: Cleanup - user logged out, disconnecting WebSocket', { 
-          email,
-        });
-        disconnectFn(true); // Mark offline on actual logout
-        currentEmailRef.current = null;
-      } else {
+      const hasAccount = currentAccount?.username;
+      if (hasAccount) {
         // Account still exists - this is just navigation or re-render
         // Keep WebSocket connected for SPA behavior
         logDebug('usePresence: Cleanup - account still valid, keeping WebSocket connected', {
           email,
           accountEmail: currentAccount.username,
         });
+      } else {
+        logDebug('usePresence: Cleanup - user logged out, disconnecting WebSocket', { 
+          email,
+        });
+        disconnectFn(true); // Mark offline on actual logout
+        currentEmailRef.current = null;
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -11,8 +11,7 @@
 
 import React from 'react';
 import { Navigate } from 'react-router-dom';
-import { useAuth } from '@/modules/auth';
-import { useUserInfo } from '@/modules/auth';
+import { useAuth, useUserInfo } from '@/modules/auth';
 import { UserRole } from '@/modules/auth/enums';
 import type { IRoleProtectedRouteProps } from './types';
 

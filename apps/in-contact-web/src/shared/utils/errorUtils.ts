@@ -12,6 +12,65 @@ import type { IApiErrorResponse } from '../types/apiTypes';
 import { logError } from './logger';
 
 /**
+ * Extracts error message from ApiError instance
+ * @param error - Error instance that might be ApiError
+ * @returns Error message if ApiError with valid message, null otherwise
+ */
+function extractApiErrorMessage(error: unknown): string | null {
+  if (!(error instanceof Error && 'statusCode' in error)) {
+    return null;
+  }
+  const apiError = error as unknown as ApiError;
+  if (apiError.message && apiError.message.trim() !== '') {
+    return apiError.message;
+  }
+  return null;
+}
+
+/**
+ * Extracts error message from AxiosError response data
+ * @param error - Error instance that might be AxiosError
+ * @returns Error message from response data, null otherwise
+ */
+function extractAxiosErrorMessage(error: unknown): string | null {
+  if (!(error instanceof AxiosError && error.response?.data)) {
+    return null;
+  }
+  const data = error.response.data as IApiErrorResponse;
+  if (data.error && typeof data.error === 'string' && data.error.trim() !== '') {
+    return data.error;
+  }
+  if (data.message && typeof data.message === 'string' && data.message.trim() !== '') {
+    return data.message;
+  }
+  return null;
+}
+
+/**
+ * Extracts error message from standard Error instance
+ * @param error - Error instance that might be Error
+ * @returns Error message if valid, null otherwise
+ */
+function extractStandardErrorMessage(error: unknown): string | null {
+  if (error instanceof Error && error.message && error.message.trim() !== '') {
+    return error.message;
+  }
+  return null;
+}
+
+/**
+ * Extracts error message from string error
+ * @param error - Error that might be a string
+ * @returns Error message if valid string, null otherwise
+ */
+function extractStringErrorMessage(error: unknown): string | null {
+  if (typeof error === 'string' && error.trim() !== '') {
+    return error;
+  }
+  return null;
+}
+
+/**
  * Extracts error message from various error types
  * 
  * Handles multiple error types that may be encountered when working with API calls:
@@ -51,40 +110,13 @@ export function extractErrorMessage(
   error: unknown,
   defaultMessage: string = 'An unexpected error occurred'
 ): string {
-  // Priority 1: ApiError instances (already transformed by apiClient interceptor)
-  // These already contain the API's error message, so use it directly
-  if (error instanceof Error && 'statusCode' in error) {
-    const apiError = error as unknown as ApiError;
-    if (apiError.message && apiError.message.trim() !== '') {
-      return apiError.message;
-    }
-  }
-
-  // Priority 2: AxiosError with response data (fallback for untransformed errors)
-  if (error instanceof AxiosError && error.response?.data) {
-    const data = error.response.data as IApiErrorResponse;
-    // Try 'error' field first (primary field from backend)
-    if (data.error && typeof data.error === 'string' && data.error.trim() !== '') {
-      return data.error;
-    }
-    // Fallback to 'message' field
-    if (data.message && typeof data.message === 'string' && data.message.trim() !== '') {
-      return data.message;
-    }
-  }
-
-  // Priority 3: Standard Error instances
-  if (error instanceof Error && error.message && error.message.trim() !== '') {
-    return error.message;
-  }
-
-  // Priority 4: String errors
-  if (typeof error === 'string' && error.trim() !== '') {
-    return error;
-  }
-
-  // Priority 5: Fallback for unknown error types or empty messages
-  return defaultMessage;
+  return (
+    extractApiErrorMessage(error) ||
+    extractAxiosErrorMessage(error) ||
+    extractStandardErrorMessage(error) ||
+    extractStringErrorMessage(error) ||
+    defaultMessage
+  );
 }
 
 /**

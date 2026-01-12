@@ -24,7 +24,7 @@ export function pollTrackSubscription(options: IPollTrackSubscriptionOptions): v
       (pub) => pub.trackSid === trackSid && pub.kind === kind
     );
 
-    if (currentPub && currentPub.isSubscribed && currentPub.track && currentPub.trackSid) {
+    if (currentPub?.isSubscribed && currentPub.track && currentPub.trackSid) {
       logDebug('[trackSubscriptionUtils] Track became subscribed after polling', {
         trackSid: currentPub.trackSid,
         kind,

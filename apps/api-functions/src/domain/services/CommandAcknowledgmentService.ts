@@ -16,8 +16,8 @@ import { CommandUserNotFoundError, CommandUserDeletedError, CommandInvalidUserRo
  */
 export class CommandAcknowledgmentService implements ICommandAcknowledgmentService {
   constructor(
-    private pendingCommandRepository: IPendingCommandRepository,
-    private userRepository: IUserRepository
+    private readonly pendingCommandRepository: IPendingCommandRepository,
+    private readonly userRepository: IUserRepository
   ) {}
 
   /**

@@ -7,10 +7,7 @@
 
 import { create } from 'zustand';
 import { logError } from '@/shared/utils/logger';
-import type {
-  TalkSessionRegistration,
-  ITalkSessionGuardState,
-} from './types/talkSessionGuardStoreTypes';
+import type { ITalkSessionGuardState } from './types/talkSessionGuardStoreTypes';
 
 /**
  * Zustand store for talk session guard

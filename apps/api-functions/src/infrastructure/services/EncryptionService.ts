@@ -1,5 +1,5 @@
-import crypto from 'crypto';
-import { ConfigurationError, EncryptionError } from '../../domain/errors/InfrastructureErrors';
+import crypto from 'node:crypto';
+import { ConfigurationError } from '../../domain/errors/InfrastructureErrors';
 
 const IV_LENGTH = 12; // AES-GCM standard IV size in bytes
 const AUTH_TAG_LENGTH = 16; // Auth tag size produced by AES-GCM

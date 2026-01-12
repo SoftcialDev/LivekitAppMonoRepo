@@ -112,17 +112,17 @@ export interface CameraStartFailure {
   /**
    * Snapshot of devices at failure time (JSON)
    */
-  devicesSnapshot: unknown | null;
+  devicesSnapshot: unknown;
 
   /**
    * Attempts made to start devices (JSON)
    */
-  attempts: unknown | null;
+  attempts: unknown;
 
   /**
    * Additional metadata (JSON)
    */
-  metadata: unknown | null;
+  metadata: unknown;
 
   /**
    * Creation timestamp

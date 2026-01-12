@@ -10,6 +10,7 @@ import React, {
   useContext,
   useState,
   useCallback,
+  useMemo,
 } from 'react';
 import { Toast } from './Toast';
 import type { IToastContextType, IToastItem, IToastProviderProps } from './types';
@@ -32,19 +33,29 @@ const ToastContext = createContext<IToastContextType | undefined>(undefined);
 export const ToastProvider: React.FC<IToastProviderProps> = ({ children }) => {
   const [toasts, setToasts] = useState<IToastItem[]>([]);
 
+  /**
+   * Removes a toast by ID from the toasts array
+   * @param toastId - ID of the toast to remove
+   */
+  const removeToast = useCallback((toastId: number): void => {
+    setToasts((prev) => prev.filter((t) => t.id !== toastId));
+  }, []);
+
   const showToast = useCallback<IToastContextType['showToast']>(
     (message, type = 'success', durationMs = 2000) => {
       const id = Date.now();
       setToasts((prev) => [...prev, { id, message, type }]);
       setTimeout(() => {
-        setToasts((prev) => prev.filter((t) => t.id !== id));
+        removeToast(id);
       }, durationMs);
     },
-    []
+    [removeToast]
   );
 
+  const contextValue = useMemo(() => ({ showToast }), [showToast]);
+
   return (
-    <ToastContext.Provider value={{ showToast }}>
+    <ToastContext.Provider value={contextValue}>
       {children}
       <div className="fixed bottom-4 right-4 flex flex-col gap-3 z-50">
         {toasts.map((t) => (

@@ -84,6 +84,49 @@ export class GraphService implements IGraphService {
   }
 
   /**
+   * Deletes a single app role assignment
+   * @param token - Authentication token
+   * @param baseUrl - Base URL for app role assignments
+   * @param assignmentId - Assignment ID to delete
+   * @returns Promise that resolves when assignment is deleted
+   * @throws GraphServiceError if deletion fails
+   */
+  private async deleteAppRoleAssignment(token: string, baseUrl: string, assignmentId: string): Promise<void> {
+    const delUrl = `${baseUrl}/${assignmentId}`;
+    try {
+      await axios.delete(delUrl, { 
+        headers: { Authorization: `Bearer ${token}` } 
+      });
+    } catch (err: unknown) {
+      const errorMessage = extractAxiosErrorMessage(err);
+      const errorCause = err instanceof Error ? err : new Error(String(err));
+      throw new GraphServiceError(`Failed to delete appRoleAssignedTo ${assignmentId}: ${errorMessage}`, errorCause);
+    }
+  }
+
+  /**
+   * Processes a page of app role assignments and deletes matching ones
+   * @param token - Authentication token
+   * @param baseUrl - Base URL for app role assignments
+   * @param userId - User ID to match
+   * @param page - Page of assignments to process
+   * @returns Promise that resolves when page is processed
+   */
+  private async processAppRoleAssignmentPage(
+    token: string,
+    baseUrl: string,
+    userId: string,
+    page: GraphAppRoleAssignment[]
+  ): Promise<void> {
+    for (const assignment of page) {
+      if (!assignment?.id || assignment.principalId !== userId) {
+        continue;
+      }
+      await this.deleteAppRoleAssignment(token, baseUrl, assignment.id);
+    }
+  }
+
+  /**
    * Removes all app roles from a principal on a service principal.
    * @param token - Authentication token
    * @param spId - Service principal ID
@@ -105,21 +148,7 @@ export class GraphService implements IGraphService {
 
       const response = resp.data as GraphResponse<GraphAppRoleAssignment>;
       const page = response.value ?? [];
-      for (const a of page) {
-        if (!a?.id) continue;
-        if (a.principalId !== userId) continue;
-
-        const delUrl = `${base}/${a.id}`;
-        try {
-          await axios.delete(delUrl, { 
-            headers: { Authorization: `Bearer ${token}` } 
-          });
-        } catch (err: unknown) {
-          const errorMessage = extractAxiosErrorMessage(err);
-          const errorCause = err instanceof Error ? err : new Error(String(err));
-          throw new GraphServiceError(`Failed to delete appRoleAssignedTo ${a.id}: ${errorMessage}`, errorCause);
-        }
-      }
+      await this.processAppRoleAssignmentPage(token, base, userId, page);
 
       url = resp.data?.["@odata.nextLink"] || "";
     }

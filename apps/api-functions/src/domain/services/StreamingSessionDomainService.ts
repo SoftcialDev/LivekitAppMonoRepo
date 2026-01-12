@@ -33,34 +33,8 @@ export class StreamingSessionDomainService implements IStreamingSessionDomainSer
    * @throws Error if the operation fails
    */
   async startStreamingSession(userId: string): Promise<void> {
-    try {
-      // Convert email to database ID if needed
-      let databaseUserId = userId;
-      
-      // Check if userId is an email (contains @) or UUID (contains -)
-      const isEmail = userId.includes('@');
-      const isUUID = userId.includes('-') && !userId.includes('@');
-      
-      if (isEmail) {
-        // If it's an email, find the user by email to get the database ID
-        const user = await this.userRepository.findByEmail(userId);
-        if (!user) {
-          throw new UserNotFoundError(`User not found for email: ${userId}`);
-        }
-        databaseUserId = user.id;
-      } else if (!isUUID) {
-        // If it's neither email nor UUID, try to find by Azure AD Object ID
-        const user = await this.userRepository.findByAzureAdObjectId(userId);
-        if (!user) {
-          throw new UserNotFoundError(`User not found for ID: ${userId}`);
-        }
-        databaseUserId = user.id;
-      }
-      
-      await this.streamingSessionRepository.startStreamingSession(databaseUserId);
-    } catch (error) {
-      throw error;
-    }
+    const databaseUserId = await this.convertUserIdToDatabaseId(userId);
+    await this.streamingSessionRepository.startStreamingSession(databaseUserId);
   }
 
   /**
@@ -72,34 +46,8 @@ export class StreamingSessionDomainService implements IStreamingSessionDomainSer
    * @throws Error if the operation fails
    */
   async stopStreamingSession(userId: string, reason: string, context?: Record<string, unknown>): Promise<StreamingSessionHistory | null> {
-    try {
-      // Convert email to database ID if needed
-      let databaseUserId = userId;
-      
-      // Check if userId is an email (contains @) or UUID (contains -)
-      const isEmail = userId.includes('@');
-      const isUUID = userId.includes('-') && !userId.includes('@');
-      
-      if (isEmail) {
-        // If it's an email, find the user by email to get the database ID
-        const user = await this.userRepository.findByEmail(userId);
-        if (!user) {
-          throw new UserNotFoundError(`User not found for email: ${userId}`);
-        }
-        databaseUserId = user.id;
-      } else if (!isUUID) {
-        // If it's neither email nor UUID, try to find by Azure AD Object ID
-        const user = await this.userRepository.findByAzureAdObjectId(userId);
-        if (!user) {
-          throw new UserNotFoundError(`User not found for ID: ${userId}`);
-        }
-        databaseUserId = user.id;
-      }
-      
-      return await this.streamingSessionRepository.stopStreamingSession(databaseUserId, reason, context);
-    } catch (error) {
-      throw error;
-    }
+    const databaseUserId = await this.convertUserIdToDatabaseId(userId);
+    return await this.streamingSessionRepository.stopStreamingSession(databaseUserId, reason, context);
   }
 
   /**
@@ -109,11 +57,7 @@ export class StreamingSessionDomainService implements IStreamingSessionDomainSer
    * @throws Error if the operation fails
    */
   async getLastStreamingSession(userId: string): Promise<StreamingSessionHistory | null> {
-    try {
-      return await this.streamingSessionRepository.getLastStreamingSession(userId);
-    } catch (error) {
-      throw error;
-    }
+    return await this.streamingSessionRepository.getLastStreamingSession(userId);
   }
 
   /**
@@ -123,11 +67,7 @@ export class StreamingSessionDomainService implements IStreamingSessionDomainSer
    * @throws Error if the operation fails
    */
   async isUserStreaming(userId: string): Promise<boolean> {
-    try {
-      return await this.streamingSessionRepository.isUserStreaming(userId);
-    } catch (error) {
-      throw error;
-    }
+    return await this.streamingSessionRepository.isUserStreaming(userId);
   }
 
   /**
@@ -180,5 +120,38 @@ export class StreamingSessionDomainService implements IStreamingSessionDomainSer
     } catch (error) {
       throw new StreamingSessionFetchError(`Failed to fetch streaming sessions: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
+  }
+
+  /**
+   * Converts a userId (which can be an email, UUID, or Azure AD Object ID) to a database user ID
+   * @param userId - The user identifier (can be email, UUID, or Azure AD Object ID)
+   * @returns Promise that resolves to the database user ID
+   * @throws UserNotFoundError if the user is not found
+   */
+  private async convertUserIdToDatabaseId(userId: string): Promise<string> {
+    // Check if userId is an email (contains @) or UUID (contains -)
+    const isEmail = userId.includes('@');
+    const isUUID = userId.includes('-') && !userId.includes('@');
+    
+    if (isEmail) {
+      // If it's an email, find the user by email to get the database ID
+      const user = await this.userRepository.findByEmail(userId);
+      if (!user) {
+        throw new UserNotFoundError(`User not found for email: ${userId}`);
+      }
+      return user.id;
+    }
+    
+    if (!isUUID) {
+      // If it's neither email nor UUID, try to find by Azure AD Object ID
+      const user = await this.userRepository.findByAzureAdObjectId(userId);
+      if (!user) {
+        throw new UserNotFoundError(`User not found for ID: ${userId}`);
+      }
+      return user.id;
+    }
+    
+    // If it's a UUID, return it as-is (it's already a database ID)
+    return userId;
   }
 }

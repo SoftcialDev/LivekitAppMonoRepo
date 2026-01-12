@@ -37,15 +37,11 @@ export function createInitialReconnectionState(): IReconnectionState {
 
 /**
  * Resets reconnection state to initial values
- * @param state - Current reconnection state to reset
+ * @param state - Current reconnection state to reset (unused, kept for API compatibility)
  * @returns Reset reconnection state
  */
 export function resetReconnectionState(state: IReconnectionState): IReconnectionState {
-  return {
-    attempts: 0,
-    lastDisconnectTime: 0,
-    duplicateIdentityCount: 0,
-  };
+  return createInitialReconnectionState();
 }
 
 /**

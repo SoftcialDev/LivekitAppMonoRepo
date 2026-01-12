@@ -151,7 +151,7 @@ export const ErrorLogDetailsModal: React.FC<IErrorLogDetailsModalProps> = ({
         {/* Stack Trace */}
         {errorLog.stackTrace && (
           <div className="border-t border-gray-600 pt-4">
-            <label className="text-gray-400 text-sm mb-2 block">Stack Trace</label>
+            <div className="text-gray-400 text-sm mb-2 block">Stack Trace</div>
             <pre className="bg-gray-900 p-4 rounded text-xs text-gray-300 overflow-x-auto whitespace-pre-wrap break-words">
               {errorLog.stackTrace}
             </pre>
@@ -161,7 +161,7 @@ export const ErrorLogDetailsModal: React.FC<IErrorLogDetailsModalProps> = ({
         {/* Context Data */}
         {errorLog.context && Object.keys(errorLog.context).length > 0 && (
           <div className="border-t border-gray-600 pt-4">
-            <label className="text-gray-400 text-sm mb-2 block">Additional Context</label>
+            <div className="text-gray-400 text-sm mb-2 block">Additional Context</div>
             <pre className="bg-gray-900 p-4 rounded text-xs text-gray-300 overflow-x-auto whitespace-pre-wrap break-words">
               {JSON.stringify(errorLog.context, null, 2)}
             </pre>

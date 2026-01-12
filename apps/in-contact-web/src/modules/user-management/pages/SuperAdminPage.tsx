@@ -5,7 +5,7 @@
  */
 
 import React from 'react';
-import { useUserManagementPage, useUserManagementRefresh } from '../hooks';
+import { useUserManagementPage } from '../hooks';
 import { UserManagementPage } from '../components/UserManagementPage';
 import { createSuperAdminPageConfig } from './config/superAdminPageConfig';
 

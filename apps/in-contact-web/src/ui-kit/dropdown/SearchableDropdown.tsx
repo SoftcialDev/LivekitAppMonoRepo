@@ -59,7 +59,7 @@ export function SearchableDropdown<Value>({
   closeOnSelect = false,
   showSelectAll = false,
   isLoading = false,
-}: ISearchableDropdownProps<Value>): JSX.Element {
+}: Readonly<ISearchableDropdownProps<Value>>): JSX.Element {
   const [term, setTerm] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -112,6 +112,8 @@ export function SearchableDropdown<Value>({
     <div
       ref={menuRef}
       className={menuClassName}
+      role="menu"
+      tabIndex={0}
       style={
         usePortal && portalPosition
           ? {
@@ -138,11 +140,18 @@ export function SearchableDropdown<Value>({
 
         {!isLoading &&
           filtered.map(opt => (
-            <div
+            <button
+              type="button"
               key={String(opt.value)}
               className={itemClassName}
               onMouseDown={e => { e.preventDefault(); e.stopPropagation(); }}
               onClick={() => toggle(opt.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  toggle(opt.value);
+                }
+              }}
             >
               <div className="mr-5">
                 <TableCheckbox
@@ -151,7 +160,7 @@ export function SearchableDropdown<Value>({
                 />
               </div>
               <span>{opt.label}</span>
-            </div>
+            </button>
           ))}
 
         {!isLoading && filtered.length === 0 && (

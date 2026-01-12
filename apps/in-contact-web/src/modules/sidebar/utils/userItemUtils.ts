@@ -3,8 +3,6 @@
  */
 
 import { PresenceStatus, ManagerStatus } from '@/modules/presence/enums';
-import { UserRole } from '@/modules/auth/enums';
-import type { UserStatus } from '@/modules/presence/types/presenceTypes';
 
 /**
  * Determines the background color class for Contact Manager status indicators

@@ -4,6 +4,8 @@
  * @description Contains validation schemas for batch streaming status operations
  */
 
+import { isValidEmailFormat } from '../utils/RegexUtils';
+
 /**
  * JSON Schema for validating email array in batch requests
  * Defines constraints for email array validation
@@ -56,12 +58,11 @@ export function validateEmailArray(emails: any): { isValid: boolean; error?: str
     return { isValid: false, error: 'emails array cannot exceed 1000 items' };
   }
 
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const invalidEmails = emails.filter(email => 
     typeof email !== 'string' || 
     email.length === 0 || 
     email.length > 255 || 
-    !emailRegex.test(email)
+    !isValidEmailFormat(email)
   );
 
   if (invalidEmails.length > 0) {

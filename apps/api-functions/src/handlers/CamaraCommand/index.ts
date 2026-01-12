@@ -10,7 +10,7 @@ import { withBodyValidation } from '../../middleware/validate';
 import { withCallerId } from '../../middleware/callerId';
 import { requirePermission } from '../../middleware/permissions';
 import { Permission } from '../../domain/enums/Permission';
-import { ok, unauthorized } from '../../utils/response';
+import { ok } from '../../utils/response';
 import { CommandApplicationService } from '../../application/services/CommandApplicationService';
 import { Command } from '../../domain/value-objects/Command';
 import { MessagingChannel } from '../../domain/enums/MessagingChannel';
@@ -20,7 +20,6 @@ import { IUserRepository } from '../../domain/interfaces/IUserRepository';
 import { IAuthorizationService } from '../../domain/interfaces/IAuthorizationService';
 import { ICommandMessagingService } from '../../domain/interfaces/ICommandMessagingService';
 import { IWebPubSubService } from '../../domain/interfaces/IWebPubSubService';
-import { getCallerAdId } from '../../utils/authHelpers';
 import { handleAnyError } from '../../utils/errorHandler';
 
 /**

@@ -124,8 +124,12 @@ export class PendingCommandDomainService implements IPendingCommandDomainService
    * @returns The most recent command
    */
   private getLatestCommand(commands: PendingCommand[]): PendingCommand {
+    if (commands.length === 0) {
+      throw new Error('Cannot get latest command from empty array');
+    }
     return commands.reduce((prev, curr) =>
-      curr.timestamp > prev.timestamp ? curr : prev
+      curr.timestamp > prev.timestamp ? curr : prev,
+      commands[0]
     );
   }
 }

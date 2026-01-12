@@ -16,9 +16,9 @@ import { ValidationErrorCode } from '../../domain/errors/ErrorCodes';
  */
 export class UserQueryApplicationService {
   constructor(
-    private userRepository: IUserRepository,
-    private authorizationService: IAuthorizationService,
-    private userQueryService: IUserQueryService
+    private readonly userRepository: IUserRepository,
+    private readonly authorizationService: IAuthorizationService,
+    private readonly userQueryService: IUserQueryService
   ) {}
 
   /**

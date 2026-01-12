@@ -14,6 +14,13 @@ export type {
   IPaginationButtonProps,
   ITableComponentProps,
   ITableCheckboxProps,
+  ITableSearchInputProps,
+  ITableHeaderProps,
+  ITableBodyProps,
+  ITableRowProps,
+  ITableCellProps,
+  IUseTableDataOptions,
+  IUseTableDataReturn,
   IDataTableProps,
 } from './tableTypes';
 

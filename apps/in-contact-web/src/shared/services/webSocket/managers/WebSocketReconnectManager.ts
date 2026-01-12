@@ -5,6 +5,7 @@
  */
 
 import { logDebug } from '@/shared/utils/logger';
+import { getSecureRandomInt } from '@/shared/utils/cryptoUtils';
 import { RECONNECT_CONFIG } from '../constants/webSocketConstants';
 
 /**
@@ -55,17 +56,19 @@ export class WebSocketReconnectManager {
   /**
    * Calculates reconnect delay with jitter
    * 
-   * @param immediate - If true, returns 0 delay
-   * @returns Delay in milliseconds
+   * Adds a random jitter value to the current backoff delay to prevent
+   * thundering herd problems when multiple clients reconnect simultaneously.
+   * Uses cryptographically secure random number generation for the jitter.
+   * 
+   * @param immediate - If true, returns 0 delay (no backoff or jitter)
+   * @returns Delay in milliseconds, capped at MAX_BACKOFF_MS
    */
   calculateDelay(immediate: boolean = false): number {
     if (immediate) {
       return 0;
     }
 
-    const jitter = Math.floor(
-      Math.random() * RECONNECT_CONFIG.JITTER_MAX_MS
-    );
+    const jitter = getSecureRandomInt(RECONNECT_CONFIG.JITTER_MAX_MS);
     return Math.min(
       this.backoffMs + jitter,
       RECONNECT_CONFIG.MAX_BACKOFF_MS

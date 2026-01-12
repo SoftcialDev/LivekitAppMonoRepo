@@ -45,9 +45,7 @@ export function createLazySingletonProxy<T extends object>(
       }
       
       // Initialize on first access only (lazy initialization)
-      if (!cachedInstance) {
-        cachedInstance = factory();
-      }
+      cachedInstance ??= factory();
       
       // After first access, cachedInstance is guaranteed to exist
       // Direct property access for optimal performance

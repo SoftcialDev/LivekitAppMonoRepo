@@ -82,9 +82,14 @@ export function useVideoCardHandlers(
     openModal();
   }, [openModal]);
 
-  const handleRecordClick = useCallback((): void => {
-    toggleRecording();
-  }, [toggleRecording]);
+  const handleRecordClick = useCallback(async (): Promise<void> => {
+    try {
+      await toggleRecording();
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to toggle recording';
+      showToast(errorMessage, 'error');
+    }
+  }, [toggleRecording, showToast]);
 
   return {
     handleStopReasonSelect,

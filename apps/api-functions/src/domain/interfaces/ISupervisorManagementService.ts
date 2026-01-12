@@ -3,7 +3,6 @@
  * @description Defines the contract for supervisor management operations
  */
 
-import { SupervisorAssignment } from '../value-objects/SupervisorAssignment';
 import { SupervisorChangeResult } from '../value-objects/SupervisorChangeResult';
 
 /**

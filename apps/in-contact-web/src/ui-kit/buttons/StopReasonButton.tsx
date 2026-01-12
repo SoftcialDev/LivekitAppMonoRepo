@@ -60,7 +60,7 @@ const StopReasonButton: React.FC<IStopReasonButtonProps> = ({
       }
     };
 
-    const handleScroll = (): void => {
+    const updatePosition = (): void => {
       if (isOpen && buttonRef.current) {
         const rect = buttonRef.current.getBoundingClientRect();
         setPosition({
@@ -70,26 +70,19 @@ const StopReasonButton: React.FC<IStopReasonButtonProps> = ({
       }
     };
 
-    const handleResize = (): void => {
-      if (isOpen && buttonRef.current) {
-        const rect = buttonRef.current.getBoundingClientRect();
-        setPosition({
-          top: rect.bottom + DROPDOWN_OFFSET_TOP,
-          left: rect.left,
-        });
-      }
-    };
+    const handleScroll = updatePosition;
+    const handleResize = updatePosition;
 
     if (isOpen) {
       document.addEventListener('mousedown', handleClickOutside);
-      window.addEventListener('scroll', handleScroll, true);
-      window.addEventListener('resize', handleResize);
+      globalThis.window.addEventListener('scroll', handleScroll, true);
+      globalThis.window.addEventListener('resize', handleResize);
     }
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
-      window.removeEventListener('scroll', handleScroll, true);
-      window.removeEventListener('resize', handleResize);
+      globalThis.window.removeEventListener('scroll', handleScroll, true);
+      globalThis.window.removeEventListener('resize', handleResize);
     };
   }, [isOpen]);
 
@@ -110,9 +103,9 @@ const StopReasonButton: React.FC<IStopReasonButtonProps> = ({
         className="absolute z-10 mt-2 divide-y divide-gray-100 rounded-lg shadow-sm bg-(--color-tertiary) border border-gray-200"
         style={dropdownStyle}
       >
-        <ul role="listbox" className="rounded-lg border-0 bg-(--color-tertiary) text-(--color-primary-dark)">
+        <ul className="rounded-lg border-0 bg-(--color-tertiary) text-(--color-primary-dark)">
           {STOP_REASON_OPTIONS.map((option) => (
-            <li key={option.value} role="option">
+            <li key={option.value}>
               <button
                 type="button"
                 onClick={() => handleOptionSelect(option.value)}
@@ -162,5 +155,5 @@ const StopReasonButton: React.FC<IStopReasonButtonProps> = ({
 
 export default StopReasonButton;
 export type { IStopReasonButtonProps, StopReasonOption } from './types/stopReasonButtonTypes';
-export { StreamingStopReason as StopReason };
+export { StreamingStopReason as StopReason } from '@/modules/pso-streaming/enums/streamingStopReason';
 

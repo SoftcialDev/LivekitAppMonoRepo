@@ -7,9 +7,8 @@ import { ok } from '../../utils/response';
 import { ServiceContainer } from '../../infrastructure/container/ServiceContainer';
 import { PresenceUpdateRequest } from '../../domain/value-objects/PresenceUpdateRequest';
 import { PresenceUpdateApplicationService } from '../../application/services/PresenceUpdateApplicationService';
-import { presenceUpdateSchema } from '../../domain/schemas/PresenceUpdateSchema';
+import { presenceUpdateSchema, PresenceUpdateParams } from '../../domain/schemas/PresenceUpdateSchema';
 import { ensureBindings } from '../../domain/types/ContextBindings';
-import { PresenceUpdateParams } from '../../domain/schemas/PresenceUpdateSchema';
 
 /**
  * PresenceUpdateFunction

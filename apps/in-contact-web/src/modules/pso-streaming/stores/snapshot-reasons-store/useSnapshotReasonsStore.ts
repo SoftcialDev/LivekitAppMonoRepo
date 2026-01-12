@@ -7,7 +7,6 @@
 
 import { create } from 'zustand';
 import { SnapshotReasonsClient } from '../../api/snapshotReasonsClient';
-import type { SnapshotReason } from '@/modules/snapshots/types/snapshotTypes';
 import { logError } from '@/shared/utils/logger';
 import { SNAPSHOT_REASONS_TTL_MS } from '../../constants/snapshotReasonsStoreConstants';
 import type { ISnapshotReasonsState } from './types/snapshotReasonsStoreTypes';

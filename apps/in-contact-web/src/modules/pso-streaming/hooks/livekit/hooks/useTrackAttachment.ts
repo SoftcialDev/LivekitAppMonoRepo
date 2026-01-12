@@ -27,88 +27,135 @@ import type { PendingUnpublishMap } from '../types/trackTransitionTypes';
 export function useTrackAttachment(
   options: IUseTrackAttachmentOptions
 ): IUseTrackAttachmentReturn {
-  const { videoRef, audioRef, audioAttachment } = options;
+  const { videoRef, audioAttachment } = options;
 
   const attachedTracksRef = useRef<Set<string>>(new Set());
   const currentVideoTrackSidRef = useRef<string | null>(null);
   const pendingUnpublishRef = useRef<PendingUnpublishMap>(new Map());
 
+  /**
+   * Validates track readiness for attachment
+   */
+  const validateTrackReady = useCallback((pub: any): { valid: boolean; track?: any; kind?: string; trackSid?: string } => {
+    const { track, kind, isSubscribed, trackSid } = pub;
+
+    if (!isSubscribed || !track || !trackSid) {
+      logDebug('[useTrackAttachment] Track not ready', {
+        kind,
+        isSubscribed,
+        hasTrack: !!track,
+        trackSid,
+      });
+      return { valid: false };
+    }
+
+    return { valid: true, track, kind, trackSid };
+  }, []);
+
+  /**
+   * Checks if track is already attached
+   */
+  const checkIfAlreadyAttached = useCallback((trackSid: string, kind: string): boolean => {
+    if (attachedTracksRef.current.has(trackSid)) {
+      logDebug('[useTrackAttachment] Track already attached, skipping', {
+        kind,
+        trackSid,
+      });
+      if (kind === 'video') {
+        currentVideoTrackSidRef.current = trackSid;
+      }
+      return true;
+    }
+    return false;
+  }, []);
+
+  /**
+   * Handles video track attachment
+   */
+  const attachVideoTrackHandler = useCallback((
+    track: RemoteVideoTrack,
+    trackSid: string
+  ): boolean => {
+    if (!videoRef.current) {
+      return false;
+    }
+
+    // Check if already attached to element
+    const trackId = track.mediaStreamTrack?.id || '';
+    if (trackId && isTrackAttachedToVideo(videoRef.current, trackId)) {
+      logDebug('[useTrackAttachment] Track already attached to video element', {
+        trackSid,
+        trackId,
+      });
+      attachedTracksRef.current.add(trackSid);
+      currentVideoTrackSidRef.current = trackSid;
+      return true;
+    }
+
+    // Handle track replacement for smooth transition
+    const oldTrackSid = currentVideoTrackSidRef.current;
+    if (oldTrackSid && oldTrackSid !== trackSid) {
+      cancelPendingDetach(oldTrackSid, pendingUnpublishRef.current);
+      logDebug('[useTrackAttachment] Cancelled pending unpublish - new track ready', {
+        oldTrackSid,
+        newTrackSid: trackSid,
+      });
+    }
+
+    const success = attachVideoTrack(track, videoRef.current, trackSid);
+    if (success) {
+      attachedTracksRef.current.add(trackSid);
+      currentVideoTrackSidRef.current = trackSid;
+      logDebug('[useTrackAttachment] Video track attached', {
+        trackSid,
+        replacedOldTrack: oldTrackSid && oldTrackSid !== trackSid,
+      });
+    }
+    return success;
+  }, [videoRef]);
+
+  /**
+   * Handles audio track attachment
+   */
+  const attachAudioTrackHandler = useCallback((
+    track: RemoteAudioTrack,
+    trackSid: string
+  ): boolean => {
+    try {
+      audioAttachment.attachAudioTrack(track);
+      attachedTracksRef.current.add(trackSid);
+      logDebug('[useTrackAttachment] Audio track attached', { trackSid });
+      return true;
+    } catch (error) {
+      logWarn('[useTrackAttachment] Failed to attach audio track', { error, trackSid });
+      return false;
+    }
+  }, [audioAttachment]);
+
   const attachTrack = useCallback(
     (pub: any): boolean => {
-      const { track, kind, isSubscribed, trackSid } = pub;
-
-      if (!isSubscribed || !track || !trackSid) {
-        logDebug('[useTrackAttachment] Track not ready', {
-          kind,
-          isSubscribed,
-          hasTrack: !!track,
-          trackSid,
-        });
+      const validation = validateTrackReady(pub);
+      if (!validation.valid || !validation.track || !validation.kind || !validation.trackSid) {
         return false;
       }
 
-      if (attachedTracksRef.current.has(trackSid)) {
-        logDebug('[useTrackAttachment] Track already attached, skipping', {
-          kind,
-          trackSid,
-        });
-        if (kind === 'video') {
-          currentVideoTrackSidRef.current = trackSid;
-        }
+      const { track, kind, trackSid } = validation;
+
+      if (checkIfAlreadyAttached(trackSid, kind)) {
         return false;
       }
 
       if (kind === 'video') {
-        if (!videoRef.current) {
-          return false;
-        }
-
-        // Check if already attached to element
-        if (isTrackAttachedToVideo(videoRef.current, track.id)) {
-          logDebug('[useTrackAttachment] Track already attached to video element', {
-            trackSid,
-            trackId: track.id,
-          });
-          attachedTracksRef.current.add(trackSid);
-          currentVideoTrackSidRef.current = trackSid;
-          return true;
-        }
-
-        // Handle track replacement for smooth transition
-        const oldTrackSid = currentVideoTrackSidRef.current;
-        if (oldTrackSid && oldTrackSid !== trackSid) {
-          cancelPendingDetach(oldTrackSid, pendingUnpublishRef.current);
-          logDebug('[useTrackAttachment] Cancelled pending unpublish - new track ready', {
-            oldTrackSid,
-            newTrackSid: trackSid,
-          });
-        }
-
-        const success = attachVideoTrack(track as RemoteVideoTrack, videoRef.current, trackSid);
-        if (success) {
-          attachedTracksRef.current.add(trackSid);
-          currentVideoTrackSidRef.current = trackSid;
-          logDebug('[useTrackAttachment] Video track attached', {
-            trackSid,
-            replacedOldTrack: oldTrackSid && oldTrackSid !== trackSid,
-          });
-        }
-        return success;
-      } else if (kind === 'audio') {
-        try {
-          audioAttachment.attachAudioTrack(track as RemoteAudioTrack);
-          attachedTracksRef.current.add(trackSid);
-          logDebug('[useTrackAttachment] Audio track attached', { trackSid });
-          return true;
-        } catch (error) {
-          logWarn('[useTrackAttachment] Failed to attach audio track', { error, trackSid });
-          return false;
-        }
+        return attachVideoTrackHandler(track as RemoteVideoTrack, trackSid);
+      }
+      
+      if (kind === 'audio') {
+        return attachAudioTrackHandler(track as RemoteAudioTrack, trackSid);
       }
 
       return false;
     },
-    [videoRef, audioRef, audioAttachment]
+    [validateTrackReady, checkIfAlreadyAttached, attachVideoTrackHandler, attachAudioTrackHandler]
   );
 
   const detachTrack = useCallback(

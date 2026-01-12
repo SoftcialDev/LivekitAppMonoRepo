@@ -6,7 +6,6 @@
 
 import { Context } from "@azure/functions";
 import { getCallerAdId } from "../authHelpers";
-import type { JwtPayload } from "jsonwebtoken";
 import { ensureBindings } from "../../domain/types/ContextBindings";
 import { ErrorContext } from "../../domain/types";
 
@@ -61,7 +60,8 @@ export class ErrorContextExtractor {
 
     const endpoint = this.extractEndpoint(ctx);
     if (endpoint) {
-      const routeMatch = endpoint.match(/\/api\/([^/?]+)/);
+      const routeRegex = /\/api\/([^/?]+)/;
+      const routeMatch = routeRegex.exec(endpoint);
       if (routeMatch) {
         return this.formatFunctionName(routeMatch[1]);
       }
@@ -92,10 +92,10 @@ export class ErrorContextExtractor {
       const extendedCtx = ensureBindings(ctx);
       const callerId = extendedCtx.bindings.callerId;
       if (callerId) {
-        return callerId as string;
+        return callerId;
       }
 
-      const userClaims = extendedCtx.bindings.user as JwtPayload | undefined;
+      const userClaims = extendedCtx.bindings.user;
       if (userClaims) {
         return getCallerAdId(userClaims);
       }

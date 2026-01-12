@@ -8,7 +8,6 @@ import { TransferPsosRequest } from '../../domain/value-objects/TransferPsosRequ
 import { TransferPsosResponse } from '../../domain/value-objects/TransferPsosResponse';
 import { TransferPsosDomainService } from '../../domain/services/TransferPsosDomainService';
 import { AuthorizationService } from '../../domain/services/AuthorizationService';
-import { UserRole } from '@prisma/client';
 
 /**
  * Application service for handling PSO transfer operations

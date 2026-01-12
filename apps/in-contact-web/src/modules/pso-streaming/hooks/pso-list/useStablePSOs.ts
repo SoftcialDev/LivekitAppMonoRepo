@@ -69,7 +69,7 @@ export function useStablePSOs(
         email: u.email,
         fullName: u.fullName ?? u.name ?? u.email,
         name: u.fullName ?? u.name ?? u.email,
-        status: (u.status === PresenceStatus.Online ? 'online' : 'offline') as PSOWithStatus['status'],
+        status: u.status === PresenceStatus.Online ? 'online' : 'offline',
         isOnline: u.status === PresenceStatus.Online,
         supervisorName,
         supervisorEmail: u.supervisorEmail ?? undefined,

@@ -69,11 +69,11 @@ export class GetCameraFailuresRequest {
     }
 
     if (query.limit) {
-      params.limit = parseInt(String(query.limit), 10);
+      params.limit = Number.parseInt(String(query.limit), 10);
     }
 
     if (query.offset) {
-      params.offset = parseInt(String(query.offset), 10);
+      params.offset = Number.parseInt(String(query.offset), 10);
     }
 
     return new GetCameraFailuresRequest(params);

@@ -12,12 +12,6 @@ import { FetchStreamingSessionsRequestPayload } from '../schemas/FetchStreamingS
  */
 export class FetchStreamingSessionsRequest {
   /**
-   * Creates a new FetchStreamingSessionsRequest
-   */
-  constructor() {
-  }
-
-  /**
    * Creates a FetchStreamingSessionsRequest from payload
    * @param payload - Request payload
    * @returns FetchStreamingSessionsRequest instance

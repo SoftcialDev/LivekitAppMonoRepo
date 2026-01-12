@@ -5,7 +5,7 @@
  */
 
 import { DomainError } from './DomainError';
-import { SuperAdminErrorCode, AuthErrorCode } from './ErrorCodes';
+import { SuperAdminErrorCode } from './ErrorCodes';
 
 /**
  * Error thrown when SuperAdmin user is not found

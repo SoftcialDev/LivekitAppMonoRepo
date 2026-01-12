@@ -240,7 +240,7 @@ export class TalkSessionRepository implements ITalkSessionRepository {
         }
       });
 
-      if (!session || !session.pso) {
+      if (!session?.pso) {
         return null;
       }
 

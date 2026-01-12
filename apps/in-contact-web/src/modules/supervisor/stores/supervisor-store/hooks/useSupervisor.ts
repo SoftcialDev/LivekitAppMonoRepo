@@ -35,7 +35,7 @@ export function useSupervisorChange(): ISupervisorChangeData | null {
  * 
  * @returns Last supervisor list change data or null
  */
-export function useSupervisorListChange(): unknown | null {
+export function useSupervisorListChange(): unknown {
   return useSupervisorStore((state) => state.lastSupervisorListChange);
 }
 

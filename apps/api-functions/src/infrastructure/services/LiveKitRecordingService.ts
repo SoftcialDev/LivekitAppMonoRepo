@@ -15,7 +15,6 @@ import { IUserRepository } from '../../domain/interfaces/IUserRepository';
 import { RecordingStopStatus } from '../../domain/enums/RecordingStopStatus';
 import { EntityNotFoundError } from '../../domain/errors';
 import type {
-  RecordingStopResult,
   RecordingSummary
 } from '../../domain/value-objects/RecordingServiceResults';
 

@@ -22,10 +22,13 @@
  */
 export function sanitizeFileName(str: string, maxLen: number = 50): string {
   if (!str) return 'unknown';
-  let sanitized = str.trim().replace(/\s+/g, '_').replace(/[^a-zA-Z0-9._-]/g, '');
-  sanitized = sanitized.replace(/_+/g, '_').replace(/^[._-]+|[._-]+$/g, '');
+  let sanitized = str.trim().replaceAll(/\s+/g, '_').replaceAll(/[^a-zA-Z0-9._-]/g, '');
+  sanitized = sanitized.replaceAll(/_+/g, '_');
+  // Split into two replace calls to avoid alternation and ensure safe execution
+  sanitized = sanitized.replaceAll(/^[._-]+/g, '');
+  sanitized = sanitized.replaceAll(/[._-]+$/g, '');
   if (sanitized.length > maxLen) {
-    sanitized = sanitized.substring(0, maxLen).replace(/_+$/, '');
+    sanitized = sanitized.substring(0, maxLen).replace(/[._-]+$/, '');
   }
   return sanitized || 'unknown';
 }
@@ -67,7 +70,7 @@ export async function downloadFile(url: string, fileName: string): Promise<void>
   a.click();
 
   // 5) Clean up
-  document.body.removeChild(a);
+  a.remove();
   URL.revokeObjectURL(blobUrl);
 }
 

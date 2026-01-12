@@ -41,7 +41,13 @@ export function playHangUpSound(): Promise<void> {
       });
       
       audio.addEventListener('error', (error) => {
-        reject(error);
+        if (error instanceof Error) {
+          reject(error);
+        } else if (typeof error === 'object' && error !== null) {
+          reject(new Error(JSON.stringify(error)));
+        } else {
+          reject(new Error(String(error)));
+        }
       });
       
       audio.play().catch((error) => {

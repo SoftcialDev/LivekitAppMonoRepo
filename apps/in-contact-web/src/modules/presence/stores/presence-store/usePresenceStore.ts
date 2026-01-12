@@ -48,7 +48,6 @@ const MAX_RETRY_DELAY_MS = 2000;
 const MAX_TOTAL_RETRY_TIME_MS = 120000;
 
 export const usePresenceStore = create<IPresenceState>((set, get) => {
-  let messageHandlerRegistered = false;
   let isConnecting = false;
   let hasLoadedSnapshot = false; // Global flag to prevent multiple loads
   let isLoadingSnapshot = false; // Prevent concurrent loads
@@ -237,7 +236,6 @@ export const usePresenceStore = create<IPresenceState>((set, get) => {
 
         // Note: Actual message handling is done by registered handlers
         // The handlers are registered globally via WebSocketProvider
-        messageHandlerRegistered = true;
 
         // Connect to WebSocket
         await webSocketService.connect(currentEmail);
@@ -286,7 +284,6 @@ export const usePresenceStore = create<IPresenceState>((set, get) => {
 
       // Note: We don't disconnect the entire WebSocket service here
       // as it may be used by other modules. Only cleanup presence-specific state.
-      messageHandlerRegistered = false;
       isConnecting = false;
     },
 
@@ -314,17 +311,31 @@ export const usePresenceStore = create<IPresenceState>((set, get) => {
           return state;
         }
 
-        const onlineUsers = isOnline
-          ? wasOnline
-            ? state.onlineUsers.map((u) => (u.email === user.email ? updatedUser : u))
-            : [...state.onlineUsers, updatedUser]
-          : state.onlineUsers.filter((x) => x.email !== user.email);
+        let onlineUsers: UserStatus[];
+        if (isOnline) {
+          if (wasOnline) {
+            // Update existing online user
+            onlineUsers = state.onlineUsers.map((u) => (u.email === user.email ? updatedUser : u));
+          } else {
+            // Add new online user
+            onlineUsers = [...state.onlineUsers, updatedUser];
+          }
+        } else {
+          // Remove from online users
+          onlineUsers = state.onlineUsers.filter((x) => x.email !== user.email);
+        }
 
-        const offlineUsers = !isOnline
-          ? wasOffline
-            ? state.offlineUsers.map((u) => (u.email === user.email ? updatedUser : u))
-            : [...state.offlineUsers, updatedUser]
-          : state.offlineUsers.filter((x) => x.email !== user.email);
+        let offlineUsers: UserStatus[];
+        if (isOnline) {
+          // Remove from offline users
+          offlineUsers = state.offlineUsers.filter((x) => x.email !== user.email);
+        } else if (wasOffline) {
+          // Update existing offline user
+          offlineUsers = state.offlineUsers.map((u) => (u.email === user.email ? updatedUser : u));
+        } else {
+          // Add new offline user
+          offlineUsers = [...state.offlineUsers, updatedUser];
+        }
 
         return { onlineUsers, offlineUsers };
       });

@@ -8,11 +8,11 @@
  */
 
 import { AzureFunction, Context, HttpRequest } from "@azure/functions";
-import { exec } from "child_process";
-import { promisify } from "util";
-import { join, resolve } from "path";
-import { existsSync, mkdirSync, cpSync } from "fs";
-import { tmpdir } from "os";
+import { exec } from "node:child_process";
+import { promisify } from "node:util";
+import { join, resolve } from "node:path";
+import { existsSync, mkdirSync, cpSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { withErrorHandler } from '../../middleware/errorHandler';
 import { withAuth } from '../../middleware/auth';
 import { ok, badRequest } from '../../utils/response';
@@ -27,10 +27,199 @@ import { ApplicationServiceOperationError } from '../../domain/errors/Applicatio
 import { extractErrorMessage, extractErrorProperty } from '../../utils/error/ErrorHelpers';
 import { ApiEndpoints } from '../../domain/constants/ApiEndpoints';
 import { FunctionNames } from '../../domain/constants/FunctionNames';
+import { unknownToString } from '../../utils/stringHelpers';
 
 const execAsync = promisify(exec);
 
 const MIGRATION_TIMEOUT_MS = 300000;
+
+/**
+ * Sets up Prisma engines environment
+ * @returns Prisma engines directory path and execution options
+ */
+function setupPrismaEngines(workingDir: string): {
+  prismaEnginesDir: string;
+  execOptions: { cwd: string; env: Record<string, string>; timeout: number };
+} {
+  const prismaEnginesDir = join(tmpdir(), "prisma-engines");
+  
+  if (!existsSync(prismaEnginesDir)) {
+    mkdirSync(prismaEnginesDir, { recursive: true });
+  }
+  
+  const packagedEnginesDir = join(process.cwd(), "node_modules", "@prisma", "engines");
+  if (existsSync(packagedEnginesDir)) {
+    cpSync(packagedEnginesDir, prismaEnginesDir, { recursive: true });
+  }
+  
+  process.env.PRISMA_ENGINES_TARGET_DIR = prismaEnginesDir;
+  process.env.PRISMA_CLI_ALLOW_ENGINE_DOWNLOAD = "1";
+  process.env.PRISMA_GENERATE_SKIP_AUTOINSTALL = "1";
+
+  const execOptions = {
+    cwd: workingDir,
+    env: {
+      ...process.env,
+      PATH: process.env.PATH || '/usr/local/bin:/usr/bin:/bin',
+      NODE_PATH: [
+        join(workingDir, "node_modules"),
+        join(process.cwd(), "node_modules")
+      ].join(process.platform === "win32" ? ";" : ":"),
+      PRISMA_ENGINES_TARGET_DIR: prismaEnginesDir,
+    },
+    timeout: MIGRATION_TIMEOUT_MS,
+  };
+
+  return { prismaEnginesDir, execOptions };
+}
+
+/**
+ * Checks if migration error requires data loss
+ * @param errorMessage - Error message
+ * @param errorOutput - Combined stdout and stderr
+ * @returns True if data loss is required
+ */
+function requiresDataLoss(errorMessage: string, errorOutput: string): boolean {
+  const dataLossIndicators = [
+    'without a default value',
+    'cannot be executed',
+    'it is not possible'
+  ];
+
+  const messageLower = errorMessage.toLowerCase();
+  const outputLower = errorOutput.toLowerCase();
+
+  return dataLossIndicators.some(indicator => 
+    messageLower.includes(indicator) || outputLower.includes(indicator)
+  ) || config.migrationForceReset === "true";
+}
+
+/**
+ * Executes migration with force reset flag
+ * @param baseCommand - Base migration command
+ * @param execOptions - Execution options
+ * @returns Object with stdout, stderr, and success status
+ */
+async function executeMigrationWithForceReset(
+  baseCommand: string,
+  execOptions: { cwd: string; env: Record<string, string>; timeout: number }
+): Promise<{ stdout: string; stderr: string; succeeded: boolean }> {
+  const migrationCommand = baseCommand.includes('--force-reset') 
+    ? baseCommand 
+    : `${baseCommand} --force-reset --accept-data-loss`;
+  
+  const result = await execAsync(migrationCommand, execOptions);
+  return {
+    stdout: result.stdout || '',
+    stderr: result.stderr || '',
+    succeeded: true
+  };
+}
+
+/**
+ * Executes migration with retry logic if data loss is required
+ * @param baseCommand - Base migration command
+ * @param execOptions - Execution options
+ * @param ctx - Azure Functions context
+ * @returns Object with stdout, stderr, and success status
+ */
+async function executeMigration(
+  baseCommand: string,
+  execOptions: { cwd: string; env: Record<string, string>; timeout: number },
+  ctx: Context
+): Promise<{ stdout: string; stderr: string; succeeded: boolean }> {
+  ctx.log.info("[RunMigrations] Starting migration without data loss");
+  const migrationCommand = baseCommand.replaceAll('--force-reset --accept-data-loss', '').trim();
+  
+  try {
+    const result = await execAsync(migrationCommand, execOptions);
+    return {
+      stdout: result.stdout || '',
+      stderr: result.stderr || '',
+      succeeded: true
+    };
+  } catch (firstAttemptError: unknown) {
+    const errorMessage = extractErrorMessage(firstAttemptError);
+    const stdoutValue = extractErrorProperty(firstAttemptError, 'stdout');
+    const stderrValue = extractErrorProperty(firstAttemptError, 'stderr');
+    
+    const errorStdout = unknownToString(stdoutValue, '');
+    const errorStderr = unknownToString(stderrValue, '');
+    const errorOutput = errorStdout + errorStderr;
+    
+    if (requiresDataLoss(errorMessage, errorOutput)) {
+      ctx.log.warn("[RunMigrations] Migration requires data loss, retrying with --force-reset");
+      return await executeMigrationWithForceReset(baseCommand, execOptions);
+    }
+    
+    throw firstAttemptError;
+  }
+}
+
+/**
+ * Logs seeding error to error log service
+ * @param seedError - Seeding error
+ * @param ctx - Azure Functions context
+ */
+async function logSeedingError(seedError: unknown, ctx: Context): Promise<void> {
+  try {
+    const serviceContainer = ServiceContainer.getInstance();
+    serviceContainer.initialize();
+    const errorLogService = serviceContainer.resolve<IErrorLogService>("ErrorLogService");
+    await errorLogService.logError({
+      severity: ErrorSeverity.High,
+      source: ErrorSource.Database,
+      endpoint: ApiEndpoints.RUN_MIGRATIONS,
+      functionName: FunctionNames.RUN_MIGRATIONS,
+      error: seedError instanceof Error ? seedError : new Error(String(seedError)),
+      context: {
+        operation: "seed_roles_permissions_snapshot_reasons",
+        migrationCompleted: true,
+        errorType: "seed_failure"
+      }
+    });
+  } catch (logError) {
+    ctx.log.error(`[RunMigrations] Could not log seeding error: ${extractErrorMessage(logError)}`);
+  }
+}
+
+/**
+ * Logs migration error to error log service
+ * @param error - Migration error
+ * @param workingDir - Working directory
+ * @param ctx - Azure Functions context
+ */
+async function logMigrationError(error: unknown, workingDir: string, ctx: Context): Promise<void> {
+  try {
+    const serviceContainer = ServiceContainer.getInstance();
+    serviceContainer.initialize();
+    const errorLogService = serviceContainer.resolve<IErrorLogService>("ErrorLogService");
+    
+    const stdout = error && typeof error === "object" && "stdout" in error 
+      ? String((error as { stdout?: unknown }).stdout) 
+      : undefined;
+    const stderr = error && typeof error === "object" && "stderr" in error 
+      ? String((error as { stderr?: unknown }).stderr) 
+      : undefined;
+    
+    await errorLogService.logError({
+      severity: ErrorSeverity.Critical,
+      source: ErrorSource.Database,
+      endpoint: ApiEndpoints.RUN_MIGRATIONS,
+      functionName: FunctionNames.RUN_MIGRATIONS,
+      error: error instanceof Error ? error : new Error(String(error)),
+      context: {
+        operation: "database_migration",
+        workingDir,
+        stdout,
+        stderr,
+        errorType: "migration_failure"
+      }
+    });
+  } catch (logError) {
+    ctx.log.error(`[RunMigrations] Could not log error: ${extractErrorMessage(logError)}`);
+  }
+}
 
 /**
  * Resolves the absolute path to the Prisma schema file
@@ -106,82 +295,12 @@ const runMigrationsHandler: AzureFunction = withErrorHandler(
       ctx.log.info(`[RunMigrations] Prisma runtime prepared. Working dir: ${workingDir}`);
 
       try {
-        const prismaEnginesDir = join(tmpdir(), "prisma-engines");
-        
-        if (!existsSync(prismaEnginesDir)) {
-          mkdirSync(prismaEnginesDir, { recursive: true });
-        }
-        
-        const packagedEnginesDir = join(process.cwd(), "node_modules", "@prisma", "engines");
-        if (existsSync(packagedEnginesDir)) {
-          cpSync(packagedEnginesDir, prismaEnginesDir, { recursive: true });
-        }
-        
-        process.env.PRISMA_ENGINES_TARGET_DIR = prismaEnginesDir;
-        process.env.PRISMA_CLI_ALLOW_ENGINE_DOWNLOAD = "1";
-        process.env.PRISMA_GENERATE_SKIP_AUTOINSTALL = "1";
+        const { execOptions } = setupPrismaEngines(workingDir);
+        const { stdout, stderr, succeeded } = await executeMigration(baseCommand, execOptions, ctx);
 
-        const execOptions = {
-          cwd: workingDir,
-          env: {
-            ...process.env,
-            PATH: process.env.PATH || '/usr/local/bin:/usr/bin:/bin',
-            NODE_PATH: [
-              join(workingDir, "node_modules"),
-              join(process.cwd(), "node_modules")
-            ].join(process.platform === "win32" ? ";" : ":"),
-            PRISMA_ENGINES_TARGET_DIR: prismaEnginesDir,
-          },
-          timeout: MIGRATION_TIMEOUT_MS,
-        };
-
-        ctx.log.info("[RunMigrations] Starting migration without data loss");
-        let migrationCommand = baseCommand.replace(/--force-reset --accept-data-loss/g, '').trim();
-        
-        let stdout: string = '';
-        let stderr: string = '';
-        let migrationSucceeded = false;
-
-        try {
-          const result = await execAsync(migrationCommand, execOptions);
-          stdout = result.stdout || '';
-          stderr = result.stderr || '';
-          migrationSucceeded = true;
-        } catch (firstAttemptError: unknown) {
-          const errorMessage = extractErrorMessage(firstAttemptError);
-          const errorStdout = String(extractErrorProperty(firstAttemptError, 'stdout') || '');
-          const errorStderr = String(extractErrorProperty(firstAttemptError, 'stderr') || '');
-          const errorOutput = errorStdout + errorStderr;
-          
-          const requiresDataLoss = 
-            errorMessage.includes('without a default value') ||
-            errorMessage.includes('cannot be executed') ||
-            errorMessage.includes('it is not possible') ||
-            errorOutput.includes('without a default value') ||
-            errorOutput.includes('cannot be executed') ||
-            errorOutput.includes('it is not possible') ||
-            config.migrationForceReset === "true";
-          
-          if (requiresDataLoss) {
-            ctx.log.warn("[RunMigrations] Migration requires data loss, retrying with --force-reset");
-            
-            migrationCommand = baseCommand;
-            if (!migrationCommand.includes('--force-reset')) {
-              migrationCommand = migrationCommand + ' --force-reset --accept-data-loss';
-            }
-            
-            const result = await execAsync(migrationCommand, execOptions);
-            stdout = result.stdout || '';
-            stderr = result.stderr || '';
-            migrationSucceeded = true;
-          } else {
-            throw firstAttemptError;
-          }
-        }
-
-        if (!migrationSucceeded) {
+        if (!succeeded) {
           throw new ApplicationServiceOperationError(
-            `Migration failed after all attempts. Command: ${migrationCommand}. Stdout: ${stdout}. Stderr: ${stderr}`
+            `Migration failed after all attempts. Stdout: ${stdout}. Stderr: ${stderr}`
           );
         }
 
@@ -190,26 +309,7 @@ const runMigrationsHandler: AzureFunction = withErrorHandler(
           await seedDefaultSnapshotReasons();
         } catch (seedError: unknown) {
           ctx.log.error(`[RunMigrations] Seeding error: ${extractErrorMessage(seedError)}`);
-          
-          try {
-            const serviceContainer = ServiceContainer.getInstance();
-            serviceContainer.initialize();
-            const errorLogService = serviceContainer.resolve<IErrorLogService>("ErrorLogService");
-            await errorLogService.logError({
-              severity: ErrorSeverity.High,
-              source: ErrorSource.Database,
-              endpoint: ApiEndpoints.RUN_MIGRATIONS,
-              functionName: FunctionNames.RUN_MIGRATIONS,
-              error: seedError instanceof Error ? seedError : new Error(String(seedError)),
-              context: {
-                operation: "seed_roles_permissions_snapshot_reasons",
-                migrationCompleted: true,
-                errorType: "seed_failure"
-              }
-            });
-          } catch (logError) {
-            ctx.log.error(`[RunMigrations] Could not log seeding error: ${extractErrorMessage(logError)}`);
-          }
+          await logSeedingError(seedError, ctx);
         }
 
         return ok(ctx, {
@@ -220,29 +320,7 @@ const runMigrationsHandler: AzureFunction = withErrorHandler(
 
       } catch (error: unknown) {
         ctx.log.error(`[RunMigrations] Migration error: ${extractErrorMessage(error)}`);
-
-        try {
-          const serviceContainer = ServiceContainer.getInstance();
-          serviceContainer.initialize();
-          const errorLogService = serviceContainer.resolve<IErrorLogService>("ErrorLogService");
-          await errorLogService.logError({
-            severity: ErrorSeverity.Critical,
-            source: ErrorSource.Database,
-            endpoint: ApiEndpoints.RUN_MIGRATIONS,
-            functionName: FunctionNames.RUN_MIGRATIONS,
-            error: error instanceof Error ? error : new Error(String(error)),
-            context: {
-              operation: "database_migration",
-              workingDir: workingDir,
-              stdout: error && typeof error === "object" && "stdout" in error ? String((error as { stdout?: unknown }).stdout) : undefined,
-              stderr: error && typeof error === "object" && "stderr" in error ? String((error as { stderr?: unknown }).stderr) : undefined,
-              errorType: "migration_failure"
-            }
-          });
-        } catch (logError) {
-          ctx.log.error(`[RunMigrations] Could not log error: ${extractErrorMessage(logError)}`);
-        }
-
+        await logMigrationError(error, workingDir, ctx);
         throw error;
       }
     });
@@ -308,7 +386,7 @@ function preparePrismaRuntime(): { migrationCommand: string; workingDir: string 
     );
   }
 
-  const escapedUrl = config.databaseUrl.replace(/"/g, '\\"');
+  const escapedUrl = config.databaseUrl.replaceAll('"', String.raw`\"`);
   return {
     migrationCommand: `node "${sourcePrismaBin}" db push --schema "${absoluteSchemaPath}" --url "${escapedUrl}"`,
     workingDir: runtimeRoot,

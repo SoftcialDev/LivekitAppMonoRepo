@@ -52,7 +52,7 @@ export function buildStatusMap(statuses: UserStreamingStatus[]): Record<string, 
     }
 
     const userStatus = status.lastSession
-      ? getStatusFromStopReason(status.lastSession.stopReason as StreamingStopReason | null)
+      ? getStatusFromStopReason(status.lastSession.stopReason)
       : StreamingStatus.OFFLINE;
 
     map[email] = {

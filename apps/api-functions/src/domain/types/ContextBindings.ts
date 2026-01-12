@@ -57,7 +57,7 @@ export interface ExtendedContext extends Context {
  * @returns True if context has extended bindings
  */
 export function hasExtendedBindings(ctx: Context): ctx is ExtendedContext {
-  return typeof (ctx as ExtendedContext).bindings !== 'undefined';
+  return (ctx as ExtendedContext).bindings !== undefined;
 }
 
 /**

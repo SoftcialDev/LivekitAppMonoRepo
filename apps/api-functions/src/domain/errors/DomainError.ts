@@ -3,7 +3,6 @@
  * @description Provides structured error handling with specific error codes
  */
 
-import { AuthErrorCode, ValidationErrorCode, MessagingErrorCode, ApplicationErrorCode, SupervisorErrorCode, UserRoleChangeErrorCode, UserDeletionErrorCode } from './ErrorCodes';
 import { getCentralAmericaTime } from '../../utils/dateUtils';
 
 /**
@@ -30,62 +29,34 @@ export abstract class DomainError extends Error {
 /**
  * Authentication and authorization errors
  */
-export class AuthError extends DomainError {
-  constructor(message: string, statusCode: AuthErrorCode) {
-    super(message, statusCode);
-  }
-}
+export class AuthError extends DomainError {}
 
 /**
  * Validation errors
  */
-export class ValidationError extends DomainError {
-  constructor(message: string, statusCode: ValidationErrorCode) {
-    super(message, statusCode);
-  }
-}
+export class ValidationError extends DomainError {}
 
 /**
  * Messaging errors
  */
-export class MessagingError extends DomainError {
-  constructor(message: string, statusCode: MessagingErrorCode) {
-    super(message, statusCode);
-  }
-}
+export class MessagingError extends DomainError {}
 
 /**
  * Application logic errors
  */
-export class ApplicationError extends DomainError {
-  constructor(message: string, statusCode: ApplicationErrorCode) {
-    super(message, statusCode);
-  }
-}
+export class ApplicationError extends DomainError {}
 
 /**
  * Supervisor management errors
  */
-export class SupervisorError extends DomainError {
-  constructor(message: string, statusCode: SupervisorErrorCode) {
-    super(message, statusCode);
-  }
-}
+export class SupervisorError extends DomainError {}
 
 /**
  * User role change errors
  */
-export class UserRoleChangeError extends DomainError {
-  constructor(message: string, statusCode: UserRoleChangeErrorCode) {
-    super(message, statusCode);
-  }
-}
+export class UserRoleChangeError extends DomainError {}
 
 /**
  * User deletion errors
  */
-export class UserDeletionError extends DomainError {
-  constructor(message: string, statusCode: UserDeletionErrorCode) {
-    super(message, statusCode);
-  }
-}
+export class UserDeletionError extends DomainError {}

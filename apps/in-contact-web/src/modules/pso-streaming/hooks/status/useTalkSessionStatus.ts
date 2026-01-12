@@ -6,7 +6,7 @@
  */
 
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { logError, logDebug } from '@/shared/utils/logger';
+import { logError } from '@/shared/utils/logger';
 import { TalkSessionClient } from '../../api/talkSessionClient';
 import type {
   IUseTalkSessionStatusOptions,
@@ -77,7 +77,9 @@ export function useTalkSessionStatus(
       return;
     }
 
-    void fetchStatus();
+    fetchStatus().catch((err: unknown) => {
+      logError('[useTalkSessionStatus] Error in fetchStatus effect', { error: err, psoEmail });
+    });
   }, [enabled, psoEmail, fetchStatus]);
 
   return {

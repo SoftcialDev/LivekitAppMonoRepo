@@ -111,7 +111,7 @@ export class ContactManagerFormRepository implements IContactManagerFormReposito
    * @returns Domain FormType enum value
    */
   private mapFormType(prismaFormType: PrismaFormType | string): FormType {
-    const formTypeStr = typeof prismaFormType === 'string' ? prismaFormType : prismaFormType;
+    const formTypeStr = typeof prismaFormType === 'string' ? prismaFormType : String(prismaFormType);
     switch (formTypeStr) {
       case 'Disconnections':
         return FormType.DISCONNECTIONS;

@@ -14,7 +14,6 @@
 import { PublicClientApplication, type Configuration } from '@azure/msal-browser';
 import { config } from '@/shared/config';
 import { ConfigurationError } from '@/shared/errors';
-import { logError } from '@/shared/utils/logger';
 
 /**
  * Validates Azure AD configuration

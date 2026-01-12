@@ -7,4 +7,5 @@ export * from './AuditUtils';
 export * from './AuthorizationUtils';
 export * from './RoleValidationUtils';
 export * from './ValidationUtils';
+export * from './RegexUtils';
 

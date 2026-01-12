@@ -3,7 +3,6 @@
  * @description Defines the contract for authorization operations
  */
 
-import { UserRole } from '@prisma/client';
 import { Permission } from '../enums/Permission';
 
 /**

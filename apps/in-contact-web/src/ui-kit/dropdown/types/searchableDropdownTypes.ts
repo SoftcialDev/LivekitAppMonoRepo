@@ -28,61 +28,61 @@ export interface ISearchableDropdownProps<Value> {
   /**
    * The complete list of options to display in the menu.
    */
-  options: IDropdownOption<Value>[];
+  readonly options: IDropdownOption<Value>[];
 
   /**
    * The currently selected values (controlled).
    * Only these values will remain "fixed" and shown elsewhere in your UI.
    */
-  selectedValues: Value[];
+  readonly selectedValues: Value[];
 
   /**
    * Callback invoked when the user checks or unchecks an option.
    * 
    * @param values - New array of selected values
    */
-  onSelectionChange: (values: Value[]) => void;
+  readonly onSelectionChange: (values: Value[]) => void;
 
   /**
    * Placeholder text shown in the search input.
    * 
    * @default "Search..."
    */
-  placeholder?: string;
+  readonly placeholder?: string;
 
   /**
    * Classes applied to the wrapper `<div>`.
    * 
    * @default ""
    */
-  className?: string;
+  readonly className?: string;
 
   /**
    * Classes applied to the `<input>` field.
    */
-  inputClassName?: string;
+  readonly inputClassName?: string;
 
   /**
    * Classes applied to the dropdown `<div>` menu.
    */
-  menuClassName?: string;
+  readonly menuClassName?: string;
 
   /**
    * Classes applied to each option row.
    */
-  itemClassName?: string;
+  readonly itemClassName?: string;
 
   /**
    * Render the dropdown menu in a portal attached to document.body.
    * 
    * @default false
    */
-  usePortal?: boolean;
+  readonly usePortal?: boolean;
 
   /**
    * When rendering in portal, ensure the menu is at least this width (px).
    */
-  portalMinWidthPx?: number;
+  readonly portalMinWidthPx?: number;
 
   /**
    * Close the menu upon selecting an item.
@@ -90,20 +90,20 @@ export interface ISearchableDropdownProps<Value> {
    * 
    * @default false
    */
-  closeOnSelect?: boolean;
+  readonly closeOnSelect?: boolean;
 
   /**
    * Show "Select All" button in the dropdown footer.
    * 
    * @default false
    */
-  showSelectAll?: boolean;
+  readonly showSelectAll?: boolean;
 
   /**
    * Shows a loading state instead of options.
    * 
    * @default false
    */
-  isLoading?: boolean;
+  readonly isLoading?: boolean;
 }
 

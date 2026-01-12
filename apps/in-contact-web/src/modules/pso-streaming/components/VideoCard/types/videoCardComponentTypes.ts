@@ -63,7 +63,7 @@ export interface IVideoCardControlsProps {
   canRecord: boolean;
   recordDisabled: boolean;
   isRecording: boolean;
-  onRecordClick: () => void;
+  onRecordClick: () => void | Promise<void>;
 }
 
 /**

@@ -6,11 +6,8 @@
 
 import { IErrorLogService } from '../../domain/interfaces/IErrorLogService';
 import { ErrorSource } from '../../domain/enums/ErrorSource';
-import { ErrorContext } from '../../domain/types';
-import { ErrorClassification } from '../../domain/types';
-import { AuthError } from '../../domain/errors';
-import { ValidationError } from '../../domain/errors';
-import { MessagingError } from '../../domain/errors';
+import { ErrorContext, ErrorClassification } from '../../domain/types';
+import { AuthError, ValidationError, MessagingError } from '../../domain/errors';
 
 /**
  * Handles error logging to database
@@ -57,8 +54,12 @@ export class ErrorLogger {
           invocationId: context.invocationId
         }
       });
-    } catch (logError) {
+    } catch (loggingError: unknown) {
       // Failed to log error - fail silently to avoid infinite loop
+      // Logging errors should not cascade into more logging attempts
+      if (loggingError instanceof Error) {
+        // Silently ignore - logging failure should not break the application
+      }
     }
   }
 

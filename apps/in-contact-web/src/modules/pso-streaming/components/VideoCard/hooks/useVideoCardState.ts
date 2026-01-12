@@ -31,7 +31,6 @@ export function useVideoCardState(
     countdown,
     talkLoading,
     recordingLoading,
-    isRecording,
   } = options;
 
   const mediaReady = useMemo(() => shouldStream && !connecting && !disconnecting, [shouldStream, connecting, disconnecting]);

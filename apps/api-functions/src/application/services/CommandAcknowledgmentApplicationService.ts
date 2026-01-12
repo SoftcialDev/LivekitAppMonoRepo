@@ -13,8 +13,8 @@ import { AcknowledgeCommandResult } from '../../domain/value-objects/Acknowledge
  */
 export class CommandAcknowledgmentApplicationService {
   constructor(
-    private commandAcknowledgmentService: ICommandAcknowledgmentService,
-    private authorizationService: IAuthorizationService
+    private readonly commandAcknowledgmentService: ICommandAcknowledgmentService,
+    private readonly authorizationService: IAuthorizationService
   ) {}
 
   /**

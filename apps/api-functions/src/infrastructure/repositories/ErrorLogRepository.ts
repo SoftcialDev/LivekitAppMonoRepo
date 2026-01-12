@@ -6,13 +6,11 @@
 
 import prisma from '../database/PrismaClientService';
 import { IErrorLogRepository } from '../../domain/interfaces/IErrorLogRepository';
-import { CreateErrorLogData, ErrorLogQueryParams } from '../../domain/types/ErrorLogTypes';
+import { CreateErrorLogData, ErrorLogQueryParams, PrismaErrorLog } from '../../domain/types/ErrorLogTypes';
 import { ApiErrorLog } from '../../domain/entities/ApiErrorLog';
-import { ErrorSeverity } from '../../domain/enums/ErrorSeverity';
-import { ErrorSource } from '../../domain/enums/ErrorSource';
 import { getCentralAmericaTime } from '../../utils/dateUtils';
 import { wrapEntityCreationError, wrapDatabaseQueryError, wrapEntityDeletionError, wrapEntityUpdateError } from '../../utils/error/ErrorHelpers';
-import { randomUUID } from 'crypto';
+import { randomUUID } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 
 /**
@@ -48,27 +46,7 @@ export class ErrorLogRepository implements IErrorLogRepository {
         }
       });
 
-      return ApiErrorLog.fromPrisma({
-        id: prismaErrorLog.id,
-        severity: prismaErrorLog.severity,
-        source: prismaErrorLog.source,
-        endpoint: prismaErrorLog.endpoint,
-        functionName: prismaErrorLog.functionName ?? null,
-        errorName: prismaErrorLog.errorName,
-        errorMessage: prismaErrorLog.errorMessage,
-        stackTrace: prismaErrorLog.stackTrace,
-        httpStatusCode: prismaErrorLog.httpStatusCode,
-        userId: prismaErrorLog.userId,
-        userEmail: prismaErrorLog.userEmail,
-        requestId: prismaErrorLog.requestId,
-        context: prismaErrorLog.context && typeof prismaErrorLog.context === 'object' && !Array.isArray(prismaErrorLog.context)
-          ? (prismaErrorLog.context as Record<string, unknown>)
-          : null,
-        resolved: prismaErrorLog.resolved,
-        resolvedAt: prismaErrorLog.resolvedAt,
-        resolvedBy: prismaErrorLog.resolvedBy,
-        createdAt: prismaErrorLog.createdAt
-      });
+      return this.mapPrismaToEntity(prismaErrorLog);
     } catch (error: unknown) {
       throw wrapEntityCreationError('Failed to create error log', error);
     }
@@ -82,33 +60,7 @@ export class ErrorLogRepository implements IErrorLogRepository {
    */
   async findMany(params?: ErrorLogQueryParams): Promise<ApiErrorLog[]> {
     try {
-      const where: Prisma.ApiErrorLogWhereInput = {};
-
-      if (params?.source) {
-        where.source = params.source as ErrorSource;
-      }
-
-      if (params?.severity) {
-        where.severity = params.severity as ErrorSeverity;
-      }
-
-      if (params?.endpoint) {
-        where.endpoint = params.endpoint;
-      }
-
-      if (params?.resolved !== undefined) {
-        where.resolved = params.resolved;
-      }
-
-      if (params?.startDate || params?.endDate) {
-        where.createdAt = {};
-        if (params.startDate) {
-          where.createdAt.gte = params.startDate;
-        }
-        if (params.endDate) {
-          where.createdAt.lte = params.endDate;
-        }
-      }
+      const where = this.buildWhereClause(params);
 
       const prismaErrorLogs = await prisma.apiErrorLog.findMany({
         where,
@@ -119,27 +71,7 @@ export class ErrorLogRepository implements IErrorLogRepository {
         skip: params?.offset || 0
       });
 
-      return prismaErrorLogs.map((errorLog) => ApiErrorLog.fromPrisma({
-        id: errorLog.id,
-        severity: errorLog.severity,
-        source: errorLog.source,
-        endpoint: errorLog.endpoint,
-        functionName: errorLog.functionName ?? null,
-        errorName: errorLog.errorName,
-        errorMessage: errorLog.errorMessage,
-        stackTrace: errorLog.stackTrace,
-        httpStatusCode: errorLog.httpStatusCode,
-        userId: errorLog.userId,
-        userEmail: errorLog.userEmail,
-        requestId: errorLog.requestId,
-        context: errorLog.context && typeof errorLog.context === 'object' && !Array.isArray(errorLog.context)
-          ? (errorLog.context as Record<string, unknown>)
-          : null,
-        resolved: errorLog.resolved,
-        resolvedAt: errorLog.resolvedAt,
-        resolvedBy: errorLog.resolvedBy,
-        createdAt: errorLog.createdAt
-      }));
+      return prismaErrorLogs.map((errorLog) => this.mapPrismaToEntity(errorLog));
     } catch (error: unknown) {
       throw wrapDatabaseQueryError('Failed to find error logs', error);
     }
@@ -157,27 +89,7 @@ export class ErrorLogRepository implements IErrorLogRepository {
         where: { id }
       });
 
-      return prismaErrorLog ? ApiErrorLog.fromPrisma({
-        id: prismaErrorLog.id,
-        severity: prismaErrorLog.severity,
-        source: prismaErrorLog.source,
-        endpoint: prismaErrorLog.endpoint,
-        functionName: prismaErrorLog.functionName ?? null,
-        errorName: prismaErrorLog.errorName,
-        errorMessage: prismaErrorLog.errorMessage,
-        stackTrace: prismaErrorLog.stackTrace,
-        httpStatusCode: prismaErrorLog.httpStatusCode,
-        userId: prismaErrorLog.userId,
-        userEmail: prismaErrorLog.userEmail,
-        requestId: prismaErrorLog.requestId,
-        context: prismaErrorLog.context && typeof prismaErrorLog.context === 'object' && !Array.isArray(prismaErrorLog.context)
-          ? (prismaErrorLog.context as Record<string, unknown>)
-          : null,
-        resolved: prismaErrorLog.resolved,
-        resolvedAt: prismaErrorLog.resolvedAt,
-        resolvedBy: prismaErrorLog.resolvedBy,
-        createdAt: prismaErrorLog.createdAt
-      }) : null;
+      return prismaErrorLog ? this.mapPrismaToEntity(prismaErrorLog) : null;
     } catch (error: unknown) {
       throw wrapDatabaseQueryError('Failed to find error log by id', error);
     }
@@ -262,33 +174,7 @@ export class ErrorLogRepository implements IErrorLogRepository {
    */
   async count(params?: Omit<ErrorLogQueryParams, 'limit' | 'offset'>): Promise<number> {
     try {
-      const where: Prisma.ApiErrorLogWhereInput = {};
-
-      if (params?.source) {
-        where.source = params.source as ErrorSource;
-      }
-
-      if (params?.severity) {
-        where.severity = params.severity as ErrorSeverity;
-      }
-
-      if (params?.endpoint) {
-        where.endpoint = params.endpoint;
-      }
-
-      if (params?.resolved !== undefined) {
-        where.resolved = params.resolved;
-      }
-
-      if (params?.startDate || params?.endDate) {
-        where.createdAt = {};
-        if (params.startDate) {
-          where.createdAt.gte = params.startDate;
-        }
-        if (params.endDate) {
-          where.createdAt.lte = params.endDate;
-        }
-      }
+      const where = this.buildWhereClause(params);
 
       const count = await prisma.apiErrorLog.count({
         where
@@ -298,6 +184,72 @@ export class ErrorLogRepository implements IErrorLogRepository {
     } catch (error: unknown) {
       throw wrapDatabaseQueryError('Failed to count error logs', error);
     }
+  }
+
+  /**
+   * Converts a Prisma error log model to an ApiErrorLog domain entity
+   * @param prismaErrorLog - Prisma error log model
+   * @returns ApiErrorLog domain entity
+   */
+  private mapPrismaToEntity(prismaErrorLog: PrismaErrorLog): ApiErrorLog {
+    return ApiErrorLog.fromPrisma({
+      id: prismaErrorLog.id,
+      severity: prismaErrorLog.severity,
+      source: prismaErrorLog.source,
+      endpoint: prismaErrorLog.endpoint,
+      functionName: prismaErrorLog.functionName ?? null,
+      errorName: prismaErrorLog.errorName,
+      errorMessage: prismaErrorLog.errorMessage,
+      stackTrace: prismaErrorLog.stackTrace,
+      httpStatusCode: prismaErrorLog.httpStatusCode,
+      userId: prismaErrorLog.userId,
+      userEmail: prismaErrorLog.userEmail,
+      requestId: prismaErrorLog.requestId,
+      context: prismaErrorLog.context && typeof prismaErrorLog.context === 'object' && !Array.isArray(prismaErrorLog.context)
+        ? (prismaErrorLog.context as Record<string, unknown>)
+        : null,
+      resolved: prismaErrorLog.resolved,
+      resolvedAt: prismaErrorLog.resolvedAt,
+      resolvedBy: prismaErrorLog.resolvedBy,
+      createdAt: prismaErrorLog.createdAt
+    });
+  }
+
+  /**
+   * Builds a Prisma where clause from query parameters
+   * @param params - Query parameters for filtering
+   * @returns Prisma where clause
+   */
+  private buildWhereClause(params?: ErrorLogQueryParams): Prisma.ApiErrorLogWhereInput {
+    const where: Prisma.ApiErrorLogWhereInput = {};
+
+    if (params?.source) {
+      where.source = params.source;
+    }
+
+    if (params?.severity) {
+      where.severity = params.severity;
+    }
+
+    if (params?.endpoint) {
+      where.endpoint = params.endpoint;
+    }
+
+    if (params?.resolved !== undefined) {
+      where.resolved = params.resolved;
+    }
+
+    if (params?.startDate || params?.endDate) {
+      where.createdAt = {};
+      if (params.startDate) {
+        where.createdAt.gte = params.startDate;
+      }
+      if (params.endDate) {
+        where.createdAt.lte = params.endDate;
+      }
+    }
+
+    return where;
   }
 }
 

@@ -38,7 +38,7 @@ export class LiveKitServiceError extends Error {
  * @description Handles LiveKit room management and token generation using the LiveKit SDK
  */
 export class LiveKitService implements ILiveKitService {
-  private adminClient: RoomServiceClient;
+  private readonly adminClient: RoomServiceClient;
 
   /**
    * Creates a new LiveKitService instance

@@ -64,8 +64,8 @@ const getWebsocketPresenceStatuses: AzureFunction = withErrorHandler(
       }
 
       const { page = "1", pageSize = "50" } = parseResult.data;
-      const p = Math.max(1, parseInt(page, 10));
-      const size = Math.min(100, Math.max(1, parseInt(pageSize, 10)));
+      const p = Math.max(1, Number.parseInt(page, 10));
+      const size = Math.min(100, Math.max(1, Number.parseInt(pageSize, 10)));
 
       const total = await prisma.user.count({
         where: { deletedAt: null },

@@ -41,12 +41,10 @@ const SimpleVideoCard: React.FC<ISimpleVideoCardProps> = memo(({
   /**
    * Handler that manages both START and STOP with optional reason
    */
-  const handleToggle = useCallback((email: string, reason?: string | unknown) => {
+  const handleToggle = useCallback((email: string, reason?: string) => {
     if (reason) {
       // If there's a reason, it's always a STOP
-      // Convert enum to string if needed
-      const reasonStr = typeof reason === 'string' ? reason : String(reason);
-      handleStop(email, reasonStr);
+      handleStop(email, reason);
     } else if (shouldStream) {
       // If no reason and currently streaming, it's a STOP
       handleStop(email);

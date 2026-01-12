@@ -14,6 +14,8 @@ import { useToast } from '@/ui-kit/feedback';
 import { DataTable } from '@/ui-kit/tables';
 import { ConfirmModal, PreviewModal } from '@/ui-kit/modals';
 import { logError } from '@/shared/utils/logger';
+import { useTableSelection } from '@/shared/hooks/useTableSelection';
+import { useLocalDataLoader } from '@/shared/hooks/useLocalDataLoader';
 import { createRecordingReportColumns } from './config/recordingReportPageConfig';
 import type { RecordingReport } from '../types/recordingTypes';
 
@@ -121,36 +123,33 @@ export const RecordingReportPage: React.FC = () => {
   }, [showToast]);
 
   // Selection config for checkboxes
-  const selection = useMemo(
-    () => ({
-      selectedKeys: selectedIds,
-      onToggleRow: (key: string, checked: boolean) => {
-        setSelectedIds((prev) =>
-          checked
-            ? Array.from(new Set([...prev, key]))
-            : prev.filter((k) => k !== key)
-        );
-      },
-      onToggleAll: (checked: boolean, keys: string[]) => {
-        setSelectedIds((prev) =>
-          checked
-            ? Array.from(new Set([...prev, ...keys]))
-            : prev.filter((k) => !keys.includes(k))
-        );
-      },
-      getRowKey: (row: RecordingReport) => row.id,
-    }),
-    [selectedIds]
-  );
+  const selection = useTableSelection<RecordingReport>({
+    selectedKeys: selectedIds,
+    setSelectedKeys: setSelectedIds,
+    getRowKey: (row: RecordingReport) => row.id,
+  });
 
-  const columns = useMemo(
-    () => createRecordingReportColumns({
+  // Create columns config
+  const columnsConfig = useMemo(
+    () => ({
       handlePreview,
       openDeleteModal,
       handleDownload,
     }),
     [handlePreview, openDeleteModal, handleDownload]
   );
+
+  const columns = useMemo(
+    () => createRecordingReportColumns(columnsConfig),
+    [columnsConfig]
+  );
+
+  // Create data loader for local pagination
+  const { dataLoader } = useLocalDataLoader({
+    data: reports,
+    initialFetchSize: 200,
+    fetchSize: 200,
+  });
 
   return (
     <>
@@ -159,19 +158,7 @@ export const RecordingReportPage: React.FC = () => {
           <DataTable<RecordingReport>
             key={refreshKey}
             columns={columns}
-            dataLoader={{
-              totalCount: reports.length,
-              onFetch: async (limit: number, offset: number) => {
-                const paginated = reports.slice(offset, offset + limit);
-                return {
-                  data: paginated,
-                  total: reports.length,
-                  count: paginated.length,
-                };
-              },
-              initialFetchSize: 200,
-              fetchSize: 200,
-            }}
+            dataLoader={dataLoader}
             selection={selection}
             pageSize={10}
             externalLoading={loading || isDeleting}
@@ -194,7 +181,9 @@ export const RecordingReportPage: React.FC = () => {
             controls
             className="max-w-full max-h-[75vh] rounded"
             src={preview.playbackUrl || preview.blobUrl || undefined}
-          />
+          >
+            <track kind="captions" srcLang="en" label="English" />
+          </video>
         )}
       </PreviewModal>
 

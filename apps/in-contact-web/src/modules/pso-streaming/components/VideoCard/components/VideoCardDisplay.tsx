@@ -57,11 +57,15 @@ export const VideoCardDisplay: React.FC<IVideoCardDisplayProps> = ({
                 });
               }
             }}
-          />
-          <audio ref={audioRef} autoPlay className="hidden" />
+          >
+            <track kind="captions" srcLang="en" label="English" />
+          </video>
+          <audio ref={audioRef} autoPlay className="hidden">
+            <track kind="captions" srcLang="en" label="English" />
+          </audio>
         </>
       ) : (
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-(--color-primary-dark) rounded-xl">
           {statusMessage && (
             <span className="text-xl font-medium text-yellow-400 mb-2">
               {statusMessage}
@@ -72,7 +76,9 @@ export const VideoCardDisplay: React.FC<IVideoCardDisplayProps> = ({
               <CompactTimer timerInfo={timerInfo} />
             </div>
           )}
-          <audio ref={audioRef} autoPlay className="hidden" />
+          <audio ref={audioRef} autoPlay className="hidden">
+            <track kind="captions" srcLang="en" label="English" />
+          </audio>
         </div>
       )}
 

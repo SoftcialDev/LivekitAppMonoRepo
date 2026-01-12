@@ -21,7 +21,7 @@ export interface IUseVideoCardHandlersOptions {
   activeSupervisorName: string | null;
   activeSupervisorEmail: string | null;
   openModal: () => void;
-  toggleRecording: () => void;
+  toggleRecording: () => Promise<void>;
 }
 
 /**
@@ -33,6 +33,6 @@ export interface IUseVideoCardHandlersReturn {
   handleChatClick: () => void;
   handleTalkClick: () => Promise<void>;
   handleSnapshotClick: () => void;
-  handleRecordClick: () => void;
+  handleRecordClick: () => Promise<void>;
 }
 

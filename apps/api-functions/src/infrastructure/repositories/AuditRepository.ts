@@ -9,6 +9,7 @@ import { IAuditRepository } from '../../domain/interfaces/IAuditRepository';
 import { AuditLog } from '../../domain/entities/AuditLog';
 import { getCentralAmericaTime } from '../../utils/dateUtils';
 import { wrapEntityCreationError, wrapDatabaseQueryError } from '../../utils/error/ErrorHelpers';
+import { Prisma } from '@prisma/client';
 
 /**
  * Repository for audit data access operations
@@ -30,8 +31,8 @@ export class AuditRepository implements IAuditRepository {
           action: auditLog.action,
           changedById: auditLog.changedById,
           timestamp: getCentralAmericaTime(),
-          dataBefore: auditLog.dataBefore,
-          dataAfter: auditLog.dataAfter,
+          dataBefore: auditLog.dataBefore ? (auditLog.dataBefore as Prisma.InputJsonValue) : Prisma.JsonNull,
+          dataAfter: auditLog.dataAfter ? (auditLog.dataAfter as Prisma.InputJsonValue) : Prisma.JsonNull,
         }
       });
 

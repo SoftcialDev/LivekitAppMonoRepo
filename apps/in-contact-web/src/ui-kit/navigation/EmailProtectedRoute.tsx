@@ -11,10 +11,8 @@
 
 import React from 'react';
 import { Navigate } from 'react-router-dom';
-import { useAuth } from '@/modules/auth';
-import { useUserInfo } from '@/modules/auth';
+import { useAuth, useUserInfo, UserRole } from '@/modules/auth';
 import type { IEmailProtectedRouteProps } from './types';
-import { UserRole } from '@/modules/auth';
 
 /**
  * EmailProtectedRoute component

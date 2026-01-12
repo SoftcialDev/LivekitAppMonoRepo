@@ -111,7 +111,10 @@ export const VideoCardControls: React.FC<IVideoCardControlsProps> = ({
           className={`flex-1 py-2 rounded-xl ${isRecording ? 'bg-red-500 text-white' : 'bg-[#BBA6CF] text-white'} disabled:opacity-50`}
           title={recordDisabled ? 'Recording is available only while streaming' : undefined}
         >
-          {recordingLoading ? '...' : isRecording ? 'Stop Rec' : 'Start Rec'}
+          {(() => {
+            if (recordingLoading) return '...';
+            return isRecording ? 'Stop Rec' : 'Start Rec';
+          })()}
         </button>
       )}
     </div>

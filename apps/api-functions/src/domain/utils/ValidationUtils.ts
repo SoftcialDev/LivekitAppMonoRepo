@@ -9,6 +9,7 @@ import { ISupervisorRepository } from '../interfaces/ISupervisorRepository';
 import { ValidationError } from '../errors/DomainError';
 import { ValidationErrorCode } from '../errors/ErrorCodes';
 import { User } from '@prisma/client';
+import { isValidEmailFormat } from './RegexUtils';
 
 /**
  * Common validation utilities for domain operations
@@ -34,8 +35,7 @@ export class ValidationUtils {
    * @throws ValidationError if email format is invalid
    */
   static validateEmailFormat(email: string, fieldName: string = 'Email'): string {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
+    if (!isValidEmailFormat(email)) {
       throw new ValidationError(`Invalid ${fieldName.toLowerCase()} format`, ValidationErrorCode.INVALID_EMAIL_FORMAT);
     }
     return email.toLowerCase().trim();

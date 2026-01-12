@@ -26,7 +26,6 @@ export function useNavigationBlocker(): IUseNavigationBlockerReturn {
   
   const blockedRef = useRef(false);
   const pendingPathRef = useRef<string | null>(null);
-  const confirmNavigationRef = useRef<((path: string) => void) | null>(null);
 
   /**
    * Enhanced navigate function that checks for active talk sessions
@@ -57,7 +56,7 @@ export function useNavigationBlocker(): IUseNavigationBlockerReturn {
       const event = new CustomEvent('talk-navigation-blocked', {
         detail: { path: to },
       });
-      window.dispatchEvent(event);
+      globalThis.dispatchEvent(event);
       
       logDebug('[NavigationBlocker] Blocking navigation due to active talk session', { path: to });
       return;

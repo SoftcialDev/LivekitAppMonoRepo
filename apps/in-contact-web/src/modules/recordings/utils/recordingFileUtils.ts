@@ -43,7 +43,7 @@ export function generateRecordingFileName(recording: RecordingReport): string {
 
   // Format date and time from startedAt
   const startedAt = recording.startedAt ? new Date(recording.startedAt) : new Date();
-  const dateStr = startedAt.toISOString().slice(0, 10).replace(/-/g, '');
+  const dateStr = startedAt.toISOString().slice(0, 10).replaceAll('-', '');
   const hours = String(startedAt.getUTCHours()).padStart(2, '0');
   const minutes = String(startedAt.getUTCMinutes()).padStart(2, '0');
   const seconds = String(startedAt.getUTCSeconds()).padStart(2, '0');

@@ -47,7 +47,7 @@ export function useAutoReloadWhenIdle(
         intervalMs,
         isStreaming,
       });
-      window.location.reload();
+      globalThis.location.reload();
     }, intervalMs);
 
     // Cleanup on unmount or when dependencies change

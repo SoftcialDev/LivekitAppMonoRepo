@@ -15,8 +15,8 @@ export class AuditLog {
   public readonly action: string;
   public readonly changedById: string;
   public readonly timestamp: Date;
-  public readonly dataBefore: any | null;
-  public readonly dataAfter: any | null;
+  public readonly dataBefore: Record<string, unknown> | null;
+  public readonly dataAfter: Record<string, unknown> | null;
 
   /**
    * Creates a new AuditLog entity
@@ -29,8 +29,8 @@ export class AuditLog {
     action: string;
     changedById: string;
     timestamp: Date;
-    dataBefore?: any | null;
-    dataAfter?: any | null;
+    dataBefore?: Record<string, unknown> | null;
+    dataAfter?: Record<string, unknown> | null;
   }) {
     this.id = props.id;
     this.entity = props.entity;

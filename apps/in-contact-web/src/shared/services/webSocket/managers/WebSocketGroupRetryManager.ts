@@ -49,6 +49,106 @@ export class WebSocketGroupRetryManager {
   }
 
   /**
+   * Handles critical group failure by refreshing page
+   * @param groupName - Group name that failed
+   * @param attempt - Attempt number
+   * @param elapsed - Time elapsed
+   * @param error - Error that occurred
+   * @throws The error that was passed in
+   */
+  private handleCriticalGroupFailure(
+    groupName: string,
+    attempt: number,
+    elapsed: number,
+    error: unknown
+  ): never {
+    logError('Failed to join critical group after all retries, refreshing page', {
+      group: groupName,
+      attempts: attempt + 1,
+      elapsed,
+      error,
+    });
+    if (globalThis.window !== undefined) {
+      globalThis.window.location.reload();
+    }
+    throw error;
+  }
+
+  /**
+   * Handles non-critical group failure
+   * @param groupName - Group name that failed
+   * @param attempt - Attempt number
+   * @param elapsed - Time elapsed
+   * @param error - Error that occurred
+   * @throws The error that was passed in
+   */
+  private handleGroupFailure(
+    groupName: string,
+    attempt: number,
+    elapsed: number,
+    error: unknown
+  ): never {
+    logWarn('Failed to join group after all retries', {
+      group: groupName,
+      attempts: attempt + 1,
+      elapsed,
+    });
+    throw error;
+  }
+
+  /**
+   * Handles retry attempt error
+   * @param error - Error that occurred
+   * @param groupName - Group name
+   * @param attempt - Attempt number
+   * @param startTime - Start time of retry process
+   * @param isCritical - Whether group is critical
+   * @param isConnectedFn - Function that checks if connection is active
+   * @returns Promise that resolves after delay
+   * @throws If connection lost or retries exhausted
+   */
+  private async handleRetryError(
+    error: unknown,
+    groupName: string,
+    attempt: number,
+    startTime: number,
+    isCritical: boolean,
+    isConnectedFn: () => boolean
+  ): Promise<void> {
+    // Check if connection was lost
+    if (!isConnectedFn()) {
+      logDebug('Connection lost during group join retry', {
+        group: groupName,
+        attempt: attempt + 1,
+      });
+      throw new WebSocketConnectionLostError('Connection lost');
+    }
+
+    const elapsed = Date.now() - startTime;
+    const isLastAttempt = attempt === GROUP_RETRY_CONFIG.MAX_RETRIES - 1;
+    const isTimeout = elapsed >= GROUP_RETRY_CONFIG.TOTAL_RETRY_WINDOW_MS;
+
+    if ((isLastAttempt || isTimeout) && isCritical) {
+      this.handleCriticalGroupFailure(groupName, attempt, elapsed, error);
+    }
+
+    if (isLastAttempt || isTimeout) {
+      this.handleGroupFailure(groupName, attempt, elapsed, error);
+    }
+
+    logWarn('Group join failed, retrying', {
+      group: groupName,
+      attempt: attempt + 1,
+      maxRetries: GROUP_RETRY_CONFIG.MAX_RETRIES,
+      nextRetryIn: GROUP_RETRY_CONFIG.RETRY_INTERVAL_MS,
+    });
+
+    await new Promise(resolve =>
+      setTimeout(resolve, GROUP_RETRY_CONFIG.RETRY_INTERVAL_MS)
+    );
+  }
+
+  /**
    * Attempts to join group with retry logic
    * 
    * Checks for active connection before each retry to avoid redundant attempts.
@@ -85,51 +185,7 @@ export class WebSocketGroupRetryManager {
         });
         return; // Success
       } catch (error) {
-        // Check if connection was lost
-        if (!isConnectedFn()) {
-          logDebug('Connection lost during group join retry', {
-            group: groupName,
-            attempt: attempt + 1,
-          });
-          throw new WebSocketConnectionLostError('Connection lost');
-        }
-
-        const elapsed = Date.now() - startTime;
-        const isLastAttempt = attempt === GROUP_RETRY_CONFIG.MAX_RETRIES - 1;
-        const isTimeout = elapsed >= GROUP_RETRY_CONFIG.TOTAL_RETRY_WINDOW_MS;
-
-        if ((isLastAttempt || isTimeout) && isCritical) {
-          logError('Failed to join critical group after all retries, refreshing page', {
-            group: groupName,
-            attempts: attempt + 1,
-            elapsed,
-            error,
-          });
-          if (typeof window !== 'undefined') {
-            window.location.reload();
-          }
-          throw error;
-        }
-
-        if (isLastAttempt || isTimeout) {
-          logWarn('Failed to join group after all retries', {
-            group: groupName,
-            attempts: attempt + 1,
-            elapsed,
-          });
-          throw error;
-        }
-
-        logWarn('Group join failed, retrying', {
-          group: groupName,
-          attempt: attempt + 1,
-          maxRetries: GROUP_RETRY_CONFIG.MAX_RETRIES,
-          nextRetryIn: GROUP_RETRY_CONFIG.RETRY_INTERVAL_MS,
-        });
-
-        await new Promise(resolve =>
-          setTimeout(resolve, GROUP_RETRY_CONFIG.RETRY_INTERVAL_MS)
-        );
+        await this.handleRetryError(error, groupName, attempt, startTime, isCritical, isConnectedFn);
       }
     }
   }

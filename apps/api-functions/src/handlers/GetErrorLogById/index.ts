@@ -15,9 +15,8 @@ import { ok, badRequest } from '../../utils/response';
 import { ServiceContainer } from '../../infrastructure/container/ServiceContainer';
 import { GetErrorLogsApplicationService } from '../../application/services/GetErrorLogsApplicationService';
 import { GetErrorLogsResponse } from '../../domain/value-objects/GetErrorLogsResponse';
-import { getErrorLogByIdSchema } from '../../domain/schemas/GetErrorLogByIdSchema';
+import { getErrorLogByIdSchema, GetErrorLogByIdParams } from '../../domain/schemas/GetErrorLogByIdSchema';
 import { ensureBindings } from '../../domain/types/ContextBindings';
-import { GetErrorLogByIdParams } from '../../domain/schemas/GetErrorLogByIdSchema';
 
 /**
  * HTTP GET /api/error-logs/{id}

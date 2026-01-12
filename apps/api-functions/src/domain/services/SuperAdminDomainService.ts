@@ -16,7 +16,7 @@ import { SuperAdminUserNotFoundError, SuperAdminInvalidRoleError } from '../erro
  */
 export class SuperAdminDomainService {
   constructor(
-    private userRepository: IUserRepository
+    private readonly userRepository: IUserRepository
   ) {}
 
   /**
@@ -64,75 +64,93 @@ export class SuperAdminDomainService {
   }
 
   /**
+   * Finds user by composite ID (superadmin-{uuid})
+   * @param actualUserId - User ID extracted from composite ID
+   * @returns User if found, null otherwise
+   */
+  private async findUserByCompositeId(actualUserId: string) {
+    let user = await this.userRepository.findById(actualUserId);
+    if (user) return user;
+
+    user = await this.userRepository.findByAzureAdObjectId(actualUserId);
+    if (user) return user;
+
+    const allSuperAdmins = await this.userRepository.findAllSuperAdmins();
+    const matchingProfile = allSuperAdmins.find(profile => 
+      profile.userId === actualUserId || profile.id === actualUserId
+    );
+    
+    if (matchingProfile?.user?.email) {
+      user = await this.userRepository.findByEmail(matchingProfile.user.email);
+      if (user) return user;
+    }
+
+    const allUsers = await this.userRepository.findAllUsers();
+    const matchingUser = allUsers.find(u => 
+      u.id === actualUserId || 
+      u.azureAdObjectId === actualUserId ||
+      u.email === actualUserId
+    );
+    
+    return matchingUser ?? null;
+  }
+
+  /**
+   * Finds user by direct ID (database ID, Azure AD Object ID, or email)
+   * @param userId - User identifier
+   * @returns User if found, null otherwise
+   */
+  private async findUserByDirectId(userId: string) {
+    let user = await this.userRepository.findById(userId);
+    if (user) return user;
+
+    user = await this.userRepository.findByAzureAdObjectId(userId);
+    if (user) return user;
+
+    return await this.userRepository.findByEmail(userId);
+  }
+
+  /**
+   * Validates that user exists and is a Super Admin
+   * @param user - User to validate
+   * @param requestUserId - Original request user ID for error messages
+   * @throws SuperAdminUserNotFoundError if user is null
+   * @throws SuperAdminInvalidRoleError if user is not a Super Admin
+   * @returns The validated user (type guard ensures it's not null)
+   */
+  private validateSuperAdminUser(
+    user: { id: string; role: UserRole } | null, 
+    requestUserId: string
+  ): user is { id: string; role: UserRole } {
+    if (!user) {
+      throw new SuperAdminUserNotFoundError(`User "${requestUserId}" not found`);
+    }
+
+    if (user.role !== UserRole.SuperAdmin) {
+      throw new SuperAdminInvalidRoleError(`User "${requestUserId}" is not a Super Admin`);
+    }
+
+    return true;
+  }
+
+  /**
    * Deletes a Super Admin by revoking their role.
    * @param request - The Super Admin deletion request
    * @returns Promise that resolves when deletion is complete
    */
   async deleteSuperAdmin(request: DeleteSuperAdminRequest): Promise<void> {
-    let user;
-
-    // Handle both composite ID (superadmin-{uuid}) and direct Azure AD Object ID
-    if (request.userId.startsWith('superadmin-')) {
-      // Extract the actual user ID from the composite ID
-      const actualUserId = request.userId.replace('superadmin-', '');
-      
-      user = await this.userRepository.findById(actualUserId);
-      
-      if (!user) {
-        user = await this.userRepository.findByAzureAdObjectId(actualUserId);
-      }
+    const isCompositeId = request.userId.startsWith('superadmin-');
+    const userId = isCompositeId ? request.userId.replace('superadmin-', '') : request.userId;
     
-      // 3. If still not found, try by email (last resort)
-      if (!user) {
-        const allSuperAdmins = await this.userRepository.findAllSuperAdmins();
-        const matchingProfile = allSuperAdmins.find(profile => 
-          profile.userId === actualUserId || profile.id === actualUserId
-        );
-        
-        if (matchingProfile && matchingProfile.user?.email) {
-          user = await this.userRepository.findByEmail(matchingProfile.user.email);
-        }
-      }
-      
-      // 4. If still not found, try to find by any field that matches
-      if (!user) {
-        // Try to find by any field that might match
-        const allUsers = await this.userRepository.findAllUsers();
-        const matchingUser = allUsers.find(u => 
-          u.id === actualUserId || 
-          u.azureAdObjectId === actualUserId ||
-          u.email === actualUserId
-        );
-        
-        if (matchingUser) {
-          user = matchingUser;
-        }
-      }
-    } else {
-      // Try multiple strategies: database ID, Azure AD Object ID, or email
-      user = await this.userRepository.findById(request.userId);
-      
-      if (!user) {
-        user = await this.userRepository.findByAzureAdObjectId(request.userId);
-      }
-      
-      if (!user) {
-        user = await this.userRepository.findByEmail(request.userId);
-      }
+    const user = isCompositeId 
+      ? await this.findUserByCompositeId(userId)
+      : await this.findUserByDirectId(userId);
+
+    if (!this.validateSuperAdminUser(user, request.userId)) {
+      return; // This should never happen due to exception, but satisfies type checker
     }
 
-    if (!user) {
-      throw new SuperAdminUserNotFoundError(`User "${request.userId}" not found`);
-    }
-
-    if (user.role !== UserRole.SuperAdmin) {
-      throw new SuperAdminInvalidRoleError(`User "${request.userId}" is not a Super Admin`);
-    }
-
-    // Change user role to Unassigned (soft delete)
     await this.userRepository.changeUserRole(user.id, UserRole.Unassigned);
-
-    // Log the deletion
     await this.logSuperAdminDeletion(user.id, user.id);
   }
 

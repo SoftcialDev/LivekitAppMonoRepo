@@ -4,7 +4,7 @@
  */
 
 import { getCentralAmericaTime } from '../../utils/dateUtils';
-import { generateSnapshotFileName, generateSnapshotFolderPath, sanitizeFileName } from '../../utils/fileNameUtils';
+import { generateSnapshotFileName, generateSnapshotFolderPath } from '../../utils/fileNameUtils';
 import { ValidationError } from '../errors/DomainError';
 import { ValidationErrorCode } from '../errors/ErrorCodes';
 
@@ -47,8 +47,9 @@ export class ImageUploadRequest {
     // Validate base64 format
     try {
       Buffer.from(base64Data, 'base64');
-    } catch (error) {
-      throw new ValidationError('Invalid base64 format', ValidationErrorCode.INVALID_FORMAT);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Invalid base64 format';
+      throw new ValidationError(`Invalid base64 format: ${errorMessage}`, ValidationErrorCode.INVALID_FORMAT);
     }
 
     this.base64Data = base64Data;

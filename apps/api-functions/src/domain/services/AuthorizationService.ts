@@ -14,7 +14,7 @@ import { AuthErrorCode } from '../errors/ErrorCodes';
  * Domain service for authorization operations
  */
 export class AuthorizationService implements IAuthorizationService {
-  private userRepository: IUserRepository;
+  private readonly userRepository: IUserRepository;
 
   /**
    * Creates a new AuthorizationService instance
@@ -67,8 +67,9 @@ export class AuthorizationService implements IAuthorizationService {
     await this.validateUserActive(callerId);
     const hasPerm = await this.hasPermission(callerId, permission);
     if (!hasPerm) {
+      const operationSuffix = operationName ? ` for ${operationName}` : '';
       throw new AuthError(
-        `Insufficient permissions${operationName ? ` for ${operationName}` : ''} (required: ${permission})`,
+        `Insufficient permissions${operationSuffix} (required: ${permission})`,
         AuthErrorCode.INSUFFICIENT_PRIVILEGES
       );
     }
@@ -84,8 +85,10 @@ export class AuthorizationService implements IAuthorizationService {
     await this.validateUserActive(callerId);
     const hasAny = await this.hasAnyPermission(callerId, permissions);
     if (!hasAny) {
+      const operationSuffix = operationName ? ` for ${operationName}` : '';
+      const permissionsList = permissions.join(', ');
       throw new AuthError(
-        `Insufficient permissions${operationName ? ` for ${operationName}` : ''} (required any of: ${permissions.join(', ')})`,
+        `Insufficient permissions${operationSuffix} (required any of: ${permissionsList})`,
         AuthErrorCode.INSUFFICIENT_PRIVILEGES
       );
     }

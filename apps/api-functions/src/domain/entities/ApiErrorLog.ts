@@ -5,7 +5,6 @@
 
 import { ErrorSeverity } from '../enums/ErrorSeverity';
 import { ErrorSource } from '../enums/ErrorSource';
-import { getCentralAmericaTime } from '../../utils/dateUtils';
 
 /**
  * Domain entity representing an API error log with business logic
@@ -108,7 +107,7 @@ export class ApiErrorLog {
       userId: prismaErrorLog.userId,
       userEmail: prismaErrorLog.userEmail,
       requestId: prismaErrorLog.requestId,
-      context: prismaErrorLog.context as Record<string, unknown> | null,
+      context: prismaErrorLog.context,
       resolved: prismaErrorLog.resolved,
       resolvedAt: prismaErrorLog.resolvedAt,
       resolvedBy: prismaErrorLog.resolvedBy,

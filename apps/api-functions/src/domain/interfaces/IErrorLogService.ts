@@ -21,7 +21,7 @@ export interface IErrorLogService {
     source: ErrorSource;
     endpoint?: string;
     functionName?: string;
-    error: Error | unknown;
+    error: unknown;
     userId?: string;
     userEmail?: string;
     requestId?: string;
@@ -39,7 +39,7 @@ export interface IErrorLogService {
   logChatServiceError(data: {
     endpoint: string;
     functionName: string;
-    error: Error | unknown;
+    error: unknown;
     userId?: string;
     userEmail?: string;
     chatId?: string;

@@ -13,17 +13,16 @@ import { IWebPubSubService } from '../../domain/interfaces/IWebPubSubService';
 import { MessagingError } from '../../domain/errors/DomainError';
 import { MessagingErrorCode } from '../../domain/errors/ErrorCodes';
 import { ValidationUtils } from '../../domain/utils/ValidationUtils';
-import { AuthorizationUtils } from '../../domain/utils/AuthorizationUtils';
 import { CommandType } from '../../domain/enums/CommandType';
 
 /**
  * Application service for command operations
  */
 export class CommandApplicationService {
-  private commandMessagingService: ICommandMessagingService;
-  private userRepository: IUserRepository;
-  private authorizationService: IAuthorizationService;
-  private webPubSubService: IWebPubSubService;
+  private readonly commandMessagingService: ICommandMessagingService;
+  private readonly userRepository: IUserRepository;
+  private readonly authorizationService: IAuthorizationService;
+  private readonly webPubSubService: IWebPubSubService;
 
   /**
    * Creates a new CommandApplicationService instance
@@ -79,6 +78,22 @@ export class CommandApplicationService {
   }
 
   /**
+   * Determines the status string based on command type
+   * @param command - The command type
+   * @returns Status string or null if command type is not supported
+   * @private
+   */
+  private getStatusFromCommand(command: CommandType): string | null {
+    if (command === CommandType.START) {
+      return 'pending';
+    }
+    if (command === CommandType.STOP) {
+      return 'stopped';
+    }
+    return null;
+  }
+
+  /**
    * Broadcasts stream events to supervisors via WebSocket
    * @param email - The email of the PSO
    * @param command - The command type (START/STOP)
@@ -87,12 +102,7 @@ export class CommandApplicationService {
    */
   private async broadcastStreamEvent(email: string, command: CommandType, reason?: string): Promise<void> {
     try {
-      const status =
-        command === CommandType.START
-          ? 'pending'
-          : command === CommandType.STOP
-          ? 'stopped'
-          : null;
+      const status = this.getStatusFromCommand(command);
 
       if (!status) {
         return;

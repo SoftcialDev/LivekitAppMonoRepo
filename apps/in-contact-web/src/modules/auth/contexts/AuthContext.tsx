@@ -5,7 +5,7 @@
  * Manages MSAL account state and exposes login, logout, token acquisition, and role refresh.
  */
 
-import React, { createContext, useState, useEffect, type ReactNode } from 'react';
+import React, { createContext, useState, useEffect, useMemo, type ReactNode } from 'react';
 import { MsalProvider, useMsal, useIsAuthenticated } from '@azure/msal-react';
 import type {
   AuthenticationResult,
@@ -107,7 +107,7 @@ const InnerAuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     }
     // Immediately clear local state and go to login page
     setAccount(null);
-    window.location.href = '/login';
+    globalThis.location.href = '/login';
   };
 
   /**
@@ -192,10 +192,13 @@ const InnerAuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     }
   };
 
+  const contextValue = useMemo(
+    () => ({ account, initialized, login, logout, getApiToken, refreshRoles }),
+    [account, initialized, login, logout, getApiToken, refreshRoles]
+  );
+
   return (
-    <AuthContext.Provider
-      value={{ account, initialized, login, logout, getApiToken, refreshRoles }}
-    >
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );

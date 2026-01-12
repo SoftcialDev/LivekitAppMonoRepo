@@ -14,12 +14,12 @@ export const getTalkSessionsSchema = z.object({
   /** Page number (1-based) */
   page: z.string()
     .optional()
-    .transform(val => val ? parseInt(val, 10) : 1)
+    .transform(val => val ? Number.parseInt(val, 10) : 1)
     .refine(val => val >= 1, 'Page must be at least 1'),
   /** Number of items per page */
   limit: z.string()
     .optional()
-    .transform(val => val ? parseInt(val, 10) : 10)
+    .transform(val => val ? Number.parseInt(val, 10) : 10)
     .refine(val => val >= 1 && val <= 100, 'Limit must be between 1 and 100')
 });
 

@@ -31,16 +31,12 @@ export function startCountdown(
     }
   }, COUNTDOWN_INTERVAL_MS);
 
-  const timeoutId = window.setTimeout(async () => {
+  const timeoutId = globalThis.setTimeout(async () => {
     clearInterval(countdownInterval);
     callbacks.onCountdownUpdate(null);
     callbacks.onCountdownEnd();
 
-    try {
-      await callbacks.onComplete();
-    } catch (error) {
-      throw error;
-    }
+    await callbacks.onComplete();
   }, COUNTDOWN_DURATION_MS);
 
   // Return cancel function

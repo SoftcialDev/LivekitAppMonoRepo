@@ -14,10 +14,9 @@ import { Permission } from '../../domain/enums/Permission';
 import { ok } from '../../utils/response';
 import { GetLivekitRecordingsApplicationService } from '../../application/services/GetLivekitRecordingsApplicationService';
 import { GetLivekitRecordingsRequest } from '../../domain/value-objects/GetLivekitRecordingsRequest';
-import { getLivekitRecordingsSchema } from '../../domain/schemas/GetLivekitRecordingsSchema';
+import { getLivekitRecordingsSchema, GetLivekitRecordingsRequestPayload } from '../../domain/schemas/GetLivekitRecordingsSchema';
 import { serviceContainer } from '../../infrastructure/container/ServiceContainer';
 import { ensureBindings } from '../../domain/types/ContextBindings';
-import { GetLivekitRecordingsRequestPayload } from '../../domain/schemas/GetLivekitRecordingsSchema';
 
 /**
  * Azure Function to fetch LiveKit recording sessions

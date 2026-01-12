@@ -60,7 +60,9 @@ export function useSupervisorFilter<T extends { supervisorAdId?: string; supervi
 
   // Load supervisors on mount (only once)
   useEffect(() => {
-    void fetchSupervisors();
+    fetchSupervisors().catch((err) => {
+      logError('Error in fetchSupervisors effect', { error: err });
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Empty deps array to ensure it only runs once on mount
 

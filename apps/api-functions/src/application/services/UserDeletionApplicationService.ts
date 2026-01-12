@@ -22,11 +22,11 @@ import { AuditUtils } from '../../domain/utils/AuditUtils';
  * Application service for user deletion operations
  */
 export class UserDeletionApplicationService {
-  private userRepository: IUserRepository;
-  private authorizationService: IAuthorizationService;
-  private auditService: IAuditService;
-  private presenceService: IPresenceService;
-  private webPubSubService: IWebPubSubService;
+  private readonly userRepository: IUserRepository;
+  private readonly authorizationService: IAuthorizationService;
+  private readonly auditService: IAuditService;
+  private readonly presenceService: IPresenceService;
+  private readonly webPubSubService: IWebPubSubService;
 
   /**
    * Creates a new UserDeletionApplicationService instance

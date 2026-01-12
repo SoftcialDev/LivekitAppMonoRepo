@@ -33,7 +33,6 @@ import type { IUseStreamingDashboardReturn } from './types/useStreamingDashboard
 export function useStreamingDashboard(): IUseStreamingDashboardReturn {
   const { account } = useAuth();
   const userEmail = account?.username?.toLowerCase() ?? '';
-  const userAdId = account?.localAccountId ?? '';
 
   // Refs for DOM elements
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -65,11 +64,15 @@ export function useStreamingDashboard(): IUseStreamingDashboardReturn {
     manualStopRef,
     onDisconnected: () => {
       logDebug('[useStreamingDashboard] Room disconnected, triggering reconnect');
-      void handleReconnectionRef.current?.();
+      handleReconnectionRef.current?.().catch((err) => {
+        logError('[useStreamingDashboard] Error in reconnection handler', { error: err });
+      });
     },
     onTrackEnded: () => {
       logDebug('[useStreamingDashboard] Video track ended, triggering reconnect');
-      void handleReconnectionRef.current?.();
+      handleReconnectionRef.current?.().catch((err) => {
+        logError('[useStreamingDashboard] Error in reconnection handler', { error: err });
+      });
     },
   });
   
@@ -78,6 +81,136 @@ export function useStreamingDashboard(): IUseStreamingDashboardReturn {
   useEffect(() => {
     roomSetupRef.current = roomSetup;
   }, [roomSetup]);
+
+  /**
+   * Cleans up old room connection
+   */
+  const cleanupOldRoom = useCallback(async (): Promise<void> => {
+    const oldRoom = roomRef.current;
+    if (oldRoom) {
+      try {
+        await oldRoom.disconnect();
+      } catch (err) {
+        logDebug('[useStreamingDashboard] Error disconnecting old room during reconnect', { error: err });
+      }
+      roomRef.current = null;
+    }
+  }, []);
+
+  /**
+   * Gets or creates video track for reconnection
+   */
+  const getOrCreateVideoTrack = useCallback(async (): Promise<LocalVideoTrack> => {
+    let track = videoTrackRef.current;
+    if (!track || track.mediaStreamTrack?.readyState === 'ended') {
+      logDebug('[useStreamingDashboard] Video track ended, creating new track for reconnection');
+      track = await mediaDevices.createVideoTrackFromDevices();
+      videoTrackRef.current = track;
+      setVideoTrack(track);
+
+      // Reattach to video element
+      if (videoRef.current) {
+        track.attach(videoRef.current);
+      }
+    }
+    return track;
+  }, [mediaDevices]);
+
+  /**
+   * Creates and connects to room with timeout
+   */
+  const connectToRoomWithTimeout = useCallback(async (
+    livekitUrl: string,
+    token: string,
+    currentRoomName: string,
+    attempt: number
+  ): Promise<Room> => {
+    logDebug('[useStreamingDashboard] Connecting to LiveKit room for reconnection', { 
+      currentRoomName, 
+      attempt: attempt + 1,
+      timeoutMs: Math.min(5000 + attempt * 2000, 15000)
+    });
+    const room = new Room();
+
+    room.on('connected', () => {
+      logDebug('[useStreamingDashboard] Room reconnected', { currentRoomName });
+    });
+
+    room.on('disconnected', (reason) => {
+      logDebug('[useStreamingDashboard] Room disconnected after reconnect', { reason });
+      if (streamingRef.current && !manualStopRef.current) {
+        roomRef.current = null;
+      }
+    });
+
+    // Connection with timeout (similar to admin-web useRetryLogic)
+    const timeoutMs = Math.min(5000 + attempt * 2000, 15000);
+    const connectPromise = room.connect(livekitUrl, token);
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error(`Connection timeout after ${timeoutMs}ms`)), timeoutMs)
+    );
+    
+    await Promise.race([connectPromise, timeoutPromise]);
+    return room;
+  }, []);
+
+  /**
+   * Attempts a single reconnection
+   */
+  const attemptReconnection = useCallback(async (attempt: number): Promise<boolean> => {
+    try {
+      await cleanupOldRoom();
+
+      // Get fresh LiveKit token
+      logDebug('[useStreamingDashboard] Fetching fresh LiveKit token for reconnection', { attempt: attempt + 1 });
+      const tokenResponse = await getLiveKitToken();
+      const roomEntry = tokenResponse.rooms[0];
+      if (!roomEntry) {
+        throw new Error('No room token available for reconnection');
+      }
+
+      const currentRoomName = roomEntry.room;
+      const token = roomEntry.token;
+      const livekitUrl = tokenResponse.livekitUrl || import.meta.env.VITE_LIVEKIT_URL;
+      
+      if (!livekitUrl) {
+        throw new Error('LiveKit URL not configured');
+      }
+
+      const track = await getOrCreateVideoTrack();
+      const room = await connectToRoomWithTimeout(livekitUrl, token, currentRoomName, attempt);
+      roomRef.current = room;
+
+      // Set up room and publish video track using roomSetupRef (with audioRef for remote participant audio)
+      const currentRoomSetup = roomSetupRef.current;
+      if (!currentRoomSetup) {
+        throw new Error('Room setup not available for reconnection');
+      }
+      await currentRoomSetup.setupRoom(room, track, audioRef);
+
+      // Notify backend of reconnection (like admin-web)
+      try {
+        await streamingClientRef.current.setActive();
+      } catch (err) {
+        logError('[useStreamingDashboard] Error notifying backend of reconnection', { error: err });
+        // Continue even if backend notification fails
+      }
+
+      logInfo('[useStreamingDashboard] Automatic reconnection successful', { 
+        userEmail, 
+        currentRoomName,
+        attempt: attempt + 1
+      });
+      return true; // Success
+    } catch (error) {
+      logError('[useStreamingDashboard] Automatic reconnection attempt failed', { 
+        error, 
+        userEmail,
+        attempt: attempt + 1
+      });
+      return false; // Failed
+    }
+  }, [userEmail, cleanupOldRoom, getOrCreateVideoTrack, connectToRoomWithTimeout]);
 
   /**
    * Handles automatic reconnection when room disconnects or track ends
@@ -93,133 +226,38 @@ export function useStreamingDashboard(): IUseStreamingDashboardReturn {
     logInfo('[useStreamingDashboard] Starting automatic reconnection with retry logic');
 
     for (let attempt = 0; attempt < maxRetries; attempt++) {
-      try {
-        // Clean up existing room connection (but keep video track if still alive)
-        const oldRoom = roomRef.current;
-        if (oldRoom) {
-          try {
-            await oldRoom.disconnect();
-          } catch (err) {
-            logDebug('[useStreamingDashboard] Error disconnecting old room during reconnect', { error: err });
-          }
-          roomRef.current = null;
-        }
-
-        // Get fresh LiveKit token
-        logDebug('[useStreamingDashboard] Fetching fresh LiveKit token for reconnection', { attempt: attempt + 1 });
-        const tokenResponse = await getLiveKitToken();
-        const roomEntry = tokenResponse.rooms[0];
-        if (!roomEntry) {
-          throw new Error('No room token available for reconnection');
-        }
-
-        const currentRoomName = roomEntry.room;
-        const token = roomEntry.token;
-        const livekitUrl = tokenResponse.livekitUrl || import.meta.env.VITE_LIVEKIT_URL;
-        
-        if (!livekitUrl) {
-          throw new Error('LiveKit URL not configured');
-        }
-
-        // Reuse existing video track if still alive, otherwise create new one
-        let track = videoTrackRef.current;
-        if (!track || track.mediaStreamTrack?.readyState === 'ended') {
-          logDebug('[useStreamingDashboard] Video track ended, creating new track for reconnection');
-          track = await mediaDevices.createVideoTrackFromDevices();
-          videoTrackRef.current = track;
-          setVideoTrack(track);
-
-          // Reattach to video element
-          if (videoRef.current) {
-            track.attach(videoRef.current);
-          }
-        }
-
-        // Create and connect to new room with timeout
-        logDebug('[useStreamingDashboard] Connecting to LiveKit room for reconnection', { 
-          currentRoomName, 
-          attempt: attempt + 1,
-          timeoutMs: Math.min(5000 + attempt * 2000, 15000)
-        });
-        const room = new Room();
-
-        room.on('connected', () => {
-          logDebug('[useStreamingDashboard] Room reconnected', { currentRoomName });
-        });
-
-        room.on('disconnected', (reason) => {
-          logDebug('[useStreamingDashboard] Room disconnected after reconnect', { reason });
-          if (streamingRef.current && !manualStopRef.current) {
-            roomRef.current = null;
-          }
-        });
-
-        // Connection with timeout (similar to admin-web useRetryLogic)
-        const timeoutMs = Math.min(5000 + attempt * 2000, 15000);
-        const connectPromise = room.connect(livekitUrl, token);
-        const timeoutPromise = new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error(`Connection timeout after ${timeoutMs}ms`)), timeoutMs)
-        );
-        
-        await Promise.race([connectPromise, timeoutPromise]);
-        roomRef.current = room;
-
-        // Set up room and publish video track using roomSetupRef (with audioRef for remote participant audio)
-        const currentRoomSetup = roomSetupRef.current;
-        if (!currentRoomSetup) {
-          throw new Error('Room setup not available for reconnection');
-        }
-        await currentRoomSetup.setupRoom(room, track, audioRef);
-
-        // Notify backend of reconnection (like admin-web)
-        try {
-          await streamingClientRef.current.setActive();
-        } catch (err) {
-          logError('[useStreamingDashboard] Error notifying backend of reconnection', { error: err });
-          // Continue even if backend notification fails
-        }
-
-        logInfo('[useStreamingDashboard] Automatic reconnection successful', { 
-          userEmail, 
-          currentRoomName,
-          attempt: attempt + 1
-        });
+      const success = await attemptReconnection(attempt);
+      
+      if (success) {
         isReconnectingRef.current = false;
         return; // Success, exit retry loop
-      } catch (error) {
-        logError('[useStreamingDashboard] Automatic reconnection attempt failed', { 
-          error, 
-          userEmail,
-          attempt: attempt + 1,
-          maxRetries
-        });
-        
-        // Cleanup between attempts
-        if (roomRef.current) {
-          try {
-            await roomRef.current.disconnect();
-          } catch {}
-          roomRef.current = null;
-        }
-
-        // If this was the last attempt, stop streaming
-        if (attempt === maxRetries - 1) {
-          logError('[useStreamingDashboard] All reconnection attempts failed, stopping stream', { userEmail });
-          streamingRef.current = false;
-          setIsStreaming(false);
-          isReconnectingRef.current = false;
-          return;
-        }
-
-        // Exponential backoff before next attempt (like admin-web)
-        const backoffMs = Math.min(2000 * Math.pow(2, attempt), 10000);
-        logDebug('[useStreamingDashboard] Waiting before retry', { backoffMs, nextAttempt: attempt + 2 });
-        await new Promise((resolve) => setTimeout(resolve, backoffMs));
       }
+
+      // Cleanup between attempts
+      if (roomRef.current) {
+        try {
+          await roomRef.current.disconnect();
+        } catch {}
+        roomRef.current = null;
+      }
+
+      // If this was the last attempt, stop streaming
+      if (attempt === maxRetries - 1) {
+        logError('[useStreamingDashboard] All reconnection attempts failed, stopping stream', { userEmail });
+        streamingRef.current = false;
+        setIsStreaming(false);
+        isReconnectingRef.current = false;
+        return;
+      }
+
+      // Exponential backoff before next attempt (like admin-web)
+      const backoffMs = Math.min(2000 * Math.pow(2, attempt), 10000);
+      logDebug('[useStreamingDashboard] Waiting before retry', { backoffMs, nextAttempt: attempt + 2 });
+      await new Promise((resolve) => setTimeout(resolve, backoffMs));
     }
 
     isReconnectingRef.current = false;
-  }, [userEmail, mediaDevices, roomSetup]);
+  }, [userEmail, attemptReconnection]);
 
   /**
    * Starts a streaming session with camera and LiveKit connection
@@ -315,6 +353,93 @@ export function useStreamingDashboard(): IUseStreamingDashboardReturn {
   }, [userEmail, mediaDevices, roomSetup]);
 
   /**
+   * Unpublishes and stops video track
+   */
+  const cleanupVideoTrack = useCallback(async (room: Room | null, track: LocalVideoTrack | null): Promise<void> => {
+    if (room && track) {
+      try {
+        await room.localParticipant.unpublishTrack(track, true);
+      } catch (err) {
+        logError('[useStreamingDashboard] Error unpublishing track', { error: err });
+      }
+    }
+
+    if (track) {
+      try {
+        track.detach();
+        track.stop();
+      } catch (err) {
+        logError('[useStreamingDashboard] Error stopping track', { error: err });
+      }
+      videoTrackRef.current = null;
+      setVideoTrack(null);
+    }
+  }, []);
+
+  /**
+   * Clears video element
+   */
+  const clearVideoElement = useCallback((): void => {
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+      videoRef.current.src = '';
+    }
+  }, []);
+
+  /**
+   * Disconnects from room
+   */
+  const disconnectFromRoom = useCallback(async (room: Room | null): Promise<void> => {
+    if (room) {
+      try {
+        await room.disconnect();
+      } catch (err) {
+        logError('[useStreamingDashboard] Error disconnecting from room', { error: err });
+      }
+      roomRef.current = null;
+    }
+  }, []);
+
+  /**
+   * Notifies backend and dispatches status update event
+   */
+  const notifyBackendAndDispatchEvent = useCallback(async (reason?: string): Promise<void> => {
+    try {
+      const response = await streamingClientRef.current.setInactive(reason, true);
+      
+      // Dispatch event to update streaming status immediately (like admin-web)
+      if (response.stoppedAt && response.stopReason) {
+        const event = new CustomEvent('streamingSessionUpdated', {
+          detail: {
+            session: {
+              stopReason: response.stopReason,
+              stoppedAt: response.stoppedAt,
+              email: userEmail,
+            },
+          },
+        });
+        globalThis.dispatchEvent(event);
+        logDebug('[useStreamingDashboard] Dispatched streamingSessionUpdated event', {
+          stopReason: response.stopReason,
+          stoppedAt: response.stoppedAt,
+          reason,
+        });
+      }
+    } catch (err) {
+      logError('[useStreamingDashboard] Error notifying backend of stop', { error: err, reason });
+    }
+  }, [userEmail]);
+
+  /**
+   * Updates streaming state to stopped
+   */
+  const updateStreamingStateToStopped = useCallback((): void => {
+    streamingRef.current = false;
+    setIsStreaming(false);
+    manualStopRef.current = false;
+  }, []);
+
+  /**
    * Stops an active streaming session
    * @param reason - Optional stop reason (e.g., 'EMERGENCY', 'QUICK_BREAK', etc.)
    */
@@ -333,82 +458,26 @@ export function useStreamingDashboard(): IUseStreamingDashboardReturn {
       const room = roomRef.current;
       const track = videoTrackRef.current;
 
-      // Unpublish and stop tracks
-      if (room && track) {
-        try {
-          await room.localParticipant.unpublishTrack(track, true);
-        } catch (err) {
-          logError('[useStreamingDashboard] Error unpublishing track', { error: err });
-        }
-      }
-
-      if (track) {
-        try {
-          track.detach();
-          track.stop();
-        } catch (err) {
-          logError('[useStreamingDashboard] Error stopping track', { error: err });
-        }
-        videoTrackRef.current = null;
-        setVideoTrack(null);
-      }
-
-      // Clear video element
-      if (videoRef.current) {
-        videoRef.current.srcObject = null;
-        videoRef.current.src = '';
-      }
-
-      // Disconnect from room
-      if (room) {
-        try {
-          await room.disconnect();
-        } catch (err) {
-          logError('[useStreamingDashboard] Error disconnecting from room', { error: err });
-        }
-        roomRef.current = null;
-      }
-
-      // Notify backend and dispatch event for status update
-      try {
-        const response = await streamingClientRef.current.setInactive(reason, true);
-        
-        // Dispatch event to update streaming status immediately (like admin-web)
-        if (response.stoppedAt && response.stopReason) {
-          const event = new CustomEvent('streamingSessionUpdated', {
-            detail: {
-              session: {
-                stopReason: response.stopReason,
-                stoppedAt: response.stoppedAt,
-                email: userEmail,
-              },
-            },
-          });
-          window.dispatchEvent(event);
-          logDebug('[useStreamingDashboard] Dispatched streamingSessionUpdated event', {
-            stopReason: response.stopReason,
-            stoppedAt: response.stoppedAt,
-            reason,
-          });
-        }
-      } catch (err) {
-        logError('[useStreamingDashboard] Error notifying backend of stop', { error: err, reason });
-      }
-
-      // Update state
-      streamingRef.current = false;
-      setIsStreaming(false);
-      manualStopRef.current = false; // Reset after stop completes
+      await cleanupVideoTrack(room, track);
+      clearVideoElement();
+      await disconnectFromRoom(room);
+      await notifyBackendAndDispatchEvent(reason);
+      updateStreamingStateToStopped();
 
       logInfo('[useStreamingDashboard] Stream stopped successfully', { userEmail, reason });
     } catch (error) {
       logError('[useStreamingDashboard] Error stopping stream', { error, userEmail, reason });
       // Still update state even on error
-      streamingRef.current = false;
-      setIsStreaming(false);
-      manualStopRef.current = false; // Reset even on error
+      updateStreamingStateToStopped();
     }
-  }, [userEmail]);
+  }, [userEmail, cleanupVideoTrack, clearVideoElement, disconnectFromRoom, notifyBackendAndDispatchEvent, updateStreamingStateToStopped]);
+
+  /**
+   * Assign handleReconnection to ref for use in callbacks
+   */
+  useEffect(() => {
+    handleReconnectionRef.current = handleReconnection;
+  }, [handleReconnection]);
 
   /**
    * Cleanup on unmount

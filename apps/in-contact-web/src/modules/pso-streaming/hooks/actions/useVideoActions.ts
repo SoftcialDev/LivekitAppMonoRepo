@@ -65,7 +65,8 @@ export function useVideoActions() {
       try {
         await commandClient.stop(email, reason);
         logInfo('Stream stop command sent', { email, reason, currentUser });
-        showToast(`Stopped stream for ${email}${reason ? ` (${reason})` : ''}`, 'success');
+        const reasonText = reason ? ` (${reason})` : '';
+        showToast(`Stopped stream for ${email}${reasonText}`, 'success');
       } catch (err) {
         const error = err instanceof Error ? err : new Error(String(err));
         logError('Failed to stop stream', { error, email, reason, currentUser });

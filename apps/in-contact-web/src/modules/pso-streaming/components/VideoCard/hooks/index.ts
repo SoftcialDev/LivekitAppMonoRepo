@@ -6,6 +6,7 @@
 export { useVideoCardHandlers } from './useVideoCardHandlers';
 export { useVideoCardCleanup } from './useVideoCardCleanup';
 export { useVideoCardState } from './useVideoCardState';
+export { useVideoCardLogic } from './useVideoCardLogic';
 
 export type {
   IUseVideoCardHandlersOptions,
@@ -20,4 +21,9 @@ export type {
   IUseVideoCardStateOptions,
   IUseVideoCardStateReturn,
 } from '../types/useVideoCardStateTypes';
+
+export type {
+  IUseVideoCardLogicOptions,
+  IUseVideoCardLogicReturn,
+} from '../types/useVideoCardLogicTypes';
 

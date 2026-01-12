@@ -58,12 +58,12 @@ export class WebSocketService {
   private readonly groupManager = new WebSocketGroupManager();
 
   // === App-level listener registries (persist across client recreation) ===
-  private messageHandlers = new Set<MessageHandler<any>>();
-  private connectedHandlers = new Set<VoidHandler>();
-  private disconnectedHandlers = new Set<VoidHandler>();
+  private readonly messageHandlers = new Set<MessageHandler<any>>();
+  private readonly connectedHandlers = new Set<VoidHandler>();
+  private readonly disconnectedHandlers = new Set<VoidHandler>();
 
   // === Handler registry (for SRP-based message handling) ===
-  private registeredHandlers: BaseWebSocketHandler<any>[] = [];
+  private readonly registeredHandlers: BaseWebSocketHandler<any>[] = [];
 
   // === Global "online" listener ref (so we can uninstall it) ===
   private onlineListener?: () => void;
@@ -74,9 +74,7 @@ export class WebSocketService {
    * @returns Singleton instance
    */
   static getInstance(): WebSocketService {
-    if (!WebSocketService.instance) {
-      WebSocketService.instance = new WebSocketService();
-    }
+    WebSocketService.instance ??= new WebSocketService();
     return WebSocketService.instance;
   }
 
@@ -189,13 +187,13 @@ export class WebSocketService {
     })();
 
     // Install a single 'online' handler (first connect only)
-    if (typeof window !== 'undefined' && !this.onlineListener) {
+    if (globalThis.window !== undefined && !this.onlineListener) {
       this.onlineListener = () => {
         if (!this.isConnected() && this.shouldReconnect) {
           this.scheduleReconnect('online event', true);
         }
       };
-      window.addEventListener('online', this.onlineListener, { passive: true });
+      globalThis.window.addEventListener('online', this.onlineListener, { passive: true });
     }
 
     return this.connectPromise;
@@ -248,7 +246,7 @@ export class WebSocketService {
     this.reconnectManager.clearReconnectTimer();
 
     if (this.onlineListener) {
-      window.removeEventListener('online', this.onlineListener);
+      globalThis.window.removeEventListener('online', this.onlineListener);
       this.onlineListener = undefined;
     }
 

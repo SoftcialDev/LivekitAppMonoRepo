@@ -4,7 +4,7 @@
  * @description Handles orchestration of recording session start, stop, and management operations
  */
 
-import { EgressStatus, type EgressInfo } from "livekit-server-sdk";
+import { EgressStatus } from "livekit-server-sdk";
 import { getCentralAmericaTime } from '../../utils/dateUtils';
 import { tryParseBlobPathFromUrl } from '../../utils/blobUrlParser';
 import { RecordingStopStatus } from '../../domain/enums/RecordingStopStatus';
@@ -333,6 +333,92 @@ export class RecordingSessionApplicationService {
   }
 
   /**
+   * Gets cluster error details for an egress session
+   * @param egressId - Egress identifier
+   * @returns Cluster error details or undefined if unavailable
+   */
+  private async getClusterErrorDetails(egressId: string): Promise<EgressErrorDetails | undefined> {
+    try {
+      const egressInfo = await this.egressClient.getEgressInfo(egressId);
+      return egressInfo ? extractEgressErrorDetails(egressInfo) : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  /**
+   * Attempts to stop egress and returns blob URL or error
+   * @param egressId - Egress identifier
+   * @param clusterErrorDetails - Optional cluster error details
+   * @returns Object with blobUrl or egressError
+   */
+  private async stopEgressWithErrorHandling(
+    egressId: string,
+    clusterErrorDetails: EgressErrorDetails | undefined
+  ): Promise<{ blobUrl?: string; egressError?: string }> {
+    try {
+      const stopResult = await this.egressClient.stopEgress(egressId);
+      return { blobUrl: stopResult.blobUrl };
+    } catch (err: unknown) {
+      const errorMessage = extractErrorMessage(err);
+      const message = errorMessage.toLowerCase();
+      
+      if (message.includes("egress_failed") || message.includes("cannot be stopped")) {
+        const errorDetails = extractEgressErrorDetails(err);
+        
+        if (clusterErrorDetails) {
+          Object.assign(errorDetails, clusterErrorDetails);
+        }
+        
+        const egressError = extractEgressErrorMessage(errorDetails, err, 'Egress failed but error details not available');
+        return { egressError };
+      }
+      
+      throw err;
+    }
+  }
+
+  /**
+   * Processes a single recording session stop attempt
+   * @param session - Recording session to stop
+   * @param sasMinutes - SAS validity minutes
+   * @returns RecordingStopResult for the session
+   */
+  private async processSessionStop(
+    session: RecordingSession,
+    sasMinutes: number
+  ): Promise<RecordingStopResult> {
+    const clusterErrorDetails = await this.getClusterErrorDetails(session.egressId);
+    const { blobUrl, egressError } = await this.stopEgressWithErrorHandling(session.egressId, clusterErrorDetails);
+    
+    if (egressError) {
+      return await this.handleFailedSession(session, egressError, clusterErrorDetails);
+    }
+
+    return await this.handleCompletedSession(session, blobUrl, sasMinutes);
+  }
+
+  /**
+   * Handles error when processing session stop
+   * @param session - Recording session
+   * @param err - Error that occurred
+   * @returns RecordingStopResult for the session
+   */
+  private async handleSessionStopError(
+    session: RecordingSession,
+    err: unknown
+  ): Promise<RecordingStopResult> {
+    const message = (err instanceof Error ? err.message : String(err)).toLowerCase();
+    const notFound = message.includes("not found") || message.includes("no active egress");
+    
+    if (notFound) {
+      return await this.handleDisconnectedSession(session);
+    }
+
+    return await this.handleStopError(session, err);
+  }
+
+  /**
    * Stops all active recordings for a user
    * @param userId - User ID to stop recordings for
    * @param sasMinutes - SAS validity minutes
@@ -363,59 +449,13 @@ export class RecordingSessionApplicationService {
 
     for (const session of sessions) {
       try {
-        let blobUrl: string | undefined;
-        let egressError: string | undefined;
-        let clusterErrorDetails: EgressErrorDetails | undefined;
-
-        try {
-          const egressInfo = await this.egressClient.getEgressInfo(session.egressId);
-          if (egressInfo) {
-            clusterErrorDetails = extractEgressErrorDetails(egressInfo);
-          }
-        } catch {
-          // Failed to fetch cluster info
+        const result = await this.processSessionStop(session, sasMinutes);
+        if (result.status === RecordingStopStatus.Completed) {
+          completed += 1;
         }
-
-        try {
-          const stopResult = await this.egressClient.stopEgress(session.egressId);
-          blobUrl = stopResult.blobUrl;
-        } catch (err: unknown) {
-          const errorMessage = extractErrorMessage(err);
-          const message = errorMessage.toLowerCase();
-          
-          if (message.includes("egress_failed") || message.includes("cannot be stopped")) {
-            const errorDetails = extractEgressErrorDetails(err);
-            
-            if (clusterErrorDetails) {
-              Object.assign(errorDetails, clusterErrorDetails);
-            }
-            
-            egressError = extractEgressErrorMessage(errorDetails, err, 'Egress failed but error details not available');
-          } else {
-            throw err;
-          }
-        }
-        
-        if (egressError) {
-          const result = await this.handleFailedSession(session, egressError, clusterErrorDetails);
-          results.push(result);
-          continue;
-        }
-
-        const result = await this.handleCompletedSession(session, blobUrl, sasMinutes);
-        completed += 1;
         results.push(result);
       } catch (err: unknown) {
-        const message = (err instanceof Error ? err.message : String(err)).toLowerCase();
-        const notFound = message.includes("not found") || message.includes("no active egress");
-        
-        if (notFound) {
-          const result = await this.handleDisconnectedSession(session);
-          results.push(result);
-          continue;
-        }
-
-        const result = await this.handleStopError(session, err);
+        const result = await this.handleSessionStopError(session, err);
         results.push(result);
       }
     }

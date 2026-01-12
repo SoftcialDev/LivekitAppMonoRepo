@@ -7,6 +7,7 @@
  */
 
 import type { IColumn } from '../types';
+import { cellValueToString } from './cellUtils';
 
 /**
  * Filters an array of data based on a search term and column definitions
@@ -45,12 +46,14 @@ export function filterTableData<T>(
 
       const cell = typeof col.key === 'string'
         ? (row as Record<string, unknown>)[col.key]
-        : row[col.key as keyof T];
+        : row[col.key];
 
-      return (
-        cell != null &&
-        String(cell).toLowerCase().includes(normalizedTerm)
-      );
+      if (cell == null) {
+        return false;
+      }
+      
+      const cellValue = cellValueToString(cell);
+      return cellValue.toLowerCase().includes(normalizedTerm);
     })
   );
 }

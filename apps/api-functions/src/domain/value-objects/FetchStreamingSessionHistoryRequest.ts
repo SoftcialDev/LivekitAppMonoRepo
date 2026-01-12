@@ -12,12 +12,6 @@ import { FetchStreamingSessionHistoryRequestPayload } from '../schemas/FetchStre
  */
 export class FetchStreamingSessionHistoryRequest {
   /**
-   * Creates a new FetchStreamingSessionHistoryRequest
-   */
-  constructor() {
-  }
-
-  /**
    * Creates a FetchStreamingSessionHistoryRequest from payload
    * @param payload - Request payload
    * @returns FetchStreamingSessionHistoryRequest instance

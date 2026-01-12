@@ -19,8 +19,8 @@ import { ContactManagerUserNotFoundError, ContactManagerProfileNotFoundError } f
  */
 export class ContactManagerDomainService {
   constructor(
-    private userRepository: IUserRepository,
-    private webPubSubService: IWebPubSubService
+    private readonly userRepository: IUserRepository,
+    private readonly webPubSubService: IWebPubSubService
   ) {}
 
   /**
@@ -123,7 +123,6 @@ export class ContactManagerDomainService {
       return;
     }
 
-    const now = getCentralAmericaTime();
     for (const user of missingUsers) {
       await this.createContactManagerProfile(user.id, ContactManagerStatus.Unavailable);
     }

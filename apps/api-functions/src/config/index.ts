@@ -1,4 +1,4 @@
-﻿import * as process from "process";
+﻿import * as process from "node:process";
 import { z } from 'zod';
 import { createLazySingletonProxy } from '../infrastructure/utils/LazySingletonProxy';
 import { ConfigurationError } from '../domain/errors/InfrastructureErrors';

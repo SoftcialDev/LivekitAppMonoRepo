@@ -9,8 +9,7 @@ import type { Room, DisconnectReason } from 'livekit-client';
 import { RoomEvent } from 'livekit-client';
 import { logError, logWarn, logDebug } from '@/shared/utils/logger';
 import { LiveKitConnectionError } from '../errors/livekitErrors';
-import { MAX_RETRY_ATTEMPTS, RETRY_BASE_DELAY_MS } from '../constants/roomConnectionConstants';
-import { validateConnectionParams, createOptimizedRoom, cleanupRoom } from '../utils/roomConnectionUtils';
+import { validateConnectionParams, createOptimizedRoom } from '../utils/roomConnectionUtils';
 import type {
   IUseRoomConnectionOptions,
   IUseRoomConnectionReturn,

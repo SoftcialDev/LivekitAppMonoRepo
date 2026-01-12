@@ -15,7 +15,6 @@ import { SearchableDropdown } from '@/ui-kit/dropdown';
 import { ConfirmModal } from '@/ui-kit/modals';
 import { useToast } from '@/ui-kit/feedback';
 import type { IDropdownOption } from '@/ui-kit/dropdown/types/searchableDropdownTypes';
-import type { ISelectionConfig } from '@/ui-kit/tables/types';
 
 /**
  * PsoPage component
@@ -88,8 +87,10 @@ export const PsoPage: React.FC = () => {
       }
       
       // Single select: keep only last value
-      const chosen = values[values.length - 1] as string;
-      setTransferToEmail(chosen);
+      const chosen = values.at(-1);
+      if (chosen) {
+        setTransferToEmail(chosen);
+      }
 
       if (selectedMainKeys.length === 0) {
         showToast('Select at least one PSO to transfer', 'warning');
@@ -162,29 +163,39 @@ export const PsoPage: React.FC = () => {
   );
 
 
+  // Handle row toggle for selection
+  const handleToggleRow = useCallback((key: string, checked: boolean) => {
+    if (checked) {
+      setSelectedMainKeys((prev) => [...new Set([...prev, key])]);
+    } else {
+      setSelectedMainKeys((prev) => prev.filter((k) => k !== key));
+    }
+  }, []);
+
+  // Handle toggle all for selection
+  const handleToggleAll = useCallback((checked: boolean, keys: string[]) => {
+    if (checked) {
+      setSelectedMainKeys((prev) => Array.from(new Set([...prev, ...keys])));
+    } else {
+      setSelectedMainKeys((prev) => prev.filter((k) => !keys.includes(k)));
+    }
+  }, []);
+
+  // Get row key for selection
+  const getRowKey = useCallback((row: PsoItem, index: number) => {
+    return row.email || row.id || `row-${index}`;
+  }, []);
+
   // Selection config for PSO page (for batch transfer)
   // Note: We use email as key to ensure API receives emails, not IDs
   const psoSelection = useMemo(
     () => ({
       selectedKeys: selectedMainKeys,
-      onToggleRow: (key: string, checked: boolean) => {
-        if (checked) {
-          setSelectedMainKeys((prev) => [...new Set([...prev, key])]);
-        } else {
-          setSelectedMainKeys((prev) => prev.filter((k) => k !== key));
-        }
-      },
-      onToggleAll: (checked: boolean, keys: string[]) => {
-        if (checked) {
-          setSelectedMainKeys((prev) => Array.from(new Set([...prev, ...keys])));
-        } else {
-          setSelectedMainKeys((prev) => prev.filter((k) => !keys.includes(k)));
-        }
-      },
-      // Use email as key (not id) so API receives emails
-      getRowKey: (row: PsoItem, index: number) => row.email || row.id || `row-${index}`,
+      onToggleRow: handleToggleRow,
+      onToggleAll: handleToggleAll,
+      getRowKey,
     }),
-    [selectedMainKeys]
+    [selectedMainKeys, handleToggleRow, handleToggleAll, getRowKey]
   );
 
   return (

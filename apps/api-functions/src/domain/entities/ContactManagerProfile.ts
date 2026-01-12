@@ -61,7 +61,7 @@ export class ContactManagerProfile {
       status: prismaProfile.status,
       createdAt: prismaProfile.createdAt,
       updatedAt: prismaProfile.updatedAt,
-      user: prismaProfile.user && prismaProfile.user.fullName ? {
+      user: prismaProfile.user?.fullName ? {
         email: prismaProfile.user.email,
         fullName: prismaProfile.user.fullName
       } : undefined

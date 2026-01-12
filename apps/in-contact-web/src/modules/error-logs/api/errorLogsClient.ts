@@ -47,7 +47,8 @@ export async function getErrorLogs(
     if (params?.offset) queryParams.append('offset', String(params.offset));
 
     const queryString = queryParams.toString();
-    const url = `/api/error-logs${queryString ? `?${queryString}` : ''}`;
+    const baseUrl = '/api/error-logs';
+    const url = queryString ? `${baseUrl}?${queryString}` : baseUrl;
     
     const response = await apiClient.get<GetErrorLogsResponse>(url);
     return response.data;

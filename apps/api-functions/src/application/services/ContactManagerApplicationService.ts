@@ -3,8 +3,7 @@
  * @description Orchestrates contact manager creation with authorization
  */
 
-import { ContactManagerDomainService } from '../../domain/services';
-import { AuthorizationService } from '../../domain/services';
+import { ContactManagerDomainService, AuthorizationService } from '../../domain/services';
 import { CreateContactManagerRequest } from '../../domain/value-objects/CreateContactManagerRequest';
 import { DeleteContactManagerRequest } from '../../domain/value-objects/DeleteContactManagerRequest';  
 import { ContactManagerListResponse } from '../../domain/value-objects';
@@ -17,8 +16,8 @@ import { ContactManagerProfile } from '../../domain/entities/ContactManagerProfi
  */
 export class ContactManagerApplicationService {
   constructor(
-    private contactManagerDomainService: ContactManagerDomainService,
-    private authorizationService: AuthorizationService
+    private readonly contactManagerDomainService: ContactManagerDomainService,
+    private readonly authorizationService: AuthorizationService
   ) {}
 
   /**

@@ -15,9 +15,9 @@ import { UserNotFoundError } from '../../domain/errors/UserErrors';
  */
 export class ContactManagerFormApplicationService {
   constructor(
-    private contactManagerFormService: IContactManagerFormService,
-    private authorizationService: IAuthorizationService,
-    private userRepository: IUserRepository
+    private readonly contactManagerFormService: IContactManagerFormService,
+    private readonly authorizationService: IAuthorizationService,
+    private readonly userRepository: IUserRepository
   ) {}
 
   /**

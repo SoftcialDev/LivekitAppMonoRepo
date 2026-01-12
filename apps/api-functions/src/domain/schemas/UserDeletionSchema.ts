@@ -4,7 +4,6 @@
  */
 
 import { z } from 'zod';
-import { UserDeletionType } from '../enums/UserDeletionType';
 
 /**
  * Zod schema for user deletion request validation

@@ -61,9 +61,9 @@ export const VideoCardSnapshotModal: React.FC<IVideoCardSnapshotModalProps> = ({
         )}
         
         <div>
-          <label className="block mb-2 text-sm font-medium">
+          <div className="block mb-2 text-sm font-medium">
             <strong>Reason *</strong>
-          </label>
+          </div>
           <div className="w-full">
             <Dropdown
               value={reason?.id || ''}

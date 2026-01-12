@@ -4,7 +4,7 @@
  * @description Provides application service for batch streaming status operations
  */
 
-import { IStreamingSessionRepository } from '../../domain/interfaces/IStreamingSessionRepository';
+import { StreamingStatusBatchDomainService } from '../../domain/services/StreamingStatusBatchDomainService';
 import { AuthorizationService } from '../../domain/services/AuthorizationService';
 import { StreamingStatusBatchResponse } from '../../domain/value-objects/StreamingStatusBatchResponse';
 
@@ -14,7 +14,7 @@ import { StreamingStatusBatchResponse } from '../../domain/value-objects/Streami
  */
 export class StreamingStatusBatchApplicationService {
   constructor(
-    private readonly streamingSessionRepository: IStreamingSessionRepository,
+    private readonly streamingStatusBatchDomainService: StreamingStatusBatchDomainService,
     private readonly authorizationService: AuthorizationService
   ) {}
 
@@ -28,22 +28,6 @@ export class StreamingStatusBatchApplicationService {
   async getBatchStatus(emails: string[], callerId: string): Promise<StreamingStatusBatchResponse> {
     await this.authorizationService.canAccessStreamingStatus(callerId);
     
-    const sessionsData = await this.streamingSessionRepository.getLatestSessionsForEmails(emails);
-    
-    const statuses = sessionsData.map(({ email, session }) => {
-      if (!session) {
-        return { email, hasActiveSession: false, lastSession: null };
-      }
-
-      const hasActiveSession = !session.stoppedAt;
-      const lastSession = {
-        stopReason: session.stopReason,
-        stoppedAt: session.stoppedAt?.toISOString() || null
-      };
-
-      return { email, hasActiveSession, lastSession };
-    });
-
-    return new StreamingStatusBatchResponse(statuses);
+    return await this.streamingStatusBatchDomainService.getBatchStreamingStatus(emails);
   }
 }

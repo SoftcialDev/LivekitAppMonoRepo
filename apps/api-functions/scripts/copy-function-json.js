@@ -6,8 +6,8 @@
  * the function configuration files after TypeScript compilation.
  */
 
-const fs = require('fs');
-const path = require('path');
+const fs = require('node:fs');
+const path = require('node:path');
 
 const srcHandlersDir = path.join(__dirname, '../src/handlers');
 const distHandlersDir = path.join(__dirname, '../dist/handlers');

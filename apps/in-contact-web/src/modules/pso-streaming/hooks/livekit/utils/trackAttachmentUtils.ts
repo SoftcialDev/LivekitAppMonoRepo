@@ -4,7 +4,7 @@
  * @description Pure functions for track attachment logic without side effects
  */
 
-import type { RemoteVideoTrack, RemoteAudioTrack } from 'livekit-client';
+import type { RemoteVideoTrack } from 'livekit-client';
 import { logDebug, logWarn } from '@/shared/utils/logger';
 
 /**

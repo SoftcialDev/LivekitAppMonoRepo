@@ -18,7 +18,7 @@ import { mapMiddlewareErrorToResponse } from '../utils';
 export async function validateCommandRequest(ctx: Context, targetEmail: string): Promise<void> {
   try {
     // 1. Extract and validate caller ID
-    const callerId = extractCallerId(ctx);
+    extractCallerId(ctx);
     
     // 2. Check command permissions
     await requireCommandPermission()(ctx);

@@ -8,7 +8,6 @@
 import { useRef, useEffect, useCallback, useState } from 'react';
 import type { Room, DisconnectReason } from 'livekit-client';
 import { logError, logWarn, logDebug } from '@/shared/utils/logger';
-import { RECONNECT_DELAY_MS } from './constants/roomConnectionConstants';
 import { useRoomConnection } from './hooks/useRoomConnection';
 import { useRoomReconnection } from './hooks/useRoomReconnection';
 import { cleanupRoom } from './utils/roomConnectionUtils';
@@ -47,7 +46,6 @@ export function useLiveKitRoomConnection(
   const errorRef = useRef<Error | null>(null);
   const lkRoomRef = useRef<Room | null>(null);
   const canceledRef = useRef(false);
-  const handleDisconnectedWithReconnectionRef = useRef<((reason?: DisconnectReason) => void) | null>(null);
   const hasDisconnectedRef = useRef<boolean>(false); // Track if disconnect has been called to avoid repeated disconnects
 
   const shouldStreamRef = useRef(shouldStream);
@@ -73,7 +71,9 @@ export function useLiveKitRoomConnection(
     (room: Room): void => {
       if (canceledRef.current || !shouldStreamRef.current) {
         logDebug('[useLiveKitRoomConnection] Connection succeeded but was canceled, disconnecting');
-        void cleanupRoom(room);
+        cleanupRoom(room).catch((err) => {
+          logError('[useLiveKitRoomConnection] Error cleaning up canceled room', { error: err });
+        });
         return;
       }
 
@@ -129,7 +129,9 @@ export function useLiveKitRoomConnection(
       }
 
       if (roomToCleanup) {
-        void cleanupRoom(roomToCleanup);
+        cleanupRoom(roomToCleanup).catch((err) => {
+          logError('[useLiveKitRoomConnection] Error cleaning up room on disconnect', { error: err });
+        });
       }
 
       onRoomDisconnected?.();
@@ -147,19 +149,20 @@ export function useLiveKitRoomConnection(
   // Room reconnection hook (defined first to be used in enhanced handler)
   const roomReconnection = useRoomReconnection({
     shouldStream,
-    onReconnect: async () => {
+    onReconnect: () => {
       if (canceledRef.current || !shouldStreamRef.current) {
         return;
       }
 
-      try {
-        const room = await roomConnection.connect();
-        if (room) {
-          handleRoomConnected(room);
-        }
-      } catch (err) {
-        logError('[useLiveKitRoomConnection] Reconnection failed', { error: err });
-      }
+      roomConnection.connect()
+        .then((room) => {
+          if (room) {
+            handleRoomConnected(room);
+          }
+        })
+        .catch((err) => {
+          logError('[useLiveKitRoomConnection] Reconnection failed', { error: err });
+        });
     },
   });
 
@@ -261,23 +264,123 @@ export function useLiveKitRoomConnection(
     onRoomDisconnected?.();
   }, [roomRef, roomReconnection, onRoomDisconnected]);
 
+  /**
+   * Handles disconnection when shouldStream is false
+   */
+  const handleDisconnectWhenShouldStreamFalse = useCallback((): void => {
+    if (lkRoomRef.current && isConnectedRef.current && !hasDisconnectedRef.current) {
+      logDebug('[useLiveKitRoomConnection] shouldStream is false, disconnecting');
+      hasDisconnectedRef.current = true;
+      disconnect().finally(() => {
+        hasDisconnectedRef.current = false;
+      }).catch((err) => {
+        logError('[useLiveKitRoomConnection] Error in disconnect when shouldStream is false', { error: err });
+        hasDisconnectedRef.current = false;
+      });
+    }
+  }, [disconnect]);
+
+  /**
+   * Updates previous refs with current values
+   */
+  const updatePreviousRefs = useCallback((): void => {
+    prevShouldStreamRef.current = shouldStream;
+    prevAccessTokenRef.current = accessToken;
+    prevRoomNameRef.current = roomName;
+    prevLivekitUrlRef.current = livekitUrl;
+  }, [shouldStream, accessToken, roomName, livekitUrl]);
+
+  /**
+   * Checks if critical parameters are missing
+   */
+  const areCriticalParamsMissing = useCallback((): boolean => {
+    return !accessToken || !roomName || !livekitUrl;
+  }, [accessToken, roomName, livekitUrl]);
+
+  /**
+   * Checks if reconnection is needed due to parameter changes
+   */
+  const checkNeedsReconnect = useCallback((): boolean => {
+    return (
+      shouldStream !== prevShouldStreamRef.current ||
+      accessToken !== prevAccessTokenRef.current ||
+      roomName !== prevRoomNameRef.current ||
+      livekitUrl !== prevLivekitUrlRef.current
+    );
+  }, [shouldStream, accessToken, roomName, livekitUrl]);
+
+  /**
+   * Handles cleanup and reconnection after parameter changes
+   */
+  const handleParameterChangeReconnection = useCallback(async (): Promise<void> => {
+    logDebug('[useLiveKitRoomConnection] Critical parameters changed, reconnecting...', {
+      shouldStreamChanged: shouldStream !== prevShouldStreamRef.current,
+      accessTokenChanged: accessToken !== prevAccessTokenRef.current,
+      roomNameChanged: roomName !== prevRoomNameRef.current,
+      livekitUrlChanged: livekitUrl !== prevLivekitUrlRef.current,
+    });
+
+    canceledRef.current = true;
+    roomReconnection.cancel();
+
+    const roomToCleanup = lkRoomRef.current;
+    lkRoomRef.current = null;
+
+    if (roomRef) {
+      (roomRef as React.MutableRefObject<Room | null>).current = null;
+    }
+
+    isConnectedRef.current = false;
+    setIsConnected(false);
+    isConnectingRef.current = false;
+    setIsConnecting(false);
+
+    roomReconnection.reset();
+    canceledRef.current = false;
+
+    // Wait for cleanup before reconnecting
+    if (roomToCleanup) {
+      try {
+        await cleanupRoom(roomToCleanup);
+        if (shouldStreamRef.current && !canceledRef.current && !isConnectingRef.current) {
+          logDebug('[useLiveKitRoomConnection] Attempting reconnection after parameter change');
+          connectAndWatch().catch((err) => {
+            logError('[useLiveKitRoomConnection] Error in connectAndWatch after parameter change', { error: err });
+          });
+        }
+      } catch (err) {
+        logError('[useLiveKitRoomConnection] Error cleaning up room for parameter change', { error: err });
+      }
+      return;
+    }
+    
+    // No room to cleanup, reconnect immediately
+    if (shouldStreamRef.current && !canceledRef.current && !isConnectingRef.current) {
+      logDebug('[useLiveKitRoomConnection] Attempting reconnection after parameter change');
+      connectAndWatch().catch((err) => {
+        logError('[useLiveKitRoomConnection] Error in connectAndWatch after parameter change', { error: err });
+      });
+    }
+  }, [shouldStream, accessToken, roomName, livekitUrl, roomRef, roomReconnection, connectAndWatch]);
+
+  /**
+   * Handles initial connection when no room exists
+   */
+  const handleInitialConnection = useCallback((): void => {
+    logDebug('[useLiveKitRoomConnection] No room connected, connecting...');
+    canceledRef.current = false;
+    connectAndWatch().catch((err) => {
+      logError('[useLiveKitRoomConnection] Error in initial connectAndWatch', { error: err });
+    });
+  }, [connectAndWatch]);
+
   // Main effect: handle parameter changes and connection lifecycle
   useEffect(() => {
     canceledRef.current = false;
 
     if (!shouldStream) {
-      // Only disconnect if not already disconnected (avoid repeated disconnects and logs)
-      if (lkRoomRef.current && isConnectedRef.current && !hasDisconnectedRef.current) {
-        logDebug('[useLiveKitRoomConnection] shouldStream is false, disconnecting');
-        hasDisconnectedRef.current = true;
-        void disconnect().finally(() => {
-          hasDisconnectedRef.current = false;
-        });
-      }
-      prevShouldStreamRef.current = shouldStream;
-      prevAccessTokenRef.current = accessToken;
-      prevRoomNameRef.current = roomName;
-      prevLivekitUrlRef.current = livekitUrl;
+      handleDisconnectWhenShouldStreamFalse();
+      updatePreviousRefs();
       return;
     }
 
@@ -294,20 +397,13 @@ export function useLiveKitRoomConnection(
       hasRoom: !!lkRoomRef.current,
     });
 
-    if (!accessToken || !roomName || !livekitUrl) {
+    if (areCriticalParamsMissing()) {
       logDebug('[useLiveKitRoomConnection] Missing critical params, skipping connection');
-      prevShouldStreamRef.current = shouldStream;
-      prevAccessTokenRef.current = accessToken;
-      prevRoomNameRef.current = roomName;
-      prevLivekitUrlRef.current = livekitUrl;
+      updatePreviousRefs();
       return;
     }
 
-    const needsReconnect =
-      shouldStream !== prevShouldStreamRef.current ||
-      accessToken !== prevAccessTokenRef.current ||
-      roomName !== prevRoomNameRef.current ||
-      livekitUrl !== prevLivekitUrlRef.current;
+    const needsReconnect = checkNeedsReconnect();
 
     logDebug('[useLiveKitRoomConnection] Connection check', {
       needsReconnect,
@@ -316,61 +412,21 @@ export function useLiveKitRoomConnection(
     });
 
     if (needsReconnect && (lkRoomRef.current || isConnectingRef.current)) {
-      logDebug('[useLiveKitRoomConnection] Critical parameters changed, reconnecting...', {
-        shouldStreamChanged: shouldStream !== prevShouldStreamRef.current,
-        accessTokenChanged: accessToken !== prevAccessTokenRef.current,
-        roomNameChanged: roomName !== prevRoomNameRef.current,
-        livekitUrlChanged: livekitUrl !== prevLivekitUrlRef.current,
+      handleParameterChangeReconnection().catch((err) => {
+        logError('[useLiveKitRoomConnection] Error in handleParameterChangeReconnection', { error: err });
       });
-
-      canceledRef.current = true;
-      roomReconnection.cancel();
-
-      const roomToCleanup = lkRoomRef.current;
-      lkRoomRef.current = null;
-
-      if (roomRef) {
-        (roomRef as React.MutableRefObject<Room | null>).current = null;
-      }
-
-      isConnectedRef.current = false;
-      setIsConnected(false);
-      isConnectingRef.current = false;
-      setIsConnecting(false);
-
-      roomReconnection.reset();
-      canceledRef.current = false;
-
-      // Wait for cleanup before reconnecting
-      if (roomToCleanup) {
-        void cleanupRoom(roomToCleanup).then(() => {
-          if (shouldStreamRef.current && !canceledRef.current && !isConnectingRef.current) {
-            logDebug('[useLiveKitRoomConnection] Attempting reconnection after parameter change');
-            void connectAndWatch();
-          }
-        });
-      } else {
-        // No room to cleanup, reconnect immediately
-        if (shouldStreamRef.current && !canceledRef.current && !isConnectingRef.current) {
-          logDebug('[useLiveKitRoomConnection] Attempting reconnection after parameter change');
-          void connectAndWatch();
-        }
-      }
     } else if (!lkRoomRef.current && !isConnectingRef.current && !isConnectedRef.current) {
-      logDebug('[useLiveKitRoomConnection] No room connected, connecting...');
-      canceledRef.current = false;
-      void connectAndWatch();
+      handleInitialConnection();
     }
 
-    prevShouldStreamRef.current = shouldStream;
-    prevAccessTokenRef.current = accessToken;
-    prevRoomNameRef.current = roomName;
-    prevLivekitUrlRef.current = livekitUrl;
+    updatePreviousRefs();
 
     return () => {
       if (!shouldStream) {
         logDebug('[useLiveKitRoomConnection] Cleanup: shouldStream is false, disconnecting');
-        void disconnect();
+        disconnect().catch((err) => {
+          logError('[useLiveKitRoomConnection] Error in cleanup disconnect', { error: err });
+        });
       }
     };
   }, [
@@ -380,7 +436,12 @@ export function useLiveKitRoomConnection(
     livekitUrl,
     roomRef,
     roomReconnection,
-    connectAndWatch,
+    handleDisconnectWhenShouldStreamFalse,
+    updatePreviousRefs,
+    areCriticalParamsMissing,
+    checkNeedsReconnect,
+    handleParameterChangeReconnection,
+    handleInitialConnection,
     disconnect,
   ]);
 

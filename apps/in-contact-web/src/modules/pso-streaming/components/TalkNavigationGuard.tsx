@@ -10,6 +10,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useTalkSessionGuardStore } from '../stores/talk-session-guard-store';
 import { TalkNavigationModal } from './TalkNavigationModal';
 import { logDebug } from '@/shared/utils/logger';
+import { createNavigationClickHandler } from '@/shared/utils/navigationUtils';
 
 /**
  * TalkNavigationGuard component
@@ -39,33 +40,15 @@ export const TalkNavigationGuard: React.FC = () => {
    * Intercept link clicks to block navigation during active talk sessions
    */
   useEffect(() => {
-    const handleClick = (e: MouseEvent): void => {
-      const target = e.target as HTMLElement;
-      const anchor = target.closest('a[href]') as HTMLAnchorElement;
-      
-      if (!anchor) {
-        return;
-      }
-
-      const href = anchor.getAttribute('href');
-      if (!href || !href.startsWith('/')) {
-        // External link or non-navigation link
-        return;
-      }
-
-      // Check if there are active talk sessions
-      if (hasActiveSessions() && href !== location.pathname) {
-        // Block navigation
-        e.preventDefault();
-        e.stopPropagation();
-        e.stopImmediatePropagation();
-        
-        // Store pending navigation and show modal
+    const handleClick = createNavigationClickHandler({
+      hasActiveSessions,
+      currentPathname: location.pathname,
+      onBlockNavigation: (href: string) => {
         pendingNavigationRef.current = href;
         setShowModal(true);
-        logDebug('[TalkNavigationGuard] Blocking navigation due to active talk session', { href });
-      }
-    };
+      },
+      logPrefix: 'TalkNavigationGuard',
+    });
 
     // Listen for link clicks in capture phase (before React Router)
     document.addEventListener('click', handleClick, true);
@@ -80,7 +63,7 @@ export const TalkNavigationGuard: React.FC = () => {
    * This can be called from components that need to check before navigating
    */
   useEffect(() => {
-    (window as any).__talkNavigationGuard = {
+    (globalThis as any).__talkNavigationGuard = {
       checkAndBlockNavigation: (targetPath: string): boolean => {
         if (!hasActiveSessions() || targetPath === location.pathname) {
           return false; // Don't block
@@ -96,7 +79,7 @@ export const TalkNavigationGuard: React.FC = () => {
     };
 
     return () => {
-      delete (window as any).__talkNavigationGuard;
+      delete (globalThis as any).__talkNavigationGuard;
     };
   }, [hasActiveSessions, location.pathname]);
 
@@ -119,14 +102,14 @@ export const TalkNavigationGuard: React.FC = () => {
       await stopAllSessions();
       
       // Navigate to pending route if exists
-      if (pendingPath && pendingPath.startsWith('/')) {
+      if (pendingPath?.startsWith('/')) {
         logDebug('[TalkNavigationGuard] Navigating to pending route', { path: pendingPath });
         navigateRef.current(pendingPath, { replace: false });
       }
     } catch (error) {
       logDebug('[TalkNavigationGuard] Error stopping sessions, still navigating', { error });
       // Still navigate even if stop fails
-      if (pendingPath && pendingPath.startsWith('/')) {
+      if (pendingPath?.startsWith('/')) {
         navigateRef.current(pendingPath, { replace: false });
       }
     } finally {

@@ -11,22 +11,19 @@ import { IAuthorizationService } from '../../domain/interfaces/IAuthorizationSer
 import { IAuditService } from '../../domain/interfaces/IAuditService';
 import { IPresenceService } from '../../domain/interfaces/IPresenceService';
 import { IWebPubSubService } from '../../domain/interfaces/IWebPubSubService';
-import { UserRoleChangeError } from '../../domain/errors';
-import { UserRoleChangeErrorCode } from '../../domain/errors';
-import { ValidationUtils } from '../../domain/utils';
-import { RoleValidationUtils } from '../../domain/utils';
-import { AuditUtils } from '../../domain/utils';
+import { UserRoleChangeError, UserRoleChangeErrorCode } from '../../domain/errors';
+import { ValidationUtils, RoleValidationUtils, AuditUtils } from '../../domain/utils';
 
 
 /**
  * Application service for user role change operations
  */
 export class UserRoleChangeApplicationService {
-  private userRepository: IUserRepository;
-  private authorizationService: IAuthorizationService;
-  private auditService: IAuditService;
-  private presenceService: IPresenceService;
-  private webPubSubService: IWebPubSubService;
+  private readonly userRepository: IUserRepository;
+  private readonly authorizationService: IAuthorizationService;
+  private readonly auditService: IAuditService;
+  private readonly presenceService: IPresenceService;
+  private readonly webPubSubService: IWebPubSubService;
 
   /**
    * Creates a new UserRoleChangeApplicationService instance

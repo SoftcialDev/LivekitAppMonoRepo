@@ -14,7 +14,6 @@ import { UserDeletionRequest } from '../../domain/value-objects/UserDeletionRequ
 import { UserDeletionType } from '../../domain/enums/UserDeletionType';
 import { userDeletionSchema } from '../../domain/schemas/UserDeletionSchema';
 import { serviceContainer } from '../../infrastructure/container/ServiceContainer';
-import { handleAnyError } from '../../utils/errorHandler';
 import { IUserRepository } from '../../domain/interfaces/IUserRepository';
 import { IAuthorizationService } from '../../domain/interfaces/IAuthorizationService';
 import { IAuditService } from '../../domain/interfaces/IAuditService';

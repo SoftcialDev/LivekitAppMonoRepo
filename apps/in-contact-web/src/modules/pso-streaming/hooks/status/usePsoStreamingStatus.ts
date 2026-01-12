@@ -82,8 +82,10 @@ export function usePsoStreamingStatus(
   }, [psoEmail]);
 
   useEffect(() => {
-    void fetchStatus();
-  }, [fetchStatus]);
+    fetchStatus().catch((err: unknown) => {
+      logError('[usePsoStreamingStatus] Error in fetchStatus effect', { error: err, psoEmail });
+    });
+  }, [fetchStatus, psoEmail]);
 
   useEffect(() => {
     const handleStreamingSessionUpdate = (event: CustomEvent): void => {
@@ -113,10 +115,10 @@ export function usePsoStreamingStatus(
       }
     };
 
-    window.addEventListener('streamingSessionUpdated', handleStreamingSessionUpdate as EventListener);
+    globalThis.addEventListener('streamingSessionUpdated', handleStreamingSessionUpdate as EventListener);
 
     return () => {
-      window.removeEventListener('streamingSessionUpdated', handleStreamingSessionUpdate as EventListener);
+      globalThis.removeEventListener('streamingSessionUpdated', handleStreamingSessionUpdate as EventListener);
     };
   }, [psoEmail]);
 
@@ -129,7 +131,9 @@ export function usePsoStreamingStatus(
     } else if (!isStreaming && status && !status.lastSession) {
       // When streaming stops, refresh status to get the latest session info
       logDebug('[usePsoStreamingStatus] Streaming stopped, refreshing status', { psoEmail });
-      void fetchStatus();
+      fetchStatus().catch((err: unknown) => {
+        logError('[usePsoStreamingStatus] Error refreshing status after streaming stopped', { error: err, psoEmail });
+      });
     }
   }, [isStreaming, psoEmail, status?.lastSession, fetchStatus]);
 

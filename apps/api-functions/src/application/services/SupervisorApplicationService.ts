@@ -16,20 +16,19 @@ import { IWebPubSubService } from '../../domain/interfaces/IWebPubSubService';
 import { SupervisorError } from '../../domain/errors/DomainError';
 import { SupervisorErrorCode } from '../../domain/errors/ErrorCodes';
 import { ValidationUtils } from '../../domain/utils/ValidationUtils';
-import { AuthorizationUtils } from '../../domain/utils/AuthorizationUtils';
 import { SupervisorChangeType } from '../../domain/enums/SupervisorChangeType';
 
 /**
  * Application service for supervisor operations
  */
 export class SupervisorApplicationService {
-  private userRepository: IUserRepository;
-  private authorizationService: IAuthorizationService;
-  private supervisorRepository: ISupervisorRepository;
-  private commandMessagingService: ICommandMessagingService;
-  private supervisorManagementService: ISupervisorManagementService;
-  private auditService: IAuditService;
-  private webPubSubService: IWebPubSubService;
+  private readonly userRepository: IUserRepository;
+  private readonly authorizationService: IAuthorizationService;
+  private readonly supervisorRepository: ISupervisorRepository;
+  private readonly commandMessagingService: ICommandMessagingService;
+  private readonly supervisorManagementService: ISupervisorManagementService;
+  private readonly auditService: IAuditService;
+  private readonly webPubSubService: IWebPubSubService;
 
   /**
    * Creates a new SupervisorApplicationService instance

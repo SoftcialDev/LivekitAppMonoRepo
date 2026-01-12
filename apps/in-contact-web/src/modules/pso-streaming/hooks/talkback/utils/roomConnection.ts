@@ -50,7 +50,7 @@ export async function waitForRoomConnection(
     // Wait a bit more for connection
     await new Promise((resolve) => setTimeout(resolve, ROOM_CONNECTION_WAIT_MS));
     room = getRoom();
-    if (!room || room.state !== 'connected') {
+    if (room?.state !== 'connected') {
       throw new TalkbackRoomNotConnectedError(
         'Room is not connected - connection in progress'
       );

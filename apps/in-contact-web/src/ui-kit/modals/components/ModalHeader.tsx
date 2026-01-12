@@ -29,13 +29,36 @@ export const ModalHeader: React.FC<IModalHeaderProps> = ({
   draggable = true,
   onMouseDown,
 }) => (
-  <div
-    onMouseDown={onMouseDown}
-    className={`
-      flex items-center justify-between px-6 py-4
-      ${draggable ? 'cursor-move' : ''}
-    `}
-  >
+  draggable ? (
+    <button
+      type="button"
+      aria-label="Drag to move modal"
+      onMouseDown={onMouseDown}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+        }
+      }}
+      className="flex items-center justify-between px-6 py-4 cursor-move w-full"
+    >
+    <div className="flex items-center space-x-2 text-white text-lg font-semibold">
+      {iconSrc && <img src={iconSrc} alt={iconAlt} className="w-6 h-6" />}
+      {typeof title === 'string' ? <span>{title}</span> : title}
+    </div>
+    <div className="flex items-center gap-2">
+      {actions}
+      <button 
+        onClick={onClose} 
+        className="leading-none" 
+        aria-label="Close"
+        type="button"
+      >
+        <CancelIcon className="w-7 h-7" />
+      </button>
+    </div>
+  </button>
+) : (
+  <div className="flex items-center justify-between px-6 py-4">
     <div className="flex items-center space-x-2 text-white text-lg font-semibold">
       {iconSrc && <img src={iconSrc} alt={iconAlt} className="w-6 h-6" />}
       {typeof title === 'string' ? <span>{title}</span> : title}
@@ -52,5 +75,5 @@ export const ModalHeader: React.FC<IModalHeaderProps> = ({
       </button>
     </div>
   </div>
-);
+));
 

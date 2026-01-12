@@ -76,7 +76,7 @@ export function DataTable<T extends { id?: string }>(
     externalLoading,
     externalLoadingAction = 'Loading data',
     customFilter,
-  }: IDataTableProps<T>
+  }: Readonly<IDataTableProps<T>>
 ): JSX.Element {
   const {
     initialFetchSize = 80,
@@ -173,7 +173,9 @@ export function DataTable<T extends { id?: string }>(
       totalCount >= 0;
     
     if (shouldFetch) {
-      void fetchData(0, initialFetchSize);
+      fetchData(0, initialFetchSize).catch(() => {
+        // Errors are already handled and logged inside fetchData
+      });
     }
   }, [allData.length, totalCount, initialFetchSize, loading, fetchData]);
 
@@ -197,7 +199,9 @@ export function DataTable<T extends { id?: string }>(
       
       // Only fetch if we haven't loaded data for this offset yet
       if (offset >= allData.length) {
-        void fetchData(offset, fetchSize);
+        fetchData(offset, fetchSize).catch(() => {
+          // Errors are already handled and logged inside fetchData
+        });
       }
     }
   }, [pageSize, fetchSize, needsMoreData, allData.length, fetchData]);

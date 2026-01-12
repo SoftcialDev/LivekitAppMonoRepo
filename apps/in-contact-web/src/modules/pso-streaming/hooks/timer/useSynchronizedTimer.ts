@@ -6,8 +6,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { nowCRMs, parseIsoAsCRWallClock } from '@/shared/utils/time';
-import { StreamingStopReason } from '../../enums';
-import { TimerType, TimerColor } from '../../enums';
+import { StreamingStopReason, TimerType, TimerColor } from '../../enums';
 import { TIMER_DURATIONS, STOP_REASON_TO_TIMER_TYPE, TIMER_COLOR_THRESHOLDS } from '../../constants';
 import type { TimerInfo } from '../../types';
 
@@ -77,7 +76,12 @@ export function useSynchronizedTimer(
 
     // EMERGENCY and DISCONNECT always show "+" prefix
     const shouldShowPlus = timerType === TimerType.EMERGENCY || timerType === TimerType.DISCONNECT;
-    const finalDisplayTime = shouldShowPlus ? `+${displayTime}` : (isNegative ? `+${displayTime}` : displayTime);
+    let finalDisplayTime: string;
+    if (shouldShowPlus || isNegative) {
+      finalDisplayTime = `+${displayTime}`;
+    } else {
+      finalDisplayTime = displayTime;
+    }
 
     return {
       type: timerType,

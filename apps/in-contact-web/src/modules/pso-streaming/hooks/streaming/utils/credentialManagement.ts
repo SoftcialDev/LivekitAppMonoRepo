@@ -7,7 +7,6 @@
 import { getLiveKitToken } from '../../../api/livekitClient';
 import { fetchStreamingSessions } from '../../../api/streamingStatusClient';
 import { fetchStreamingStatusBatch } from '../../../api/streamingStatusBatchClient';
-import type { RoomWithToken } from '../../../api/types';
 import type { StreamingStatusBatchResponse } from '../../../api/types';
 import type { CredsMap, StreamCreds, StreamingStatusInfo } from '../../../types';
 import { buildStatusMap, buildEmailToRoomMap, buildRoomToTokenMap } from './streamStatusHelpers';
@@ -26,7 +25,7 @@ export async function fetchAndDistributeCredentials(
     ]);
 
     const emailToRoom = buildEmailToRoomMap(sessions);
-    const roomToToken = buildRoomToTokenMap(rooms as RoomWithToken[]);
+    const roomToToken = buildRoomToTokenMap(rooms);
 
     const notInSessions = emails.filter((e) => !emailToRoom.has(e.toLowerCase()));
     let batchMap: Record<string, StreamingStatusInfo> = {};
@@ -63,8 +62,9 @@ export async function fetchAndDistributeCredentials(
     });
 
     return newCreds;
-  } catch (error) {
-    throw error;
+  } catch {
+    // Return existing creds on error
+    return existingCreds;
   }
 }
 
@@ -90,7 +90,7 @@ export async function fetchCredentialsForEmail(
 
     // Now fetch token only for this specific room (more efficient than getting all tokens)
     const { rooms, livekitUrl } = await getLiveKitToken(room);
-    const roomToToken = buildRoomToTokenMap(rooms as RoomWithToken[]);
+    const roomToToken = buildRoomToTokenMap(rooms);
     const token = roomToToken.get(room);
 
     if (token) {

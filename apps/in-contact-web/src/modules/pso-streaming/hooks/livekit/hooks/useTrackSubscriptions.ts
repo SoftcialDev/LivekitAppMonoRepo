@@ -6,10 +6,9 @@
 
 import { useRef, useCallback } from 'react';
 import type { RemoteParticipant } from 'livekit-client';
-import { RoomEvent, ParticipantEvent } from 'livekit-client';
+import { ParticipantEvent } from 'livekit-client';
 import { logDebug } from '@/shared/utils/logger';
 import { pollTrackSubscription } from '../utils/trackSubscriptionUtils';
-import { MAX_AUDIO_CHECK_COUNT, AUDIO_CHECK_INTERVAL_MS } from '../constants/remoteTracksConstants';
 import type {
   IUseTrackSubscriptionsOptions,
   IUseTrackSubscriptionsReturn,
@@ -23,7 +22,7 @@ import type {
 export function useTrackSubscriptions(
   options: IUseTrackSubscriptionsOptions
 ): IUseTrackSubscriptionsReturn {
-  const { roomRef, targetIdentity, onTrackReady } = options;
+  const { targetIdentity, onTrackReady } = options;
 
   const participantTrackHandlersRef = useRef(new Map<RemoteParticipant, (pub: any) => void>());
   const pollIntervalsRef = useRef<Set<NodeJS.Timeout>>(new Set());

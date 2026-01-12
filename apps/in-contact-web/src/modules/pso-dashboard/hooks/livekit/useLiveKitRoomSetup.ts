@@ -22,7 +22,7 @@ function setupRoomEventListeners(
   room: Room,
   options: ISetupRoomEventListenersOptions
 ): void {
-  const { streamingRef, manualStopRef, onDisconnected, onTrackEnded } = options;
+  const { streamingRef, manualStopRef, onDisconnected } = options;
 
   room.on('connectionStateChanged', (state) => {
     logDebug('[LiveKit] Connection state changed', { state });
@@ -96,7 +96,7 @@ function setupVideoTrackMonitoring(
     }
 
     const mediaStreamTrack = videoTrack.mediaStreamTrack;
-    if (mediaStreamTrack && mediaStreamTrack.readyState === 'ended') {
+    if (mediaStreamTrack?.readyState === 'ended') {
       logInfo('[LiveKit] Video track mediaStreamTrack ended, triggering reconnection');
       clearInterval(checkInterval);
       if (onTrackEnded) {
@@ -132,8 +132,7 @@ function attachParticipantAudio(
 
   // New audio subscriptions
   participant.on(ParticipantEvent.TrackSubscribed, (track) => {
-    const kind = (track as any)?.kind;
-    if (kind === 'audio' && audioElement) {
+    if (track.kind === 'audio' && audioElement) {
       (track as RemoteAudioTrack).attach(audioElement);
       audioElement.muted = false;
       audioElement.play?.().catch(() => {});
@@ -142,8 +141,7 @@ function attachParticipantAudio(
 
   // Audio unsubscriptions
   participant.on(ParticipantEvent.TrackUnsubscribed, (track) => {
-    const kind = (track as any)?.kind;
-    if (kind === 'audio' && audioElement) {
+    if (track.kind === 'audio' && audioElement) {
       try {
         (track as RemoteAudioTrack).detach(audioElement);
       } catch {

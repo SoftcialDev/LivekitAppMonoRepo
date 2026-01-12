@@ -3,9 +3,9 @@
  * @description Displays error logs in a table with incremental loading, filtering, and batch deletion capabilities
  */
 
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback } from 'react';
 import { DataTable, type Column } from '@/ui-kit/tables';
-import { Loading } from '@/ui-kit/feedback';
+import { Loading, useToast } from '@/ui-kit/feedback';
 import {
   getErrorLogs,
   getErrorLogById,
@@ -15,7 +15,6 @@ import {
 } from '../api/errorLogsClient';
 import { runMigrations } from '../api/migrationsClient';
 import type { ErrorLog } from '../types/errorLogsTypes';
-import { ErrorSeverity } from '../enums/errorLogsEnums';
 import {
   ErrorLogsFetchError,
   ErrorLogByIdFetchError,
@@ -31,17 +30,14 @@ import {
 import { createErrorLogsColumns } from './constants';
 import managementIcon from '@/shared/assets/manage_icon_sidebar.png';
 import { ConfirmModal } from '@/ui-kit/modals';
-
-import { useAuth } from '@/modules/auth';
+import { useTableSelection } from '@/shared/hooks/useTableSelection';
 import { useHeader } from '@/app/stores';
-import { useToast } from '@/ui-kit/feedback';
 
 /**
  * ErrorLogsPage component
  * Displays error logs in a table with incremental loading, checkboxes for batch operations
  */
 export const ErrorLogsPage: React.FC = () => {
-  const { initialized, account } = useAuth();
   const { showToast } = useToast();
 
   const [totalCount, setTotalCount] = useState<number>(0);
@@ -111,7 +107,7 @@ export const ErrorLogsPage: React.FC = () => {
       return;
     }
 
-    if (!window.confirm(`Are you sure you want to delete ${selectedIds.length} error log(s)?`)) {
+    if (!globalThis.confirm(`Are you sure you want to delete ${selectedIds.length} error log(s)?`)) {
       return;
     }
 
@@ -267,6 +263,13 @@ export const ErrorLogsPage: React.FC = () => {
     [selectedIds.length, handleDeleteSelected, handleDeleteAll, handleRunMigrations]
   );
 
+  // Selection config for checkboxes
+  const selection = useTableSelection<ErrorLog>({
+    selectedKeys: selectedIds,
+    setSelectedKeys: setSelectedIds,
+    getRowKey: (row: ErrorLog) => row.id,
+  });
+
   return (
     <div className="relative flex flex-col flex-1 min-h-0 bg-(--color-primary-dark) p-4">
       {/* Show loading overlay during migrations */}
@@ -286,24 +289,7 @@ export const ErrorLogsPage: React.FC = () => {
           onFetch: fetchErrorLogs,
           totalCount: totalCount || 0,
         }}
-        selection={{
-          selectedKeys: selectedIds,
-          onToggleRow: (key: string, checked: boolean) => {
-            setSelectedIds((prev) =>
-              checked
-                ? Array.from(new Set([...prev, key]))
-                : prev.filter((k) => k !== key)
-            );
-          },
-          onToggleAll: (checked: boolean, keys: string[]) => {
-            setSelectedIds((prev) =>
-              checked
-                ? Array.from(new Set([...prev, ...keys]))
-                : prev.filter((k) => !keys.includes(k))
-            );
-          },
-          getRowKey: (row: ErrorLog) => row.id,
-        }}
+        selection={selection}
         search={{ enabled: true, placeholder: 'Search error logs...' }}
         pageSize={8}
         leftToolbarActions={leftToolbarActions}

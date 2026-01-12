@@ -23,7 +23,7 @@ import type { UsePsoTransferReturn, PendingTransfer } from './types/usePsoTransf
  */
 export function usePsoTransfer(): UsePsoTransferReturn {
   const { showToast } = useToast();
-  const { isModalOpen, handleOpenModal, handleCloseModal } = useModalState();
+  const { handleOpenModal, handleCloseModal } = useModalState();
   const [transferToEmail, setTransferToEmail] = useState<string | null>(null);
   const [pendingTransfer, setPendingTransfer] = useState<PendingTransfer | null>(null);
   const [transferring, setTransferring] = useState(false);

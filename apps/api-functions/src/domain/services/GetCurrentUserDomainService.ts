@@ -36,7 +36,7 @@ export class GetCurrentUserDomainService {
     let isNewUser = false;
 
     // Auto-provision user if they don't exist
-    if (!user) {
+    if (user === null || user === undefined) {
       user = await this.provisionNewUser(request.callerId, jwtPayload);
       isNewUser = true;
     } else {

@@ -35,7 +35,7 @@ Function: ${errorLog.functionName || 'N/A'}
 Status Code: ${errorLog.httpStatusCode || 'N/A'}
 Resolved: ${errorLog.resolved ? 'Yes' : 'No'}
 Created: ${formatDateForDisplay(errorLog.createdAt)}
-${errorLog.stackTrace ? `\nStack Trace:\n${errorLog.stackTrace}` : ''}`;
+${errorLog.stackTrace ? '\nStack Trace:\n' + errorLog.stackTrace : ''}`;
 }
 
 /**

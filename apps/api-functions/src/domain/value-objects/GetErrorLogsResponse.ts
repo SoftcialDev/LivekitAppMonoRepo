@@ -40,6 +40,51 @@ export class GetErrorLogsResponse {
   ) {}
 
   /**
+   * Converts a single error log entity to payload format
+   * @param log - Error log entity
+   * @returns Payload object for single error log
+   */
+  private toLogPayload(log: ApiErrorLog): {
+    id: string;
+    severity: string;
+    source: string;
+    endpoint: string | null;
+    functionName: string | null;
+    errorName: string | null;
+    errorMessage: string | null;
+    stackTrace: string | null;
+    httpStatusCode: number | null;
+    userId: string | null;
+    userEmail: string | null;
+    requestId: string | null;
+    context: Record<string, unknown> | null;
+    resolved: boolean;
+    resolvedAt: Date | null;
+    resolvedBy: string | null;
+    createdAt: Date;
+  } {
+    return {
+      id: log.id,
+      severity: log.severity,
+      source: log.source,
+      endpoint: log.endpoint,
+      functionName: log.functionName,
+      errorName: log.errorName,
+      errorMessage: log.errorMessage,
+      stackTrace: log.stackTrace,
+      httpStatusCode: log.httpStatusCode,
+      userId: log.userId,
+      userEmail: log.userEmail,
+      requestId: log.requestId,
+      context: log.context,
+      resolved: log.resolved,
+      resolvedAt: log.resolvedAt,
+      resolvedBy: log.resolvedBy,
+      createdAt: log.createdAt
+    };
+  }
+
+  /**
    * Converts the response to a payload object
    * @returns Payload object for HTTP response
    */
@@ -70,25 +115,7 @@ export class GetErrorLogsResponse {
     hasMore: boolean;
   } {
     return {
-      logs: this.logs.map(log => ({
-        id: log.id,
-        severity: log.severity,
-        source: log.source,
-        endpoint: log.endpoint,
-        functionName: log.functionName,
-        errorName: log.errorName,
-        errorMessage: log.errorMessage,
-        stackTrace: log.stackTrace,
-        httpStatusCode: log.httpStatusCode,
-        userId: log.userId,
-        userEmail: log.userEmail,
-        requestId: log.requestId,
-        context: log.context,
-        resolved: log.resolved,
-        resolvedAt: log.resolvedAt,
-        resolvedBy: log.resolvedBy,
-        createdAt: log.createdAt
-      })),
+      logs: this.logs.map(log => this.toLogPayload(log)),
       count: this.logs.length,
       total: this.total,
       limit: this.limit,
@@ -126,25 +153,7 @@ export class GetErrorLogsResponse {
       throw new ValidationError('No error log to convert', ValidationErrorCode.INVALID_EMAIL_FORMAT);
     }
     const log = this.logs[0];
-    return {
-      id: log.id,
-      severity: log.severity,
-      source: log.source,
-      endpoint: log.endpoint,
-      functionName: log.functionName,
-      errorName: log.errorName,
-      errorMessage: log.errorMessage,
-      stackTrace: log.stackTrace,
-      httpStatusCode: log.httpStatusCode,
-      userId: log.userId,
-      userEmail: log.userEmail,
-      requestId: log.requestId,
-      context: log.context,
-      resolved: log.resolved,
-      resolvedAt: log.resolvedAt,
-      resolvedBy: log.resolvedBy,
-      createdAt: log.createdAt
-    };
+    return this.toLogPayload(log);
   }
 }
 

@@ -62,12 +62,12 @@ export function useRecording(roomName: string, name: string): IUseRecordingRetur
     try {
       setLoading(true);
 
-      if (!isRecording) {
+      if (isRecording) {
+        await stopRecordingIfActive();
+      } else {
         await startRecording(roomName);
         setIsRecording(true);
         showToast(`Recording started for ${name}`, 'success');
-      } else {
-        await stopRecordingIfActive();
       }
     } catch (err) {
       logError('Recording toggle failed', { error: err });

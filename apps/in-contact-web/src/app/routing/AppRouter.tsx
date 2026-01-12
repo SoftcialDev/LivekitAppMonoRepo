@@ -16,8 +16,7 @@
  */
 
 import React, { useEffect } from 'react';
-import { createBrowserRouter, RouterProvider, Outlet } from 'react-router-dom';
-import { Navigate } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider, Outlet, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/modules/auth';
 import { ToastProvider } from '@/ui-kit/feedback';
 import { WebSocketProvider } from '@/app/providers/WebSocketProvider';

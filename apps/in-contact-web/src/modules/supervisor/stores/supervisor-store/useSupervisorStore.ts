@@ -10,7 +10,7 @@
 import { create } from 'zustand';
 import { usePresenceStore } from '@/modules/presence/stores/presence-store';
 import { UserRole } from '@/modules/auth/enums';
-import { logInfo, logDebug } from '@/shared/utils/logger';
+import { logInfo } from '@/shared/utils/logger';
 import { ROLES_ALWAYS_REFRESH } from './constants/supervisorConstants';
 import type { ISupervisorState } from './types/supervisorStoreTypes';
 import type { ISupervisorChangeData } from '../../types/supervisorTypes';
@@ -49,7 +49,7 @@ export const useSupervisorStore = create<ISupervisorState>((set, get) => ({
         newSupervisorName: data.newSupervisorName,
       },
     });
-    window.dispatchEvent(event);
+    globalThis.window.dispatchEvent(event);
 
     // Notify subscribers via Zustand
     get().notifySupervisorChange(data);
@@ -63,7 +63,7 @@ export const useSupervisorStore = create<ISupervisorState>((set, get) => ({
     
     // Dispatch CustomEvent for components that listen to it
     const event = new CustomEvent('supervisorListChanged', { detail: data });
-    window.dispatchEvent(event);
+    globalThis.window.dispatchEvent(event);
     
     get().notifySupervisorListChanged(data);
   },

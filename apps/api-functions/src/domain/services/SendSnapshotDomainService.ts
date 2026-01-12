@@ -16,8 +16,7 @@ import { ImageUploadRequest } from "../value-objects/ImageUploadRequest";
 import { UserNotFoundError } from "../errors/UserErrors";
 import { SnapshotReasonNotFoundError, SnapshotReasonInactiveError, DescriptionRequiredError } from "../errors/SnapshotErrors";
 import { formatCentralAmericaTime, getCentralAmericaTime } from '../../utils/dateUtils';
-import { extractErrorMessage } from '../../utils/error/ErrorHelpers';
-import { randomUUID } from 'crypto';
+import { randomUUID } from 'node:crypto';
 
 /**
  * Domain service for snapshot report business logic

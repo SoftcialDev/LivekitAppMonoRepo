@@ -24,7 +24,7 @@ export class Permission {
    * @returns void
    */
   static validateCode(code: string): void {
-    if (!code || !code.includes(":")) {
+    if (!code?.includes(":")) {
       throw new InvalidPermissionCodeError(`Invalid permission code: ${code}`);
     }
   }

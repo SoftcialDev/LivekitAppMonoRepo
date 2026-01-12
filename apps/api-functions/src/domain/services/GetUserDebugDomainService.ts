@@ -38,9 +38,7 @@ export class GetUserDebugDomainService {
   async getUserDebug(request: GetUserDebugRequest): Promise<GetUserDebugResponse> {
     // Find user by email or Azure AD Object ID
     let user = await this.userRepository.findByEmail(request.userIdentifier);
-    if (!user) {
-      user = await this.userRepository.findByAzureAdObjectId(request.userIdentifier);
-    }
+    user ??= await this.userRepository.findByAzureAdObjectId(request.userIdentifier);
 
     if (!user) {
       throw new UserNotFoundError(`User not found: ${request.userIdentifier}`);

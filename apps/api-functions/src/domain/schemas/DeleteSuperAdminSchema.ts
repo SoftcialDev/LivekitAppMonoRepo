@@ -5,7 +5,6 @@
  */
 
 import { z } from 'zod';
-import { userIdSchema } from './CommonSchemas';
 
 /**
  * Zod schema for validating the incoming Super Admin deletion request path parameter.

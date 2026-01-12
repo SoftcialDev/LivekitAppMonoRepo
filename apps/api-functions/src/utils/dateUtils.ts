@@ -110,9 +110,6 @@ export function createCentralAmericaTime(
  * @returns True if date is in daylight saving time
  */
 export function isCentralAmericaDaylightTime(date: Date): boolean {
-  const jan = new Date(date.getFullYear(), 0, 1);
-  const jul = new Date(date.getFullYear(), 6, 1);
-  
   // Central America typically observes DST from first Sunday in April to last Sunday in October
   const dstStart = new Date(date.getFullYear(), 3, 1); // April 1st
   const dstEnd = new Date(date.getFullYear(), 9, 31); // October 31st

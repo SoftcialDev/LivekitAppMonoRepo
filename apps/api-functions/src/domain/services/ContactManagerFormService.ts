@@ -20,10 +20,10 @@ import { extractErrorCause, extractErrorMessage } from '../../utils/error/ErrorH
  */
 export class ContactManagerFormService implements IContactManagerFormService {
   constructor(
-    private formRepository: IContactManagerFormRepository,
-    private blobStorageService: IBlobStorageService,
-    private chatService: IChatService,
-    private errorLogService: IErrorLogService
+    private readonly formRepository: IContactManagerFormRepository,
+    private readonly blobStorageService: IBlobStorageService,
+    private readonly chatService: IChatService,
+    private readonly errorLogService: IErrorLogService
   ) {}
 
   /**

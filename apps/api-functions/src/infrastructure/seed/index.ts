@@ -5,5 +5,4 @@
 
 export * from './defaultRolesAndPermissions';
 export * from './defaultSnapshotReasons';
-export * from './seedSnapshotReasons';
 

@@ -38,8 +38,8 @@ export function useBlockedNavigate(): IBlockedNavigate {
       // Check if there are active talk sessions
       if (hasActiveSessions()) {
         // Use window guard to block navigation and show modal
-        const guard = (window as any).__talkNavigationGuard;
-        if (guard && guard.checkAndBlockNavigation) {
+        const guard = (globalThis as any).__talkNavigationGuard;
+        if (guard?.checkAndBlockNavigation) {
           const blocked = guard.checkAndBlockNavigation(to);
           if (blocked) {
             logDebug('[useBlockedNavigate] Navigation blocked, modal will be shown', { path: to });

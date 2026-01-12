@@ -4,20 +4,24 @@
  * @description Defines API functions, UI labels, and columns for Contact Manager page
  */
 
-import type { Column } from '@/ui-kit/tables';
 import { ManagerStatus } from '@/modules/presence/enums/managerStatusEnums';
 import {
   getContactManagers,
   upsertContactManager,
   revokeContactManager,
 } from '../../api/contactManagerClient';
-import { getUsersByRole } from '../../api/adminClient';
 import type {
   ContactManagerDto,
   UserManagementConfig,
   BaseUserManagementItem,
   CandidateUser,
 } from '../../types';
+import {
+  mapFullNameToItem,
+  createFetchCandidates,
+  createCandidateColumns,
+  createCommonMainColumns,
+} from './sharedConfigUtils';
 
 /**
  * Contact Manager item type (extends ContactManagerDto with BaseUserManagementItem)
@@ -31,17 +35,10 @@ export type ContactManagerItem = ContactManagerDto & BaseUserManagementItem;
  * @returns ContactManagerItem with firstName and lastName
  */
 function mapContactManagerToItem(dto: ContactManagerDto): ContactManagerItem {
-  const parts = (dto.fullName ?? '').trim().split(/\s+/);
-  const firstName = parts.shift() || '';
-  const lastName = parts.join(' ');
-
-  return {
-    ...dto,
-    firstName,
-    lastName,
+  return mapFullNameToItem(dto, {
     id: dto.id,
     role: 'ContactManager',
-  };
+  });
 }
 
 /**
@@ -62,18 +59,7 @@ export function createContactManagerPageConfig(): UserManagementConfig<ContactMa
         const result = await getContactManagers(limit, offset);
         return result.items.map(mapContactManagerToItem);
       },
-      fetchCandidates: async () => {
-        // Note: Current user filtering is done in useCandidateData hook
-        const response = await getUsersByRole(
-          'Admin,Supervisor,PSO,Unassigned',
-          1,
-          1000
-        );
-        return response.users.map((user) => ({
-          ...user,
-          id: user.azureAdObjectId || user.email,
-        }));
-      },
+      fetchCandidates: createFetchCandidates('Admin,Supervisor,PSO,Unassigned'),
       addItems: async (emails: string[]) => {
         await Promise.all(
           emails.map((email) =>
@@ -102,19 +88,11 @@ export function createContactManagerPageConfig(): UserManagementConfig<ContactMa
       removeErrorMessage: 'Failed to remove contact manager',
     },
     columns: {
-      mainColumns: [
-        { key: 'firstName', header: 'First Name' },
-        { key: 'lastName', header: 'Last Name' },
-        { key: 'email', header: 'Email' },
+      mainColumns: createCommonMainColumns<ContactManagerItem>([
         { key: 'status', header: 'Status' },
         { key: 'role', header: 'Role' },
-      ] as Column<ContactManagerItem>[],
-      candidateColumns: [
-        { key: 'email', header: 'Email' },
-        { key: 'firstName', header: 'First Name' },
-        { key: 'lastName', header: 'Last Name' },
-        { key: 'role', header: 'Role' },
-      ] as Column<CandidateUser>[],
+      ]),
+      candidateColumns: createCandidateColumns<CandidateUser>(),
     },
   };
 }

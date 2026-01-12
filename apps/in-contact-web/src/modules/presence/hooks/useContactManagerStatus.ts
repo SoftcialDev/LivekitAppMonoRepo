@@ -68,7 +68,7 @@ export function useContactManagerStatus(
    */
   const scheduleFullSync = (delayMs = 400) => {
     if (fetchTimerRef.current != null) return;
-    fetchTimerRef.current = window.setTimeout(async () => {
+    fetchTimerRef.current = globalThis.setTimeout(async () => {
       fetchTimerRef.current = null;
       await fetchManagers();
     }, delayMs);
@@ -117,7 +117,7 @@ export function useContactManagerStatus(
       const next = prev.slice();
       next[idx] = {
         ...current,
-        status: upd.status as ManagerStatus,
+        status: upd.status,
         updatedAt: upd.updatedAt ?? current.updatedAt,
       };
       applied = true;

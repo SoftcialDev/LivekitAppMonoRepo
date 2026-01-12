@@ -27,7 +27,7 @@ export class Role {
    * @param permission Permission to add.
    */
   addPermission(permission: PermissionEntity): void {
-    if (this.permissions.find((p) => p.id === permission.id)) {
+    if (this.permissions.some((p) => p.id === permission.id)) {
       return;
     }
     this.permissions.push(permission);

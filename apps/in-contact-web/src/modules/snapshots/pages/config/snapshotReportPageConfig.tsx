@@ -82,12 +82,18 @@ export function createSnapshotReportColumns(
       key: 'imageUrl',
       header: 'Snapshot',
       render: row => (
-        <img
-          src={row.imageUrl}
-          alt="thumb"
-          className={SNAPSHOT_REPORT_CELL_CLASSES.IMAGE}
+        <button
+          type="button"
           onClick={() => handleView(row)}
-        />
+          className={SNAPSHOT_REPORT_CELL_CLASSES.IMAGE}
+          aria-label={`View snapshot for ${row.psoFullName}`}
+        >
+          <img
+            src={row.imageUrl}
+            alt="thumb"
+            className="w-full h-full object-contain"
+          />
+        </button>
       ),
     },
     {

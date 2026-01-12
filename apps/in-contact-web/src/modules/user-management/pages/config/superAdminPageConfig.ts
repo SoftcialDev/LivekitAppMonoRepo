@@ -4,19 +4,23 @@
  * @description Defines API functions, UI labels, and columns for Super Admin page
  */
 
-import type { Column } from '@/ui-kit/tables';
 import {
   getSuperAdmins,
   createSuperAdmin,
   deleteSuperAdmin,
 } from '../../api/superAdminClient';
-import { getUsersByRole } from '../../api/adminClient';
 import type {
   SuperAdminDto,
   UserByRole,
   UserManagementConfig,
   BaseUserManagementItem,
 } from '../../types';
+import {
+  mapFullNameToItem,
+  createFetchCandidates,
+  createCandidateColumns,
+  createCommonMainColumns,
+} from './sharedConfigUtils';
 
 /**
  * Super Admin item type (extends SuperAdminDto with BaseUserManagementItem)
@@ -30,16 +34,9 @@ export type SuperAdminItem = SuperAdminDto & BaseUserManagementItem;
  * @returns SuperAdminItem with firstName and lastName
  */
 function mapSuperAdminToItem(dto: SuperAdminDto): SuperAdminItem {
-  const parts = (dto.fullName ?? '').trim().split(/\s+/);
-  const firstName = parts.shift() || '';
-  const lastName = parts.join(' ');
-
-  return {
-    ...dto,
-    firstName,
-    lastName,
+  return mapFullNameToItem(dto, {
     id: dto.id,
-  };
+  });
 }
 
 /**
@@ -60,17 +57,7 @@ export function createSuperAdminPageConfig(): UserManagementConfig<SuperAdminIte
         const result = await getSuperAdmins(limit, offset);
         return result.items.map(mapSuperAdminToItem);
       },
-      fetchCandidates: async () => {
-        const response = await getUsersByRole(
-          'Admin,Supervisor,PSO,Unassigned',
-          1,
-          1000
-        );
-        return response.users.map((user) => ({
-          ...user,
-          id: user.azureAdObjectId || user.email,
-        }));
-      },
+      fetchCandidates: createFetchCandidates('Admin,Supervisor,PSO,Unassigned'),
       addItems: async (emails: string[]) => {
         await Promise.all(emails.map((email) => createSuperAdmin(email)));
       },
@@ -95,22 +82,14 @@ export function createSuperAdminPageConfig(): UserManagementConfig<SuperAdminIte
       removeErrorMessage: 'Failed to remove super admin',
     },
     columns: {
-      mainColumns: [
-        { key: 'firstName', header: 'First Name' },
-        { key: 'lastName', header: 'Last Name' },
-        { key: 'email', header: 'Email' },
+      mainColumns: createCommonMainColumns<SuperAdminItem>([
         {
           key: 'role',
           header: 'Role',
           render: (row: SuperAdminItem) => row.role || 'Super Admin',
         },
-      ] as Column<SuperAdminItem>[],
-      candidateColumns: [
-        { key: 'email', header: 'Email' },
-        { key: 'firstName', header: 'First Name' },
-        { key: 'lastName', header: 'Last Name' },
-        { key: 'role', header: 'Role' },
-      ] as Column<UserByRole>[],
+      ]),
+      candidateColumns: createCandidateColumns<UserByRole>(),
     },
     features: {
       minItemsForDeletion: 1, // Prevent deleting last SuperAdmin

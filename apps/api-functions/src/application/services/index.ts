@@ -1,4 +1,4 @@
-4/**
+/**
  * @fileoverview Application Services - Export all application services
  * @description Centralized export of all application services for easy importing
  */

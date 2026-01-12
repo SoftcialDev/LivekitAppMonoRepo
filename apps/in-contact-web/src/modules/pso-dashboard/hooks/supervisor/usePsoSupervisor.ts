@@ -51,8 +51,10 @@ export function usePsoSupervisor(userEmail: string): IUsePsoSupervisorReturn {
   }, [userEmail]);
   
   useEffect(() => {
-    void fetchSupervisor();
-  }, [fetchSupervisor]);
+    fetchSupervisor().catch((err) => {
+      logError('Error in fetchSupervisor effect', { error: err, userEmail });
+    });
+  }, [fetchSupervisor, userEmail]);
   
   return { 
     supervisor, 

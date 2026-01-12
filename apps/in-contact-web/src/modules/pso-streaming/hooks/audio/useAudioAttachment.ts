@@ -8,7 +8,7 @@
  * were published before the talk session started.
  */
 
-import { useRef, useEffect, useCallback } from 'react';
+import { useEffect, useCallback } from 'react';
 import type { RemoteAudioTrack, RemoteParticipant } from 'livekit-client';
 import { logWarn, logDebug } from '@/shared/utils/logger';
 import { useAudioPlay } from './useAudioPlay';
@@ -88,7 +88,7 @@ export function useAudioAttachment(
 
       track.attach(audioRef.current);
       audioRef.current.muted = isAudioMuted;
-      audioRef.current.volume = 1.0;
+      audioRef.current.volume = 1;
 
       playAudioSafely(audioRef.current).catch(() => {
         // Error already logged in useAudioPlay

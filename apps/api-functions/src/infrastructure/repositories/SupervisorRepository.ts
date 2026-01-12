@@ -9,6 +9,11 @@ import { User } from '../../domain/entities/User';
 import { wrapPsoFetchError, wrapSupervisorFetchError } from '../../utils/error/ErrorHelpers';
 
 /**
+ * Result type for supervisor find operations
+ */
+type SupervisorFindResult = User | string | null;
+
+/**
  * Repository for supervisor data access operations
  */
 export class SupervisorRepository implements ISupervisorRepository {
@@ -64,13 +69,14 @@ export class SupervisorRepository implements ISupervisorRepository {
   async findPsoByIdentifier(identifier: string): Promise<User | null> {
     try {
       // Try to find by ID first (UUID format)
-      if (identifier.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (uuidRegex.exec(identifier)) {
         const user = await this.findById(identifier);
         return user;
       }
 
       // Try to find by Azure AD Object ID
-      if (identifier.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+      if (uuidRegex.exec(identifier)) {
         const user = await prisma.user.findUnique({
           where: { azureAdObjectId: identifier }
         });
@@ -92,46 +98,80 @@ export class SupervisorRepository implements ISupervisorRepository {
   }
 
   /**
+   * Validates if a user is a supervisor and returns appropriate result
+   * @param user - User entity to validate
+   * @returns User if supervisor, error message otherwise
+   */
+  private validateSupervisorUser(user: User | null): User | string {
+    if (!user) {
+      return "User not found";
+    }
+    return user.isSupervisor() ? user : "User found but is not a supervisor";
+  }
+
+  /**
+   * Attempts to find supervisor by ID
+   * @param identifier - UUID identifier
+   * @returns User if found and is supervisor, error message, or null if not found
+   */
+  private async findSupervisorById(identifier: string): Promise<SupervisorFindResult> {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.exec(identifier)) {
+      return null;
+    }
+    const user = await this.findById(identifier);
+    return this.validateSupervisorUser(user);
+  }
+
+  /**
+   * Attempts to find supervisor by Azure AD Object ID
+   * @param identifier - Azure AD Object ID
+   * @returns User if found and is supervisor, error message, or null if not found
+   */
+  private async findSupervisorByAzureAdObjectId(identifier: string): Promise<SupervisorFindResult> {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.exec(identifier)) {
+      return null;
+    }
+    const user = await prisma.user.findUnique({
+      where: { azureAdObjectId: identifier }
+    });
+    return user ? this.validateSupervisorUser(User.fromPrisma(user)) : null;
+  }
+
+  /**
+   * Attempts to find supervisor by email
+   * @param identifier - Email address
+   * @returns User if found and is supervisor, error message, or null if not found
+   */
+  private async findSupervisorByEmail(identifier: string): Promise<SupervisorFindResult> {
+    if (!identifier.includes('@')) {
+      return null;
+    }
+    const user = await this.findByEmail(identifier);
+    return this.validateSupervisorUser(user);
+  }
+
+  /**
    * Finds a supervisor by identifier (ID, Azure AD Object ID, or email)
    * @param identifier - The identifier to search for
    * @returns Promise that resolves to supervisor or error message
    */
   async findSupervisorByIdentifier(identifier: string): Promise<User | string> {
     try {
-      // Try to find by ID first (UUID format)
-      if (identifier.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
-        const user = await this.findById(identifier);
-        if (user && user.isSupervisor()) {
-          return user;
-        }
-        if (user && !user.isSupervisor()) {
-          return "User found but is not a supervisor";
-        }
+      const resultById = await this.findSupervisorById(identifier);
+      if (resultById !== null) {
+        return resultById;
       }
 
-      // Try to find by Azure AD Object ID
-      if (identifier.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
-        const user = await prisma.user.findUnique({
-          where: { azureAdObjectId: identifier }
-        });
-        if (user) {
-          const userEntity = User.fromPrisma(user);
-          if (userEntity.isSupervisor()) {
-            return userEntity;
-          }
-          return "User found but is not a supervisor";
-        }
+      const resultByAzureAd = await this.findSupervisorByAzureAdObjectId(identifier);
+      if (resultByAzureAd !== null) {
+        return resultByAzureAd;
       }
 
-      // Try to find by email
-      if (identifier.includes('@')) {
-        const user = await this.findByEmail(identifier);
-        if (user && user.isSupervisor()) {
-          return user;
-        }
-        if (user && !user.isSupervisor()) {
-          return "User found but is not a supervisor";
-        }
+      const resultByEmail = await this.findSupervisorByEmail(identifier);
+      if (resultByEmail !== null) {
+        return resultByEmail;
       }
 
       return "User not found";

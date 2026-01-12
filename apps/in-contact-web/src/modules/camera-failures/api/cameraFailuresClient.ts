@@ -52,7 +52,8 @@ export async function getCameraFailures(
     }
 
     const queryString = queryParams.toString();
-    const url = `/api/GetCameraFailures${queryString ? `?${queryString}` : ''}`;
+    const baseUrl = '/api/GetCameraFailures';
+    const url = queryString ? `${baseUrl}?${queryString}` : baseUrl;
     
     const response = await apiClient.get<GetCameraFailuresResponse>(url);
     return response.data;

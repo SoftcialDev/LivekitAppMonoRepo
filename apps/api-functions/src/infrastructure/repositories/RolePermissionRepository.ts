@@ -39,7 +39,7 @@ export class RolePermissionRepository implements IRolePermissionRepository {
 
     if (!role) return [];
     return role.rolePermissions
-      .filter((rp) => rp.permission && rp.permission.isActive)
+      .filter((rp) => rp.permission?.isActive)
       .map((rp) => this.toPermission(rp.permission));
   }
 }

@@ -21,6 +21,7 @@ export * from './IGraphService';
 export * from './ILiveKitEgressClient';
 export * from './ILivekitRecordingDomainService';
 export * from './ILiveKitService';
+export * from './ILogWebPubSubErrorOptions';
 export * from './IPendingCommandDomainService';
 export * from './IPendingCommandRepository';
 export * from './IPermissionRepository';

@@ -15,8 +15,8 @@ import { SuperAdminProfile } from '../../domain/entities/SuperAdminProfile';
  */
 export class SuperAdminApplicationService {
   constructor(
-    private superAdminDomainService: SuperAdminDomainService,
-    private authorizationService: AuthorizationService
+    private readonly superAdminDomainService: SuperAdminDomainService,
+    private readonly authorizationService: AuthorizationService
   ) {}
 
   /**

@@ -4,7 +4,6 @@
  */
 
 import { Context } from '@azure/functions';
-import { unauthorized } from '../utils/response';
 import { AuthorizationService } from '../domain/services/AuthorizationService';
 import { UserRepository } from '../infrastructure/repositories/UserRepository';
 import { extractCallerId } from '../utils/authHelpers';

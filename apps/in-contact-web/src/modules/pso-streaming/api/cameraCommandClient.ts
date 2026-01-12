@@ -5,7 +5,6 @@
  */
 
 import apiClient from '@/shared/api/apiClient';
-import { handleApiError } from '@/shared/utils/errorUtils';
 import { CameraCommandError } from '../errors';
 
 /**

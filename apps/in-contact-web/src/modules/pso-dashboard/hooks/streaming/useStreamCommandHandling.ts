@@ -58,8 +58,10 @@ export function useStreamCommandHandling({
         }
 
         const command = String(msg.command).trim().toUpperCase();
-        const messageEmail = msg.employeeEmail ? String(msg.employeeEmail).toLowerCase() : null;
-        const reason = msg.reason ? String(msg.reason) : undefined;
+        const employeeEmailValue = msg.employeeEmail;
+        const reasonValue = msg.reason;
+        const messageEmail = typeof employeeEmailValue === 'string' ? employeeEmailValue.toLowerCase() : null;
+        const reason = typeof reasonValue === 'string' ? reasonValue : undefined;
 
         // Filter by email if provided in message
         if (messageEmail && messageEmail !== userEmail.toLowerCase()) {
@@ -100,7 +102,7 @@ export function useStreamCommandHandling({
             });
         } else if (command === 'REFRESH') {
           logDebug('[useStreamCommandHandling] Received REFRESH command, reloading page', { userEmail });
-          window.location.reload();
+          globalThis.location.reload();
         }
       } catch (error) {
         logError('[useStreamCommandHandling] Error handling message', { error, userEmail });

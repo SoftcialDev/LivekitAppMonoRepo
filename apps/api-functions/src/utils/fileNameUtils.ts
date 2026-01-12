@@ -20,23 +20,25 @@ export function sanitizeFileName(input: string, maxLength: number = 50): string 
   let sanitized = input.trim();
 
   // Replace spaces with underscores
-  sanitized = sanitized.replace(/\s+/g, '_');
+  sanitized = sanitized.replaceAll(/\s+/g, '_');
 
   // Remove or replace special characters
   // Keep: letters, numbers, underscores, hyphens, dots
-  sanitized = sanitized.replace(/[^a-zA-Z0-9._-]/g, '');
+  sanitized = sanitized.replaceAll(/[^a-zA-Z0-9._-]/g, '');
 
   // Remove multiple consecutive underscores
-  sanitized = sanitized.replace(/_+/g, '_');
+  sanitized = sanitized.replaceAll(/_+/g, '_');
 
   // Remove leading/trailing underscores, dots, or hyphens
-  sanitized = sanitized.replace(/^[._-]+|[._-]+$/g, '');
+  // Split into two replace calls to avoid alternation and ensure safe execution
+  sanitized = sanitized.replace(/^[._-]+/, '');
+  sanitized = sanitized.replace(/[._-]+$/, '');
 
   // Truncate to max length
   if (sanitized.length > maxLength) {
     sanitized = sanitized.substring(0, maxLength);
-    // Remove trailing underscore if truncated
-    sanitized = sanitized.replace(/_+$/, '');
+    // Remove trailing underscore if truncated (anchored pattern - safe from ReDoS)
+    sanitized = sanitized.replace(/[._-]+$/, '');
   }
 
   // If empty after sanitization, return a default value
@@ -70,7 +72,7 @@ export function generateSnapshotFileName(
   const sanitizedReasonCode = sanitizeFileName(reasonCode, 15).toUpperCase();
 
   // Format date as YYYYMMDD
-  const dateStr = timestamp.toISOString().slice(0, 10).replace(/-/g, '');
+  const dateStr = timestamp.toISOString().slice(0, 10).replaceAll('-', '');
 
   // Format time as HHMMSS
   const hours = String(timestamp.getHours()).padStart(2, '0');
@@ -101,12 +103,17 @@ export function generateSnapshotFolderPath(timestamp: Date): string {
  * @returns URL-safe slug string
  */
 export function slugify(input: string): string {
-  return (input || "user")
+  let slug = (input || "user")
     .normalize("NFKD")
-    .replace(/[\u0300-\u036f]/g, "")
+    .replaceAll(/[\u0300-\u036f]/g, "")
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
+    .replaceAll(/[^a-z0-9]+/g, "-");
+  
+  // Remove leading and trailing hyphens
+  slug = slug.replace(/^-+/, "");
+  slug = slug.replace(/-+$/, "");
+  
+  return slug;
 }
 
 /**

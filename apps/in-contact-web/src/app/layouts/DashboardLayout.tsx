@@ -9,8 +9,7 @@
 import React from 'react';
 import { Outlet } from 'react-router-dom';
 import { Header } from '@/ui-kit/layout';
-import { Sidebar, SidebarToggle } from '@/modules/sidebar';
-import { useSidebar } from '@/modules/sidebar';
+import { Sidebar, SidebarToggle, useSidebar } from '@/modules/sidebar';
 import { usePresence } from '@/modules/presence';
 
 /**

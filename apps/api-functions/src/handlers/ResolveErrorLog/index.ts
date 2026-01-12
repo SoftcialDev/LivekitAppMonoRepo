@@ -11,7 +11,7 @@ import { withCallerId } from '../../middleware/callerId';
 import { requirePermission } from '../../middleware/permissions';
 import { Permission } from '../../domain/enums/Permission';
 import { withPathValidation } from '../../middleware/validate';
-import { ok, badRequest } from '../../utils/response';
+import { ok } from '../../utils/response';
 import { ServiceContainer } from '../../infrastructure/container/ServiceContainer';
 import { GetErrorLogsApplicationService } from '../../application/services/GetErrorLogsApplicationService';
 import { getErrorLogByIdSchema, GetErrorLogByIdParams } from '../../domain/schemas/GetErrorLogByIdSchema';

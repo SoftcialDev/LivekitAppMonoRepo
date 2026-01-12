@@ -8,8 +8,7 @@ import { WebPubSubServiceClient } from "@azure/web-pubsub";
 import { AzureKeyCredential } from "@azure/core-auth";
 import { IWebPubSubService } from '../../domain/interfaces/IWebPubSubService';
 import { getCentralAmericaTime } from '../../utils/dateUtils';
-import { wrapWebPubSubTokenError, wrapWebPubSubBroadcastError, wrapWebPubSubSyncError } from '../../utils/error/ErrorHelpers';
-import { extractErrorDetails } from '../../utils/error/ErrorHelpers';
+import { wrapWebPubSubTokenError, wrapWebPubSubBroadcastError, wrapWebPubSubSyncError, extractErrorDetails } from '../../utils/error/ErrorHelpers';
 import { WebPubSubGroups } from '../../domain/constants/WebPubSubGroups';
 import { config } from '../../config';
 import prisma from "../database/PrismaClientService";
@@ -196,6 +195,42 @@ export class WebPubSubService implements IWebPubSubService {
   }
 
   /**
+   * Updates user presence status in database
+   * @param userId - User ID
+   * @param userEmail - User email
+   * @param status - Presence status ('online' or 'offline')
+   * @param action - Action name for correction log
+   * @param reason - Reason for correction
+   * @param corrections - Array to push correction records
+   * @param errors - Array to push error messages
+   */
+  private async updateUserPresenceStatus(
+    userId: string,
+    userEmail: string,
+    status: 'online' | 'offline',
+    action: 'mark_online' | 'mark_offline',
+    reason: string,
+    corrections: Array<{ email: string; action: string; reason: string }>,
+    errors: string[]
+  ): Promise<void> {
+    try {
+      await prisma.presence.upsert({
+        where: { userId },
+        update: { status, lastSeenAt: getCentralAmericaTime(), updatedAt: getCentralAmericaTime() },
+        create: { userId, status, lastSeenAt: getCentralAmericaTime(), updatedAt: getCentralAmericaTime() }
+      });
+      corrections.push({
+        email: userEmail,
+        action,
+        reason
+      });
+    } catch (error: unknown) {
+      const { message } = extractErrorDetails(error);
+      errors.push(`Failed to mark ${userEmail} ${status}: ${message}`);
+    }
+  }
+
+  /**
    * Syncs all users between Web PubSub and Database
    * @description Compares users in WebPubSub presence group with database presence records
    * and corrects discrepancies (marks users online/offline as needed)
@@ -228,7 +263,7 @@ export class WebPubSubService implements IWebPubSubService {
       });
       
       // 3. Detect discrepancies and apply corrections
-      const corrections = [];
+      const corrections: Array<{ email: string; action: string; reason: string }> = [];
       const warnings: string[] = [];
       const errors: string[] = [];
       
@@ -238,38 +273,26 @@ export class WebPubSubService implements IWebPubSubService {
         
         if (isInWebPubSub && !isOnlineInDb) {
           // User in WebPubSub but offline in DB → Mark online
-          try {
-            await prisma.presence.upsert({
-              where: { userId: user.id },
-              update: { status: 'online', lastSeenAt: getCentralAmericaTime(), updatedAt: getCentralAmericaTime() },
-              create: { userId: user.id, status: 'online', lastSeenAt: getCentralAmericaTime(), updatedAt: getCentralAmericaTime() }
-            });
-            corrections.push({
-              email: user.email,
-              action: 'mark_online',
-              reason: 'Connected in WebPubSub but offline in DB'
-            });
-          } catch (error: unknown) {
-            const { message } = extractErrorDetails(error);
-            errors.push(`Failed to mark ${user.email} online: ${message}`);
-          }
+          await this.updateUserPresenceStatus(
+            user.id,
+            user.email,
+            'online',
+            'mark_online',
+            'Connected in WebPubSub but offline in DB',
+            corrections,
+            errors
+          );
         } else if (!isInWebPubSub && isOnlineInDb) {
           // User online in DB but not in WebPubSub → Mark offline
-          try {
-            await prisma.presence.upsert({
-              where: { userId: user.id },
-              update: { status: 'offline', lastSeenAt: getCentralAmericaTime(), updatedAt: getCentralAmericaTime() },
-              create: { userId: user.id, status: 'offline', lastSeenAt: getCentralAmericaTime(), updatedAt: getCentralAmericaTime() }
-            });
-            corrections.push({
-              email: user.email,
-              action: 'mark_offline',
-              reason: 'Not in WebPubSub but online in DB'
-            });
-          } catch (error: unknown) {
-            const { message } = extractErrorDetails(error);
-            errors.push(`Failed to mark ${user.email} offline: ${message}`);
-          }
+          await this.updateUserPresenceStatus(
+            user.id,
+            user.email,
+            'offline',
+            'mark_offline',
+            'Not in WebPubSub but online in DB',
+            corrections,
+            errors
+          );
         }
       }
       

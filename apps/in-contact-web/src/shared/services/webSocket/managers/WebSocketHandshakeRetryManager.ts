@@ -56,6 +56,81 @@ export class WebSocketHandshakeRetryManager {
   }
 
   /**
+   * Handles handshake failure by refreshing page
+   * @param attempt - Attempt number
+   * @param elapsed - Time elapsed
+   * @param error - Error that occurred
+   * @throws The error that was passed in
+   */
+  private handleHandshakeFailure(
+    attempt: number,
+    elapsed: number,
+    error: unknown
+  ): never {
+    logError('All handshake retry attempts failed, refreshing page', {
+      attempts: attempt + 1,
+      elapsed,
+      error,
+    });
+    if (globalThis.window !== undefined) {
+      globalThis.window.location.reload();
+    }
+    throw error;
+  }
+
+  /**
+   * Handles retry attempt error
+   * @param error - Error that occurred
+   * @param attempt - Attempt number
+   * @param startTime - Start time of retry process
+   * @param isConnectedFn - Function that checks if connection is active
+   * @returns Promise that resolves after delay
+   * @throws If connection active, non-handshake error, or retries exhausted
+   */
+  private async handleRetryError(
+    error: unknown,
+    attempt: number,
+    startTime: number,
+    isConnectedFn: () => boolean
+  ): Promise<void> {
+    // Check if connection was established by another process
+    if (isConnectedFn()) {
+      logDebug('Connection established by another process during retry', {
+        attempt: attempt + 1,
+      });
+      throw new WebSocketConnectionActiveError('Connection established by another process');
+    }
+
+    // Only retry if it's a handshake error
+    if (!this.isHandshakeError(error)) {
+      logDebug('Non-handshake error, not retrying', {
+        error,
+        attempt: attempt + 1,
+      });
+      throw error;
+    }
+
+    const elapsed = Date.now() - startTime;
+    const isLastAttempt = attempt === HANDSHAKE_RETRY_CONFIG.MAX_RETRIES - 1;
+    const isTimeout = elapsed >= HANDSHAKE_RETRY_CONFIG.TOTAL_RETRY_WINDOW_MS;
+
+    if (isLastAttempt || isTimeout) {
+      this.handleHandshakeFailure(attempt, elapsed, error);
+    }
+
+    logWarn('Handshake failed, retrying connection', {
+      attempt: attempt + 1,
+      maxRetries: HANDSHAKE_RETRY_CONFIG.MAX_RETRIES,
+      nextRetryIn: HANDSHAKE_RETRY_CONFIG.RETRY_INTERVAL_MS,
+      error,
+    });
+
+    await new Promise(resolve =>
+      setTimeout(resolve, HANDSHAKE_RETRY_CONFIG.RETRY_INTERVAL_MS)
+    );
+  }
+
+  /**
    * Attempts to establish connection with retry logic for handshake errors
    * 
    * Checks for active connection before each retry to avoid redundant attempts.
@@ -87,49 +162,7 @@ export class WebSocketHandshakeRetryManager {
         });
         return client;
       } catch (error) {
-        // Check if connection was established by another process
-        if (isConnectedFn()) {
-          logDebug('Connection established by another process during retry', {
-            attempt: attempt + 1,
-          });
-          throw new WebSocketConnectionActiveError('Connection established by another process');
-        }
-
-        // Only retry if it's a handshake error
-        if (!this.isHandshakeError(error)) {
-          logDebug('Non-handshake error, not retrying', {
-            error,
-            attempt: attempt + 1,
-          });
-          throw error;
-        }
-
-        const elapsed = Date.now() - startTime;
-        const isLastAttempt = attempt === HANDSHAKE_RETRY_CONFIG.MAX_RETRIES - 1;
-        const isTimeout = elapsed >= HANDSHAKE_RETRY_CONFIG.TOTAL_RETRY_WINDOW_MS;
-
-        if (isLastAttempt || isTimeout) {
-          logError('All handshake retry attempts failed, refreshing page', {
-            attempts: attempt + 1,
-            elapsed,
-            error,
-          });
-          if (typeof window !== 'undefined') {
-            window.location.reload();
-          }
-          throw error;
-        }
-
-        logWarn('Handshake failed, retrying connection', {
-          attempt: attempt + 1,
-          maxRetries: HANDSHAKE_RETRY_CONFIG.MAX_RETRIES,
-          nextRetryIn: HANDSHAKE_RETRY_CONFIG.RETRY_INTERVAL_MS,
-          error,
-        });
-
-        await new Promise(resolve =>
-          setTimeout(resolve, HANDSHAKE_RETRY_CONFIG.RETRY_INTERVAL_MS)
-        );
+        await this.handleRetryError(error, attempt, startTime, isConnectedFn);
       }
     }
 

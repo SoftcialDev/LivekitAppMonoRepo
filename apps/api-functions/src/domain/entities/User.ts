@@ -150,11 +150,7 @@ export class User {
    * @returns True if user can manage users
    */
   canManageUsers(): boolean {
-    return this.isActive() && (
-      this.role === UserRole.Admin ||
-      this.role === UserRole.Supervisor ||
-      this.role === UserRole.SuperAdmin
-    );
+    return this.canSendCommands();
   }
 
   /**
