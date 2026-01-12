@@ -136,17 +136,7 @@ export function SearchableDropdown<Value>({
       }}
     >
       {/* Scrollable options container */}
-      <div 
-        className="max-h-52 overflow-y-auto custom-scrollbar"
-        onMouseDown={(e) => {
-          // Don't interfere with button clicks - let them bubble up
-          const target = e.target as HTMLElement;
-          // Only stop propagation if clicking on the scrollbar itself, not on buttons
-          if (target.closest('button') === null && target.tagName !== 'BUTTON') {
-            e.stopPropagation();
-          }
-        }}
-      >
+      <div className="max-h-52 overflow-y-auto custom-scrollbar">
         {isLoading && (
           <div className="px-4 py-2 text-xs text-white font-medium">
             Loading...
@@ -163,6 +153,7 @@ export function SearchableDropdown<Value>({
               onMouseDown={(e) => {
                 // Stop propagation to prevent interference from parent handlers
                 e.stopPropagation();
+                e.stopImmediatePropagation();
               }}
               onClick={(e) => {
                 // Handle click on entire row - works for both checkbox area and rest of row

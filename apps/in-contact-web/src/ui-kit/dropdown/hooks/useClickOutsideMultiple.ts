@@ -43,46 +43,36 @@ export function useClickOutsideMultiple({
      */
     const handleClickOutside = (event: MouseEvent): void => {
       const target = event.target as Node;
-      const targetElement = target as HTMLElement;
 
-      // First, check if click is inside any of the referenced elements
-      // This handles both regular rendering and portal rendering
-      const clickedInside = refs.some((ref) => {
-        if (!ref.current) return false;
-        // Check if target is directly inside the ref
-        if (ref.current.contains(target)) {
-          return true;
+      // Check if click is on a button inside any of the referenced elements
+      // This allows buttons to be clickable even if they're in a portal
+      const clickedOnButton = (target as HTMLElement).closest?.('button') !== null;
+      if (clickedOnButton) {
+        // If clicking on a button, check if it's inside any referenced element
+        const buttonParent = (target as HTMLElement).closest('button')?.parentElement;
+        const clickedInside = refs.some((ref) => {
+          return ref.current?.contains(target) || ref.current?.contains(buttonParent as Node);
+        });
+        if (clickedInside) {
+          return; // Don't close menu if clicking on a button inside
         }
-        // Also check if clicking on a button that's inside the ref (for portal scenarios)
-        const button = targetElement.closest?.('button');
-        if (button && ref.current.contains(button)) {
-          return true;
-        }
-        // Check if any parent of target is inside the ref
-        let parent = targetElement.parentElement;
-        while (parent) {
-          if (ref.current.contains(parent)) {
-            return true;
-          }
-          parent = parent.parentElement;
-        }
-        return false;
-      });
-
-      if (clickedInside) {
-        return; // Don't close menu if clicking inside any referenced element
       }
 
-      // If click is outside all referenced elements, close the menu
-      handler();
+      // Check if click is inside any of the referenced elements
+      const clickedInside = refs.some((ref) => {
+        return ref.current?.contains(target);
+      });
+
+      if (!clickedInside) {
+        handler();
+      }
     };
 
-    // Use bubble phase (not capture) so button handlers can execute first
-    // This ensures buttons can handle their clicks before we check if we should close
-    document.addEventListener('mousedown', handleClickOutside, false);
+    // Use capture phase to check before other handlers, but allow buttons to work
+    document.addEventListener('mousedown', handleClickOutside, true);
 
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside, false);
+      document.removeEventListener('mousedown', handleClickOutside, true);
     };
   }, [refs, handler, enabled]);
 }
