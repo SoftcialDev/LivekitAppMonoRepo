@@ -122,12 +122,17 @@ export function SearchableDropdown<Value>({
               left: portalPosition.left,
               width: Math.max(portalPosition.width, portalMinWidthPx || 0),
               zIndex: 2147483647,
+              pointerEvents: 'auto',
             }
-          : undefined
+          : { pointerEvents: 'auto' }
       }
       onMouseDown={(e) => {
-        // Prevent outside-click handler from firing when interacting with the menu
-        e.stopPropagation();
+        // Only stop propagation if clicking on the menu container itself, not on buttons
+        // This ensures buttons can receive click events properly
+        const target = e.target as HTMLElement;
+        if (target.tagName !== 'BUTTON' && target.closest('button') === null) {
+          e.stopPropagation();
+        }
       }}
     >
       {/* Scrollable options container */}
@@ -143,9 +148,23 @@ export function SearchableDropdown<Value>({
             <button
               type="button"
               key={String(opt.value)}
-              className={itemClassName}
-              onMouseDown={e => { e.preventDefault(); e.stopPropagation(); }}
-              onClick={() => toggle(opt.value)}
+              className={`${itemClassName} w-full relative`}
+              style={{ zIndex: 10, position: 'relative' }}
+              onMouseDown={(e) => {
+                // Stop propagation to prevent interference from parent handlers
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+              }}
+              onClick={(e) => {
+                // Handle click on entire row - works for both checkbox area and rest of row
+                e.preventDefault();
+                e.stopPropagation();
+                toggle(opt.value);
+              }}
+              onPointerDown={(e) => {
+                // Handle pointer events as well
+                e.stopPropagation();
+              }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault();
@@ -156,7 +175,10 @@ export function SearchableDropdown<Value>({
               <div className="mr-5">
                 <TableCheckbox
                   checked={selectedValues.includes(opt.value)}
-                  onChange={() => toggle(opt.value)}
+                  onChange={() => {
+                    // Empty - button's onClick will handle the toggle
+                    // This prevents double-toggling when clicking directly on checkbox
+                  }}
                 />
               </div>
               <span>{opt.label}</span>

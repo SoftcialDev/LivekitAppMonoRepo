@@ -32,6 +32,7 @@ export const SupervisorSelector: React.FC<ISupervisorSelectorProps> = ({
   const supLoading = useSupervisorsStore((state) => state.loading);
   const supError = useSupervisorsStore((state) => state.error);
   const [error, setError] = useState<string | null>(null);
+  const [isChanging, setIsChanging] = useState(false);
   const { showToast } = useToast();
 
   const [selectedEmail, setSelectedEmail] = useState<string | undefined>(currentSupervisorEmail || undefined);
@@ -74,25 +75,37 @@ export const SupervisorSelector: React.FC<ISupervisorSelectorProps> = ({
       return;
     }
     
-    if (newSupervisorEmail !== currentSupervisorEmail) {
-      try {
-        await changeSupervisor({
-          userEmails: [psoEmail],
-          newSupervisorEmail,
-        });
-        
-        setSelectedEmail(newSupervisorEmail);
-        const sup = supervisors.find(s => s.email === newSupervisorEmail);
-        setSelectedName(sup ? `${sup.firstName} ${sup.lastName}` : undefined);
-        onSupervisorChange(psoEmail, newSupervisorEmail);
-        showToast('Supervisor updated', 'success');
-      } catch (err) {
-        logError('Error changing supervisor assignment', { error: err });
-        setError('Failed to change supervisor assignment');
-        showToast('Failed to change supervisor', 'error');
-      }
+    // Prevent changes if already processing or if it's the same supervisor
+    if (isChanging || newSupervisorEmail === currentSupervisorEmail) {
+      return;
     }
-  }, [currentSupervisorEmail, psoEmail, onSupervisorChange, supervisors, showToast]);
+    
+    setIsChanging(true);
+    setError(null);
+    
+    try {
+      await changeSupervisor({
+        userEmails: [psoEmail],
+        newSupervisorEmail,
+      });
+      
+      setSelectedEmail(newSupervisorEmail);
+      const sup = supervisors.find(s => s.email === newSupervisorEmail);
+      setSelectedName(sup ? `${sup.firstName} ${sup.lastName}` : undefined);
+      onSupervisorChange(psoEmail, newSupervisorEmail);
+      showToast('Supervisor updated', 'success');
+    } catch (err) {
+      logError('Error changing supervisor assignment', { error: err });
+      setError('Failed to change supervisor assignment');
+      showToast('Failed to change supervisor', 'error');
+      // Revert to previous selection on error
+      setSelectedEmail(currentSupervisorEmail || undefined);
+      const currentSup = supervisors.find(s => s.email === currentSupervisorEmail);
+      setSelectedName(currentSup ? `${currentSup.firstName} ${currentSup.lastName}` : currentSupervisorName || undefined);
+    } finally {
+      setIsChanging(false);
+    }
+  }, [currentSupervisorEmail, psoEmail, onSupervisorChange, supervisors, showToast, isChanging, currentSupervisorName]);
 
   const supervisorOptions = useMemo(
     () =>
@@ -121,12 +134,12 @@ export const SupervisorSelector: React.FC<ISupervisorSelectorProps> = ({
       <span className="text-white truncate text-base leading-6">
         {psoName} — Supervisor: 
       </span>
-      <div className={`ml-2 flex-1 min-w-0 relative ${disabled ? 'opacity-50 pointer-events-none' : ''}`}>
+      <div className={`ml-2 flex-1 min-w-0 relative ${disabled || isChanging ? 'opacity-50 pointer-events-none' : ''}`}>
         <SearchableDropdown
           options={supervisorOptions}
           selectedValues={selectedValues}
           onSelectionChange={handleSupervisorChange}
-          placeholder={selectedName || currentSupervisorName || 'Select supervisor'}
+          placeholder={isChanging ? 'Updating...' : (selectedName || currentSupervisorName || 'Select supervisor')}
           className="w-full"
           inputClassName="
             w-full px-2 py-1
@@ -149,7 +162,7 @@ export const SupervisorSelector: React.FC<ISupervisorSelectorProps> = ({
           "
           usePortal={true}
           portalMinWidthPx={portalMinWidthPx}
-          isLoading={supLoading}
+          isLoading={supLoading || isChanging}
         />
       </div>
     </div>

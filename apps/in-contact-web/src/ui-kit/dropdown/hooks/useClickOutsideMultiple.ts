@@ -44,6 +44,20 @@ export function useClickOutsideMultiple({
     const handleClickOutside = (event: MouseEvent): void => {
       const target = event.target as Node;
 
+      // Check if click is on a button inside any of the referenced elements
+      // This allows buttons to be clickable even if they're in a portal
+      const clickedOnButton = (target as HTMLElement).closest?.('button') !== null;
+      if (clickedOnButton) {
+        // If clicking on a button, check if it's inside any referenced element
+        const buttonParent = (target as HTMLElement).closest('button')?.parentElement;
+        const clickedInside = refs.some((ref) => {
+          return ref.current?.contains(target) || ref.current?.contains(buttonParent as Node);
+        });
+        if (clickedInside) {
+          return; // Don't close menu if clicking on a button inside
+        }
+      }
+
       // Check if click is inside any of the referenced elements
       const clickedInside = refs.some((ref) => {
         return ref.current?.contains(target);
@@ -54,10 +68,11 @@ export function useClickOutsideMultiple({
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
+    // Use capture phase to check before other handlers, but allow buttons to work
+    document.addEventListener('mousedown', handleClickOutside, true);
 
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('mousedown', handleClickOutside, true);
     };
   }, [refs, handler, enabled]);
 }
