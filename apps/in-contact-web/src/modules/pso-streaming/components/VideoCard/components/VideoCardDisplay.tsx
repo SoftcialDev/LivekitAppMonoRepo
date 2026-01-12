@@ -65,7 +65,7 @@ export const VideoCardDisplay: React.FC<IVideoCardDisplayProps> = ({
           </audio>
         </>
       ) : (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-(--color-primary-dark) rounded-xl">
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black rounded-xl">
           {statusMessage && (
             <span className="text-xl font-medium text-yellow-400 mb-2">
               {statusMessage}

@@ -33,7 +33,7 @@ const VideoCard: React.FC<IVideoCardProps> = memo((props) => {
 
   return (
     <>
-      <div className={`flex flex-col bg-(--color-primary-dark) rounded-xl overflow-visible ${className}`}>
+      <div className={`flex flex-col bg-black rounded-xl overflow-visible ${className}`}>
         <VideoCardHeader {...headerProps} />
         <VideoCardDisplay {...displayProps} />
         <VideoCardControls {...controlsProps} />
