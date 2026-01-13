@@ -31,40 +31,121 @@ jest.mock('@azure/functions', () => ({
   HttpRequest: jest.fn()
 }));
 
-const devServiceAccountKey = Buffer.from('incontact-svc-account-key-123xyz').toString('base64');
-
-// Mock configuration
-jest.mock('../shared/config', () => ({
-  config: {
-    node_env: 'test',
-    azureTenantId: 'test-tenant-id',
-    azureClientId: 'test-client-id',
-    azureClientSecret: 'test-client-secret',
-    webPubSubEndpoint: 'https://test-endpoint.webpubsub.azure.com',
-    webPubSubHubName: 'test-hub',
-    webPubSubKey: 'test-webpubsub-key',
-    serviceAccountUpn: 'service.account@test.local',
-    serviceAccountDisplayName: 'Test Notifications',
-    serviceAccountLicenseSkuId: undefined,
-    serviceAccountPreferredSkuPartNumbers: ['MCOEV', 'M365_BUSINESS_BASIC'],
-    serviceAccountEncryptionKey: devServiceAccountKey
-  }
-}));
-
-// Mock Prisma client
-jest.mock('@prisma/client', () => ({
-  PrismaClient: jest.fn().mockImplementation(() => ({
-    $connect: jest.fn(),
-    $disconnect: jest.fn(),
+jest.mock('../src/infrastructure/database/PrismaClientService', () => ({
+  __esModule: true,
+  default: {
+    auditLog: {
+      create: jest.fn(),
+      findMany: jest.fn(),
+    },
+    cameraStartFailure: {
+      create: jest.fn(),
+      findMany: jest.fn(),
+      findUnique: jest.fn(),
+      count: jest.fn(),
+    },
+    contactManagerForm: {
+      create: jest.fn(),
+      findUnique: jest.fn(),
+    },
+    apiErrorLog: {
+      create: jest.fn(),
+      findMany: jest.fn(),
+      findUnique: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+      deleteMany: jest.fn(),
+      count: jest.fn(),
+    },
+    pendingCommand: {
+      create: jest.fn(),
+      findMany: jest.fn(),
+      update: jest.fn(),
+      updateMany: jest.fn(),
+      deleteMany: jest.fn(),
+    },
     user: {
       findUnique: jest.fn(),
-      findMany: jest.fn(),
-      create: jest.fn(),
-      update: jest.fn(),
-      delete: jest.fn()
-    }
-  }))
+    },
+  },
+  getPrismaClient: jest.fn(),
 }));
+
+// Mock Prisma enums
+const CameraFailureStage = {
+  Permission: 'Permission',
+  Enumerate: 'Enumerate',
+  TrackCreate: 'TrackCreate',
+  LiveKitConnect: 'LiveKitConnect',
+  Publish: 'Publish',
+  Unknown: 'Unknown',
+} as const;
+
+const FormType = {
+  Disconnections: 'Disconnections',
+  Admissions: 'Admissions',
+  Assistance: 'Assistance',
+} as const;
+
+// Create a JsonNull mock that can be compared
+const PrismaJsonNull = Object.create(null);
+Object.defineProperty(PrismaJsonNull, 'toString', {
+  value: () => 'Prisma.JsonNull',
+  enumerable: false,
+});
+
+jest.mock('@prisma/client', () => {
+  try {
+    // Try to get actual Prisma if available
+    const actualPrisma = jest.requireActual('@prisma/client');
+    return {
+      ...actualPrisma,
+      PrismaClient: jest.fn().mockImplementation(() => ({
+        $connect: jest.fn(),
+        $disconnect: jest.fn(),
+        user: {
+          findUnique: jest.fn(),
+          findMany: jest.fn(),
+          create: jest.fn(),
+          update: jest.fn(),
+          delete: jest.fn()
+        }
+      })),
+      CameraFailureStage: actualPrisma.CameraFailureStage || CameraFailureStage,
+      FormType: actualPrisma.FormType || FormType,
+      Prisma: {
+        ...actualPrisma.Prisma,
+        JsonNull: actualPrisma.Prisma?.JsonNull || PrismaJsonNull,
+        InputJsonValue: actualPrisma.Prisma?.InputJsonValue || ({} as any),
+        CameraStartFailureWhereInput: {} as any,
+        ApiErrorLogWhereInput: {} as any,
+      },
+    };
+  } catch {
+    // Fallback if actual Prisma is not available
+    return {
+      PrismaClient: jest.fn().mockImplementation(() => ({
+        $connect: jest.fn(),
+        $disconnect: jest.fn(),
+        user: {
+          findUnique: jest.fn(),
+          findMany: jest.fn(),
+          create: jest.fn(),
+          update: jest.fn(),
+          delete: jest.fn()
+        }
+      })),
+      CameraFailureStage,
+      FormType,
+      Prisma: {
+        JsonNull: PrismaJsonNull,
+        InputJsonValue: {} as any,
+        CameraStartFailureWhereInput: {} as any,
+        ApiErrorLogWhereInput: {} as any,
+      },
+    };
+  }
+});
 
 // Mock JWT verification
 jest.mock('jsonwebtoken', () => ({

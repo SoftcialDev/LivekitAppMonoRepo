@@ -9,6 +9,7 @@ import { IUserRepository } from "../interfaces/IUserRepository";
 import { IWebPubSubService } from "../interfaces/IWebPubSubService";
 import { Status } from "../enums/Status";
 import { UserNotFoundError } from "../errors/UserErrors";
+import { User } from "../entities/User";
 import { getCentralAmericaTime } from '../../utils/dateUtils';
 
 /**
@@ -105,7 +106,7 @@ export class PresenceDomainService {
     const isEmail = key.includes('@');
     const isUUID = key.includes('-') && !key.includes('@');
     
-    let user = null;
+    let user: User | null = null;
     
     if (isEmail) {
       // If it's an email, try to find by email first
