@@ -39,7 +39,9 @@ describe('useFilteredOptions', () => {
       useFilteredOptions({ options, searchTerm: 'a', isLoading: false })
     );
     
-    expect(result.current).toHaveLength(3);
+    // 'a' matches Apple and Banana (both contain 'a'), but not Cherry
+    expect(result.current).toHaveLength(2);
+    expect(result.current.map(opt => opt.label)).toEqual(['Apple', 'Banana']);
   });
 
   it('should return empty array when no options match', () => {

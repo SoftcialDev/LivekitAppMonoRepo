@@ -64,14 +64,14 @@ describe('ConfirmModal', () => {
     render(
       <ConfirmModal
         open={true}
-        title="Confirm"
+        title="Confirm Action"
         message="Are you sure?"
         onClose={jest.fn()}
         onConfirm={jest.fn()}
       />
     );
     
-    expect(screen.getByText('Confirm')).toBeInTheDocument();
+    expect(screen.getByText('Confirm Action')).toBeInTheDocument();
     expect(screen.getByText('Are you sure?')).toBeInTheDocument();
   });
 
@@ -80,15 +80,16 @@ describe('ConfirmModal', () => {
     render(
       <ConfirmModal
         open={true}
-        title="Confirm"
+        title="Confirm Action"
         message="Are you sure?"
         onClose={jest.fn()}
         onConfirm={onConfirm}
       />
     );
     
-    const confirmButton = screen.getByText('Confirm');
-    fireEvent.click(confirmButton);
+    const confirmButtons = screen.getAllByText('Confirm');
+    const confirmButton = confirmButtons.find(btn => btn.tagName === 'BUTTON');
+    fireEvent.click(confirmButton!);
     
     expect(onConfirm).toHaveBeenCalledTimes(1);
   });
@@ -132,7 +133,7 @@ describe('ConfirmModal', () => {
     render(
       <ConfirmModal
         open={true}
-        title="Confirm"
+        title="Confirm Action"
         message="Are you sure?"
         onClose={jest.fn()}
         onConfirm={jest.fn()}
@@ -140,7 +141,8 @@ describe('ConfirmModal', () => {
       />
     );
     
-    const confirmButton = screen.getByText('Confirm');
+    const confirmButtons = screen.getAllByText('Confirm');
+    const confirmButton = confirmButtons.find(btn => btn.tagName === 'BUTTON');
     expect(confirmButton).toBeDisabled();
   });
 });

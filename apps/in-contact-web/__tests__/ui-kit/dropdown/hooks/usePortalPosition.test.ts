@@ -1,6 +1,6 @@
 import { renderHook, waitFor } from '@testing-library/react';
-import { useRef } from 'react';
 import { usePortalPosition } from '@/ui-kit/dropdown/hooks/usePortalPosition';
+import React from 'react';
 
 describe('usePortalPosition', () => {
   beforeEach(() => {
@@ -19,7 +19,9 @@ describe('usePortalPosition', () => {
   });
 
   it('should return null when usePortal is false', () => {
-    const containerRef = useRef<HTMLDivElement>(document.createElement('div'));
+    const containerRef = React.createRef<HTMLDivElement>();
+    containerRef.current = document.createElement('div');
+    
     const { result } = renderHook(() =>
       usePortalPosition({
         containerRef: containerRef as React.RefObject<HTMLElement>,
@@ -32,7 +34,9 @@ describe('usePortalPosition', () => {
   });
 
   it('should return null when isOpen is false', () => {
-    const containerRef = useRef<HTMLDivElement>(document.createElement('div'));
+    const containerRef = React.createRef<HTMLDivElement>();
+    containerRef.current = document.createElement('div');
+    
     const { result } = renderHook(() =>
       usePortalPosition({
         containerRef: containerRef as React.RefObject<HTMLElement>,
@@ -45,7 +49,8 @@ describe('usePortalPosition', () => {
   });
 
   it('should return null when containerRef.current is null', () => {
-    const containerRef = useRef<HTMLDivElement>(null);
+    const containerRef = React.createRef<HTMLDivElement>();
+    
     const { result } = renderHook(() =>
       usePortalPosition({
         containerRef: containerRef as React.RefObject<HTMLElement>,
@@ -58,8 +63,10 @@ describe('usePortalPosition', () => {
   });
 
   it('should calculate position when portal is enabled and open', async () => {
-    const containerRef = useRef<HTMLDivElement>(document.createElement('div'));
-    document.body.appendChild(containerRef.current);
+    const containerRef = React.createRef<HTMLDivElement>();
+    const div = document.createElement('div');
+    document.body.appendChild(div);
+    containerRef.current = div;
 
     const { result } = renderHook(() =>
       usePortalPosition({
@@ -79,7 +86,7 @@ describe('usePortalPosition', () => {
       width: 200,
     });
 
-    document.body.removeChild(containerRef.current);
+    document.body.removeChild(div);
   });
 });
 

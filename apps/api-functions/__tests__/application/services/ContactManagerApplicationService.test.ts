@@ -137,7 +137,7 @@ describe('ContactManagerApplicationService', () => {
 
     it('should throw error when authorization fails', async () => {
       const callerId = 'test-caller-id';
-      const request = new UpdateContactManagerStatusRequest(ContactManagerStatus.Inactive);
+      const request = new UpdateContactManagerStatusRequest(ContactManagerStatus.Unavailable);
 
       mockAuthorizationService.canAccessContactManager.mockRejectedValue(new Error('Unauthorized'));
 

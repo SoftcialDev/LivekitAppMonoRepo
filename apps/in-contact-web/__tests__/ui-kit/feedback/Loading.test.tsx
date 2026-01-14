@@ -7,13 +7,17 @@ describe('Loading', () => {
     render(<Loading action="loading data" />);
     
     expect(screen.getByText('Loading…')).toBeInTheDocument();
-    expect(screen.getByText(/Please wait while system loading data/)).toBeInTheDocument();
+    expect(screen.getByText((content, element) => {
+      return element?.textContent === 'Please wait while system loading data';
+    })).toBeInTheDocument();
   });
 
   it('should display custom action message', () => {
     render(<Loading action="processing request" />);
     
-    expect(screen.getByText(/Please wait while system processing request/)).toBeInTheDocument();
+    expect(screen.getByText((content, element) => {
+      return element?.textContent === 'Please wait while system processing request';
+    })).toBeInTheDocument();
   });
 
   it('should apply custom bgClassName', () => {

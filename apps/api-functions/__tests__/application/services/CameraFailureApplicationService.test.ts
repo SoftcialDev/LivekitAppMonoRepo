@@ -24,7 +24,6 @@ describe('CameraFailureApplicationService', () => {
       attempts: [
         {
           result: AttemptResult.Other,
-          timestamp: new Date().toISOString(),
         },
       ],
     };

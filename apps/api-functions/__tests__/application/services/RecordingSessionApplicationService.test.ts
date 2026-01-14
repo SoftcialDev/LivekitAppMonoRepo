@@ -138,10 +138,10 @@ describe('RecordingSessionApplicationService', () => {
       await service.startRecordingSession(args);
 
       jest.advanceTimersByTime(5000);
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await Promise.resolve();
 
       expect(mockRecordingRepository.fail).toHaveBeenCalledWith('session-id');
-    }, 15000);
+    });
 
     it('should handle error when session creation fails', async () => {
       const egressResult = { egressId: 'egress-id', objectKey: 'blob/path' };

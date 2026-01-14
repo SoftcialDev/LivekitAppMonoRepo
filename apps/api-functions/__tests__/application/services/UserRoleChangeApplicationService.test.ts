@@ -315,6 +315,15 @@ describe('UserRoleChangeApplicationService', () => {
       });
 
       mockUserRepository.findByEmail.mockResolvedValue(existingUser);
+      mockUserRepository.findByAzureAdObjectId.mockResolvedValue(new User({
+        id: 'caller-id',
+        azureAdObjectId: callerId,
+        email: 'admin@example.com',
+        fullName: 'Admin',
+        role: UserRole.Admin,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }));
       mockUserRepository.upsertUser.mockResolvedValue(updatedUser);
       mockAuditService.logAudit.mockResolvedValue(undefined);
       mockWebPubSubService.broadcastSupervisorListChanged.mockResolvedValue(undefined);
@@ -351,6 +360,15 @@ describe('UserRoleChangeApplicationService', () => {
       });
 
       mockUserRepository.findByEmail.mockResolvedValue(existingUser);
+      mockUserRepository.findByAzureAdObjectId.mockResolvedValue(new User({
+        id: 'caller-id',
+        azureAdObjectId: callerId,
+        email: 'admin@example.com',
+        fullName: 'Admin',
+        role: UserRole.Admin,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }));
       mockUserRepository.upsertUser.mockResolvedValue(updatedUser);
       mockAuditService.logAudit.mockResolvedValue(undefined);
       mockPresenceService.setUserOffline.mockResolvedValue(undefined);
@@ -471,6 +489,15 @@ describe('UserRoleChangeApplicationService', () => {
       });
 
       mockUserRepository.findByEmail.mockResolvedValue(null);
+      mockUserRepository.findByAzureAdObjectId.mockResolvedValue(new User({
+        id: 'caller-id',
+        azureAdObjectId: callerId,
+        email: 'admin@example.com',
+        fullName: 'Admin',
+        role: UserRole.Admin,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }));
       mockUserRepository.upsertUser.mockResolvedValue(newUser);
       mockAuditService.logAudit.mockResolvedValue(undefined);
       mockPresenceService.setUserOffline.mockResolvedValue(undefined);
