@@ -168,13 +168,14 @@ jest.mock('@azure/web-pubsub', () => ({
 }));
 
 // Global test utilities
-(global as any).TestUtils = {
+const TestUtils = {
   /**
    * Creates a mock Azure Functions context
    * @param overrides - Optional overrides for the context
    * @returns Mock context object
    */
-  createMockContext: (overrides = {}) => ({
+  createMockContext: (overrides = {}): any => ({
+    invocationId: 'test-invocation-id',
     log: {
       verbose: jest.fn(),
       info: jest.fn(),
@@ -182,8 +183,15 @@ jest.mock('@azure/web-pubsub', () => ({
       error: jest.fn()
     },
     bindings: {},
+    bindingData: {
+      invocationId: 'test-invocation-id'
+    },
     req: {},
     res: {},
+    executionContext: {},
+    traceContext: {},
+    bindingDefinitions: {},
+    done: jest.fn(),
     ...overrides
   }),
 
@@ -192,12 +200,16 @@ jest.mock('@azure/web-pubsub', () => ({
    * @param overrides - Optional overrides for the request
    * @returns Mock HTTP request object
    */
-  createMockHttpRequest: (overrides = {}) => ({
+  createMockHttpRequest: (overrides = {}): any => ({
     headers: {},
     query: {},
+    params: {},
     body: {},
     method: 'GET',
     url: 'http://localhost:7071/api/test',
+    user: undefined,
+    get: jest.fn(),
+    parseFormBody: jest.fn(),
     ...overrides
   }),
 
@@ -219,9 +231,9 @@ jest.mock('@azure/web-pubsub', () => ({
    * @returns Mock user object
    */
   createMockUser: (overrides = {}) => ({
-    id: (global as any).TestUtils.generateUuid(),
-    azureAdObjectId: (global as any).TestUtils.generateUuid(),
-    email: (global as any).TestUtils.generateEmail(),
+    id: TestUtils.generateUuid(),
+    azureAdObjectId: TestUtils.generateUuid(),
+    email: TestUtils.generateEmail(),
     role: 'PSO',
     deletedAt: null,
     createdAt: new Date(),
@@ -229,6 +241,10 @@ jest.mock('@azure/web-pubsub', () => ({
     ...overrides
   })
 };
+
+(global as any).TestUtils = TestUtils;
+
+export { TestUtils };
 
 // Set test timeout
 jest.setTimeout(10000);

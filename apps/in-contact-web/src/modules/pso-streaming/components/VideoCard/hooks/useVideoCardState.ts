@@ -64,7 +64,7 @@ export function useVideoCardState(
 
   const canTalkControl = isAdmin;
   const canSnapshot = isAdmin;
-  const canRecord = isAdmin;
+  const canRecord = useMemo(() => currentRole === UserRole.SuperAdmin, [currentRole]);
 
   return {
     mediaReady,

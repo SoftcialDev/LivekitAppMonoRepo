@@ -14,7 +14,7 @@ import { UserRole } from '@/modules/auth/enums';
  * Returns route configuration objects for the user management module
  * 
  * These routes are protected by role-based access control:
- * - /admins - Only SuperAdmin role
+ * - /admins - SuperAdmin and Admin roles
  * - /superAdmins - Only SuperAdmin role
  * - /contactManagers - Only SuperAdmin role
  * - /supervisors - SuperAdmin, Admin, and Supervisor roles
@@ -28,7 +28,7 @@ export function userManagementRoutes(): RouteObject[] {
     {
       path: '/admins',
       element: (
-        <RoleProtectedRoute allowedRoles={[UserRole.SuperAdmin]}>
+        <RoleProtectedRoute allowedRoles={[UserRole.SuperAdmin, UserRole.Admin]}>
           <AdminPage />
         </RoleProtectedRoute>
       ),

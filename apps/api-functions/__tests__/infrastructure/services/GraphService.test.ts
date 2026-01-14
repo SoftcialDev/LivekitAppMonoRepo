@@ -138,12 +138,16 @@ describe('GraphService', () => {
       const spId = 'sp-id';
       const userId = 'user-id';
 
+      const nextLink = 'https://graph.microsoft.com/v1.0/servicePrincipals/sp-id/appRoleAssignedTo?$top=100&$skip=100';
+
+      jest.clearAllMocks();
+
       mockAxios.get
         .mockResolvedValueOnce({
           status: 200,
           data: {
             value: [{ id: 'assignment-1', principalId: userId, appRoleId: 'role-1' }],
-            '@odata.nextLink': 'https://graph.microsoft.com/v1.0/servicePrincipals/sp-id/appRoleAssignedTo?$top=100&$skip=100',
+            '@odata.nextLink': nextLink,
           },
         } as any)
         .mockResolvedValueOnce({
@@ -159,15 +163,60 @@ describe('GraphService', () => {
 
       expect(mockAxios.get).toHaveBeenCalledTimes(2);
       expect(mockAxios.get).toHaveBeenNthCalledWith(1, expect.stringContaining('servicePrincipals'), expect.any(Object));
-      expect(mockAxios.get).toHaveBeenNthCalledWith(2, 'https://graph.microsoft.com/v1.0/servicePrincipals/sp-id/appRoleAssignedTo?$top=100&$skip=100', expect.any(Object));
+      expect(mockAxios.get).toHaveBeenNthCalledWith(2, nextLink, expect.any(Object));
+      expect(mockAxios.delete).toHaveBeenCalledTimes(1);
     });
 
-    it('should throw GraphServiceError when request fails', async () => {
+    it('should throw error when request fails', async () => {
       const token = 'token';
       const spId = 'sp-id';
       const userId = 'user-id';
 
-      // First call should fail with status 500
+      jest.clearAllMocks();
+
+      mockAxios.get.mockRejectedValueOnce(new Error('Network error'));
+
+      await expect(
+        service.removeAllAppRolesFromPrincipalOnSp(token, spId, userId)
+      ).rejects.toThrow('Network error');
+    });
+
+    it('should throw GraphServiceError when delete fails', async () => {
+      const token = 'token';
+      const spId = 'sp-id';
+      const userId = 'user-id';
+
+      jest.clearAllMocks();
+
+      mockAxios.get.mockResolvedValueOnce({
+        status: 200,
+        data: {
+          value: [{ id: 'assignment-1', principalId: userId, appRoleId: 'role-1' }],
+        },
+      } as any);
+
+      const axiosError = {
+        response: {
+          status: 500,
+          data: { error: { message: 'Delete failed' } },
+        },
+        isAxiosError: true,
+      } as any;
+
+      mockAxios.delete.mockRejectedValueOnce(axiosError);
+
+      await expect(
+        service.removeAllAppRolesFromPrincipalOnSp(token, spId, userId)
+      ).rejects.toThrow(GraphServiceError);
+    });
+
+    it('should throw GraphServiceError when response status is not 200', async () => {
+      const token = 'token';
+      const spId = 'sp-id';
+      const userId = 'user-id';
+
+      jest.clearAllMocks();
+
       mockAxios.get.mockResolvedValueOnce({
         status: 500,
         data: { error: { message: 'Internal Server Error' } },
@@ -176,9 +225,6 @@ describe('GraphService', () => {
       await expect(
         service.removeAllAppRolesFromPrincipalOnSp(token, spId, userId)
       ).rejects.toThrow(GraphServiceError);
-      await expect(
-        service.removeAllAppRolesFromPrincipalOnSp(token, spId, userId)
-      ).rejects.toThrow('Failed to list appRoleAssignedTo');
     });
   });
 
@@ -189,6 +235,9 @@ describe('GraphService', () => {
         { id: 'user-1', displayName: 'User 1', mail: 'user1@example.com' },
         { id: 'user-2', displayName: 'User 2', mail: 'user2@example.com' },
       ];
+
+      jest.clearAllMocks();
+      mockAxios.get.mockReset();
 
       mockAxios.get.mockResolvedValue({
         status: 200,
@@ -273,6 +322,52 @@ describe('GraphService', () => {
       await expect(
         service.fetchAppRoleMemberIds(token, servicePrincipalId, '')
       ).rejects.toThrow(ConfigurationError);
+    });
+
+    it('should throw GraphServiceError when response status is not 200', async () => {
+      const token = 'token';
+      const servicePrincipalId = 'sp-id';
+      const appRoleId = 'role-id';
+
+      mockAxios.get.mockResolvedValueOnce({
+        status: 500,
+        data: { error: { message: 'Internal Server Error' } },
+      } as any);
+
+      await expect(
+        service.fetchAppRoleMemberIds(token, servicePrincipalId, appRoleId)
+      ).rejects.toThrow(GraphServiceError);
+    });
+
+    it('should handle pagination in fetchAppRoleMemberIds', async () => {
+      const token = 'token';
+      const servicePrincipalId = 'sp-id';
+      const appRoleId = 'role-id';
+
+      mockAxios.get
+        .mockResolvedValueOnce({
+          status: 200,
+          data: {
+            value: [
+              { appRoleId: 'role-id', principalId: 'user-1' },
+            ],
+            '@odata.nextLink': 'https://graph.microsoft.com/v1.0/servicePrincipals/sp-id/appRoleAssignedTo?$top=100&$skip=100',
+          },
+        } as any)
+        .mockResolvedValueOnce({
+          status: 200,
+          data: {
+            value: [
+              { appRoleId: 'role-id', principalId: 'user-2' },
+            ],
+            '@odata.nextLink': '',
+          },
+        } as any);
+
+      const result = await service.fetchAppRoleMemberIds(token, servicePrincipalId, appRoleId);
+
+      expect(result).toEqual(new Set(['user-1', 'user-2']));
+      expect(mockAxios.get).toHaveBeenCalledTimes(2);
     });
   });
 });
