@@ -12,6 +12,7 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth, useUserInfo, UserRole } from '@/modules/auth';
+import { Loading } from '@/ui-kit/feedback';
 import type { IEmailProtectedRouteProps } from './types';
 
 /**
@@ -55,7 +56,12 @@ export const EmailProtectedRoute: React.FC<IEmailProtectedRouteProps> = ({
 
   // 3) if still loading, show loading
   if (isLoading || !userInfo) {
-    return <div>Loading...</div>;
+    return (
+      <Loading
+        action="is loading your user information"
+        bgClassName="bg-[var(--color-primary)]"
+      />
+    );
   }
 
   // 4) check if email contains the pattern

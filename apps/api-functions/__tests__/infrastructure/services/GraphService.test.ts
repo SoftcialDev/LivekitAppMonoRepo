@@ -141,6 +141,8 @@ describe('GraphService', () => {
       const nextLink = 'https://graph.microsoft.com/v1.0/servicePrincipals/sp-id/appRoleAssignedTo?$top=100&$skip=100';
 
       jest.clearAllMocks();
+      mockAxios.get.mockReset();
+      mockAxios.delete.mockReset();
 
       mockAxios.get
         .mockResolvedValueOnce({
@@ -153,7 +155,7 @@ describe('GraphService', () => {
         .mockResolvedValueOnce({
           status: 200,
           data: { 
-            value: [],
+            value: [{ id: 'assignment-2', principalId: 'other-user', appRoleId: 'role-2' }],
           },
         } as any);
 
@@ -173,6 +175,7 @@ describe('GraphService', () => {
       const userId = 'user-id';
 
       jest.clearAllMocks();
+      mockAxios.get.mockReset();
 
       mockAxios.get.mockRejectedValueOnce(new Error('Network error'));
 

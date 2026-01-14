@@ -21,8 +21,7 @@ import { serviceContainer } from '../../infrastructure/container/ServiceContaine
  *
  * HTTP POST /api/ContactManagersForm
  *
- * Allows authenticated users to submit contact manager forms with image uploads
- * and automatic chat notifications to the Contact Managers group.
+ * Allows authenticated users to submit contact manager forms with image uploads.
  *
  * Workflow:
  * 1. Validate JWT via `withAuth`, populating `ctx.bindings.user`.

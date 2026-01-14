@@ -74,6 +74,13 @@ describe('ErrorTypeClassifier', () => {
       expect(classification403.statusCode).toBe(403);
       expect(classification401.statusCode).toBe(401);
     });
+
+    it('should return Low severity for status codes below 400', () => {
+      const error = new ExpectedError('Redirect', 301);
+      const classification = ErrorTypeClassifier.classify(error);
+
+      expect(classification.severity).toBe(ErrorSeverity.Low);
+    });
   });
 });
 

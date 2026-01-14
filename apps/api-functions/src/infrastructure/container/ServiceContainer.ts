@@ -329,9 +329,7 @@ export class ServiceContainer {
           this.register<IContactManagerFormService>('ContactManagerFormService', () => {
             const formRepository = this.resolve<IContactManagerFormRepository>('ContactManagerFormRepository');
             const blobStorageService = this.resolve<IBlobStorageService>('BlobStorageService');
-            const chatService = this.resolve<IChatService>('ChatService');
-            const errorLogService = this.resolve<IErrorLogService>('ErrorLogService');
-            return new ContactManagerFormService(formRepository, blobStorageService, chatService, errorLogService);
+            return new ContactManagerFormService(formRepository, blobStorageService);
           });
 
           this.register<ContactManagerFormApplicationService>('ContactManagerFormApplicationService', () => {
@@ -614,15 +612,11 @@ export class ServiceContainer {
             const blobStorageService = this.resolve<IBlobStorageService>('BlobStorageService');
             const snapshotRepository = this.resolve<ISnapshotRepository>('ISnapshotRepository');
             const snapshotReasonRepository = this.resolve<ISnapshotReasonRepository>('ISnapshotReasonRepository');
-            const chatService = this.resolve<IChatService>('ChatService');
-            const errorLogService = this.resolve<IErrorLogService>('ErrorLogService');
             return new SendSnapshotDomainService(
               userRepository,
               blobStorageService,
               snapshotRepository,
-              snapshotReasonRepository,
-              chatService,
-              errorLogService
+              snapshotReasonRepository
             );
           });
 

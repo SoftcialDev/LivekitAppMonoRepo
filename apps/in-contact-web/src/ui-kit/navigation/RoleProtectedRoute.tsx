@@ -13,6 +13,7 @@ import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth, useUserInfo } from '@/modules/auth';
 import { UserRole } from '@/modules/auth/enums';
+import { Loading } from '@/ui-kit/feedback';
 import type { IRoleProtectedRouteProps } from './types';
 
 /**
@@ -56,7 +57,12 @@ export const RoleProtectedRoute: React.FC<IRoleProtectedRouteProps> = ({
 
   // 3) if still loading, show loading
   if (isLoading || !userInfo) {
-    return <div>Loading...</div>;
+    return (
+      <Loading
+        action="is loading your user information"
+        bgClassName="bg-[var(--color-primary)]"
+      />
+    );
   }
 
   // 4) check if user's role is in allowedRoles

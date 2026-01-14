@@ -1,48 +1,49 @@
+const mockExtractBody = jest.fn();
+const mockExtractQuery = jest.fn();
+const mockExtractPath = jest.fn();
+const mockHasHttpRequest = jest.fn();
+const mockValidate = jest.fn();
+
+jest.mock('../../src/infrastructure/validation/RequestDataExtractor', () => {
+  return {
+    RequestDataExtractor: jest.fn().mockImplementation(() => ({
+      extractBody: mockExtractBody,
+      extractQuery: mockExtractQuery,
+      extractPath: mockExtractPath,
+      hasHttpRequest: mockHasHttpRequest,
+    })),
+  };
+});
+
+jest.mock('../../src/infrastructure/validation/ZodValidator', () => {
+  return {
+    ZodValidator: jest.fn().mockImplementation(() => ({
+      validate: mockValidate,
+    })),
+  };
+});
+
+jest.mock('../../src/utils/response');
+
 import { Context, HttpRequest } from '@azure/functions';
 import { z } from 'zod';
 import { withBodyValidation, withQueryValidation, withPathValidation } from '../../src/middleware/validate';
-import { RequestDataExtractor } from '../../src/infrastructure/validation/RequestDataExtractor';
-import { ZodValidator } from '../../src/infrastructure/validation/ZodValidator';
 import { BindingKey } from '../../src/domain/enums/BindingKey';
 import { badRequest } from '../../src/utils/response';
 import { TestUtils } from '../setup';
-
-jest.mock('../../src/infrastructure/validation/RequestDataExtractor');
-jest.mock('../../src/infrastructure/validation/ZodValidator');
-
-jest.mock('../../src/utils/response');
 
 describe('validate middleware', () => {
   let mockContext: Context;
   let mockNext: jest.Mock;
   let mockBadRequest: jest.MockedFunction<typeof badRequest>;
-  let mockExtractor: jest.Mocked<RequestDataExtractor>;
-  let mockValidator: jest.Mocked<ZodValidator>;
 
   beforeEach(() => {
     mockContext = TestUtils.createMockContext();
     mockNext = jest.fn().mockResolvedValue(undefined);
     mockBadRequest = badRequest as jest.MockedFunction<typeof badRequest>;
-    
-    const RequestDataExtractorMock = RequestDataExtractor as jest.MockedClass<typeof RequestDataExtractor>;
-    const ZodValidatorMock = ZodValidator as jest.MockedClass<typeof ZodValidator>;
-    
-    mockExtractor = {
-      extractBody: jest.fn(),
-      extractQuery: jest.fn(),
-      extractPath: jest.fn(),
-      hasHttpRequest: jest.fn().mockReturnValue(true),
-    } as any;
-    
-    mockValidator = {
-      validate: jest.fn(),
-    } as any;
-    
-    RequestDataExtractorMock.mockImplementation(() => mockExtractor);
-    ZodValidatorMock.mockImplementation(() => mockValidator);
 
     jest.clearAllMocks();
-    mockExtractor.hasHttpRequest.mockReturnValue(true);
+    mockHasHttpRequest.mockReturnValue(true);
   });
 
   describe('withBodyValidation', () => {
@@ -51,8 +52,8 @@ describe('validate middleware', () => {
       const body = { name: 'John', age: 30 };
 
       mockContext.req = { body } as HttpRequest;
-      mockExtractor.extractBody.mockReturnValue(body);
-      mockValidator.validate.mockReturnValue({
+      mockExtractBody.mockReturnValue(body);
+      mockValidate.mockReturnValue({
         success: true,
         data: body,
       } as any);
@@ -60,15 +61,15 @@ describe('validate middleware', () => {
       const middleware = withBodyValidation(schema);
       await middleware(mockContext, mockNext);
 
-      expect(mockExtractor.extractBody).toHaveBeenCalledWith(mockContext);
-      expect(mockValidator.validate).toHaveBeenCalledWith(schema, body);
+      expect(mockExtractBody).toHaveBeenCalledWith(mockContext);
+      expect(mockValidate).toHaveBeenCalledWith(schema, body);
       expect(mockContext.bindings[BindingKey.VALIDATED_BODY]).toEqual(body);
       expect(mockNext).toHaveBeenCalled();
     });
 
     it('should return 500 if HTTP request is missing', async () => {
       const schema = z.object({ name: z.string() });
-      mockExtractor.hasHttpRequest.mockReturnValue(false);
+      mockHasHttpRequest.mockReturnValue(false);
 
       const middleware = withBodyValidation(schema);
       await middleware(mockContext, mockNext);
@@ -80,7 +81,7 @@ describe('validate middleware', () => {
 
     it('should return 400 if body is required but missing', async () => {
       const schema = z.object({ name: z.string() });
-      mockExtractor.extractBody.mockReturnValue(undefined);
+      mockExtractBody.mockReturnValue(undefined);
       mockBadRequest.mockReturnValue(undefined);
 
       const middleware = withBodyValidation(schema);
@@ -98,8 +99,8 @@ describe('validate middleware', () => {
       ];
 
       mockContext.req = { body } as HttpRequest;
-      mockExtractor.extractBody.mockReturnValue(body);
-      mockValidator.validate.mockReturnValue({
+      mockExtractBody.mockReturnValue(body);
+      mockValidate.mockReturnValue({
         success: false,
         errors,
       } as any);
@@ -119,7 +120,7 @@ describe('validate middleware', () => {
     it('should return 500 if extraction fails', async () => {
       const schema = z.object({ name: z.string() });
       const error = new Error('Extraction failed');
-      mockExtractor.extractBody.mockImplementation(() => {
+      mockExtractBody.mockImplementation(() => {
         throw error;
       });
 
@@ -138,8 +139,8 @@ describe('validate middleware', () => {
       const query = { page: '1', limit: '10' };
 
       mockContext.req = TestUtils.createMockHttpRequest({ query });
-      mockExtractor.extractQuery.mockReturnValue(query);
-      mockValidator.validate.mockReturnValue({
+      mockExtractQuery.mockReturnValue(query);
+      mockValidate.mockReturnValue({
         success: true,
         data: query,
       } as any);
@@ -147,8 +148,8 @@ describe('validate middleware', () => {
       const middleware = withQueryValidation(schema);
       await middleware(mockContext, mockNext);
 
-      expect(mockExtractor.extractQuery).toHaveBeenCalledWith(mockContext);
-      expect(mockValidator.validate).toHaveBeenCalledWith(schema, query);
+      expect(mockExtractQuery).toHaveBeenCalledWith(mockContext);
+      expect(mockValidate).toHaveBeenCalledWith(schema, query);
       expect(mockContext.bindings[BindingKey.VALIDATED_QUERY]).toEqual(query);
       expect(mockNext).toHaveBeenCalled();
     });
@@ -158,8 +159,8 @@ describe('validate middleware', () => {
       const query = {};
 
       mockContext.req = {} as HttpRequest;
-      mockExtractor.extractQuery.mockReturnValue(query);
-      mockValidator.validate.mockReturnValue({
+      mockExtractQuery.mockReturnValue(query);
+      mockValidate.mockReturnValue({
         success: true,
         data: query,
       } as any);
@@ -177,8 +178,8 @@ describe('validate middleware', () => {
       const path = { id: '123' };
 
       mockContext.bindingData = { ...path, invocationId: 'test-invocation-id' };
-      mockExtractor.extractPath.mockReturnValue(path);
-      mockValidator.validate.mockReturnValue({
+      mockExtractPath.mockReturnValue(path);
+      mockValidate.mockReturnValue({
         success: true,
         data: path,
       } as any);
@@ -186,8 +187,8 @@ describe('validate middleware', () => {
       const middleware = withPathValidation(schema);
       await middleware(mockContext, mockNext);
 
-      expect(mockExtractor.extractPath).toHaveBeenCalledWith(mockContext);
-      expect(mockValidator.validate).toHaveBeenCalledWith(schema, path);
+      expect(mockExtractPath).toHaveBeenCalledWith(mockContext);
+      expect(mockValidate).toHaveBeenCalledWith(schema, path);
       expect(mockContext.bindings[BindingKey.VALIDATED_PARAMS]).toEqual(path);
       expect(mockNext).toHaveBeenCalled();
     });
@@ -197,8 +198,8 @@ describe('validate middleware', () => {
       const path = {};
 
       mockContext.bindingData = { invocationId: 'test-invocation-id' };
-      mockExtractor.extractPath.mockReturnValue(path);
-      mockValidator.validate.mockReturnValue({
+      mockExtractPath.mockReturnValue(path);
+      mockValidate.mockReturnValue({
         success: true,
         data: path,
       } as any);
@@ -210,4 +211,3 @@ describe('validate middleware', () => {
     });
   });
 });
-

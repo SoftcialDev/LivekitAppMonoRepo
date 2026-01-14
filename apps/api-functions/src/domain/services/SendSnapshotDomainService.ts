@@ -10,12 +10,9 @@ import { IUserRepository } from "../interfaces/IUserRepository";
 import { IBlobStorageService } from "../interfaces/IBlobStorageService";
 import { ISnapshotRepository } from "../interfaces/ISnapshotRepository";
 import { ISnapshotReasonRepository } from "../interfaces/ISnapshotReasonRepository";
-import { IChatService } from "../interfaces/IChatService";
-import { IErrorLogService } from "../interfaces/IErrorLogService";
 import { ImageUploadRequest } from "../value-objects/ImageUploadRequest";
 import { UserNotFoundError } from "../errors/UserErrors";
 import { SnapshotReasonNotFoundError, SnapshotReasonInactiveError, DescriptionRequiredError } from "../errors/SnapshotErrors";
-import { formatCentralAmericaTime, getCentralAmericaTime } from '../../utils/dateUtils';
 import { randomUUID } from 'node:crypto';
 
 /**
@@ -28,16 +25,12 @@ export class SendSnapshotDomainService {
    * @param userRepository - Repository for user data access
    * @param blobStorageService - Service for blob storage operations
    * @param snapshotRepository - Repository for snapshot data access
-   * @param chatService - Service for chat operations
-   * @param errorLogService - Service for error logging operations
    */
   constructor(
     private readonly userRepository: IUserRepository,
     private readonly blobStorageService: IBlobStorageService,
     private readonly snapshotRepository: ISnapshotRepository,
-    private readonly snapshotReasonRepository: ISnapshotReasonRepository,
-    private readonly chatService: IChatService,
-    private readonly errorLogService: IErrorLogService
+    private readonly snapshotReasonRepository: ISnapshotReasonRepository
   ) {}
 
   /**
@@ -100,82 +93,9 @@ export class SendSnapshotDomainService {
       temporarySnapshotId
     );
 
-    await this.notifySnapshotReport({
-      psoName: pso.fullName ?? pso.email,
-      psoEmail: pso.email,
-      capturedBy: supervisor.fullName ?? supervisor.email,
-      reason: reason.label,
-      imageUrl,
-      capturedAt: formatCentralAmericaTime(getCentralAmericaTime()),
-      subject: `Snapshot Report – ${pso.fullName ?? pso.email}`,
-      supervisorId: supervisor.id,
-      snapshotId: snapshot.id
-    });
-
     return new SendSnapshotResponse(
       snapshot.id,
       `Snapshot report sent successfully for PSO ${pso.email}`
     );
-  }
-
-  /**
-   * Emits a snapshot notification to the Snapshot Reports Teams chat using the service account.
-   * Errors are logged but do not prevent the main flow from succeeding.
-   *
-   * @param details - Structured snapshot notification payload.
-   */
-  private async notifySnapshotReport(details: {
-    /** Friendly PSO name shown in the notification card. */
-    psoName: string;
-    /** PSO email address used for routing/audit purposes. */
-    psoEmail: string;
-    /** Supervisor name who captured the snapshot. */
-    capturedBy: string;
-    /** Reason provided for the snapshot. */
-    reason: string;
-    /** LiveKit or blob storage URL of the snapshot image. */
-    imageUrl: string;
-    /** Timestamp (Central time) when the snapshot was captured. */
-    capturedAt: string;
-    /** Notification subject/title shown in Teams. */
-    subject: string;
-    /** Supervisor identifier for error logging. */
-    supervisorId: string;
-    /** Snapshot identifier for error logging. */
-    snapshotId: string;
-  }): Promise<void> {
-    let chatId: string | undefined;
-    try {
-      chatId = await this.chatService.getSnapshotReportsChatId();
-      await this.chatService.sendMessageAsApp(chatId, {
-        type: 'snapshotReport',
-        subject: details.subject,
-        psoName: details.psoName,
-        psoEmail: details.psoEmail,
-        capturedBy: details.capturedBy,
-        capturedAt: details.capturedAt,
-        reason: details.reason || 'Not provided',
-        imageUrl: details.imageUrl
-      });
-      
-    } catch (error: unknown) {
-      try {
-        const errorInstance = error instanceof Error ? error : new Error(String(error));
-        await this.errorLogService.logChatServiceError({
-          endpoint: 'SendSnapshot',
-          functionName: 'notifySnapshotReport',
-          error: errorInstance,
-          userId: details.supervisorId,
-          chatId,
-          context: {
-            psoEmail: details.psoEmail,
-            snapshotId: details.snapshotId,
-            psoName: details.psoName
-          }
-        });
-      } catch {
-        // Failed to persist error log
-      }
-    }
   }
 }

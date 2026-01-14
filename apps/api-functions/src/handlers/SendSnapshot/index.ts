@@ -28,7 +28,6 @@ import { ensureBindings } from '../../domain/types/ContextBindings';
  * 3. Looks up the PSO user by their email address.
  * 4. Decodes the Base64 image and uploads it to blob storage.
  * 5. Persists snapshot metadata in PostgreSQL.
- * 6. Notifies administrators via Teams chat.
  *
  * @param ctx - The Azure Functions execution context
  * @param req - The incoming HTTP request containing snapshot data
