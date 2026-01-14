@@ -52,7 +52,7 @@ describe('LivekitRecordingDomainService', () => {
         'Subject Label'
       );
 
-      await expect(service.startRecording(command)).rejects.toThrow(RecordingCommandError);
+      await expect(service.startRecording(command)).rejects.toThrow(RecordingStartError);
     });
 
     it('should throw RecordingStartError when application service fails', async () => {
@@ -81,6 +81,9 @@ describe('LivekitRecordingDomainService', () => {
       );
 
       mockApplicationService.stopAllRecordingsForUser.mockResolvedValue({
+        message: 'Recordings stopped',
+        total: 1,
+        completed: 1,
         results: [
           {
             sessionId: 'session-1',
@@ -112,7 +115,7 @@ describe('LivekitRecordingDomainService', () => {
         'Subject Label'
       );
 
-      await expect(service.stopRecording(command)).rejects.toThrow(RecordingCommandError);
+      await expect(service.stopRecording(command)).rejects.toThrow(RecordingStopError);
     });
 
     it('should throw NoActiveRecordingsError when no recordings found', async () => {
@@ -125,6 +128,9 @@ describe('LivekitRecordingDomainService', () => {
       );
 
       mockApplicationService.stopAllRecordingsForUser.mockResolvedValue({
+        message: 'No recordings found',
+        total: 0,
+        completed: 0,
         results: [],
       });
 
@@ -155,6 +161,9 @@ describe('LivekitRecordingDomainService', () => {
       );
 
       mockApplicationService.stopAllRecordingsForUser.mockResolvedValue({
+        message: 'Recordings stopped',
+        total: 1,
+        completed: 1,
         results: [
           {
             sessionId: 'session-1',

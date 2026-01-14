@@ -81,11 +81,10 @@ describe('GetErrorLogsDomainService', () => {
         source: ErrorSource.Database,
         errorMessage: 'Test error',
         createdAt: new Date(),
-        updatedAt: new Date(),
         resolved: false,
         resolvedAt: null,
         resolvedBy: null,
-      });
+      } as any);
 
       mockErrorLogRepository.findById.mockResolvedValue(mockErrorLog);
 

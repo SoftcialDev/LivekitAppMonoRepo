@@ -7,6 +7,7 @@ import { ITalkSessionRepository } from '../../../src/domain/interfaces/ITalkSess
 import { ICommandMessagingService } from '../../../src/domain/interfaces/ICommandMessagingService';
 import { IWebPubSubService } from '../../../src/domain/interfaces/IWebPubSubService';
 import { IStreamingSessionDomainService } from '../../../src/domain/interfaces/IStreamingSessionDomainService';
+import { IStreamingSessionRepository } from '../../../src/domain/interfaces/IStreamingSessionRepository';
 import { ISnapshotRepository } from '../../../src/domain/interfaces/ISnapshotRepository';
 import { IBlobStorageService } from '../../../src/domain/interfaces/IBlobStorageService';
 import { ILiveKitService } from '../../../src/domain/interfaces/ILiveKitService';
@@ -25,6 +26,7 @@ import { RecordingSessionApplicationService } from '../../../src/application/ser
 import { LiveKitRecordingService } from '../../../src/infrastructure/services/LiveKitRecordingService';
 import { User } from '../../../src/domain/entities/User';
 import { UserRole } from '@prisma/client';
+import { StreamingSessionHistory } from '../../../src/domain/entities/StreamingSessionHistory';
 
 export const createMockUserRepository = (): jest.Mocked<IUserRepository> => {
   return {
@@ -48,6 +50,21 @@ export const createMockUserRepository = (): jest.Mocked<IUserRepository> => {
     createContactManagerAuditLog: jest.fn(),
     updateContactManagerStatus: jest.fn(),
     findContactManagerProfile: jest.fn(),
+    existsAndActive: jest.fn(),
+    hasRole: jest.fn(),
+    hasAnyRole: jest.fn(),
+    findAllUsers: jest.fn(),
+    isPSO: jest.fn(),
+    updateSupervisor: jest.fn(),
+    createPSO: jest.fn(),
+    deleteUser: jest.fn(),
+    findByRoles: jest.fn(),
+    findUsersWithUnassignedRole: jest.fn(),
+    createContactManager: jest.fn(),
+    createSuperAdmin: jest.fn(),
+    createSuperAdminAuditLog: jest.fn(),
+    findAllSuperAdmins: jest.fn(),
+    getActiveRolesByAzureId: jest.fn(),
   } as any;
 };
 
@@ -74,6 +91,8 @@ export const createMockPendingCommandRepository = (): jest.Mocked<IPendingComman
     deletePendingCommandsForPso: jest.fn(),
     markAsPublished: jest.fn(),
     getPendingCommandsForPso: jest.fn(),
+    markAsAcknowledged: jest.fn(),
+    findByIds: jest.fn(),
   } as any;
 };
 
@@ -85,6 +104,7 @@ export const createMockSnapshotReasonRepository = (): jest.Mocked<ISnapshotReaso
     create: jest.fn(),
     update: jest.fn(),
     softDelete: jest.fn(),
+    updateBatch: jest.fn(),
   } as any;
 };
 
@@ -111,6 +131,7 @@ export const createMockWebPubSubService = (): jest.Mocked<IWebPubSubService> => 
     broadcastSupervisorChangeNotification: jest.fn(),
     generateToken: jest.fn(),
     broadcastPresence: jest.fn(),
+    syncAllUsersWithDatabase: jest.fn(),
   } as any;
 };
 
@@ -128,6 +149,7 @@ export const createMockBlobStorageService = (): jest.Mocked<IBlobStorageService>
     uploadImage: jest.fn(),
     deleteImage: jest.fn(),
     downloadImage: jest.fn(),
+    deleteRecordingByPath: jest.fn(),
   } as any;
 };
 
@@ -188,6 +210,22 @@ export const createMockRecordingSessionRepository = (): jest.Mocked<IRecordingSe
     createActive: jest.fn(),
     complete: jest.fn(),
     deleteById: jest.fn(),
+  } as any;
+};
+
+export const createMockStreamingSessionRepository = (): jest.Mocked<IStreamingSessionRepository> => {
+  return {
+    getLatestSessionForUser: jest.fn(),
+    createSession: jest.fn(),
+    updateSession: jest.fn(),
+    getSessionsForUserInDateRange: jest.fn(),
+    getActiveSessions: jest.fn(),
+    getActiveSessionsForSupervisor: jest.fn(),
+    startStreamingSession: jest.fn(),
+    stopStreamingSession: jest.fn(),
+    getLastStreamingSession: jest.fn(),
+    isUserStreaming: jest.fn(),
+    getLatestSessionsForEmails: jest.fn(),
   } as any;
 };
 
@@ -293,6 +331,24 @@ export const createMockSupervisor = (overrides?: Partial<{
     email: overrides?.email || 'supervisor@example.com',
     fullName: overrides?.fullName || 'Supervisor User',
     role: UserRole.Supervisor,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+};
+
+export const createMockStreamingSessionHistory = (overrides?: Partial<{
+  id: string;
+  userId: string;
+  startedAt: Date;
+  stoppedAt: Date | null;
+  stopReason: string | null;
+}>): StreamingSessionHistory => {
+  return new StreamingSessionHistory({
+    id: overrides?.id || 'session-id',
+    userId: overrides?.userId || 'user-id',
+    startedAt: overrides?.startedAt || new Date(),
+    stoppedAt: overrides?.stoppedAt || null,
+    stopReason: overrides?.stopReason || null,
     createdAt: new Date(),
     updatedAt: new Date(),
   });

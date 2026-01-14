@@ -85,6 +85,8 @@ describe('DeleteRecordingDomainService', () => {
       const request = new DeleteRecordingRequest('recording-id');
       const session = {
         id: 'recording-id',
+        blobPath: undefined,
+        blobUrl: undefined,
       };
 
       mockRecordingRepository.findById.mockResolvedValue(session as any);
