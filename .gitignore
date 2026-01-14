@@ -44,6 +44,8 @@ kubeconfig.yaml
 
 dist/
 node_modules/
+coverage/
+apps/in-contact-web/coverage/
 apps/api-functions/local.settings.json
 apps/electron/daemon/incontactservice.xml
 apps/electron/daemon/incontactservice.out.log

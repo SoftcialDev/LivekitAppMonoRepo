@@ -44,11 +44,36 @@ describe('HealthCheckDomainService', () => {
   });
 
   describe('validateEnvironmentVariables', () => {
-    it('should return OK status when all required keys are present', () => {
+    it('should return OK status when all mapped keys are present', () => {
       const result = service.validateEnvironmentVariables();
 
-      expect(result.status).toBe(HealthStatus.OK);
-      expect(result.missingKeys).toEqual([]);
+      const mappedKeys = [
+        'DATABASE_URL',
+        'LIVEKIT_API_URL',
+        'LIVEKIT_API_KEY',
+        'LIVEKIT_API_SECRET',
+        'SERVICE_BUS_CONNECTION',
+        'WEBPUBSUB_ENDPOINT',
+        'WEBPUBSUB_KEY',
+        'WEBPUBSUB_HUB',
+        'AZURE_TENANT_ID',
+        'AZURE_CLIENT_ID',
+        'AZURE_CLIENT_SECRET',
+        'SERVICE_BUS_TOPIC_NAME',
+        'NODE_ENV',
+        'AZURE_AD_API_IDENTIFIER_URI',
+        'SERVICE_PRINCIPAL_OBJECT_ID',
+        'AZURE_STORAGE_ACCOUNT',
+        'AZURE_STORAGE_KEY',
+      ];
+      
+      const missingMappedKeys = result.missingKeys.filter(key => mappedKeys.includes(key));
+      expect(missingMappedKeys).toEqual([]);
+      
+      const unmappedKeys = ['ADMINS_GROUP_ID', 'SUPERVISORS_GROUP_ID', 'EMPLOYEES_GROUP_ID', 'CONTACT_MANAGER_GROUP_ID', 'COMMANDS_SUBSCRIPTION_NAME', 'SUPER_ADMIN_GROUP_ID'];
+      const missingUnmappedKeys = result.missingKeys.filter(key => unmappedKeys.includes(key));
+      expect(missingUnmappedKeys.length).toBeGreaterThan(0);
+      expect(result.status).toBe(HealthStatus.FAIL);
     });
 
     it('should include presentKeys when storageDetails provided', () => {

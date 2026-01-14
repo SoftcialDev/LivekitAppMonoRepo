@@ -21,14 +21,20 @@ module.exports = {
   },
   collectCoverageFrom: [
     'src/app/**/*.{ts,tsx}',
+    'src/ui-kit/**/*.{ts,tsx}',
     '!src/app/**/*.d.ts',
     '!src/app/**/*.interface.ts',
     '!src/app/**/*.types.ts',
     '!src/app/**/index.ts',
+    '!src/ui-kit/**/*.d.ts',
+    '!src/ui-kit/**/*.interface.ts',
+    '!src/ui-kit/**/*.types.ts',
+    '!src/ui-kit/**/index.ts',
   ],
+  coveragePathIgnorePatterns: [],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json'],
   testTimeout: 10000,
-  coverageReporters: ['text', 'lcov', 'html'],
+  coverageReporters: ['text', 'text-summary', 'lcov', 'html'],
   coverageThreshold: {
     global: {
       branches: 100,

@@ -84,8 +84,8 @@ describe('ToastContext', () => {
       const { showToast } = useToast();
       return (
         <div>
-          <button onClick={() => showToast('First', 'success')}>First</button>
-          <button onClick={() => showToast('Second', 'error')}>Second</button>
+          <button onClick={() => showToast('First Toast', 'success')}>First</button>
+          <button onClick={() => showToast('Second Toast', 'error')}>Second</button>
         </div>
       );
     };
@@ -101,8 +101,8 @@ describe('ToastContext', () => {
       fireEvent.click(screen.getByText('Second'));
     });
     
-    expect(screen.getByText('First')).toBeInTheDocument();
-    expect(screen.getByText('Second')).toBeInTheDocument();
+    expect(screen.getByText('First Toast')).toBeInTheDocument();
+    expect(screen.getByText('Second Toast')).toBeInTheDocument();
   });
 
   it('should remove toast after duration', async () => {

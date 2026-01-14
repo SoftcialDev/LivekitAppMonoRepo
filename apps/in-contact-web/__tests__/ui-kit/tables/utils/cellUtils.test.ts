@@ -98,10 +98,10 @@ describe('cellUtils', () => {
       const col = {
         key: 'name',
         header: 'Name',
-        render: (row: typeof row) => <span data-testid="custom">{row.name.toUpperCase()}</span>,
+        render: (row: typeof row) => row.name.toUpperCase(),
       };
       const result = renderCellContent(row, col);
-      expect(result).toBeTruthy();
+      expect(result).toBe('JOHN');
     });
 
     it('should return empty string when no key and no render', () => {

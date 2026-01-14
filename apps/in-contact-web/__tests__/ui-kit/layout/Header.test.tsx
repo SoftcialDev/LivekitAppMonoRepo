@@ -2,8 +2,10 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { Header } from '@/ui-kit/layout/Header';
 
+const mockUseHeaderStore = jest.fn();
+
 jest.mock('@/app/stores', () => ({
-  useHeaderStore: jest.fn(),
+  useHeaderStore: (selector: any) => mockUseHeaderStore(selector),
 }));
 
 jest.mock('@/ui-kit/layout/IconWithLabel', () => ({
@@ -21,11 +23,16 @@ jest.mock('@/ui-kit/buttons', () => ({
 }));
 
 describe('Header', () => {
-  const mockUseHeaderStore = require('@/app/stores').useHeaderStore;
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
 
   it('should render title when provided', () => {
-    mockUseHeaderStore.mockReturnValue({
-      header: { title: 'Dashboard' },
+    mockUseHeaderStore.mockImplementation((selector) => {
+      const state = {
+        header: { title: 'Dashboard' },
+      };
+      return selector(state);
     });
     
     render(<Header />);
@@ -34,8 +41,11 @@ describe('Header', () => {
   });
 
   it('should render nothing when title is not provided', () => {
-    mockUseHeaderStore.mockReturnValue({
-      header: { title: '' },
+    mockUseHeaderStore.mockImplementation((selector) => {
+      const state = {
+        header: { title: '' },
+      };
+      return selector(state);
     });
     
     const { container } = render(<Header />);
@@ -46,8 +56,11 @@ describe('Header', () => {
   });
 
   it('should render IconWithLabel when iconSrc is provided', () => {
-    mockUseHeaderStore.mockReturnValue({
-      header: { title: 'Dashboard', iconSrc: '/icon.png', iconAlt: 'Icon' },
+    mockUseHeaderStore.mockImplementation((selector) => {
+      const state = {
+        header: { title: 'Dashboard', iconSrc: '/icon.png', iconAlt: 'Icon' },
+      };
+      return selector(state);
     });
     
     render(<Header />);
@@ -60,8 +73,11 @@ describe('Header', () => {
 
   it('should render iconNode when provided', () => {
     const iconNode = <span data-testid="custom-icon">Custom Icon</span>;
-    mockUseHeaderStore.mockReturnValue({
-      header: { title: 'Dashboard', iconNode },
+    mockUseHeaderStore.mockImplementation((selector) => {
+      const state = {
+        header: { title: 'Dashboard', iconNode },
+      };
+      return selector(state);
     });
     
     render(<Header />);
@@ -70,8 +86,11 @@ describe('Header', () => {
   });
 
   it('should render title only when no icon', () => {
-    mockUseHeaderStore.mockReturnValue({
-      header: { title: 'Dashboard' },
+    mockUseHeaderStore.mockImplementation((selector) => {
+      const state = {
+        header: { title: 'Dashboard' },
+      };
+      return selector(state);
     });
     
     render(<Header />);
@@ -81,8 +100,11 @@ describe('Header', () => {
   });
 
   it('should render SignOutButton', () => {
-    mockUseHeaderStore.mockReturnValue({
-      header: { title: 'Dashboard' },
+    mockUseHeaderStore.mockImplementation((selector) => {
+      const state = {
+        header: { title: 'Dashboard' },
+      };
+      return selector(state);
     });
     
     render(<Header />);
@@ -91,8 +113,11 @@ describe('Header', () => {
   });
 
   it('should use title as alt text when iconAlt is not provided', () => {
-    mockUseHeaderStore.mockReturnValue({
-      header: { title: 'Dashboard', iconSrc: '/icon.png' },
+    mockUseHeaderStore.mockImplementation((selector) => {
+      const state = {
+        header: { title: 'Dashboard', iconSrc: '/icon.png' },
+      };
+      return selector(state);
     });
     
     render(<Header />);

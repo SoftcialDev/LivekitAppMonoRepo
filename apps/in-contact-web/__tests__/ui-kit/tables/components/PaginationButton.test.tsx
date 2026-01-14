@@ -43,7 +43,11 @@ describe('PaginationButton', () => {
     const { container } = render(<PaginationButton label="Next" onClick={onClick} disabled />);
     
     const button = container.querySelector('button');
-    expect(button).toHaveClass('opacity-50', 'cursor-not-allowed');
+    expect(button).toBeDisabled();
+    // Check that disabled classes are present in className
+    const className = button?.className || '';
+    expect(className).toContain('opacity-50');
+    expect(className).toContain('cursor-not-allowed');
   });
 
   it('should have correct button type', () => {
