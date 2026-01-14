@@ -39,7 +39,7 @@ describe('DeleteSnapshotDomainService', () => {
 
       mockUserRepository.findByAzureAdObjectId.mockResolvedValue(caller);
       mockSnapshotRepository.findById.mockResolvedValue(snapshot);
-      mockBlobStorageService.deleteImage.mockResolvedValue(undefined);
+      mockBlobStorageService.deleteImage.mockResolvedValue(true);
       mockSnapshotRepository.deleteById.mockResolvedValue(undefined);
 
       const result = await service.deleteSnapshot(request);

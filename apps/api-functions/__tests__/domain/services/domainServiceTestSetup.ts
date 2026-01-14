@@ -7,13 +7,22 @@ import { ITalkSessionRepository } from '../../../src/domain/interfaces/ITalkSess
 import { ICommandMessagingService } from '../../../src/domain/interfaces/ICommandMessagingService';
 import { IWebPubSubService } from '../../../src/domain/interfaces/IWebPubSubService';
 import { IStreamingSessionDomainService } from '../../../src/domain/interfaces/IStreamingSessionDomainService';
-import { PresenceDomainService } from '../../../src/domain/services/PresenceDomainService';
 import { ISnapshotRepository } from '../../../src/domain/interfaces/ISnapshotRepository';
 import { IBlobStorageService } from '../../../src/domain/interfaces/IBlobStorageService';
 import { ILiveKitService } from '../../../src/domain/interfaces/ILiveKitService';
 import { IUserRoleAssignmentRepository } from '../../../src/domain/interfaces/IUserRoleAssignmentRepository';
 import { IPermissionRepository } from '../../../src/domain/interfaces/IPermissionRepository';
 import { IContactManagerFormRepository } from '../../../src/domain/interfaces/IContactManagerFormRepository';
+import { IPresenceRepository } from '../../../src/domain/interfaces/IPresenceRepository';
+import { IErrorLogRepository } from '../../../src/domain/interfaces/IErrorLogRepository';
+import { IRecordingSessionRepository } from '../../../src/domain/interfaces/IRecordingSessionRepository';
+import { ICameraStartFailureRepository } from '../../../src/domain/interfaces/ICameraStartFailureRepository';
+import { PendingCommandDomainService } from '../../../src/domain/services/PendingCommandDomainService';
+import { StreamingSessionDomainService } from '../../../src/domain/services/StreamingSessionDomainService';
+import { PresenceDomainService } from '../../../src/domain/services/PresenceDomainService';
+import { TalkSessionDomainService } from '../../../src/domain/services/TalkSessionDomainService';
+import { RecordingSessionApplicationService } from '../../../src/application/services/RecordingSessionApplicationService';
+import { LiveKitRecordingService } from '../../../src/infrastructure/services/LiveKitRecordingService';
 import { User } from '../../../src/domain/entities/User';
 import { UserRole } from '@prisma/client';
 
@@ -83,8 +92,10 @@ export const createMockTalkSessionRepository = (): jest.Mocked<ITalkSessionRepos
   return {
     createTalkSession: jest.fn(),
     getActiveTalkSessionsForPso: jest.fn(),
+    getActiveTalkSessionsForSupervisor: jest.fn(),
     findByIdWithPso: jest.fn(),
     stopTalkSession: jest.fn(),
+    getAllTalkSessionsWithRelations: jest.fn(),
   } as any;
 };
 
@@ -99,6 +110,7 @@ export const createMockWebPubSubService = (): jest.Mocked<IWebPubSubService> => 
     broadcastMessage: jest.fn(),
     broadcastSupervisorChangeNotification: jest.fn(),
     generateToken: jest.fn(),
+    broadcastPresence: jest.fn(),
   } as any;
 };
 
@@ -142,6 +154,95 @@ export const createMockPermissionRepository = (): jest.Mocked<IPermissionReposit
 export const createMockContactManagerFormRepository = (): jest.Mocked<IContactManagerFormRepository> => {
   return {
     createForm: jest.fn(),
+    findById: jest.fn(),
+  } as any;
+};
+
+export const createMockPresenceRepository = (): jest.Mocked<IPresenceRepository> => {
+  return {
+    upsertPresence: jest.fn(),
+    createPresenceHistory: jest.fn(),
+    closeOpenPresenceHistory: jest.fn(),
+    findPresenceByUserId: jest.fn(),
+  } as any;
+};
+
+export const createMockErrorLogRepository = (): jest.Mocked<IErrorLogRepository> => {
+  return {
+    create: jest.fn(),
+    findMany: jest.fn(),
+    findById: jest.fn(),
+    markAsResolved: jest.fn(),
+    deleteById: jest.fn(),
+    deleteMany: jest.fn(),
+    deleteAll: jest.fn(),
+    count: jest.fn(),
+  } as any;
+};
+
+export const createMockRecordingSessionRepository = (): jest.Mocked<IRecordingSessionRepository> => {
+  return {
+    findById: jest.fn(),
+    list: jest.fn(),
+    getUsersByIds: jest.fn(),
+    createActive: jest.fn(),
+    complete: jest.fn(),
+    deleteById: jest.fn(),
+  } as any;
+};
+
+export const createMockCameraStartFailureRepository = (): jest.Mocked<ICameraStartFailureRepository> => {
+  return {
+    create: jest.fn(),
+    list: jest.fn(),
+    findById: jest.fn(),
+    count: jest.fn(),
+  } as any;
+};
+
+export const createMockPendingCommandDomainService = (): jest.Mocked<PendingCommandDomainService> => {
+  return {
+    createPendingCommand: jest.fn(),
+    markAsPublished: jest.fn(),
+    fetchPendingCommands: jest.fn(),
+  } as any;
+};
+
+export const createMockStreamingSessionDomainServiceInstance = (): jest.Mocked<StreamingSessionDomainService> => {
+  return {
+    startStreamingSession: jest.fn(),
+    stopStreamingSession: jest.fn(),
+    getLastStreamingSession: jest.fn(),
+    isUserStreaming: jest.fn(),
+  } as any;
+};
+
+export const createMockPresenceDomainServiceInstance = (): jest.Mocked<PresenceDomainService> => {
+  return {
+    setUserOnline: jest.fn(),
+    setUserOffline: jest.fn(),
+    getPresenceStatus: jest.fn(),
+  } as any;
+};
+
+export const createMockTalkSessionDomainService = (): jest.Mocked<TalkSessionDomainService> => {
+  return {
+    startTalkSession: jest.fn(),
+    stopTalkSession: jest.fn(),
+    broadcastTalkStoppedEvent: jest.fn(),
+  } as any;
+};
+
+export const createMockLiveKitRecordingService = (): jest.Mocked<LiveKitRecordingService> => {
+  return {
+    stopAllForUser: jest.fn(),
+  } as any;
+};
+
+export const createMockRecordingSessionApplicationService = (): jest.Mocked<RecordingSessionApplicationService> => {
+  return {
+    startRecordingSession: jest.fn(),
+    stopAllRecordingsForUser: jest.fn(),
   } as any;
 };
 
