@@ -4,6 +4,12 @@ import { DeleteErrorLogsRequest } from '../../src/domain/value-objects/DeleteErr
 import { createMockContext, createMockHttpRequest, createMockJwtPayload } from './handlerMocks';
 import { setupMiddlewareMocks, createMockServiceContainer } from './handlerTestSetup';
 
+jest.mock('../../src/infrastructure/container/ServiceContainer', () => ({
+  ServiceContainer: {
+    getInstance: jest.fn(),
+  },
+}), { virtual: true });
+
 describe('DeleteErrorLogs handler', () => {
   let mockContext: Context;
   let mockRequest: HttpRequest;
@@ -37,9 +43,12 @@ describe('DeleteErrorLogs handler', () => {
       deleteAll: jest.fn(),
     } as any;
 
-    const { mockResolve: resolve, mockInitialize: initialize } = createMockServiceContainer(mockApplicationService);
+    const { container, mockResolve: resolve, mockInitialize: initialize } = createMockServiceContainer(mockApplicationService);
     mockResolve = resolve;
     mockInitialize = initialize;
+
+    const { ServiceContainer } = require('../../src/infrastructure/container/ServiceContainer');
+    ServiceContainer.getInstance = jest.fn().mockReturnValue(container);
   });
 
   it('should successfully delete error logs by ids', async () => {

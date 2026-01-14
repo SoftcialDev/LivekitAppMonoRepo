@@ -1,6 +1,7 @@
 import { Context, HttpRequest } from '@azure/functions';
 import { GetPsosBySupervisorApplicationService } from '../../src/application/services/GetPsosBySupervisorApplicationService';
 import { GetPsosBySupervisorRequest } from '../../src/domain/value-objects/GetPsosBySupervisorRequest';
+import { IUserRepository } from '../../src/domain/interfaces/IUserRepository';
 import { createMockContext, createMockHttpRequest, createMockJwtPayload } from './handlerMocks';
 import { setupMiddlewareMocks, createMockServiceContainer } from './handlerTestSetup';
 
@@ -8,6 +9,7 @@ describe('GetPsosBySupervisor handler', () => {
   let mockContext: Context;
   let mockRequest: HttpRequest;
   let mockApplicationService: jest.Mocked<GetPsosBySupervisorApplicationService>;
+  let mockUserRepository: jest.Mocked<IUserRepository>;
   let mockResolve: jest.Mock;
   let mockInitialize: jest.Mock;
 
@@ -34,12 +36,34 @@ describe('GetPsosBySupervisor handler', () => {
       getPsosBySupervisor: jest.fn(),
     } as any;
 
+    mockUserRepository = {
+      findByAzureAdObjectId: jest.fn(),
+    } as any;
+
     const { mockResolve: resolve, mockInitialize: initialize } = createMockServiceContainer(mockApplicationService);
     mockResolve = resolve;
     mockInitialize = initialize;
+
+    mockResolve.mockImplementation((serviceName: string) => {
+      if (serviceName === 'GetPsosBySupervisorApplicationService') {
+        return mockApplicationService;
+      }
+      if (serviceName === 'UserRepository') {
+        return mockUserRepository;
+      }
+      return mockApplicationService;
+    });
   });
 
   it('should successfully get PSOs by supervisor', async () => {
+    const mockUser = {
+      id: 'user-id',
+      azureAdObjectId: 'test-azure-ad-id',
+      deletedAt: null,
+    };
+
+    mockUserRepository.findByAzureAdObjectId.mockResolvedValue(mockUser as any);
+
     const mockResponse = {
       psos: [
         {

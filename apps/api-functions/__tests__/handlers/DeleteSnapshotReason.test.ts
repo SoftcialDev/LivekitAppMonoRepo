@@ -3,6 +3,16 @@ import { DeleteSnapshotReasonApplicationService } from '../../src/application/se
 import { createMockContext, createMockHttpRequest, createMockJwtPayload } from './handlerMocks';
 import { setupMiddlewareMocks, createMockServiceContainer } from './handlerTestSetup';
 
+jest.mock('../../src/infrastructure/database/PrismaClientService', () => ({
+  __esModule: true,
+  default: {
+    snapshotReason: {
+      findUnique: jest.fn(),
+      update: jest.fn(),
+    },
+  },
+}));
+
 describe('DeleteSnapshotReason handler', () => {
   let mockContext: Context;
   let mockRequest: HttpRequest;
@@ -39,6 +49,22 @@ describe('DeleteSnapshotReason handler', () => {
   });
 
   it('should successfully delete snapshot reason', async () => {
+    const prisma = require('../../src/infrastructure/database/PrismaClientService').default;
+    prisma.snapshotReason.findUnique.mockResolvedValue({
+      id: '550e8400-e29b-41d4-a716-446655440000',
+      label: 'Test Reason',
+      code: 'TEST_REASON',
+      isDefault: false,
+      isActive: true,
+    });
+    prisma.snapshotReason.update.mockResolvedValue({
+      id: '550e8400-e29b-41d4-a716-446655440000',
+      label: 'Test Reason',
+      code: 'TEST_REASON',
+      isDefault: false,
+      isActive: false,
+    });
+
     mockApplicationService.deleteSnapshotReason.mockResolvedValue(undefined);
 
     const deleteSnapshotReasonHandler = (await import('../../src/handlers/DeleteSnapshotReason')).default;

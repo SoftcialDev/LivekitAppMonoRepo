@@ -63,18 +63,12 @@ function normalizePath(path: string): string {
 /**
  * Builds a public HTTPS URL (without SAS) for a blob path inside the configured container.
  *
- * @param path - Relative blob path (e.g., `"subject/2025/08/12/room.mp4"`). Leading slashes are ignored.
+ * @param path - Relative blob path. Leading slashes are ignored.
  * @returns The HTTPS URL to the blob (no SAS token).
  *
  * @remarks
  * - This does not validate that the blob actually exists.
  * - Uses `AZURE_STORAGE_ACCOUNT` and `RECORDINGS_CONTAINER_NAME` (default `"recordings"`).
- *
- * @example
- * ```ts
- * const url = buildBlobHttpsUrl("john/2025/08/12/session.mp4");
- * // -> https://<account>.blob.core.windows.net/<container>/john/2025/08/12/session.mp4
- * ```
  */
 export function buildBlobHttpsUrl(path: string): string {
   const account = getAccountName();
@@ -85,28 +79,25 @@ export function buildBlobHttpsUrl(path: string): string {
 }
 
 /**
- * Generates a temporary **read-only** SAS URL for a blob.
+ * Generates a temporary **read-only** SAS URL for a blob in a specific container.
  *
  * @param path - Relative blob path within the container (no leading slash required).
- * @param minutes - SAS validity in minutes (default: 60, min: 1).
+ * @param containerName - Name of the Azure Blob Storage container.
+ * @param minutes - SAS validity in minutes (default: 120, min: 1).
  * @returns Full HTTPS URL including the SAS query string.
  *
  * @remarks
  * - Requires `AZURE_STORAGE_ACCOUNT` and `AZURE_STORAGE_KEY`.
- * - Uses container name from `RECORDINGS_CONTAINER_NAME` (defaults to `"recordings"`).
  * - Grants **read** (`r`) permission only.
  * - Prefer not to persist SAS URLs in your database; generate them on demand.
- *
- * @example
- * ```ts
- * const signed = generateReadSasUrl("john/2025/08/12/session.mp4", 30);
- * // -> https://.../session.mp4?<sas>
- * ```
  */
-export function generateReadSasUrl(path: string, minutes: number = 60): string {
+function generateSasUrlForContainer(path: string, containerName: string, minutes: number = 120): string {
   const account = getAccountName();
   const key = getAccountKey();
-  const container = getContainerName();
+
+  if (!containerName) {
+    throw new StorageCredentialsError('Container name is required');
+  }
 
   const clean = normalizePath(path);
   const expiresIn = Math.max(1, Math.floor(minutes));
@@ -116,29 +107,59 @@ export function generateReadSasUrl(path: string, minutes: number = 60): string {
 
   const sas = generateBlobSASQueryParameters(
     {
-      containerName: container,
+      containerName,
       blobName: clean,
       permissions: BlobSASPermissions.parse("r"),
       expiresOn,
-      //protocol: SASProtocol.Https, // default is HTTP
     },
     cred
   ).toString();
 
-  return `${buildBlobHttpsUrl(clean)}?${sas}`;
+  return `https://${account}.blob.core.windows.net/${containerName}/${encodeURI(clean)}?${sas}`;
+}
+
+/**
+ * Generates a temporary **read-only** SAS URL for a blob.
+ *
+ * @param path - Relative blob path within the container (no leading slash required).
+ * @param minutes - SAS validity in minutes (default: 120, min: 1).
+ * @returns Full HTTPS URL including the SAS query string.
+ *
+ * @remarks
+ * - Requires `AZURE_STORAGE_ACCOUNT` and `AZURE_STORAGE_KEY`.
+ * - Uses container name from `RECORDINGS_CONTAINER_NAME` (defaults to `"recordings"`).
+ * - Grants **read** (`r`) permission only.
+ * - Prefer not to persist SAS URLs in your database; generate them on demand.
+ */
+export function generateReadSasUrl(path: string, minutes: number = 120): string {
+  return generateSasUrlForContainer(path, getContainerName(), minutes);
+}
+
+/**
+ * Generates a temporary **read-only** SAS URL for a snapshot blob.
+ *
+ * @param path - Relative blob path within the snapshot container (no leading slash required).
+ * @param minutes - SAS validity in minutes (default: 120, min: 1).
+ * @returns Full HTTPS URL including the SAS query string.
+ *
+ * @remarks
+ * - Requires `AZURE_STORAGE_ACCOUNT` and `AZURE_STORAGE_KEY`.
+ * - Uses container name from `SNAPSHOT_CONTAINER_NAME`.
+ * - Grants **read** (`r`) permission only.
+ * - Used for generating temporary access URLs for snapshot images in private containers.
+ */
+export function generateSnapshotSasUrl(path: string, minutes: number = 120): string {
+  if (!config.snapshotContainerName) {
+    throw new StorageCredentialsError('SNAPSHOT_CONTAINER_NAME is not configured');
+  }
+  return generateSasUrlForContainer(path, config.snapshotContainerName, minutes);
 }
 
 /**
  * Convenience object if you prefer a namespaced import.
- *
- * @example
- * ```ts
- * import { BlobSigner } from '../../infrastructure/services/blobSigner';
- * const url = BlobSigner.buildBlobHttpsUrl("a/b/c.mp4");
- * const sas = BlobSigner.generateReadSasUrl("a/b/c.mp4", 15);
- * ```
  */
 export const BlobSigner = {
   buildBlobHttpsUrl,
   generateReadSasUrl,
+  generateSnapshotSasUrl,
 };

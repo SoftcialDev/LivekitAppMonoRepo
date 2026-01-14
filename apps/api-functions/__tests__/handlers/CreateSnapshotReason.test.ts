@@ -4,6 +4,16 @@ import { CreateSnapshotReasonRequest } from '../../src/domain/value-objects/Crea
 import { createMockContext, createMockHttpRequest, createMockJwtPayload } from './handlerMocks';
 import { setupMiddlewareMocks, createMockServiceContainer } from './handlerTestSetup';
 
+jest.mock('../../src/infrastructure/database/PrismaClientService', () => ({
+  __esModule: true,
+  default: {
+    snapshotReason: {
+      findUnique: jest.fn(),
+      create: jest.fn(),
+    },
+  },
+}));
+
 describe('CreateSnapshotReason handler', () => {
   let mockContext: Context;
   let mockRequest: HttpRequest;
@@ -44,6 +54,17 @@ describe('CreateSnapshotReason handler', () => {
   });
 
   it('should successfully create snapshot reason', async () => {
+    const prisma = require('../../src/infrastructure/database/PrismaClientService').default;
+    prisma.snapshotReason.findUnique.mockResolvedValue(null);
+    prisma.snapshotReason.create.mockResolvedValue({
+      id: 'reason-id',
+      label: 'Test Reason',
+      code: 'TEST_REASON',
+      isDefault: false,
+      isActive: true,
+      order: 1,
+    });
+
     const mockResponse = {
       id: 'reason-id',
       label: 'Test Reason',

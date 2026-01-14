@@ -6,6 +6,19 @@ import { setupMiddlewareMocks, createMockServiceContainer } from './handlerTestS
 import * as authMiddleware from '../../src/middleware/auth';
 
 jest.mock('../../src/middleware/auth');
+jest.mock('../../src/infrastructure/database/PrismaClientService', () => ({
+  __esModule: true,
+  default: {
+    snapshotReason: {
+      findMany: jest.fn(),
+    },
+  },
+}));
+jest.mock('../../src/infrastructure/container/ServiceContainer', () => ({
+  ServiceContainer: {
+    getInstance: jest.fn(),
+  },
+}), { virtual: true });
 
 describe('GetSnapshotReasons handler', () => {
   let mockContext: Context;
@@ -36,12 +49,25 @@ describe('GetSnapshotReasons handler', () => {
       logChatServiceError: jest.fn(),
     } as any;
 
-    const { mockResolve: resolve, mockInitialize: initialize } = createMockServiceContainer(mockApplicationService);
+    const { container, mockResolve: resolve, mockInitialize: initialize } = createMockServiceContainer(mockApplicationService);
     mockResolve = resolve;
     mockInitialize = initialize;
+
+    mockResolve.mockImplementation((serviceName: string) => {
+      if (serviceName === 'ErrorLogService') {
+        return mockErrorLogService;
+      }
+      return mockApplicationService;
+    });
+
+    const { ServiceContainer } = require('../../src/infrastructure/container/ServiceContainer');
+    ServiceContainer.getInstance = jest.fn().mockReturnValue(container);
   });
 
   it('should successfully get snapshot reasons', async () => {
+    const prisma = require('../../src/infrastructure/database/PrismaClientService').default;
+    prisma.snapshotReason.findMany.mockResolvedValue([]);
+
     const mockReasons = [
       {
         id: 'reason-1',
@@ -92,16 +118,9 @@ describe('GetSnapshotReasons handler', () => {
   });
 
   it('should log auth failure to error table when status is 401', async () => {
-    (authMiddleware.withAuth as jest.Mock).mockImplementation(async (ctx: Context, next: () => Promise<void>) => {
+    (authMiddleware.withAuth as jest.Mock).mockImplementationOnce(async (ctx: Context, next: () => Promise<void>) => {
       ctx.res = { status: 401 };
       return;
-    });
-
-    mockResolve.mockImplementation((serviceName: string) => {
-      if (serviceName === 'ErrorLogService') {
-        return mockErrorLogService;
-      }
-      return mockApplicationService;
     });
 
     const getSnapshotReasonsHandler = (await import('../../src/handlers/GetSnapshotReasons')).default;
@@ -127,19 +146,12 @@ describe('GetSnapshotReasons handler', () => {
   });
 
   it('should handle error when logging auth failure fails', async () => {
-    (authMiddleware.withAuth as jest.Mock).mockImplementation(async (ctx: Context, next: () => Promise<void>) => {
+    (authMiddleware.withAuth as jest.Mock).mockImplementationOnce(async (ctx: Context, next: () => Promise<void>) => {
       ctx.res = { status: 401 };
       return;
     });
 
-    mockResolve.mockImplementation((serviceName: string) => {
-      if (serviceName === 'ErrorLogService') {
-        return mockErrorLogService;
-      }
-      return mockApplicationService;
-    });
-
-    mockErrorLogService.logError.mockRejectedValue(new Error('Logging failed'));
+    mockErrorLogService.logError.mockRejectedValueOnce(new Error('Logging failed'));
 
     const getSnapshotReasonsHandler = (await import('../../src/handlers/GetSnapshotReasons')).default;
     await getSnapshotReasonsHandler(mockContext);
@@ -151,6 +163,9 @@ describe('GetSnapshotReasons handler', () => {
   });
 
   it('should log request details before auth', async () => {
+    const prisma = require('../../src/infrastructure/database/PrismaClientService').default;
+    prisma.snapshotReason.findMany.mockResolvedValue([]);
+
     const mockReasons = [
       {
         id: 'reason-1',

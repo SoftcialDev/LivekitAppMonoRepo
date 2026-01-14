@@ -1,14 +1,14 @@
 import { Context, HttpRequest } from '@azure/functions';
-import { GetSnapshotsApplicationService } from '../../src/application/services/GetSnapshotsApplicationService';
-import { GetSnapshotsRequest } from '../../src/domain/value-objects/GetSnapshotsRequest';
+import { GetOrCreateChatApplicationService } from '../../src/application/services/GetOrCreateChatApplicationService';
+import { GetOrCreateChatRequest } from '../../src/domain/value-objects/GetOrCreateChatRequest';
 import { IUserRepository } from '../../src/domain/interfaces/IUserRepository';
 import { createMockContext, createMockHttpRequest, createMockJwtPayload } from './handlerMocks';
 import { setupMiddlewareMocks, createMockServiceContainer } from './handlerTestSetup';
 
-describe('GetSnapshotsFunction handler', () => {
+describe('GetOrCreateChatFunction handler', () => {
   let mockContext: Context;
   let mockRequest: HttpRequest;
-  let mockApplicationService: jest.Mocked<GetSnapshotsApplicationService>;
+  let mockApplicationService: jest.Mocked<GetOrCreateChatApplicationService>;
   let mockUserRepository: jest.Mocked<IUserRepository>;
   let mockResolve: jest.Mock;
   let mockInitialize: jest.Mock;
@@ -18,16 +18,27 @@ describe('GetSnapshotsFunction handler', () => {
     setupMiddlewareMocks();
 
     mockContext = createMockContext();
-    mockRequest = createMockHttpRequest({ method: 'GET' });
+    mockRequest = createMockHttpRequest({
+      method: 'POST',
+      body: {
+        psoEmail: 'pso@example.com',
+      },
+      headers: {
+        authorization: 'Bearer test-token',
+      },
+    });
 
-    const jwtPayload = createMockJwtPayload({ roles: ['Admin'] });
+    const jwtPayload = createMockJwtPayload({ roles: ['Supervisor'] });
     mockContext.bindings = {
       user: jwtPayload,
       callerId: 'test-azure-ad-id',
+      validatedBody: {
+        psoEmail: 'pso@example.com',
+      },
     };
 
     mockApplicationService = {
-      getSnapshots: jest.fn(),
+      getOrCreateChat: jest.fn(),
     } as any;
 
     mockUserRepository = {
@@ -39,7 +50,7 @@ describe('GetSnapshotsFunction handler', () => {
     mockInitialize = initialize;
 
     mockResolve.mockImplementation((serviceName: string) => {
-      if (serviceName === 'GetSnapshotsApplicationService') {
+      if (serviceName === 'GetOrCreateChatApplicationService') {
         return mockApplicationService;
       }
       if (serviceName === 'UserRepository') {
@@ -49,7 +60,7 @@ describe('GetSnapshotsFunction handler', () => {
     });
   });
 
-  it('should successfully get snapshots', async () => {
+  it('should successfully get or create chat', async () => {
     const mockUser = {
       id: 'user-id',
       azureAdObjectId: 'test-azure-ad-id',
@@ -59,46 +70,26 @@ describe('GetSnapshotsFunction handler', () => {
     mockUserRepository.findByAzureAdObjectId.mockResolvedValue(mockUser as any);
 
     const mockResponse = {
-      reports: [
-        {
-          id: 'snapshot-1',
-          supervisorId: 'supervisor-id',
-          psoId: 'pso-id',
-          reasonId: 'reason-id',
-          description: 'Test snapshot',
-          takenAt: new Date(),
-          imageUrl: 'https://example.com/image.jpg',
-        },
-      ],
+      chatId: 'chat-id-123',
       toPayload: jest.fn().mockReturnValue({
-        reports: [
-          {
-            id: 'snapshot-1',
-            supervisorId: 'supervisor-id',
-            psoId: 'pso-id',
-            reasonId: 'reason-id',
-            description: 'Test snapshot',
-            takenAt: new Date().toISOString(),
-            imageUrl: 'https://example.com/image.jpg',
-          },
-        ],
+        chatId: 'chat-id-123',
       }),
     };
 
-    mockApplicationService.getSnapshots.mockResolvedValue(mockResponse as any);
+    mockApplicationService.getOrCreateChat.mockResolvedValue(mockResponse as any);
 
-    const getSnapshotsFunction = (await import('../../src/handlers/GetSnapshotsFunction')).default;
-    await getSnapshotsFunction(mockContext, mockRequest);
+    const getOrCreateChatHandler = (await import('../../src/handlers/GetOrCreateChatFunction')).default;
+    await getOrCreateChatHandler(mockContext, mockRequest);
 
     expect(mockInitialize).toHaveBeenCalled();
-    expect(mockResolve).toHaveBeenCalledWith('GetSnapshotsApplicationService');
-    expect(mockApplicationService.getSnapshots).toHaveBeenCalledWith(
+    expect(mockResolve).toHaveBeenCalledWith('GetOrCreateChatApplicationService');
+    expect(mockApplicationService.getOrCreateChat).toHaveBeenCalledWith(
       'test-azure-ad-id',
-      expect.any(GetSnapshotsRequest)
+      expect.any(GetOrCreateChatRequest),
+      'test-token'
     );
     expect(mockContext.res?.status).toBe(200);
     expect(mockContext.res?.body).toEqual(mockResponse.toPayload());
   });
-
 });
 

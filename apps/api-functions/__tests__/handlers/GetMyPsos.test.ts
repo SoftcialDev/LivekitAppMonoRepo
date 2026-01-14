@@ -39,8 +39,15 @@ describe('GetMyPsos handler', () => {
     mockResolve = resolve;
     mockInitialize = initialize;
 
-    mockResolve.mockReturnValueOnce(mockApplicationService);
-    mockResolve.mockReturnValueOnce(mockUserRepository);
+    mockResolve.mockImplementation((serviceName: string) => {
+      if (serviceName === 'GetPsosBySupervisorApplicationService') {
+        return mockApplicationService;
+      }
+      if (serviceName === 'UserRepository') {
+        return mockUserRepository;
+      }
+      return mockApplicationService;
+    });
   });
 
   it('should return PSOs for supervisor', async () => {
@@ -48,6 +55,7 @@ describe('GetMyPsos handler', () => {
       id: 'user-id',
       azureAdObjectId: 'test-azure-ad-id',
       role: UserRole.Supervisor,
+      deletedAt: null,
     };
 
     mockUserRepository.findByAzureAdObjectId.mockResolvedValue(mockUser as any);
@@ -93,6 +101,7 @@ describe('GetMyPsos handler', () => {
       id: 'user-id',
       azureAdObjectId: 'test-azure-ad-id',
       role: UserRole.Admin,
+      deletedAt: null,
     };
 
     mockUserRepository.findByAzureAdObjectId.mockResolvedValue(mockUser as any);

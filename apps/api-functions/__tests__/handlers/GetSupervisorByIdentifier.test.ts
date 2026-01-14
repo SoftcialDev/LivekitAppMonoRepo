@@ -1,6 +1,8 @@
 import { Context, HttpRequest } from '@azure/functions';
 import { GetSupervisorByIdentifierApplicationService } from '../../src/application/services/GetSupervisorByIdentifierApplicationService';
 import { GetSupervisorByIdentifierRequest } from '../../src/domain/value-objects/GetSupervisorByIdentifierRequest';
+import { ISupervisorRepository } from '../../src/domain/interfaces/ISupervisorRepository';
+import { IUserRepository } from '../../src/domain/interfaces/IUserRepository';
 import { createMockContext, createMockHttpRequest, createMockJwtPayload } from './handlerMocks';
 import { setupMiddlewareMocks, createMockServiceContainer } from './handlerTestSetup';
 
@@ -8,6 +10,8 @@ describe('GetSupervisorByIdentifier handler', () => {
   let mockContext: Context;
   let mockRequest: HttpRequest;
   let mockApplicationService: jest.Mocked<GetSupervisorByIdentifierApplicationService>;
+  let mockSupervisorRepository: jest.Mocked<ISupervisorRepository>;
+  let mockUserRepository: jest.Mocked<IUserRepository>;
   let mockResolve: jest.Mock;
   let mockInitialize: jest.Mock;
 
@@ -36,12 +40,49 @@ describe('GetSupervisorByIdentifier handler', () => {
       getSupervisorByIdentifier: jest.fn(),
     } as any;
 
+    mockSupervisorRepository = {
+      findSupervisorByIdentifier: jest.fn(),
+    } as any;
+
+    mockUserRepository = {
+      findByAzureAdObjectId: jest.fn(),
+    } as any;
+
     const { mockResolve: resolve, mockInitialize: initialize } = createMockServiceContainer(mockApplicationService);
     mockResolve = resolve;
     mockInitialize = initialize;
+
+    mockResolve.mockImplementation((serviceName: string) => {
+      if (serviceName === 'GetSupervisorByIdentifierApplicationService') {
+        return mockApplicationService;
+      }
+      if (serviceName === 'ISupervisorRepository' || serviceName === 'SupervisorRepository') {
+        return mockSupervisorRepository;
+      }
+      if (serviceName === 'UserRepository') {
+        return mockUserRepository;
+      }
+      if (serviceName === 'GetSupervisorByIdentifierDomainService') {
+        const { GetSupervisorByIdentifierDomainService } = require('../../src/domain/services/GetSupervisorByIdentifierDomainService');
+        return new GetSupervisorByIdentifierDomainService(mockSupervisorRepository);
+      }
+      if (serviceName === 'AuthorizationService') {
+        const { AuthorizationService } = require('../../src/domain/services/AuthorizationService');
+        return new AuthorizationService(mockUserRepository);
+      }
+      return mockApplicationService;
+    });
   });
 
   it('should successfully get supervisor by identifier', async () => {
+    const mockUser = {
+      id: 'user-id',
+      azureAdObjectId: 'test-azure-ad-id',
+      deletedAt: null,
+    };
+
+    mockUserRepository.findByAzureAdObjectId.mockResolvedValue(mockUser as any);
+
     const mockResponse = {
       supervisor: {
         id: 'supervisor-id',
@@ -75,6 +116,14 @@ describe('GetSupervisorByIdentifier handler', () => {
   });
 
   it('should handle supervisor not found', async () => {
+    const mockUser = {
+      id: 'user-id',
+      azureAdObjectId: 'test-azure-ad-id',
+      deletedAt: null,
+    };
+
+    mockUserRepository.findByAzureAdObjectId.mockResolvedValue(mockUser as any);
+
     const mockResponse = {
       supervisor: null,
       toPayload: jest.fn().mockReturnValue({

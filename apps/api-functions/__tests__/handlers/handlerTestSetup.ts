@@ -6,7 +6,7 @@ export const mockConfig = {
   livekitApiUrl: 'https://test.livekit.io',
   livekitApiKey: 'test-key',
   livekitApiSecret: 'test-secret',
-  serviceBusConnection: 'test-connection',
+  serviceBusConnection: 'Endpoint=sb://test.servicebus.windows.net/;SharedAccessKeyName=test;SharedAccessKey=test=',
   webPubSubEndpoint: 'https://test.webpubsub.azure.com',
   webPubSubKey: 'test-key',
   webPubSubHubName: 'test-hub',
@@ -16,6 +16,8 @@ export const mockConfig = {
   servicePrincipalObjectId: 'test-principal-id',
   commandsSubscriptionName: 'test-subscription',
   snapshotContainerName: 'test-container',
+  storageConnectionString: 'DefaultEndpointsProtocol=https;AccountName=test;AccountKey=test==;EndpointSuffix=core.windows.net',
+  recordingsContainerName: 'recordings',
 };
 
 jest.mock('../../src/config', () => ({

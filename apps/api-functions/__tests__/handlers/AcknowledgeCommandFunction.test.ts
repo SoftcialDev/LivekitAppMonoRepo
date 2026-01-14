@@ -30,7 +30,7 @@ describe('AcknowledgeCommandFunction handler', () => {
       user: jwtPayload,
       callerId: 'test-azure-ad-id',
       validatedBody: {
-        commandIds: ['command-1', 'command-2'],
+        ids: ['123e4567-e89b-12d3-a456-426614174000', '223e4567-e89b-12d3-a456-426614174001'],
       },
     };
 
@@ -63,18 +63,18 @@ describe('AcknowledgeCommandFunction handler', () => {
       'test-azure-ad-id'
     );
     expect(mockContext.res?.status).toBe(200);
-    expect(mockContext.res?.body).toEqual(mockResponse.toPayload());
+    expect(mockContext.res?.body.updatedCount).toBe(2);
   });
 
-  it('should handle empty command ids array', async () => {
+  it('should handle single command id', async () => {
     mockContext.bindings.validatedBody = {
-      commandIds: [],
+      ids: ['123e4567-e89b-12d3-a456-426614174000'],
     };
 
     const mockResponse = {
-      updatedCount: 0,
+      updatedCount: 1,
       toPayload: jest.fn().mockReturnValue({
-        updatedCount: 0,
+        updatedCount: 1,
       }),
     };
 
@@ -84,7 +84,7 @@ describe('AcknowledgeCommandFunction handler', () => {
     await acknowledgeCommandHandler(mockContext);
 
     expect(mockContext.res?.status).toBe(200);
-    expect(mockContext.res?.body.updatedCount).toBe(0);
+    expect(mockContext.res?.body.updatedCount).toBe(1);
   });
 });
 

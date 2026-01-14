@@ -5,6 +5,12 @@ import { createMockContext, createMockHttpRequest, createMockJwtPayload } from '
 import { setupMiddlewareMocks, createMockServiceContainer } from './handlerTestSetup';
 import { ensureBindings } from '../../src/domain/types/ContextBindings';
 
+jest.mock('../../src/infrastructure/container/ServiceContainer', () => ({
+  ServiceContainer: {
+    getInstance: jest.fn(),
+  },
+}), { virtual: true });
+
 describe('GetErrorLogById handler', () => {
   let mockContext: Context;
   let mockRequest: HttpRequest;
@@ -41,9 +47,12 @@ describe('GetErrorLogById handler', () => {
       markAsResolved: jest.fn(),
     } as any;
 
-    const { mockResolve: resolve, mockInitialize: initialize } = createMockServiceContainer(mockApplicationService);
+    const { container, mockResolve: resolve, mockInitialize: initialize } = createMockServiceContainer(mockApplicationService);
     mockResolve = resolve;
     mockInitialize = initialize;
+
+    const { ServiceContainer } = require('../../src/infrastructure/container/ServiceContainer');
+    ServiceContainer.getInstance = jest.fn().mockReturnValue(container);
   });
 
   it('should successfully get error log by id', async () => {
