@@ -125,9 +125,123 @@ describe('WebPubSubEvents handler', () => {
   });
 
   it('should return 400 for unknown event name', async () => {
-    mockRequest.headers = {};
+    mockRequest.headers = {
+      'ce-eventname': 'unknown-event',
+    };
     mockContext.bindingData = {
       invocationId: 'test-invocation-id',
+      webPubSubContext: {
+        hub: 'test-hub',
+        connectionId: 'conn-123',
+        userId: 'user-123',
+        eventName: 'unknown-event',
+      },
+    };
+
+    const webPubSubEventsHandler = (await import('../../src/handlers/WebPubSubEvents')).default;
+    await webPubSubEventsHandler(mockContext, mockRequest);
+
+    expect(mockContext.res?.status).toBe(400);
+    expect(mockContext.res?.body.error).toBe('Unknown event name: unknown-event');
+  });
+
+  it('should build context data with eventData hub when contextData lacks it', async () => {
+    mockRequest.headers = {
+      'ce-eventname': 'connect',
+      'ce-hub': 'test-hub-from-header',
+    };
+    mockRequest.body = {};
+    mockContext.bindingData = {
+      invocationId: 'test-invocation-id',
+      webPubSubContext: {},
+    };
+    mockConnectionService.handleConnection.mockResolvedValue(WebSocketEventResponse.success('Connected'));
+
+    const webPubSubEventsHandler = (await import('../../src/handlers/WebPubSubEvents')).default;
+    await webPubSubEventsHandler(mockContext, mockRequest);
+
+    expect(mockConnectionService.handleConnection).toHaveBeenCalled();
+  });
+
+  it('should build context data with eventData connectionId when contextData lacks it', async () => {
+    mockRequest.headers = {
+      'ce-eventname': 'connect',
+      'ce-connectionid': 'conn-from-header',
+    };
+    mockRequest.body = {};
+    mockContext.bindingData = {
+      invocationId: 'test-invocation-id',
+      webPubSubContext: {},
+    };
+    mockConnectionService.handleConnection.mockResolvedValue(WebSocketEventResponse.success('Connected'));
+
+    const webPubSubEventsHandler = (await import('../../src/handlers/WebPubSubEvents')).default;
+    await webPubSubEventsHandler(mockContext, mockRequest);
+
+    expect(mockConnectionService.handleConnection).toHaveBeenCalled();
+  });
+
+  it('should build context data with eventData userId when contextData lacks it and user/claims are missing', async () => {
+    mockRequest.headers = {
+      'ce-eventname': 'connect',
+      'ce-userid': 'user-from-header',
+    };
+    mockRequest.body = {};
+    mockContext.bindingData = {
+      invocationId: 'test-invocation-id',
+      webPubSubContext: {},
+    };
+    mockConnectionService.handleConnection.mockResolvedValue(WebSocketEventResponse.success('Connected'));
+
+    const webPubSubEventsHandler = (await import('../../src/handlers/WebPubSubEvents')).default;
+    await webPubSubEventsHandler(mockContext, mockRequest);
+
+    expect(mockConnectionService.handleConnection).toHaveBeenCalled();
+  });
+
+  it('should extract event data from request body when headers are missing', async () => {
+    mockRequest.headers = {};
+    mockRequest.body = {
+      eventName: 'connect',
+      hub: 'test-hub',
+      connectionId: 'conn-123',
+      userId: 'user-123',
+    };
+    mockContext.bindingData = {
+      invocationId: 'test-invocation-id',
+      webPubSubContext: {},
+    };
+    mockConnectionService.handleConnection.mockResolvedValue(WebSocketEventResponse.success('Connected'));
+
+    const webPubSubEventsHandler = (await import('../../src/handlers/WebPubSubEvents')).default;
+    await webPubSubEventsHandler(mockContext, mockRequest);
+
+    expect(mockConnectionService.handleConnection).toHaveBeenCalled();
+  });
+
+  it('should default to connect event when hub is present but eventName is missing', async () => {
+    mockRequest.headers = {};
+    mockRequest.body = {
+      hub: 'test-hub',
+    };
+    mockContext.bindingData = {
+      invocationId: 'test-invocation-id',
+      webPubSubContext: {},
+    };
+    mockConnectionService.handleConnection.mockResolvedValue(WebSocketEventResponse.success('Connected'));
+
+    const webPubSubEventsHandler = (await import('../../src/handlers/WebPubSubEvents')).default;
+    await webPubSubEventsHandler(mockContext, mockRequest);
+
+    expect(mockConnectionService.handleConnection).toHaveBeenCalled();
+  });
+
+  it('should return 400 when eventName is missing after parsing', async () => {
+    mockRequest.headers = {};
+    mockRequest.body = {};
+    mockContext.bindingData = {
+      invocationId: 'test-invocation-id',
+      webPubSubContext: {},
     };
 
     const webPubSubEventsHandler = (await import('../../src/handlers/WebPubSubEvents')).default;
@@ -135,6 +249,14 @@ describe('WebPubSubEvents handler', () => {
 
     expect(mockContext.res?.status).toBe(400);
     expect(mockContext.res?.body.error).toBe('Unknown event name');
+    expect(mockContext.log.error).toHaveBeenCalledWith(
+      'Missing eventName',
+      expect.objectContaining({
+        webPubSubContext: expect.any(String),
+        bindingData: expect.any(String),
+        body: expect.any(String),
+      })
+    );
   });
 });
 

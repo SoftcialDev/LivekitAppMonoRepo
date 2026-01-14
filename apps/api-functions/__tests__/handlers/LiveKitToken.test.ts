@@ -1,6 +1,7 @@
 import { Context, HttpRequest } from '@azure/functions';
 import { LiveKitTokenApplicationService } from '../../src/application/services/LiveKitTokenApplicationService';
 import { LiveKitTokenRequest } from '../../src/domain/value-objects/LiveKitTokenRequest';
+import { IUserRepository } from '../../src/domain/interfaces/IUserRepository';
 import { createMockContext, createMockHttpRequest, createMockJwtPayload } from './handlerMocks';
 import { setupMiddlewareMocks, createMockServiceContainer } from './handlerTestSetup';
 
@@ -8,6 +9,7 @@ describe('LiveKitToken handler', () => {
   let mockContext: Context;
   let mockRequest: HttpRequest;
   let mockApplicationService: jest.Mocked<LiveKitTokenApplicationService>;
+  let mockUserRepository: jest.Mocked<IUserRepository>;
   let mockResolve: jest.Mock;
   let mockInitialize: jest.Mock;
 
@@ -32,12 +34,35 @@ describe('LiveKitToken handler', () => {
       generateToken: jest.fn(),
     } as any;
 
+    mockUserRepository = {
+      findByAzureAdObjectId: jest.fn(),
+    } as any;
+
     const { mockResolve: resolve, mockInitialize: initialize } = createMockServiceContainer(mockApplicationService);
     mockResolve = resolve;
     mockInitialize = initialize;
+
+    mockResolve.mockImplementation((serviceName: string) => {
+      if (serviceName === 'LiveKitTokenApplicationService') {
+        return mockApplicationService;
+      }
+      if (serviceName === 'UserRepository') {
+        return mockUserRepository;
+      }
+      return mockApplicationService;
+    });
   });
 
   it('should successfully generate LiveKit token', async () => {
+    const mockUser = {
+      id: 'user-id',
+      azureAdObjectId: 'test-azure-ad-id',
+      role: 'PSO',
+      deletedAt: null,
+    };
+
+    mockUserRepository.findByAzureAdObjectId.mockResolvedValue(mockUser as any);
+
     const mockResponse = {
       rooms: [
         {
@@ -73,6 +98,15 @@ describe('LiveKitToken handler', () => {
   });
 
   it('should handle userId query parameter', async () => {
+    const mockUser = {
+      id: 'user-id',
+      azureAdObjectId: 'test-azure-ad-id',
+      role: 'PSO',
+      deletedAt: null,
+    };
+
+    mockUserRepository.findByAzureAdObjectId.mockResolvedValue(mockUser as any);
+
     mockRequest.query = {
       userId: 'user-id-123',
     };
@@ -109,6 +143,15 @@ describe('LiveKitToken handler', () => {
   });
 
   it('should handle multiple rooms for admin', async () => {
+    const mockUser = {
+      id: 'user-id',
+      azureAdObjectId: 'test-azure-ad-id',
+      role: 'PSO',
+      deletedAt: null,
+    };
+
+    mockUserRepository.findByAzureAdObjectId.mockResolvedValue(mockUser as any);
+
     const mockResponse = {
       rooms: [
         {

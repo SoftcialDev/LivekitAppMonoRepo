@@ -4,9 +4,16 @@ import { createMockContext, createMockHttpRequest, createMockJwtPayload } from '
 import { setupMiddlewareMocks, createMockServiceContainer } from './handlerTestSetup';
 import { ApplicationServiceOperationError } from '../../src/domain/errors/ApplicationServiceErrors';
 
-jest.mock('node:child_process');
-jest.mock('../../src/infrastructure/seed/defaultRolesAndPermissions');
-jest.mock('../../src/infrastructure/seed/defaultSnapshotReasons');
+const mockExec = jest.fn();
+jest.mock('node:child_process', () => ({
+  exec: mockExec,
+}));
+jest.mock('../../src/infrastructure/seed/defaultRolesAndPermissions', () => ({
+  seedDefaultRolesAndPermissions: jest.fn(),
+}));
+jest.mock('../../src/infrastructure/seed/defaultSnapshotReasons', () => ({
+  seedDefaultSnapshotReasons: jest.fn(),
+}));
 
 jest.mock('../../src/infrastructure/container/ServiceContainer', () => ({
   ServiceContainer: {
@@ -44,6 +51,8 @@ describe('RunMigrations handler', () => {
       logError: jest.fn().mockResolvedValue(undefined),
     } as any;
 
+    mockExec.mockReset();
+
     const { container, mockResolve: resolve, mockInitialize: initialize } = createMockServiceContainer();
     mockResolve = resolve;
     mockInitialize = initialize;
@@ -78,5 +87,38 @@ describe('RunMigrations handler', () => {
     
     config.databaseUrl = originalUrl;
   });
+
+  it('should handle migration failure and log error', async () => {
+    mockExec.mockImplementation((command, options, callback) => {
+      if (callback) {
+        callback(new Error('Migration failed'), '', 'Error output');
+      }
+    });
+
+    const runMigrationsHandler = (await import('../../src/handlers/RunMigrations')).default;
+    
+    await expect(runMigrationsHandler(mockContext, mockRequest)).rejects.toThrow();
+    expect(mockErrorLogService.logError).toHaveBeenCalled();
+  }, 30000);
+
+  it('should handle seeding errors', async () => {
+    const { seedDefaultRolesAndPermissions } = require('../../src/infrastructure/seed/defaultRolesAndPermissions');
+
+    mockExec.mockImplementation((command, options, callback) => {
+      if (callback) {
+        callback(null, 'Success', '');
+      }
+    });
+    seedDefaultRolesAndPermissions.mockRejectedValueOnce(new Error('Seeding failed'));
+
+    const runMigrationsHandler = (await import('../../src/handlers/RunMigrations')).default;
+    
+    await runMigrationsHandler(mockContext, mockRequest);
+
+    expect(mockContext.log.error).toHaveBeenCalledWith(
+      expect.stringContaining('[RunMigrations] Seeding error:')
+    );
+    expect(mockErrorLogService.logError).toHaveBeenCalled();
+  }, 30000);
 });
 

@@ -59,7 +59,7 @@ export function SearchableDropdown<Value>({
   closeOnSelect = false,
   showSelectAll = false,
   isLoading = false,
-}: Readonly<ISearchableDropdownProps<Value>>): JSX.Element {
+}: Readonly<ISearchableDropdownProps<Value>>): React.ReactElement {
   const [term, setTerm] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -69,14 +69,17 @@ export function SearchableDropdown<Value>({
 
   // Portal position calculation
   const { position: portalPosition } = usePortalPosition({
-    containerRef,
+    containerRef: containerRef as React.RefObject<HTMLElement>,
     isOpen,
     usePortal,
   });
 
   // Click outside detection (supports portal rendering)
   useClickOutsideMultiple({
-    refs: [containerRef, menuRef],
+    refs: [
+      containerRef as React.RefObject<HTMLElement>,
+      menuRef as React.RefObject<HTMLElement>,
+    ],
     handler: close,
     enabled: isOpen,
   });

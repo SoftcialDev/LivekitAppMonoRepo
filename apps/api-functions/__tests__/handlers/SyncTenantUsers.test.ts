@@ -84,5 +84,121 @@ describe('SyncTenantUsers handler', () => {
     expect(mockContext.res?.status).toBe(200);
     expect(mockContext.res?.body.success).toBe(true);
   });
+
+  it('should skip users with accountEnabled false', async () => {
+    const mockToken = 'test-token';
+    const mockGraphUsers = [
+      {
+        id: 'user-1',
+        mail: 'user1@example.com',
+        userPrincipalName: 'user1@example.com',
+        displayName: 'User One',
+        accountEnabled: false,
+      },
+    ];
+
+    mockGraphService.getGraphToken.mockResolvedValue(mockToken);
+    mockGraphService.fetchAllUsers.mockResolvedValue(mockGraphUsers);
+    (prisma.$executeRaw as jest.Mock).mockResolvedValue(undefined);
+
+    const syncTenantUsersHandler = (await import('../../src/handlers/SyncTenantUsers')).default;
+    await syncTenantUsersHandler(mockContext, mockRequest);
+
+    expect(mockContext.res?.body.stats.skipped).toBe(1);
+  });
+
+  it('should skip users without email', async () => {
+    const mockToken = 'test-token';
+    const mockGraphUsers = [
+      {
+        id: 'user-1',
+        mail: undefined,
+        userPrincipalName: undefined,
+        displayName: 'User One',
+        accountEnabled: true,
+      },
+    ];
+
+    mockGraphService.getGraphToken.mockResolvedValue(mockToken);
+    mockGraphService.fetchAllUsers.mockResolvedValue(mockGraphUsers);
+    (prisma.$executeRaw as jest.Mock).mockResolvedValue(undefined);
+
+    const syncTenantUsersHandler = (await import('../../src/handlers/SyncTenantUsers')).default;
+    await syncTenantUsersHandler(mockContext, mockRequest);
+
+    expect(mockContext.res?.body.stats.skipped).toBe(1);
+  });
+
+  it('should handle updated users', async () => {
+    const mockToken = 'test-token';
+    const mockGraphUsers = [
+      {
+        id: 'user-1',
+        mail: 'user1@example.com',
+        userPrincipalName: 'user1@example.com',
+        displayName: 'Updated Name',
+        accountEnabled: true,
+      },
+    ];
+
+    mockGraphService.getGraphToken.mockResolvedValue(mockToken);
+    mockGraphService.fetchAllUsers.mockResolvedValue(mockGraphUsers);
+    (prisma.$executeRaw as jest.Mock).mockResolvedValue(undefined);
+    (prisma.user.findUnique as jest.Mock).mockResolvedValue({
+      id: 'user-id',
+      email: 'user1@example.com',
+      fullName: 'Old Name',
+    });
+    (prisma.user.update as jest.Mock).mockResolvedValue({ id: 'user-id', email: 'user1@example.com' });
+
+    const syncTenantUsersHandler = (await import('../../src/handlers/SyncTenantUsers')).default;
+    await syncTenantUsersHandler(mockContext, mockRequest);
+
+    expect(mockContext.res?.body.stats.updated).toBe(1);
+    expect(mockContext.log.info).toHaveBeenCalledWith(expect.stringContaining('[SyncTenantUsers] Updated user:'));
+  });
+
+  it('should handle errors when processing individual users', async () => {
+    const mockToken = 'test-token';
+    const mockGraphUsers = [
+      {
+        id: 'user-1',
+        mail: 'user1@example.com',
+        userPrincipalName: 'user1@example.com',
+        displayName: 'User One',
+        accountEnabled: true,
+      },
+    ];
+
+    mockGraphService.getGraphToken.mockResolvedValue(mockToken);
+    mockGraphService.fetchAllUsers.mockResolvedValue(mockGraphUsers);
+    (prisma.$executeRaw as jest.Mock).mockResolvedValue(undefined);
+    (prisma.user.findUnique as jest.Mock).mockRejectedValue(new Error('Database error'));
+
+    const syncTenantUsersHandler = (await import('../../src/handlers/SyncTenantUsers')).default;
+    await syncTenantUsersHandler(mockContext, mockRequest);
+
+    expect(mockContext.log.error).toHaveBeenCalledWith(
+      expect.stringContaining('[SyncTenantUsers] Error processing user'),
+      expect.any(Error)
+    );
+    expect(mockContext.res?.body.stats.skipped).toBe(1);
+  });
+
+  it('should handle sync failure', async () => {
+    const mockToken = 'test-token';
+
+    mockGraphService.getGraphToken.mockResolvedValue(mockToken);
+    mockGraphService.fetchAllUsers.mockRejectedValue(new Error('Graph API error'));
+    (prisma.$executeRaw as jest.Mock).mockResolvedValue(undefined);
+
+    const syncTenantUsersHandler = (await import('../../src/handlers/SyncTenantUsers')).default;
+    
+    await expect(syncTenantUsersHandler(mockContext, mockRequest)).rejects.toThrow('Graph API error');
+    expect(mockContext.log.error).toHaveBeenCalledWith(
+      '[SyncTenantUsers] Sync failed:',
+      expect.any(Error)
+    );
+  });
 });
 

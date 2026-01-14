@@ -196,6 +196,97 @@ describe('GetSnapshotReasons handler', () => {
         hasCtxReq: true,
         hasReq: true,
         hasHeaders: true,
+        headerKeys: expect.any(Array),
+        authorizationHeader: expect.any(String),
+      })
+    );
+  });
+
+  it('should log request details in error context when logging auth failure', async () => {
+    (authMiddleware.withAuth as jest.Mock).mockImplementationOnce(async (ctx: Context, next: () => Promise<void>) => {
+      ctx.res = { status: 401 };
+      return;
+    });
+
+    mockContext.req = createMockHttpRequest();
+    mockContext.req.headers = {
+      authorization: 'Bearer test-token',
+    };
+
+    const getSnapshotReasonsHandler = (await import('../../src/handlers/GetSnapshotReasons')).default;
+    await getSnapshotReasonsHandler(mockContext);
+
+    expect(mockErrorLogService.logError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        context: expect.objectContaining({
+          hasHeaders: true,
+          headerKeys: expect.any(Array),
+          authorizationHeader: expect.any(String),
+        }),
+      })
+    );
+  });
+
+  it('should handle missing headers in request details', async () => {
+    mockContext.req = createMockHttpRequest();
+    (mockContext.req as any).headers = undefined;
+
+    const prisma = require('../../src/infrastructure/database/PrismaClientService').default;
+    prisma.snapshotReason.findMany.mockResolvedValue([]);
+
+    const mockReasons = [
+      {
+        id: 'reason-1',
+        label: 'Reason 1',
+        code: 'REASON_1',
+        isDefault: false,
+        isActive: true,
+        order: 1,
+        toJSON: jest.fn().mockReturnValue({
+          id: 'reason-1',
+          label: 'Reason 1',
+          code: 'REASON_1',
+          isDefault: false,
+          isActive: true,
+          order: 1,
+        }),
+      },
+    ];
+
+    mockApplicationService.getSnapshotReasons.mockResolvedValue(mockReasons as any);
+
+    const getSnapshotReasonsHandler = (await import('../../src/handlers/GetSnapshotReasons')).default;
+    await getSnapshotReasonsHandler(mockContext);
+
+    expect(mockContext.log.info).toHaveBeenCalledWith(
+      '[GetSnapshotReasons] Handler called',
+      expect.objectContaining({
+        hasHeaders: false,
+        headerKeys: [],
+        authorizationHeader: 'NO_REQ',
+      })
+    );
+  });
+
+  it('should handle missing headers in error context when logging auth failure', async () => {
+    (authMiddleware.withAuth as jest.Mock).mockImplementationOnce(async (ctx: Context, next: () => Promise<void>) => {
+      ctx.res = { status: 401 };
+      return;
+    });
+
+    mockContext.req = createMockHttpRequest();
+    (mockContext.req as any).headers = undefined;
+
+    const getSnapshotReasonsHandler = (await import('../../src/handlers/GetSnapshotReasons')).default;
+    await getSnapshotReasonsHandler(mockContext);
+
+    expect(mockErrorLogService.logError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        context: expect.objectContaining({
+          hasHeaders: false,
+          headerKeys: [],
+          authorizationHeader: 'NO_REQ',
+        }),
       })
     );
   });

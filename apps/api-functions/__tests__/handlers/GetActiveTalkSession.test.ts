@@ -146,5 +146,16 @@ describe('GetActiveTalkSession handler', () => {
     expect(mockContext.res?.status).toBe(200);
     expect(mockContext.res?.body.active).toBe(false);
   });
+
+  it('should handle undefined query parameter', async () => {
+    (mockRequest as any).query = undefined;
+
+    const getActiveTalkSessionHandler = (await import('../../src/handlers/GetActiveTalkSession')).default;
+    await getActiveTalkSessionHandler(mockContext, mockRequest);
+
+    expect(mockContext.res?.status).toBe(400);
+    expect(mockContext.res?.body).toHaveProperty('message');
+    expect(mockContext.res?.body).toHaveProperty('errors');
+  });
 });
 

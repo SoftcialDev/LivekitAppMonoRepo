@@ -66,5 +66,16 @@ describe('DeleteContactManager handler', () => {
       message: 'Contact Manager deleted successfully',
     });
   });
+
+  it('should return 400 for invalid profile ID format', async () => {
+    mockContext.bindingData.id = 'invalid-id';
+
+    const removeHandler = (await import('../../src/handlers/DeleteContactManager')).default;
+    await removeHandler(mockContext, mockRequest);
+
+    expect(mockContext.res?.status).toBe(400);
+    expect(mockContext.res?.body.error).toBe('Invalid profile ID format');
+    expect(mockApplicationService.deleteContactManager).not.toHaveBeenCalled();
+  });
 });
 
