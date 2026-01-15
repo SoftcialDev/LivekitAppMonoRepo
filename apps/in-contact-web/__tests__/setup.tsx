@@ -9,13 +9,17 @@ global.Response = class Response {
   constructor(public body?: BodyInit | null, public init?: ResponseInit) {}
 } as any;
 
-Object.defineProperty(global, 'import.meta', {
+Object.defineProperty(global, 'import', {
   value: {
-    env: {
-      VITE_API_URL: 'http://localhost:7071/api',
+    meta: {
+      env: {
+        VITE_API_URL: 'http://localhost:7071/api',
+        PROD: false,
+      },
     },
   },
   writable: true,
+  configurable: true,
 });
 
 jest.mock('@/shared/utils/logger', () => ({

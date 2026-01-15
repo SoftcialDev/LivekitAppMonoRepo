@@ -85,6 +85,7 @@ describe('StreamingSessionUpdate handler', () => {
       email: 'pso@example.com',
     };
 
+    // Ensure the mock is set up before creating the service
     mockUserRepository.findByAzureAdObjectId.mockResolvedValue(mockUser as any);
 
     const mockResponse = {
@@ -96,7 +97,15 @@ describe('StreamingSessionUpdate handler', () => {
       }),
     };
 
-    mockApplicationService.updateStreamingSession.mockResolvedValue(mockResponse as any);
+    // Mock the application service to avoid calling the domain service directly
+    mockApplicationService.updateStreamingSession.mockImplementation(async (callerId: string, request: any) => {
+      // Simulate the domain service call
+      const user = await mockUserRepository.findByAzureAdObjectId(callerId);
+      if (!user) {
+        throw new Error('User not found');
+      }
+      return mockResponse as any;
+    });
 
     const streamingSessionUpdateHandler = (await import('../../src/handlers/StreamingSessionUpdate')).default;
     await streamingSessionUpdateHandler(mockContext, mockRequest);
@@ -118,6 +127,7 @@ describe('StreamingSessionUpdate handler', () => {
       email: 'pso@example.com',
     };
 
+    // Ensure the mock is set up before creating the service
     mockUserRepository.findByAzureAdObjectId.mockResolvedValue(mockUser as any);
 
     mockRequest.body = {
@@ -136,7 +146,15 @@ describe('StreamingSessionUpdate handler', () => {
       }),
     };
 
-    mockApplicationService.updateStreamingSession.mockResolvedValue(mockResponse as any);
+    // Mock the application service to avoid calling the domain service directly
+    mockApplicationService.updateStreamingSession.mockImplementation(async (callerId: string, request: any) => {
+      // Simulate the domain service call
+      const user = await mockUserRepository.findByAzureAdObjectId(callerId);
+      if (!user) {
+        throw new Error('User not found');
+      }
+      return mockResponse as any;
+    });
 
     const streamingSessionUpdateHandler = (await import('../../src/handlers/StreamingSessionUpdate')).default;
     await streamingSessionUpdateHandler(mockContext, mockRequest);

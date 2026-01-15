@@ -14,7 +14,7 @@ describe('WebSocketEventRequest', () => {
             hub: 'hub-name'
           }
         }
-      } as Context;
+      } as unknown as Context;
 
       const request = WebSocketEventRequest.fromContext(mockContext);
 
@@ -35,7 +35,7 @@ describe('WebSocketEventRequest', () => {
             hub: 'hub-name'
           }
         }
-      } as Context;
+      } as unknown as Context;
 
       const request = WebSocketEventRequest.fromContext(mockContext);
 
@@ -53,7 +53,7 @@ describe('WebSocketEventRequest', () => {
             hub: 'hub-name'
           }
         }
-      } as Context;
+      } as unknown as Context;
 
       const request = WebSocketEventRequest.fromContext(mockContext);
 
@@ -71,7 +71,7 @@ describe('WebSocketEventRequest', () => {
             hub: 'hub-name'
           }
         }
-      } as Context;
+      } as unknown as Context;
 
       const request = WebSocketEventRequest.fromContext(mockContext);
 
@@ -79,4 +79,5 @@ describe('WebSocketEventRequest', () => {
     });
   });
 });
+
 

@@ -79,3 +79,4 @@ describe('PresenceUpdate handler', () => {
   });
 });
 
+

@@ -146,6 +146,133 @@ describe('ErrorLogService', () => {
     });
   });
 
+  describe('getUserEmail', () => {
+    it('should return providedEmail when provided', async () => {
+      const data = {
+        source: ErrorSource.Database,
+        error: new Error('Test error'),
+        userId: 'user-id',
+        userEmail: 'provided@example.com',
+      };
+
+      mockErrorLogRepository.create.mockResolvedValue({
+        id: 'error-id',
+        severity: ErrorSeverity.Medium,
+        source: ErrorSource.Database,
+        errorMessage: 'Test error',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      } as any);
+
+      await service.logError(data);
+
+      expect(mockErrorLogRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userEmail: 'provided@example.com',
+        })
+      );
+    });
+
+    it('should return undefined when userId is not provided', async () => {
+      const data = {
+        source: ErrorSource.Database,
+        error: new Error('Test error'),
+        // No userId or userEmail
+      };
+
+      mockErrorLogRepository.create.mockResolvedValue({
+        id: 'error-id',
+        severity: ErrorSeverity.Medium,
+        source: ErrorSource.Database,
+        errorMessage: 'Test error',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      } as any);
+
+      await service.logError(data);
+
+      expect(mockErrorLogRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userEmail: undefined,
+        })
+      );
+    });
+
+    it('should return undefined when ServiceContainer is not initialized', async () => {
+      const { ServiceContainer } = require('../../../src/infrastructure/container/ServiceContainer');
+      const originalInitialized = ServiceContainer.initialized;
+      ServiceContainer.initialized = false;
+
+      const data = {
+        source: ErrorSource.Database,
+        error: new Error('Test error'),
+        userId: 'user-id',
+      };
+
+      mockErrorLogRepository.create.mockResolvedValue({
+        id: 'error-id',
+        severity: ErrorSeverity.Medium,
+        source: ErrorSource.Database,
+        errorMessage: 'Test error',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      } as any);
+
+      await service.logError(data);
+
+      expect(mockErrorLogRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userEmail: undefined,
+        })
+      );
+
+      ServiceContainer.initialized = originalInitialized;
+    });
+
+    it('should return undefined when userRepository.findById throws error', async () => {
+      const { ServiceContainer } = require('../../../src/infrastructure/container/ServiceContainer');
+      const originalInitialized = ServiceContainer.initialized;
+      ServiceContainer.initialized = true;
+      
+      const mockGetInstance = ServiceContainer.getInstance as jest.Mock;
+      const mockResolve = jest.fn();
+      mockResolve.mockImplementation((name: string) => {
+        if (name === 'UserRepository') {
+          return {
+            findById: jest.fn().mockRejectedValue(new Error('Repository error')),
+          };
+        }
+        return null;
+      });
+      mockGetInstance.mockReturnValue({ resolve: mockResolve });
+
+      const data = {
+        source: ErrorSource.Database,
+        error: new Error('Test error'),
+        userId: 'user-id',
+      };
+
+      mockErrorLogRepository.create.mockResolvedValue({
+        id: 'error-id',
+        severity: ErrorSeverity.Medium,
+        source: ErrorSource.Database,
+        errorMessage: 'Test error',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      } as any);
+
+      await service.logError(data);
+
+      expect(mockErrorLogRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userEmail: undefined,
+        })
+      );
+
+      ServiceContainer.initialized = originalInitialized;
+    });
+  });
+
   describe('extractErrorDetails with non-serializable error', () => {
     it('should handle error that cannot be JSON stringified', async () => {
       const circularError = {
@@ -162,7 +289,7 @@ describe('ErrorLogService', () => {
         id: 'error-id',
         severity: ErrorSeverity.Medium,
         source: ErrorSource.Validation,
-        errorMessage: expect.any(String),
+        errorMessage: 'Unknown error (could not serialize)',
         createdAt: new Date(),
         updatedAt: new Date(),
       } as any);
@@ -171,7 +298,7 @@ describe('ErrorLogService', () => {
 
       expect(mockErrorLogRepository.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          errorMessage: expect.any(String),
+          errorMessage: 'Unknown error (could not serialize)',
         })
       );
     });
@@ -182,14 +309,14 @@ describe('ErrorLogService', () => {
       const error = new Error('Request timeout');
       error.name = 'TimeoutError';
       const data = {
-        source: ErrorSource.API,
+        source: ErrorSource.Unknown,
         error,
       };
 
       mockErrorLogRepository.create.mockResolvedValue({
         id: 'error-id',
         severity: ErrorSeverity.Medium,
-        source: ErrorSource.API,
+        source: ErrorSource.Unknown,
         errorMessage: 'Request timeout',
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -208,14 +335,14 @@ describe('ErrorLogService', () => {
       const error = new Error('Network error');
       error.name = 'NetworkError';
       const data = {
-        source: ErrorSource.API,
+        source: ErrorSource.Unknown,
         error,
       };
 
       mockErrorLogRepository.create.mockResolvedValue({
         id: 'error-id',
         severity: ErrorSeverity.Medium,
-        source: ErrorSource.API,
+        source: ErrorSource.Unknown,
         errorMessage: 'Network error',
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -234,14 +361,14 @@ describe('ErrorLogService', () => {
       const error = new Error('Unauthorized');
       error.name = 'AuthenticationError';
       const data = {
-        source: ErrorSource.API,
+        source: ErrorSource.Unknown,
         error,
       };
 
       mockErrorLogRepository.create.mockResolvedValue({
         id: 'error-id',
         severity: ErrorSeverity.High,
-        source: ErrorSource.API,
+        source: ErrorSource.Unknown,
         errorMessage: 'Unauthorized',
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -284,14 +411,14 @@ describe('ErrorLogService', () => {
     it('should return Critical for errors with critical message', async () => {
       const error = new Error('Critical system failure');
       const data = {
-        source: ErrorSource.API,
+        source: ErrorSource.Unknown,
         error,
       };
 
       mockErrorLogRepository.create.mockResolvedValue({
         id: 'error-id',
         severity: ErrorSeverity.Critical,
-        source: ErrorSource.API,
+        source: ErrorSource.Unknown,
         errorMessage: 'Critical system failure',
         createdAt: new Date(),
         updatedAt: new Date(),

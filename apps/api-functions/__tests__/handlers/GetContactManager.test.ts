@@ -88,3 +88,4 @@ describe('GetContactManager handler', () => {
   });
 });
 
+

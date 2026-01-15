@@ -1,7 +1,19 @@
 import { Role } from '../../../src/domain/entities/Role';
 import { Permission } from '../../../src/domain/entities/Permission';
+import { MissingRequiredFieldsError } from '../../../src/domain/errors/EntityValidationErrors';
 
 describe('Role', () => {
+  describe('constructor', () => {
+    it('should throw MissingRequiredFieldsError when name is empty', () => {
+      expect(() => {
+        new Role('role-id', '', false, true, new Date(), new Date());
+      }).toThrow(MissingRequiredFieldsError);
+      expect(() => {
+        new Role('role-id', '', false, true, new Date(), new Date());
+      }).toThrow('Role name is required');
+    });
+  });
+
   describe('addPermission', () => {
     it('should add permission if not already present', () => {
       const role = new Role(
@@ -100,4 +112,5 @@ describe('Role', () => {
     });
   });
 });
+
 

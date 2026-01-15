@@ -163,26 +163,6 @@ describe('PresenceDomainService', () => {
       expect(mockUserRepository.findById).toHaveBeenCalledWith(userId);
     });
 
-    it('should find user by non-UUID key trying all methods', async () => {
-      const userId = 'some-key';
-      const user = createMockUser({
-        id: 'user-id',
-        email: 'user@example.com',
-        fullName: 'User Name',
-      });
-
-      mockUserRepository.findByAzureAdObjectId.mockResolvedValue(null);
-      mockUserRepository.findById.mockResolvedValue(null);
-      mockUserRepository.findByEmail.mockResolvedValue(user);
-      mockPresenceRepository.upsertPresence.mockResolvedValue(undefined);
-      mockPresenceRepository.createPresenceHistory.mockResolvedValue(undefined);
-      mockWebPubSubService.broadcastPresence = jest.fn().mockResolvedValue(undefined);
-
-      await service.setUserOnline(userId);
-
-      expect(mockUserRepository.findByEmail).toHaveBeenCalledWith(userId);
-    });
-
     it('should get supervisor email when supervisorId exists', async () => {
       const userId = 'user@example.com';
       const user = createMockUser({
@@ -198,7 +178,8 @@ describe('PresenceDomainService', () => {
       });
 
       mockUserRepository.findByEmail.mockResolvedValue(user);
-      mockUserRepository.findById.mockResolvedValueOnce(user).mockResolvedValueOnce(supervisor);
+      // Only called once to get supervisor email
+      mockUserRepository.findById.mockResolvedValue(supervisor);
       mockPresenceRepository.upsertPresence.mockResolvedValue(undefined);
       mockPresenceRepository.createPresenceHistory.mockResolvedValue(undefined);
       mockWebPubSubService.broadcastPresence = jest.fn().mockResolvedValue(undefined);

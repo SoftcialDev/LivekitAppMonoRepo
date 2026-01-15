@@ -59,14 +59,50 @@ describe('SuperAdminDomainService', () => {
 
     it('should delete Super Admin successfully with composite ID', async () => {
       const request = new DeleteSuperAdminRequest('superadmin-user-id');
+      const mockSuperAdmin = {
+        id: 'superadmin-1',
+        userId: 'user-id',
+        user: { email: 'user@example.com' },
+      };
       const mockUser = createMockUser({ id: 'user-id', role: UserRole.SuperAdmin });
-      mockUserRepository.findById.mockResolvedValue(mockUser);
+      
+      mockUserRepository.findById.mockResolvedValueOnce(null); // First call returns null
+      mockUserRepository.findByAzureAdObjectId.mockResolvedValue(null);
+      mockUserRepository.findAllSuperAdmins.mockResolvedValue([mockSuperAdmin as any]);
+      mockUserRepository.findByEmail.mockResolvedValue(mockUser);
       mockUserRepository.changeUserRole.mockResolvedValue(undefined);
       mockUserRepository.createSuperAdminAuditLog.mockResolvedValue(undefined);
 
       await service.deleteSuperAdmin(request);
 
       expect(mockUserRepository.findById).toHaveBeenCalledWith('user-id');
+      expect(mockUserRepository.findAllSuperAdmins).toHaveBeenCalled();
+      expect(mockUserRepository.findByEmail).toHaveBeenCalledWith('user@example.com');
+    });
+
+    it('should find user by searching all users when not found by other methods', async () => {
+      const request = new DeleteSuperAdminRequest('superadmin-some-identifier');
+      const mockUser = createMockUser({ 
+        id: 'user-id', 
+        azureAdObjectId: 'some-identifier',
+        role: UserRole.SuperAdmin 
+      });
+      
+      // For composite ID (starts with 'superadmin-'), it calls findUserByCompositeId
+      // which tries: findById, findByAzureAdObjectId, findAllSuperAdmins, findAllUsers
+      mockUserRepository.findById.mockResolvedValueOnce(null);
+      mockUserRepository.findByAzureAdObjectId.mockResolvedValueOnce(null);
+      mockUserRepository.findAllSuperAdmins.mockResolvedValueOnce([]);
+      mockUserRepository.findAllUsers.mockResolvedValueOnce([mockUser]);
+      mockUserRepository.changeUserRole.mockResolvedValue(undefined);
+      mockUserRepository.createSuperAdminAuditLog.mockResolvedValue(undefined);
+
+      await service.deleteSuperAdmin(request);
+
+      expect(mockUserRepository.findById).toHaveBeenCalledWith('some-identifier');
+      expect(mockUserRepository.findByAzureAdObjectId).toHaveBeenCalledWith('some-identifier');
+      expect(mockUserRepository.findAllUsers).toHaveBeenCalled();
+      expect(mockUserRepository.changeUserRole).toHaveBeenCalledWith('user-id', UserRole.Unassigned);
     });
 
     it('should throw SuperAdminUserNotFoundError when user not found', async () => {
@@ -103,4 +139,5 @@ describe('SuperAdminDomainService', () => {
     });
   });
 });
+
 

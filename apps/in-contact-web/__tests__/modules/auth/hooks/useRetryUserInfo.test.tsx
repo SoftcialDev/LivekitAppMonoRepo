@@ -7,7 +7,14 @@ import { RETRY_INTERVAL_MS, MAX_RETRY_ATTEMPTS } from '@/modules/auth/pages/cons
 
 // Mock dependencies
 jest.mock('@/modules/auth/hooks/useAuth');
-jest.mock('@/modules/auth/stores/user-info-store/useUserInfoStore');
+jest.mock('@/modules/auth/stores/user-info-store/useUserInfoStore', () => {
+  const mockGetState = jest.fn();
+  const mockHook = jest.fn();
+  (mockHook as any).getState = mockGetState;
+  return {
+    useUserInfoStore: mockHook,
+  };
+});
 jest.mock('@/shared/api/apiClient', () => ({
   setTokenGetter: jest.fn(),
 }));
@@ -17,7 +24,6 @@ jest.mock('@/shared/utils/logger', () => ({
 }));
 
 const mockedUseAuth = useAuth as jest.MockedFunction<typeof useAuth>;
-const mockedUseUserInfoStore = useUserInfoStore as jest.MockedFunction<typeof useUserInfoStore>;
 const mockedSetTokenGetter = setTokenGetter as jest.MockedFunction<typeof setTokenGetter>;
 
 describe('useRetryUserInfo', () => {
@@ -30,11 +36,14 @@ describe('useRetryUserInfo', () => {
   };
 
   const mockGetApiToken = jest.fn();
-  const mockLoadUserInfo = jest.fn();
+  let mockLoadUserInfo: jest.Mock;
 
   beforeEach(() => {
     jest.clearAllMocks();
     jest.useFakeTimers();
+
+    // Create a fresh mock for each test
+    mockLoadUserInfo = jest.fn();
 
     mockedUseAuth.mockReturnValue({
       account: mockAccount,
@@ -46,6 +55,7 @@ describe('useRetryUserInfo', () => {
       refreshRoles: jest.fn(),
     });
 
+    // Setup getState mock
     (useUserInfoStore.getState as jest.Mock) = jest.fn(() => ({
       loadUserInfo: mockLoadUserInfo,
     }));
@@ -141,77 +151,93 @@ describe('useRetryUserInfo', () => {
   });
 
   it('should stop retrying after MAX_RETRY_ATTEMPTS', async () => {
-    const error = new Error('Load failed');
-    mockLoadUserInfo.mockRejectedValue(error);
+    mockLoadUserInfo.mockImplementation(() => {
+      return new Promise((_, reject) => {
+        setTimeout(() => {
+          reject(new Error('Load failed'));
+        }, 0);
+      });
+    });
 
     const { result } = renderHook(() => useRetryUserInfo());
 
-    // Start the retry process
+    let retryPromise: Promise<void>;
     await act(async () => {
-      try {
-        await result.current.retryLoadUserInfo();
-      } catch (e) {
-        // Expected to throw after max attempts
-      }
-    });
-
-    // Wait for first attempt to complete
-    await act(async () => {
+      retryPromise = result.current.retryLoadUserInfo();
+      retryPromise.catch(() => {});
+      await Promise.resolve();
+      jest.advanceTimersByTime(0);
       await Promise.resolve();
     });
 
-    // Simulate all retry attempts (MAX_RETRY_ATTEMPTS - 1 because first attempt is already done)
+    await act(async () => {
+      await Promise.resolve();
+      jest.advanceTimersByTime(0);
+      await Promise.resolve();
+    });
+
     for (let i = 0; i < MAX_RETRY_ATTEMPTS - 1; i++) {
       await act(async () => {
         jest.advanceTimersByTime(RETRY_INTERVAL_MS);
         await Promise.resolve();
+        jest.advanceTimersByTime(0);
+        await Promise.resolve();
       });
     }
 
-    // Wait for final state
-    await act(async () => {
-      await Promise.resolve();
-    });
+    await waitFor(() => {
+      expect(result.current.hasFailed).toBe(true);
+    }, { timeout: 5000 });
 
-    expect(result.current.hasFailed).toBe(true);
     expect(result.current.isRetrying).toBe(false);
     expect(mockLoadUserInfo).toHaveBeenCalledTimes(MAX_RETRY_ATTEMPTS);
-  });
+  }, 20000);
 
   it('should stop retrying after 1 minute even if attempts remain', async () => {
-    const error = new Error('Load failed');
-    mockLoadUserInfo.mockRejectedValue(error);
+    mockLoadUserInfo.mockImplementation(() => {
+      return new Promise((_, reject) => {
+        setTimeout(() => {
+          reject(new Error('Load failed'));
+        }, 0);
+      });
+    });
 
     const { result } = renderHook(() => useRetryUserInfo());
 
-    // Start the retry process
+    let retryPromise: Promise<void>;
     await act(async () => {
-      try {
-        await result.current.retryLoadUserInfo();
-      } catch (e) {
-        // Expected to throw after max time
-      }
-    });
-
-    // Wait for first attempt to complete
-    await act(async () => {
+      retryPromise = result.current.retryLoadUserInfo();
+      retryPromise.catch(() => {});
+      await Promise.resolve();
+      jest.advanceTimersByTime(0);
       await Promise.resolve();
     });
 
-    // Advance time to exceed max retry time (60000ms)
     await act(async () => {
-      jest.advanceTimersByTime(60001);
+      await Promise.resolve();
+      jest.advanceTimersByTime(0);
       await Promise.resolve();
     });
 
-    // Wait for the next attempt to check the time
     await act(async () => {
+      jest.advanceTimersByTime(59999);
+      await Promise.resolve();
       await Promise.resolve();
     });
 
-    expect(result.current.hasFailed).toBe(true);
+    await act(async () => {
+      jest.advanceTimersByTime(1);
+      await Promise.resolve();
+      jest.advanceTimersByTime(0);
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(result.current.hasFailed).toBe(true);
+    }, { timeout: 5000 });
+
     expect(result.current.isRetrying).toBe(false);
-  });
+  }, 20000);
 
   it('should prevent multiple concurrent retry attempts', async () => {
     mockLoadUserInfo.mockImplementation(() => new Promise(resolve => setTimeout(resolve, 100)));
