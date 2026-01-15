@@ -302,7 +302,7 @@ describe('AuthorizationUtils', () => {
       ).resolves.not.toThrow();
     });
 
-    it('should not throw when Supervisor tries to delete user (null role)', async () => {
+    it('should throw when Supervisor tries to delete user (null role)', async () => {
       const callerId = 'caller-id';
       const newRole = null;
       const caller = createMockUser({ id: 'caller-id', azureAdObjectId: callerId, role: UserRole.Supervisor });
@@ -312,7 +312,7 @@ describe('AuthorizationUtils', () => {
 
       await expect(
         AuthorizationUtils.validateCanChangeRoles(mockAuthorizationService, callerId, newRole, mockUserRepository)
-      ).resolves.not.toThrow();
+      ).rejects.toThrow('Only Admins can delete users');
     });
 
     it('should throw AuthError when non-Admin tries to delete user', async () => {

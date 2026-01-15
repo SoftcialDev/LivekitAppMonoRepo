@@ -5,7 +5,6 @@ import { UserRole } from '@/modules/auth/enums';
 import type { UserInfo } from '@/modules/auth/types';
 
 // Mock dependencies
-jest.mock('@/shared/api/apiClient');
 jest.mock('@/shared/utils/logger', () => ({
   logError: jest.fn(),
 }));

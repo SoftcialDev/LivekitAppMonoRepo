@@ -112,5 +112,124 @@ describe('PresenceDomainService', () => {
       expect(result).toBe(Status.Offline);
     });
   });
+
+  describe('setUserOffline error handling', () => {
+    it('should rethrow error from findActiveUser', async () => {
+      const userId = 'user@example.com';
+
+      mockUserRepository.findByEmail.mockResolvedValue(null);
+      mockUserRepository.findByAzureAdObjectId.mockResolvedValue(null);
+      mockUserRepository.findById.mockResolvedValue(null);
+
+      await expect(service.setUserOffline(userId)).rejects.toThrow(UserNotFoundError);
+    });
+  });
+
+  describe('findActiveUser different paths', () => {
+    it('should find user by UUID as Azure AD Object ID', async () => {
+      const userId = '123e4567-e89b-12d3-a456-426614174000';
+      const user = createMockUser({
+        id: 'user-id',
+        email: 'user@example.com',
+        fullName: 'User Name',
+      });
+
+      mockUserRepository.findByAzureAdObjectId.mockResolvedValue(user);
+      mockPresenceRepository.upsertPresence.mockResolvedValue(undefined);
+      mockPresenceRepository.createPresenceHistory.mockResolvedValue(undefined);
+      mockWebPubSubService.broadcastPresence = jest.fn().mockResolvedValue(undefined);
+
+      await service.setUserOnline(userId);
+
+      expect(mockUserRepository.findByAzureAdObjectId).toHaveBeenCalledWith(userId);
+    });
+
+    it('should find user by UUID as database ID when Azure AD lookup fails', async () => {
+      const userId = '123e4567-e89b-12d3-a456-426614174000';
+      const user = createMockUser({
+        id: userId,
+        email: 'user@example.com',
+        fullName: 'User Name',
+      });
+
+      mockUserRepository.findByAzureAdObjectId.mockResolvedValue(null);
+      mockUserRepository.findById.mockResolvedValue(user);
+      mockPresenceRepository.upsertPresence.mockResolvedValue(undefined);
+      mockPresenceRepository.createPresenceHistory.mockResolvedValue(undefined);
+      mockWebPubSubService.broadcastPresence = jest.fn().mockResolvedValue(undefined);
+
+      await service.setUserOnline(userId);
+
+      expect(mockUserRepository.findById).toHaveBeenCalledWith(userId);
+    });
+
+    it('should find user by non-UUID key trying all methods', async () => {
+      const userId = 'some-key';
+      const user = createMockUser({
+        id: 'user-id',
+        email: 'user@example.com',
+        fullName: 'User Name',
+      });
+
+      mockUserRepository.findByAzureAdObjectId.mockResolvedValue(null);
+      mockUserRepository.findById.mockResolvedValue(null);
+      mockUserRepository.findByEmail.mockResolvedValue(user);
+      mockPresenceRepository.upsertPresence.mockResolvedValue(undefined);
+      mockPresenceRepository.createPresenceHistory.mockResolvedValue(undefined);
+      mockWebPubSubService.broadcastPresence = jest.fn().mockResolvedValue(undefined);
+
+      await service.setUserOnline(userId);
+
+      expect(mockUserRepository.findByEmail).toHaveBeenCalledWith(userId);
+    });
+
+    it('should get supervisor email when supervisorId exists', async () => {
+      const userId = 'user@example.com';
+      const user = createMockUser({
+        id: 'user-id',
+        email: 'user@example.com',
+        fullName: 'User Name',
+        supervisorId: 'supervisor-id',
+      });
+      const supervisor = createMockUser({
+        id: 'supervisor-id',
+        email: 'supervisor@example.com',
+        fullName: 'Supervisor Name',
+      });
+
+      mockUserRepository.findByEmail.mockResolvedValue(user);
+      mockUserRepository.findById.mockResolvedValueOnce(user).mockResolvedValueOnce(supervisor);
+      mockPresenceRepository.upsertPresence.mockResolvedValue(undefined);
+      mockPresenceRepository.createPresenceHistory.mockResolvedValue(undefined);
+      mockWebPubSubService.broadcastPresence = jest.fn().mockResolvedValue(undefined);
+
+      await service.setUserOnline(userId);
+
+      expect(mockUserRepository.findById).toHaveBeenCalledWith('supervisor-id');
+      expect(mockWebPubSubService.broadcastPresence).toHaveBeenCalledWith(
+        expect.objectContaining({
+          supervisorEmail: 'supervisor@example.com',
+        })
+      );
+    });
+  });
+
+  describe('broadcastPresenceChange error handling', () => {
+    it('should rethrow error from broadcast', async () => {
+      const userId = 'user@example.com';
+      const user = createMockUser({
+        id: 'user-id',
+        email: 'user@example.com',
+        fullName: 'User Name',
+      });
+
+      mockUserRepository.findByEmail.mockResolvedValue(user);
+      mockPresenceRepository.upsertPresence.mockResolvedValue(undefined);
+      mockPresenceRepository.createPresenceHistory.mockResolvedValue(undefined);
+      mockWebPubSubService.broadcastPresence = jest.fn().mockRejectedValue(new Error('Broadcast failed'));
+
+      await expect(service.setUserOnline(userId)).rejects.toThrow('Broadcast failed');
+    });
+  });
 });
 

@@ -7,12 +7,20 @@ import { useRetryUserInfo } from '@/modules/auth/hooks/useRetryUserInfo';
 import { useUserInfo } from '@/modules/auth/stores';
 import { UserRole } from '@/modules/auth/enums';
 
-// Mock dependencies
+// Mock dependencies - must unmock pages that are globally mocked
+jest.unmock('@/modules/auth/pages/LoadingPage');
 jest.mock('@/modules/auth/hooks/useAuth');
 jest.mock('@/modules/auth/hooks/useRetryUserInfo');
 jest.mock('@/modules/auth/stores', () => ({
   useUserInfo: jest.fn(),
 }));
+jest.mock('@/modules/auth/contexts/AuthContext', () => {
+  const React = require('react');
+  return {
+    AuthContext: React.createContext(null),
+    AuthProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  };
+});
 jest.mock('@/ui-kit/feedback', () => ({
   Loading: ({ action }: { action: string }) => <div data-testid="loading">Loading: {action}</div>,
 }));
@@ -34,7 +42,7 @@ const mockedUseAuth = useAuth as jest.MockedFunction<typeof useAuth>;
 const mockedUseRetryUserInfo = useRetryUserInfo as jest.MockedFunction<typeof useRetryUserInfo>;
 const mockedUseUserInfo = useUserInfo as jest.MockedFunction<typeof useUserInfo>;
 const mockNavigate = jest.fn();
-const mockRetryLoadUserInfo = jest.fn();
+const mockRetryLoadUserInfo = jest.fn().mockResolvedValue(undefined);
 const mockReset = jest.fn();
 
 jest.mock('react-router-dom', () => ({

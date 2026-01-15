@@ -44,6 +44,15 @@ describe('GetTalkSessions handler', () => {
     mockResolve = resolve;
     mockInitialize = initialize;
 
+    const mockUser = {
+      id: 'user-id',
+      azureAdObjectId: 'test-azure-ad-id',
+      deletedAt: null,
+      role: 'Admin' as any,
+    };
+
+    mockUserRepository.findByAzureAdObjectId.mockResolvedValue(mockUser as any);
+
     mockResolve.mockImplementation((serviceName: string) => {
       if (serviceName === 'GetTalkSessionsApplicationService') {
         return mockApplicationService;
@@ -56,13 +65,6 @@ describe('GetTalkSessions handler', () => {
   });
 
   it('should successfully get talk sessions', async () => {
-    const mockUser = {
-      id: 'user-id',
-      azureAdObjectId: 'test-azure-ad-id',
-      deletedAt: null,
-    };
-
-    mockUserRepository.findByAzureAdObjectId.mockResolvedValue(mockUser as any);
 
     const mockResponse = {
       sessions: [

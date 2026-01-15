@@ -124,22 +124,19 @@ describe('useRetryUserInfo', () => {
 
     const { result } = renderHook(() => useRetryUserInfo());
 
-    act(() => {
-      result.current.retryLoadUserInfo();
-    });
-
-    // First attempt fails
     await act(async () => {
-      await mockLoadUserInfo().catch(() => {});
-      jest.advanceTimersByTime(0);
+      result.current.retryLoadUserInfo();
+      // Wait for first attempt to complete
+      await Promise.resolve();
     });
 
-    // Wait for retry interval
+    // Wait for retry interval to trigger next attempt
     await act(async () => {
       jest.advanceTimersByTime(RETRY_INTERVAL_MS);
+      await Promise.resolve();
     });
 
-    // Should have retried
+    // Should have initial attempt + one retry
     expect(mockLoadUserInfo).toHaveBeenCalledTimes(2);
   });
 
@@ -149,17 +146,32 @@ describe('useRetryUserInfo', () => {
 
     const { result } = renderHook(() => useRetryUserInfo());
 
-    act(() => {
-      result.current.retryLoadUserInfo();
+    // Start the retry process
+    await act(async () => {
+      try {
+        await result.current.retryLoadUserInfo();
+      } catch (e) {
+        // Expected to throw after max attempts
+      }
     });
 
-    // Simulate all retry attempts
-    for (let i = 0; i < MAX_RETRY_ATTEMPTS; i++) {
+    // Wait for first attempt to complete
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    // Simulate all retry attempts (MAX_RETRY_ATTEMPTS - 1 because first attempt is already done)
+    for (let i = 0; i < MAX_RETRY_ATTEMPTS - 1; i++) {
       await act(async () => {
-        await mockLoadUserInfo().catch(() => {});
         jest.advanceTimersByTime(RETRY_INTERVAL_MS);
+        await Promise.resolve();
       });
     }
+
+    // Wait for final state
+    await act(async () => {
+      await Promise.resolve();
+    });
 
     expect(result.current.hasFailed).toBe(true);
     expect(result.current.isRetrying).toBe(false);
@@ -172,14 +184,29 @@ describe('useRetryUserInfo', () => {
 
     const { result } = renderHook(() => useRetryUserInfo());
 
-    act(() => {
-      result.current.retryLoadUserInfo();
+    // Start the retry process
+    await act(async () => {
+      try {
+        await result.current.retryLoadUserInfo();
+      } catch (e) {
+        // Expected to throw after max time
+      }
+    });
+
+    // Wait for first attempt to complete
+    await act(async () => {
+      await Promise.resolve();
     });
 
     // Advance time to exceed max retry time (60000ms)
     await act(async () => {
-      await mockLoadUserInfo().catch(() => {});
       jest.advanceTimersByTime(60001);
+      await Promise.resolve();
+    });
+
+    // Wait for the next attempt to check the time
+    await act(async () => {
+      await Promise.resolve();
     });
 
     expect(result.current.hasFailed).toBe(true);
@@ -237,13 +264,9 @@ describe('useRetryUserInfo', () => {
 
     const { result, unmount } = renderHook(() => useRetryUserInfo());
 
-    act(() => {
-      result.current.retryLoadUserInfo();
-    });
-
     await act(async () => {
-      await mockLoadUserInfo().catch(() => {});
-      jest.advanceTimersByTime(0);
+      result.current.retryLoadUserInfo();
+      await Promise.resolve();
     });
 
     unmount();
@@ -251,9 +274,10 @@ describe('useRetryUserInfo', () => {
     // Advance time - should not trigger retry after unmount
     await act(async () => {
       jest.advanceTimersByTime(RETRY_INTERVAL_MS);
+      await Promise.resolve();
     });
 
-    // Should still only have initial attempt
+    // Should still only have initial attempt (unmount prevents retry)
     expect(mockLoadUserInfo).toHaveBeenCalledTimes(1);
   });
 

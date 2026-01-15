@@ -26,7 +26,20 @@ jest.mock('@/shared/utils/logger', () => ({
 }));
 
 jest.mock('@/shared/api/apiClient', () => ({
+  __esModule: true,
+  default: {
+    get: jest.fn(),
+    post: jest.fn(),
+    put: jest.fn(),
+    delete: jest.fn(),
+    patch: jest.fn(),
+    interceptors: {
+      request: { use: jest.fn(), eject: jest.fn() },
+      response: { use: jest.fn(), eject: jest.fn() },
+    },
+  },
   setTokenGetter: jest.fn(),
+  isTokenAvailable: jest.fn(),
 }));
 
 jest.mock('@/shared/services/webSocket/index', () => ({
@@ -40,6 +53,8 @@ jest.mock('@/shared/config', () => ({
     apiUrl: 'http://localhost:7071/api',
     azureAdClientId: 'test-client-id',
     azureAdTenantId: 'test-tenant-id',
+    azureAdRedirectUri: 'http://localhost:3000',
+    azureAdApiScopeUri: 'api://test-scope',
   },
 }));
 
@@ -50,15 +65,18 @@ jest.mock('@/modules/auth/config/msalConfig', () => ({
     getAccountByUsername: jest.fn(),
     loginPopup: jest.fn(),
     logout: jest.fn(),
+    logoutPopup: jest.fn(),
     acquireTokenSilent: jest.fn(),
+    acquireTokenPopup: jest.fn(),
+    getLogger: jest.fn(() => ({
+      verbose: jest.fn(),
+      info: jest.fn(),
+      warning: jest.fn(),
+      error: jest.fn(),
+    })),
   },
 }));
 
-jest.mock('@/modules/auth/pages/LoginPage', () => ({
-  LoginPage: () => <div>Login Page</div>,
-}));
-
-jest.mock('@/modules/auth/pages/LoadingPage', () => ({
-  LoadingPage: () => <div>Loading Page</div>,
-}));
+jest.mock('@/shared/assets/ColletteHealth_logo.png', () => 'test-file-stub', { virtual: true });
+jest.mock('@/shared/assets/InContact_logo.png', () => 'test-file-stub', { virtual: true });
 

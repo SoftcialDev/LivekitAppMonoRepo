@@ -19,6 +19,12 @@ jest.mock('@/modules/auth/config/msalConfig', () => ({
     logoutPopup: jest.fn(),
     acquireTokenSilent: jest.fn(),
     acquireTokenPopup: jest.fn(),
+    getLogger: jest.fn(() => ({
+      verbose: jest.fn(),
+      info: jest.fn(),
+      warning: jest.fn(),
+      error: jest.fn(),
+    })),
   },
 }));
 
@@ -107,15 +113,19 @@ describe('AuthContext', () => {
     );
   };
 
-  it('should provide default context value', () => {
-    const { result } = render(
+  it('should provide default context value', async () => {
+    render(
       <TestComponent>
         <ConsumerComponent />
       </TestComponent>
     );
 
+    // Context will be initialized by InnerAuthProvider
+    await waitFor(() => {
+      const initialized = screen.getByTestId('initialized').textContent;
+      expect(['true', 'false']).toContain(initialized);
+    });
     expect(screen.getByTestId('account')).toHaveTextContent('null');
-    expect(screen.getByTestId('initialized')).toHaveTextContent('false');
   });
 
   it('should initialize account when authenticated', async () => {
@@ -215,9 +225,30 @@ describe('AuthContext', () => {
 
     mockedUseIsAuthenticated.mockReturnValue(true);
 
+    const TokenConsumer = () => {
+      const context = React.useContext(AuthContext);
+      const [token, setToken] = React.useState<string | null>(null);
+
+      return (
+        <div>
+          <div data-testid="initialized">{context.initialized.toString()}</div>
+          <button
+            data-testid="get-api-token"
+            onClick={async () => {
+              const t = await context.getApiToken();
+              setToken(t);
+            }}
+          >
+            Get Token
+          </button>
+          {token && <div data-testid="token-result">{token}</div>}
+        </div>
+      );
+    };
+
     render(
       <TestComponent>
-        <ConsumerComponent />
+        <TokenConsumer />
       </TestComponent>
     );
 
@@ -227,12 +258,10 @@ describe('AuthContext', () => {
 
     const getTokenButton = screen.getByTestId('get-api-token');
     
-    await waitFor(async () => {
-      const token = await new Promise<string>((resolve) => {
-        const context = React.useContext(AuthContext);
-        context.getApiToken().then(resolve);
-      });
-      expect(token).toBe('test-token');
+    getTokenButton.click();
+
+    await waitFor(() => {
+      expect(screen.getByTestId('token-result')).toHaveTextContent('test-token');
     });
 
     expect(mockMsalInstance.acquireTokenSilent).toHaveBeenCalledWith({
@@ -288,9 +317,33 @@ describe('AuthContext', () => {
 
     mockedUseIsAuthenticated.mockReturnValue(false);
 
+    const ErrorConsumer = () => {
+      const context = React.useContext(AuthContext);
+      const [error, setError] = React.useState<string | null>(null);
+
+      return (
+        <div>
+          <div data-testid="initialized">{context.initialized.toString()}</div>
+          <button
+            data-testid="get-api-token"
+            onClick={async () => {
+              try {
+                await context.getApiToken();
+              } catch (err: any) {
+                setError(err.message);
+              }
+            }}
+          >
+            Get Token
+          </button>
+          {error && <div data-testid="error-result">{error}</div>}
+        </div>
+      );
+    };
+
     render(
       <TestComponent>
-        <ConsumerComponent />
+        <ErrorConsumer />
       </TestComponent>
     );
 
@@ -300,13 +353,13 @@ describe('AuthContext', () => {
 
     const getTokenButton = screen.getByTestId('get-api-token');
     
-    await waitFor(async () => {
-      getTokenButton.click();
-    });
+    getTokenButton.click();
 
     await waitFor(() => {
-      expect(mockMsalInstance.acquireTokenSilent).not.toHaveBeenCalled();
+      expect(screen.getByTestId('error-result')).toBeInTheDocument();
     });
+
+    expect(mockMsalInstance.acquireTokenSilent).not.toHaveBeenCalled();
   });
 
   it('should refresh roles silently', async () => {

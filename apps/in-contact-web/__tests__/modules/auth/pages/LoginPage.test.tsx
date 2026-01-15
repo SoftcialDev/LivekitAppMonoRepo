@@ -5,8 +5,16 @@ import { LoginPage } from '@/modules/auth/pages/LoginPage';
 import { useAuth } from '@/modules/auth/hooks/useAuth';
 import { AuthenticationError } from '@/modules/auth/errors';
 
-// Mock dependencies
+// Mock dependencies - must unmock pages that are globally mocked
+jest.unmock('@/modules/auth/pages/LoginPage');
 jest.mock('@/modules/auth/hooks/useAuth');
+jest.mock('@/modules/auth/contexts/AuthContext', () => {
+  const React = require('react');
+  return {
+    AuthContext: React.createContext(null),
+    AuthProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  };
+});
 jest.mock('@/ui-kit/buttons', () => ({
   SignInButton: ({ onClick, isLoading }: { onClick: () => void; isLoading?: boolean }) => (
     <button onClick={onClick} disabled={isLoading} data-testid="sign-in-button">

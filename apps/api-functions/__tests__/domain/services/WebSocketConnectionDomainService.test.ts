@@ -173,6 +173,110 @@ describe('WebSocketConnectionDomainService', () => {
       expect(result.status).toBe(500);
       expect(result.message).toContain('User not found');
     });
+
+    it('should handle error when closing talk sessions fails with context', async () => {
+      const request = new WebSocketEventRequest('supervisor@example.com', 'conn-123', 'test-hub', 'disconnected', {
+        userId: 'supervisor@example.com',
+      });
+      const supervisor = createMockSupervisor({
+        id: 'supervisor-id',
+        email: 'supervisor@example.com',
+      });
+      const mockContext = {
+        log: {
+          warn: jest.fn(),
+          info: jest.fn(),
+        },
+        invocationId: 'test-invocation-id',
+      } as any;
+
+      mockUserRepository.findByEmail.mockResolvedValue(supervisor);
+      mockTalkSessionRepository.getActiveTalkSessionsForSupervisor.mockRejectedValue(new Error('Failed to get sessions'));
+      mockLiveKitRecordingService.stopAllForUser.mockResolvedValue({
+        results: [],
+        message: 'Stopped',
+        total: 0,
+        completed: 0,
+      } as any);
+      mockPresenceDomainService.setUserOffline.mockResolvedValue(undefined);
+      mockStreamingSessionDomainService.stopStreamingSession.mockResolvedValue(null);
+      mockWebPubSubService.syncAllUsersWithDatabase.mockResolvedValue({
+        corrected: 0,
+        warnings: [],
+        errors: [],
+      });
+
+      await service.handleDisconnection(request, mockContext);
+
+      expect(mockContext.log.warn).toHaveBeenCalled();
+    });
+
+    it('should handle error when stopping recordings fails with context', async () => {
+      const request = new WebSocketEventRequest('pso@example.com', 'conn-123', 'test-hub', 'disconnected', {
+        userId: 'pso@example.com',
+      });
+      const user = createMockUser({
+        id: 'user-id',
+        email: 'pso@example.com',
+        role: UserRole.PSO,
+      });
+      const mockContext = {
+        log: {
+          warn: jest.fn(),
+          info: jest.fn(),
+        },
+        invocationId: 'test-invocation-id',
+      } as any;
+
+      mockUserRepository.findByEmail.mockResolvedValue(user);
+      mockTalkSessionRepository.getActiveTalkSessionsForPso.mockResolvedValue([]);
+      mockLiveKitRecordingService.stopAllForUser.mockRejectedValue(new Error('Failed to stop recordings'));
+      mockPresenceDomainService.setUserOffline.mockResolvedValue(undefined);
+      mockStreamingSessionDomainService.stopStreamingSession.mockResolvedValue(null);
+      mockWebPubSubService.syncAllUsersWithDatabase.mockResolvedValue({
+        corrected: 0,
+        warnings: [],
+        errors: [],
+      });
+
+      await service.handleDisconnection(request, mockContext);
+
+      expect(mockContext.log.warn).toHaveBeenCalled();
+    });
+
+    it('should handle error when sync fails with context', async () => {
+      const request = new WebSocketEventRequest('pso@example.com', 'conn-123', 'test-hub', 'disconnected', {
+        userId: 'pso@example.com',
+      });
+      const user = createMockUser({
+        id: 'user-id',
+        email: 'pso@example.com',
+        role: UserRole.PSO,
+      });
+      const mockContext = {
+        log: {
+          error: jest.fn(),
+          info: jest.fn(),
+        },
+        invocationId: 'test-invocation-id',
+      } as any;
+
+      mockUserRepository.findByEmail.mockResolvedValue(user);
+      mockTalkSessionRepository.getActiveTalkSessionsForPso.mockResolvedValue([]);
+      mockLiveKitRecordingService.stopAllForUser.mockResolvedValue({
+        results: [],
+        message: 'Stopped',
+        total: 0,
+        completed: 0,
+      } as any);
+      mockPresenceDomainService.setUserOffline.mockResolvedValue(undefined);
+      mockStreamingSessionDomainService.stopStreamingSession.mockResolvedValue(null);
+      mockWebPubSubService.syncAllUsersWithDatabase.mockRejectedValue(new Error('Sync failed'));
+
+      await service.handleDisconnection(request, mockContext);
+
+      expect(mockContext.log.error).toHaveBeenCalled();
+    });
   });
 });
 

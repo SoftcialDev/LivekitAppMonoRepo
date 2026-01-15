@@ -145,5 +145,166 @@ describe('ErrorLogService', () => {
       );
     });
   });
+
+  describe('extractErrorDetails with non-serializable error', () => {
+    it('should handle error that cannot be JSON stringified', async () => {
+      const circularError = {
+        message: 'Circular error',
+      };
+      (circularError as any).self = circularError;
+
+      const data = {
+        source: ErrorSource.Validation,
+        error: circularError,
+      };
+
+      mockErrorLogRepository.create.mockResolvedValue({
+        id: 'error-id',
+        severity: ErrorSeverity.Medium,
+        source: ErrorSource.Validation,
+        errorMessage: expect.any(String),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      } as any);
+
+      await service.logError(data);
+
+      expect(mockErrorLogRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          errorMessage: expect.any(String),
+        })
+      );
+    });
+  });
+
+  describe('determineSeverity', () => {
+    it('should return Medium for timeout errors', async () => {
+      const error = new Error('Request timeout');
+      error.name = 'TimeoutError';
+      const data = {
+        source: ErrorSource.API,
+        error,
+      };
+
+      mockErrorLogRepository.create.mockResolvedValue({
+        id: 'error-id',
+        severity: ErrorSeverity.Medium,
+        source: ErrorSource.API,
+        errorMessage: 'Request timeout',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      } as any);
+
+      await service.logError(data);
+
+      expect(mockErrorLogRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          severity: ErrorSeverity.Medium,
+        })
+      );
+    });
+
+    it('should return Medium for network errors', async () => {
+      const error = new Error('Network error');
+      error.name = 'NetworkError';
+      const data = {
+        source: ErrorSource.API,
+        error,
+      };
+
+      mockErrorLogRepository.create.mockResolvedValue({
+        id: 'error-id',
+        severity: ErrorSeverity.Medium,
+        source: ErrorSource.API,
+        errorMessage: 'Network error',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      } as any);
+
+      await service.logError(data);
+
+      expect(mockErrorLogRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          severity: ErrorSeverity.Medium,
+        })
+      );
+    });
+
+    it('should return High for authentication errors', async () => {
+      const error = new Error('Unauthorized');
+      error.name = 'AuthenticationError';
+      const data = {
+        source: ErrorSource.API,
+        error,
+      };
+
+      mockErrorLogRepository.create.mockResolvedValue({
+        id: 'error-id',
+        severity: ErrorSeverity.High,
+        source: ErrorSource.API,
+        errorMessage: 'Unauthorized',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      } as any);
+
+      await service.logError(data);
+
+      expect(mockErrorLogRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          severity: ErrorSeverity.High,
+        })
+      );
+    });
+
+    it('should return High for Authentication source', async () => {
+      const error = new Error('Some error');
+      const data = {
+        source: ErrorSource.Authentication,
+        error,
+      };
+
+      mockErrorLogRepository.create.mockResolvedValue({
+        id: 'error-id',
+        severity: ErrorSeverity.High,
+        source: ErrorSource.Authentication,
+        errorMessage: 'Some error',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      } as any);
+
+      await service.logError(data);
+
+      expect(mockErrorLogRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          severity: ErrorSeverity.High,
+        })
+      );
+    });
+
+    it('should return Critical for errors with critical message', async () => {
+      const error = new Error('Critical system failure');
+      const data = {
+        source: ErrorSource.API,
+        error,
+      };
+
+      mockErrorLogRepository.create.mockResolvedValue({
+        id: 'error-id',
+        severity: ErrorSeverity.Critical,
+        source: ErrorSource.API,
+        errorMessage: 'Critical system failure',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      } as any);
+
+      await service.logError(data);
+
+      expect(mockErrorLogRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          severity: ErrorSeverity.Critical,
+        })
+      );
+    });
+  });
 });
 
