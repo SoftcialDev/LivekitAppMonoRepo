@@ -103,12 +103,35 @@ describe('GetCurrentUserDomainService', () => {
 
       mockUserRepository.findByAzureAdObjectId.mockResolvedValueOnce(user).mockResolvedValueOnce(updatedUser);
       mockUserRepository.changeUserRole.mockResolvedValue(undefined);
+      mockUserRepository.syncUserRoleAssignments.mockResolvedValue(undefined);
       mockUserRepository.getEffectivePermissionCodesByAzureId.mockResolvedValue([]);
 
       const result = await service.getCurrentUser(request, jwtPayload);
 
       expect(mockUserRepository.changeUserRole).toHaveBeenCalledWith('user-id', UserRole.PSO);
+      expect(mockUserRepository.syncUserRoleAssignments).toHaveBeenCalledWith('user-id', UserRole.PSO);
       expect(result.role).toBe(UserRole.PSO);
+    });
+
+    it('should sync role assignments defensively for existing users', async () => {
+      const request = new GetCurrentUserRequest('caller-id');
+      const user = createMockUser({
+        id: 'user-id',
+        azureAdObjectId: 'caller-id',
+        email: 'user@example.com',
+        fullName: 'John Doe',
+        role: UserRole.ContactManager,
+      });
+      const jwtPayload = { email: 'user@example.com', name: 'John Doe' };
+
+      mockUserRepository.findByAzureAdObjectId.mockResolvedValue(user);
+      mockUserRepository.syncUserRoleAssignments.mockResolvedValue(undefined);
+      mockUserRepository.getEffectivePermissionCodesByAzureId.mockResolvedValue(['permission1']);
+
+      await service.getCurrentUser(request, jwtPayload);
+
+      // Verify defensive synchronization is called
+      expect(mockUserRepository.syncUserRoleAssignments).toHaveBeenCalledWith('user-id', UserRole.ContactManager);
     });
 
     it('should throw error when email not found in JWT for new user', async () => {

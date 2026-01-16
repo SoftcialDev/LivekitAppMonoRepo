@@ -65,6 +65,7 @@ export const createMockUserRepository = (): jest.Mocked<IUserRepository> => {
     createSuperAdminAuditLog: jest.fn(),
     findAllSuperAdmins: jest.fn(),
     getActiveRolesByAzureId: jest.fn(),
+    syncUserRoleAssignments: jest.fn(),
   } as any;
 };
 

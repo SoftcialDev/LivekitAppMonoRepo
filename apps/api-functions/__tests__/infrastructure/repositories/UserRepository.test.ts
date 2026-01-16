@@ -445,7 +445,7 @@ describe('UserRepository', () => {
       expect(result).toBeInstanceOf(User);
     });
 
-    it('should update existing user', async () => {
+    it('should update existing user and sync role assignments', async () => {
       const userData = {
         email: 'user@example.com',
         azureAdObjectId: 'azure-id',
@@ -458,11 +458,20 @@ describe('UserRepository', () => {
         ...userData,
       });
 
+      const mockRole = createMockRole({ id: 'role-id', name: UserRole.Supervisor });
       mockPrismaClient.user.upsert.mockResolvedValue(prismaUser);
+      mockPrismaClient.role.findUnique.mockResolvedValue(mockRole);
+      mockPrismaClient.userRoleAssignment.updateMany.mockResolvedValue({ count: 1 });
+      mockPrismaClient.userRoleAssignment.upsert.mockResolvedValue({} as any);
 
       await repository.upsertUser(userData);
 
       expect(mockPrismaClient.user.upsert).toHaveBeenCalled();
+      // Verify syncUserRoleAssignments was called
+      expect(mockPrismaClient.role.findUnique).toHaveBeenCalledWith({
+        where: { name: UserRole.Supervisor }
+      });
+      expect(mockPrismaClient.userRoleAssignment.upsert).toHaveBeenCalled();
     });
 
     it('should set deletedAt to undefined for Unassigned role', async () => {
@@ -603,8 +612,12 @@ describe('UserRepository', () => {
   });
 
   describe('changeUserRole', () => {
-    it('should change user role', async () => {
+    it('should change user role and sync role assignments', async () => {
+      const mockRole = createMockRole({ id: 'role-id', name: UserRole.Supervisor });
       mockPrismaClient.user.update.mockResolvedValue({} as any);
+      mockPrismaClient.role.findUnique.mockResolvedValue(mockRole);
+      mockPrismaClient.userRoleAssignment.updateMany.mockResolvedValue({ count: 2 });
+      mockPrismaClient.userRoleAssignment.upsert.mockResolvedValue({} as any);
 
       await repository.changeUserRole('user-id', UserRole.Supervisor);
 
@@ -617,10 +630,23 @@ describe('UserRepository', () => {
           roleChangedAt: mockDate,
         },
       });
+      // Verify syncUserRoleAssignments was called
+      expect(mockPrismaClient.role.findUnique).toHaveBeenCalledWith({
+        where: { name: UserRole.Supervisor }
+      });
+      expect(mockPrismaClient.userRoleAssignment.updateMany).toHaveBeenCalledWith({
+        where: { userId: 'user-id', isActive: true },
+        data: { isActive: false, updatedAt: mockDate }
+      });
+      expect(mockPrismaClient.userRoleAssignment.upsert).toHaveBeenCalled();
     });
 
     it('should set deletedAt to undefined for Unassigned role', async () => {
+      const mockRole = createMockRole({ id: 'role-id', name: UserRole.Unassigned });
       mockPrismaClient.user.update.mockResolvedValue({} as any);
+      mockPrismaClient.role.findUnique.mockResolvedValue(mockRole);
+      mockPrismaClient.userRoleAssignment.updateMany.mockResolvedValue({ count: 0 });
+      mockPrismaClient.userRoleAssignment.upsert.mockResolvedValue({} as any);
 
       await repository.changeUserRole('user-id', UserRole.Unassigned);
 
@@ -1194,6 +1220,112 @@ describe('UserRepository', () => {
 
       expect(result).toHaveLength(0);
     });
+
+  describe('syncUserRoleAssignments', () => {
+    it('should deactivate all active roles and activate target role', async () => {
+      const userId = 'user-id';
+      const targetRole = UserRole.ContactManager;
+      const mockRole = createMockRole({ id: 'contact-manager-role-id', name: targetRole });
+
+      mockPrismaClient.role.findUnique.mockResolvedValue(mockRole);
+      mockPrismaClient.userRoleAssignment.updateMany.mockResolvedValue({ count: 2 });
+      mockPrismaClient.userRoleAssignment.upsert.mockResolvedValue({} as any);
+
+      await repository.syncUserRoleAssignments(userId, targetRole);
+
+      expect(mockPrismaClient.role.findUnique).toHaveBeenCalledWith({
+        where: { name: targetRole }
+      });
+      expect(mockPrismaClient.userRoleAssignment.updateMany).toHaveBeenCalledWith({
+        where: { userId, isActive: true },
+        data: { isActive: false, updatedAt: mockDate }
+      });
+      expect(mockPrismaClient.userRoleAssignment.upsert).toHaveBeenCalledWith({
+        where: {
+          userId_roleId: {
+            userId,
+            roleId: mockRole.id
+          }
+        },
+        update: {
+          isActive: true,
+          updatedAt: mockDate
+        },
+        create: {
+          userId,
+          roleId: mockRole.id,
+          isActive: true,
+          assignedAt: mockDate,
+          createdAt: mockDate,
+          updatedAt: mockDate
+        }
+      });
+    });
+
+    it('should create new role assignment when it does not exist', async () => {
+      const userId = 'user-id';
+      const targetRole = UserRole.PSO;
+      const mockRole = createMockRole({ id: 'pso-role-id', name: targetRole });
+
+      mockPrismaClient.role.findUnique.mockResolvedValue(mockRole);
+      mockPrismaClient.userRoleAssignment.updateMany.mockResolvedValue({ count: 0 });
+      mockPrismaClient.userRoleAssignment.upsert.mockResolvedValue({} as any);
+
+      await repository.syncUserRoleAssignments(userId, targetRole);
+
+      expect(mockPrismaClient.userRoleAssignment.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          create: expect.objectContaining({
+            userId,
+            roleId: mockRole.id,
+            isActive: true
+          })
+        })
+      );
+    });
+
+    it('should reactivate existing inactive role assignment', async () => {
+      const userId = 'user-id';
+      const targetRole = UserRole.Admin;
+      const mockRole = createMockRole({ id: 'admin-role-id', name: targetRole });
+
+      mockPrismaClient.role.findUnique.mockResolvedValue(mockRole);
+      mockPrismaClient.userRoleAssignment.updateMany.mockResolvedValue({ count: 1 });
+      mockPrismaClient.userRoleAssignment.upsert.mockResolvedValue({} as any);
+
+      await repository.syncUserRoleAssignments(userId, targetRole);
+
+      expect(mockPrismaClient.userRoleAssignment.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          update: {
+            isActive: true,
+            updatedAt: mockDate
+          }
+        })
+      );
+    });
+
+    it('should handle role not found gracefully', async () => {
+      const userId = 'user-id';
+      const targetRole = UserRole.Supervisor;
+      const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+      mockPrismaClient.role.findUnique.mockResolvedValue(null);
+
+      await repository.syncUserRoleAssignments(userId, targetRole);
+
+      expect(mockPrismaClient.role.findUnique).toHaveBeenCalledWith({
+        where: { name: targetRole }
+      });
+      expect(mockPrismaClient.userRoleAssignment.updateMany).not.toHaveBeenCalled();
+      expect(mockPrismaClient.userRoleAssignment.upsert).not.toHaveBeenCalled();
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        expect.stringContaining(`Role "${targetRole}" not found`)
+      );
+
+      consoleWarnSpy.mockRestore();
+    });
+  });
 
     it('should include permissions from legacy role', async () => {
       const prismaUser = createMockUser({

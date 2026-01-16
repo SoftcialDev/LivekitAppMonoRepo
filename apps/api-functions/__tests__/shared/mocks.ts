@@ -63,6 +63,7 @@ export const createMockPrismaClient = (): any => {
     userRoleAssignment: {
       findMany: jest.fn(),
       upsert: jest.fn(),
+      updateMany: jest.fn(),
     },
     snapshot: {
       create: jest.fn(),
