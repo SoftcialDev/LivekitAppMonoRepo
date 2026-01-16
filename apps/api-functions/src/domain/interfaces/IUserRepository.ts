@@ -150,6 +150,15 @@ export interface IUserRepository {
   changeUserRole(userId: string, newRole: UserRole): Promise<void>;
 
   /**
+   * Synchronizes UserRoleAssignment with user.role
+   * Desactivates all active role assignments and activates only the role corresponding to targetRole
+   * @param userId - User ID
+   * @param targetRole - Role to synchronize
+   * @returns Promise that resolves when synchronization is complete
+   */
+  syncUserRoleAssignments(userId: string, targetRole: UserRole): Promise<void>;
+
+  /**
    * Creates a user with ContactManager role
    * @param userData - User data to create
    * @returns Promise that resolves to the created User entity

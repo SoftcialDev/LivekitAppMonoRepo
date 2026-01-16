@@ -260,6 +260,9 @@ export class UserRepository implements IUserRepository {
         updatedAt: getCentralAmericaTime()
       }
     });
+
+    await this.syncUserRoleAssignments(prismaUser.id, userData.role);
+
     return User.fromPrisma(prismaUser);
   }
 
@@ -380,6 +383,63 @@ export class UserRepository implements IUserRepository {
         role: newRole,
         deletedAt: deletedAtValue,
         roleChangedAt: getCentralAmericaTime() // Use Central America Time
+      }
+    });
+
+    // Synchronize UserRoleAssignment with the new role
+    await this.syncUserRoleAssignments(userId, newRole);
+  }
+
+  /**
+   * Synchronizes UserRoleAssignment with user.role
+   * Desactivates all active role assignments and activates only the role corresponding to targetRole
+   * @param userId - User ID
+   * @param targetRole - Role to synchronize
+   * @returns Promise that resolves when synchronization is complete
+   */
+  async syncUserRoleAssignments(userId: string, targetRole: UserRole): Promise<void> {
+    // 1. Get the roleId for the targetRole
+    const role = await prisma.role.findUnique({
+      where: { name: targetRole }
+    });
+
+    if (!role) {
+      // Log warning but don't throw - allows system to continue functioning
+      console.warn(`Role "${targetRole}" not found in database. Skipping role assignment synchronization.`);
+      return;
+    }
+
+    // 2. Deactivate all active UserRoleAssignments for this user
+    await prisma.userRoleAssignment.updateMany({
+      where: {
+        userId: userId,
+        isActive: true
+      },
+      data: {
+        isActive: false,
+        updatedAt: getCentralAmericaTime()
+      }
+    });
+
+    // 3. Activate/create the UserRoleAssignment corresponding to targetRole
+    await prisma.userRoleAssignment.upsert({
+      where: {
+        userId_roleId: {
+          userId: userId,
+          roleId: role.id
+        }
+      },
+      update: {
+        isActive: true,
+        updatedAt: getCentralAmericaTime()
+      },
+      create: {
+        userId: userId,
+        roleId: role.id,
+        isActive: true,
+        assignedAt: getCentralAmericaTime(),
+        createdAt: getCentralAmericaTime(),
+        updatedAt: getCentralAmericaTime()
       }
     });
   }

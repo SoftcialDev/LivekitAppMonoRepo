@@ -68,6 +68,8 @@ export class GetCurrentUserDomainService {
       throw new ApplicationError('Invariant violation: user must be defined after provisioning or promotion', ApplicationErrorCode.OPERATION_FAILED);
     }
 
+    await this.userRepository.syncUserRoleAssignments(user.id, user.role);
+
     // Split full name into first and last
     const { firstName, lastName } = this.splitName(user.fullName);
 
