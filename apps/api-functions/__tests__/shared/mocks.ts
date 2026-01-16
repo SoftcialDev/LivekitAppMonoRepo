@@ -1,6 +1,6 @@
 import { Prisma, FormType as PrismaFormType } from '@prisma/client';
 import { CameraFailureStage } from '@prisma/client';
-
+ 
 export const createMockPrismaClient = (): any => {
   const mockPrismaClient: any = {
     auditLog: {
