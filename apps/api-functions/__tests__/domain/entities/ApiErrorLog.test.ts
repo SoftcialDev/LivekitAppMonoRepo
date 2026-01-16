@@ -1,7 +1,7 @@
 import { ApiErrorLog } from '../../../src/domain/entities/ApiErrorLog';
 import { ErrorSeverity } from '../../../src/domain/enums/ErrorSeverity';
 import { ErrorSource } from '../../../src/domain/enums/ErrorSource';
-
+ 
 describe('ApiErrorLog', () => {
   const baseProps = {
     id: 'error-id',
