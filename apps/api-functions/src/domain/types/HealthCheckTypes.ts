@@ -44,6 +44,18 @@ export interface StorageDetails {
 }
 
 /**
+ * Environment variable value details
+ */
+export interface EnvironmentVariableDetails {
+  name: string;
+  value?: string; // Valor completo (solo para super admin y variables permitidas)
+  partialValue?: string; // Valor parcial para debug (mitad del valor)
+  length?: number;
+  exists: boolean;
+  isRequestedVar?: boolean; // Si es la variable solicitada con ?envVar=
+}
+
+/**
  * Environment variables check result
  */
 export interface EnvCheck {
@@ -52,6 +64,9 @@ export interface EnvCheck {
   presentKeys?: string[];
   storageDetails?: StorageDetails;
   error?: string;
+  allEnvironmentVariables?: Record<string, EnvironmentVariableDetails>; // Todas las variables de process.env
+  requestedVariable?: string; // Variable solicitada con ?envVar=
+  isSuperAdmin?: boolean; // Si el usuario es super admin
 }
 
 /**
