@@ -40,9 +40,9 @@ export function createCameraFailureColumns(
       cellClassName: CAMERA_FAILURE_CELL_CLASSES.USER_EMAIL,
     },
     {
-      key: 'callerEmail',
+      key: 'initiatedByEmail',
       header: 'Command Initiator',
-      render: (row) => row.callerEmail || 'N/A',
+      render: (row) => row.initiatedByEmail || 'N/A',
       cellClassName: CAMERA_FAILURE_CELL_CLASSES.USER_EMAIL,
     },
     {

@@ -7,7 +7,7 @@
 import prisma from "../database/PrismaClientService";
 import { ICameraStartFailureRepository } from '../../domain/interfaces/ICameraStartFailureRepository';
 import { CreateCameraStartFailureData, CameraFailureQueryParams, CameraStartFailure } from '../../domain/types/CameraFailureTypes';
-import { Prisma, CameraFailureStage } from '@prisma/client';
+import { Prisma, CameraFailureStage, CommandType } from '@prisma/client';
 
 /**
  * Repository for camera start failure data access
@@ -25,6 +25,9 @@ export class CameraStartFailureRepository implements ICameraStartFailureReposito
       select: { id: true },
     });
 
+    // Find the email of the user who initiated the START command that led to this failure
+    const initiatedByEmail = await this.findInitiatorEmailForFailure(data.userAdId, user?.id);
+
     await prisma.cameraStartFailure.create({
       data: {
         userId: user?.id,
@@ -38,8 +41,57 @@ export class CameraStartFailureRepository implements ICameraStartFailureReposito
         attempts: data.attempts ? (data.attempts as Prisma.InputJsonValue) : undefined,
         metadata: data.metadata ? (data.metadata as Prisma.InputJsonValue) : undefined,
         createdAtCentralAmerica: data.createdAtCentralAmerica,
+        initiatedByEmail: initiatedByEmail || undefined,
       },
     });
+  }
+
+  /**
+   * Finds the email of the user who initiated the START command that led to this failure
+   * @param userAdId - Azure AD Object ID of the PSO who reported the failure
+   * @param userId - Database ID of the PSO (optional, will be looked up if not provided)
+   * @returns Email of the initiator or null if not found
+   * @private
+   */
+  private async findInitiatorEmailForFailure(userAdId: string, userId?: string | null): Promise<string | null> {
+    let psoId: string | null = userId || null;
+
+    // If userId not provided, find user by userAdId
+    if (!psoId) {
+      const user = await prisma.user.findUnique({
+        where: { azureAdObjectId: userAdId },
+        select: { id: true }
+      });
+      psoId = user?.id || null;
+    }
+
+    if (!psoId) {
+      return null; // PSO not found in database
+    }
+
+    // Find recent START command for this PSO (within last 10 minutes)
+    // We search backwards from now since the failure just occurred
+    const tenMinutesAgo = new Date();
+    tenMinutesAgo.setMinutes(tenMinutesAgo.getMinutes() - 10);
+
+    const recentCommand = await prisma.pendingCommand.findFirst({
+      where: {
+        employeeId: psoId,
+        command: CommandType.START,
+        timestamp: {
+          gte: tenMinutesAgo
+        },
+        initiatedById: { not: null }
+      },
+      orderBy: { timestamp: 'desc' },
+      include: {
+        initiatedBy: {
+          select: { email: true }
+        }
+      }
+    });
+
+    return recentCommand?.initiatedBy?.email || null;
   }
 
   /**
@@ -62,47 +114,8 @@ export class CameraStartFailureRepository implements ICameraStartFailureReposito
       }
     });
 
-    // Enrich each failure with callerId (initiator email) from recent START command
-    const enrichedFailures = await Promise.all(
-      failures.map(async (failure) => {
-        let callerEmail: string | null = null;
-        
-        if (failure.user?.id) {
-          // Find recent START command for this PSO (within 5 minutes before failure)
-          const fiveMinutesAgo = new Date(failure.createdAt);
-          fiveMinutesAgo.setMinutes(fiveMinutesAgo.getMinutes() - 5);
-          
-          const recentCommand = await prisma.pendingCommand.findFirst({
-            where: {
-              employeeId: failure.user.id,
-              command: 'START',
-              timestamp: {
-                gte: fiveMinutesAgo,
-                lte: failure.createdAt
-              },
-              initiatedById: { not: null }
-            },
-            orderBy: { timestamp: 'desc' },
-            include: {
-              initiatedBy: {
-                select: { email: true }
-              }
-            }
-          });
-          
-          if (recentCommand?.initiatedBy?.email) {
-            callerEmail = recentCommand.initiatedBy.email;
-          }
-        }
-        
-        return {
-          ...this.mapToCameraStartFailure(failure),
-          callerEmail
-        };
-      })
-    );
-
-    return enrichedFailures;
+    // Map failures to domain type - initiatedByEmail is already stored in the database
+    return failures.map(failure => this.mapToCameraStartFailure(failure));
   }
 
   /**
@@ -124,40 +137,8 @@ export class CameraStartFailureRepository implements ICameraStartFailureReposito
       return null;
     }
 
-    // Enrich with callerId (initiator email) from recent START command
-    let callerEmail: string | null = null;
-    
-    if (failure.user?.id) {
-      const fiveMinutesAgo = new Date(failure.createdAt);
-      fiveMinutesAgo.setMinutes(fiveMinutesAgo.getMinutes() - 5);
-      
-      const recentCommand = await prisma.pendingCommand.findFirst({
-        where: {
-          employeeId: failure.user.id,
-          command: 'START',
-          timestamp: {
-            gte: fiveMinutesAgo,
-            lte: failure.createdAt
-          },
-          initiatedById: { not: null }
-        },
-        orderBy: { timestamp: 'desc' },
-        include: {
-          initiatedBy: {
-            select: { email: true }
-          }
-        }
-      });
-      
-      if (recentCommand?.initiatedBy?.email) {
-        callerEmail = recentCommand.initiatedBy.email;
-      }
-    }
-
-    return {
-      ...this.mapToCameraStartFailure(failure),
-      callerEmail
-    };
+    // Map to domain type - initiatedByEmail is already stored in the database
+    return this.mapToCameraStartFailure(failure);
   }
 
   /**
@@ -179,6 +160,7 @@ export class CameraStartFailureRepository implements ICameraStartFailureReposito
     metadata: unknown;
     createdAt: Date;
     createdAtCentralAmerica: string | null;
+    initiatedByEmail?: string | null;
   }): CameraStartFailure {
     return {
       id: prismaFailure.id,
@@ -194,6 +176,7 @@ export class CameraStartFailureRepository implements ICameraStartFailureReposito
       metadata: prismaFailure.metadata,
       createdAt: prismaFailure.createdAt,
       createdAtCentralAmerica: prismaFailure.createdAtCentralAmerica,
+      initiatedByEmail: prismaFailure.initiatedByEmail || null,
     };
   }
 

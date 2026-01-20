@@ -459,6 +459,7 @@ model CameraStartFailure {
   user                      User?              @relation("UserCameraStartFailures", fields: [userId], references: [id], onDelete: SetNull)
   userAdId                  String
   userEmail                 String?
+  initiatedByEmail          String?            @db.VarChar(255)
 
   stage                     CameraFailureStage
   errorName                 String?            @db.VarChar(100)

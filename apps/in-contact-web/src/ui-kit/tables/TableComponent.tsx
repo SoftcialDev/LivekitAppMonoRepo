@@ -38,7 +38,7 @@ export function TableComponent<T extends { id?: string }>(
     enableLocalSearch = false,
     searchPlaceholder = 'Search...',
   }: Readonly<ITableComponentProps<T>>
-): JSX.Element {
+): React.JSX.Element {
   const {
     searchTerm,
     setSearchTerm,

@@ -91,8 +91,9 @@ export interface CameraStartFailure {
 
   /**
    * Email of the user who initiated the START command that led to this failure
+   * Captured at the time the failure was created
    */
-  callerEmail?: string | null;
+  initiatedByEmail?: string | null;
 
   /**
    * Stage where the failure occurred

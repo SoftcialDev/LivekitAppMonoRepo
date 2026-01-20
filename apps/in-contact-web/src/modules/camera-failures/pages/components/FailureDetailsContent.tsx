@@ -33,7 +33,7 @@ export const FailureDetailsContent: React.FC<IFailureDetailsContentProps> = ({ f
         />
         <DetailField
           label="Command Initiator"
-          value={failure.callerEmail || 'N/A'}
+          value={failure.initiatedByEmail || 'N/A'}
         />
         <DetailField
           label="User AD ID"
