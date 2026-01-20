@@ -9,6 +9,7 @@ export type {
   ISignInButtonProps,
   IDownloadButtonProps,
   ITrashButtonProps,
+  ITransferButtonProps,
   IClearButtonProps,
 } from './buttonTypes';
 

@@ -178,6 +178,7 @@ model StreamingSessionHistory {
   startedAt     DateTime
   stoppedAt     DateTime?
   stopReason    String?
+  platform      String?
   createdAt     DateTime
   updatedAt     DateTime
 

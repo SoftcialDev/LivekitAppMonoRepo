@@ -4,6 +4,8 @@
  * @description Type definitions for streaming session status operations
  */
 
+import { Platform } from '@/shared/enums/Platform';
+
 /**
  * Details of an active streaming session.
  */
@@ -14,5 +16,7 @@ export interface StreamingSession {
   email: string;
   /** ISO 8601 timestamp indicating when the session began */
   startedAt: string;
+  /** Platform identifier (electron or browser) */
+  platform?: Platform | null;
 }
 

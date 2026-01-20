@@ -26,7 +26,7 @@ export interface IUseRemoteTracksOptions {
   /**
    * Reference to the audio element
    */
-  audioRef: React.RefObject<HTMLAudioElement>;
+  audioRef: React.RefObject<HTMLAudioElement | null>;
   /**
    * Audio attachment hook instance
    */

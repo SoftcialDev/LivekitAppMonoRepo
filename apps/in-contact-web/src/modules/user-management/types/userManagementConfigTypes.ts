@@ -362,5 +362,11 @@ export interface IUserManagementPageProps<T extends BaseUserManagementItem> {
    * When provided, filters data locally instead of remounting and refetching from API
    */
   customFilter?: (data: T[]) => T[];
+
+  /**
+   * Optional handler for transfer button click (only used when transferButton feature is enabled)
+   * Called when user clicks transfer button on a row
+   */
+  handleTransfer?: (row: T) => void;
 }
 

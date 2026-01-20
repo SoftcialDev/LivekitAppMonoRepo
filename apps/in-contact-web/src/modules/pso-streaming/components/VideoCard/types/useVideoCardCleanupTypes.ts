@@ -16,7 +16,7 @@ export interface IUseVideoCardCleanupOptions {
   hasActiveSessionRef: React.MutableRefObject<boolean>;
   activeSessionIdRef: React.MutableRefObject<string | null>;
   videoRef: React.RefObject<HTMLVideoElement>;
-  audioRef: React.RefObject<HTMLAudioElement>;
+  audioRef: React.RefObject<HTMLAudioElement | null>;
   shouldStream: boolean;
   isRecording: boolean;
   isTalking: boolean;

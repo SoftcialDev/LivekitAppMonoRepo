@@ -158,3 +158,41 @@ export interface IClearButtonProps {
   className?: string;
 }
 
+/**
+ * Props for TransferButton component
+ */
+export interface ITransferButtonProps {
+  /**
+   * Callback invoked when button is clicked
+   */
+  onClick: () => void;
+
+  /**
+   * Additional CSS classes for the button
+   * 
+   * @default "p-1 hover:text-[var(--color-secondary)] cursor-pointer transition-colors"
+   */
+  className?: string;
+
+  /**
+   * Tooltip text shown on hover
+   * 
+   * @default "Transfer all PSOs"
+   */
+  title?: string;
+
+  /**
+   * Whether the button is disabled
+   * 
+   * @default false
+   */
+  disabled?: boolean;
+
+  /**
+   * Whether the button is in loading state
+   * 
+   * @default false
+   */
+  isLoading?: boolean;
+}
+

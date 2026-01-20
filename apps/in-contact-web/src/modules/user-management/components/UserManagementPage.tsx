@@ -8,7 +8,7 @@ import React, { useMemo, useCallback, useState } from 'react';
 import { DataTable, type Column } from '@/ui-kit/tables';
 import { TableComponent } from '@/ui-kit/tables';
 import { FormModal } from '@/ui-kit/modals';
-import { AddButton, TrashButton } from '@/ui-kit/buttons';
+import { AddButton, TrashButton, TransferButton } from '@/ui-kit/buttons';
 import managementIcon from '@/shared/assets/manage_icon_sidebar.png';
 import { useHeader } from '@/app/stores';
 import { useAuth } from '@/modules/auth';
@@ -36,7 +36,8 @@ export function UserManagementPage<T extends BaseUserManagementItem>({
   externalLoading,
   refreshKey,
   customFilter,
-}: Readonly<IUserManagementPageProps<T>>): JSX.Element {
+  handleTransfer,
+}: Readonly<IUserManagementPageProps<T>>): React.ReactElement {
   const { account } = useAuth();
   const currentEmail = account?.username?.toLowerCase() ?? '';
   const [selectedMainKeys, setSelectedMainKeys] = useState<string[]>([]);
@@ -65,7 +66,7 @@ export function UserManagementPage<T extends BaseUserManagementItem>({
     iconAlt: config.ui.title,
   });
 
-  // Add actions column to main columns with remove button
+  // Add actions column to main columns with remove button and optional transfer button
   const mainColumnsWithActions = useMemo<Column<T>[]>(() => {
     const actionsColumn: Column<T> = {
       header: 'Actions',
@@ -74,30 +75,56 @@ export function UserManagementPage<T extends BaseUserManagementItem>({
         const itemEmail = row.email?.toLowerCase() ?? '';
         const currentUserEmail = currentEmail.toLowerCase();
         
-        // Don't show delete for current user
-        if (itemEmail === currentUserEmail) {
-          return null;
+        const actions: React.ReactNode[] = [];
+
+        // Transfer button (only if feature is enabled and handler is provided)
+        if (config.features?.transferButton && handleTransfer) {
+          // Don't show transfer for current user
+          if (itemEmail !== currentUserEmail) {
+            actions.push(
+              <TransferButton
+                key="transfer"
+                onClick={() => handleTransfer(row)}
+                title="Transfer all PSOs"
+                isLoading={externalLoading || false}
+              />
+            );
+          }
         }
 
-        // Check minimum items requirement (using totalCount from API)
-        const minItems = config.features?.minItemsForDeletion ?? 0;
-        // If totalCount is undefined, show button (will be checked again after load)
-        // If totalCount is defined, check against minItems
-        if (totalCount !== undefined && totalCount <= minItems) {
+        // Remove button
+        // Don't show delete for current user
+        if (itemEmail !== currentUserEmail) {
+          // Check minimum items requirement (using totalCount from API)
+          const minItems = config.features?.minItemsForDeletion ?? 0;
+          // If totalCount is undefined, show button (will be checked again after load)
+          // If totalCount is defined, check against minItems
+          if (totalCount === undefined || totalCount > minItems) {
+            actions.push(
+              <TrashButton
+                key="remove"
+                onClick={() => handleRemove(row)}
+                title="Remove user"
+              />
+            );
+          }
+        }
+
+        // Return buttons in a flex container
+        if (actions.length === 0) {
           return null;
         }
 
         return (
-          <TrashButton
-            onClick={() => handleRemove(row)}
-            title="Remove user"
-          />
+          <div className="flex items-center gap-2">
+            {actions}
+          </div>
         );
       },
     };
 
     return [...config.columns.mainColumns, actionsColumn];
-  }, [config.columns.mainColumns, config.features, totalCount, handleRemove, currentEmail]);
+  }, [config.columns.mainColumns, config.features, totalCount, handleRemove, currentEmail, externalLoading, handleTransfer]);
 
   // Candidate columns (no checkbox column, using TableComponent selection instead)
   const candidateColumns = useMemo<Column<CandidateUser>[]>(() => {

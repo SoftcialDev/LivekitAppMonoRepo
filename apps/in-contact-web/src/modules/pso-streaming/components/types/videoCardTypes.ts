@@ -6,6 +6,7 @@
 
 import type { TimerInfo } from '../../types';
 import type { StreamingStopReason } from '../../enums/streamingStopReason';
+import { Platform } from '@/shared/enums/Platform';
 
 /**
  * Props for SimpleVideoCard component
@@ -29,6 +30,7 @@ export interface ISimpleVideoCardProps {
   stopReason?: StreamingStopReason | string | null;
   stoppedAt?: string | null;
   timerInfo?: TimerInfo | null;
+  psoPlatform?: Platform | null;
 }
 
 /**
@@ -56,4 +58,5 @@ export interface IVideoCardProps {
   portalMinWidthPx?: number;
   stopReason?: StreamingStopReason | string | null;
   stoppedAt?: string | null;
+  psoPlatform?: Platform | null;
 }

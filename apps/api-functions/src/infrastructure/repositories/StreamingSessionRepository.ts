@@ -6,6 +6,7 @@
 
 import { IStreamingSessionRepository } from '../../domain/interfaces/IStreamingSessionRepository';
 import { StreamingSessionHistory } from '../../domain/entities/StreamingSessionHistory';
+import { Platform } from '../../domain/enums/Platform';
 import { getCentralAmericaTime } from '../../utils/dateUtils';
 import { wrapStreamingSessionFetchError, wrapEntityCreationError, wrapEntityUpdateError, wrapDatabaseQueryError } from '../../utils/error/ErrorHelpers';
 import prisma from '../database/PrismaClientService';
@@ -27,7 +28,10 @@ export class StreamingSessionRepository implements IStreamingSessionRepository {
         orderBy: { startedAt: 'desc' }
       });
 
-      return session ? StreamingSessionHistory.fromPrisma(session) : null;
+      return session ? StreamingSessionHistory.fromPrisma({
+        ...session,
+        platform: (session as any).platform || null
+      }) : null;
     } catch (error: unknown) {
       throw wrapStreamingSessionFetchError('Failed to get latest session for user', error);
     }
@@ -53,7 +57,10 @@ export class StreamingSessionRepository implements IStreamingSessionRepository {
         }
       });
 
-      return StreamingSessionHistory.fromPrisma(session);
+      return StreamingSessionHistory.fromPrisma({
+        ...session,
+        platform: (session as any).platform || null
+      } as any);
     } catch (error: unknown) {
       throw wrapEntityCreationError('Failed to create session', error);
     }
@@ -79,7 +86,10 @@ export class StreamingSessionRepository implements IStreamingSessionRepository {
         }
       });
 
-      return StreamingSessionHistory.fromPrisma(session);
+      return StreamingSessionHistory.fromPrisma({
+        ...session,
+        platform: (session as any).platform || null
+      } as any);
     } catch (error: unknown) {
       throw wrapEntityUpdateError('Failed to update session', error);
     }
@@ -110,7 +120,10 @@ export class StreamingSessionRepository implements IStreamingSessionRepository {
         orderBy: { startedAt: 'desc' }
       });
 
-      return sessions.map(session => StreamingSessionHistory.fromPrisma(session));
+      return sessions.map(session => StreamingSessionHistory.fromPrisma({
+        ...session,
+        platform: (session as any).platform || null
+      }));
     } catch (error: unknown) {
       throw wrapStreamingSessionFetchError('Failed to get sessions for user in date range', error);
     }
@@ -138,7 +151,10 @@ export class StreamingSessionRepository implements IStreamingSessionRepository {
         orderBy: { startedAt: 'desc' }
       });
 
-      return sessions.map(session => StreamingSessionHistory.fromPrisma(session));
+      return sessions.map(session => StreamingSessionHistory.fromPrisma({
+        ...session,
+        platform: (session as any).platform || null
+      }));
     } catch (error: unknown) {
       throw wrapStreamingSessionFetchError('Failed to get active sessions', error);
     }
@@ -170,7 +186,10 @@ export class StreamingSessionRepository implements IStreamingSessionRepository {
         orderBy: { startedAt: 'desc' }
       });
 
-      return sessions.map(session => StreamingSessionHistory.fromPrisma(session));
+      return sessions.map(session => StreamingSessionHistory.fromPrisma({
+        ...session,
+        platform: (session as any).platform || null
+      }));
     } catch (error: unknown) {
       throw wrapStreamingSessionFetchError('Failed to get active sessions for supervisor', error);
     }
@@ -213,7 +232,10 @@ export class StreamingSessionRepository implements IStreamingSessionRepository {
         }
       });
 
-      return StreamingSessionHistory.fromPrisma(updatedSession);
+      return StreamingSessionHistory.fromPrisma({
+        ...updatedSession,
+        platform: (updatedSession as any).platform || null
+      } as any);
     } catch (error: unknown) {
       throw wrapEntityUpdateError('Failed to stop streaming session', error);
     }
@@ -222,10 +244,11 @@ export class StreamingSessionRepository implements IStreamingSessionRepository {
   /**
    * Starts a new streaming session for a user
    * @param userId - The user's database ID
+   * @param platform - Optional platform identifier (electron or browser)
    * @returns Promise that resolves when the session is started
    * @throws Error if database operation fails
    */
-  async startStreamingSession(userId: string): Promise<void> {
+  async startStreamingSession(userId: string, platform?: Platform): Promise<void> {
     try {
       const now = getCentralAmericaTime();
       
@@ -243,9 +266,10 @@ export class StreamingSessionRepository implements IStreamingSessionRepository {
         data: { 
           userId,
           startedAt: now,
+          platform: platform || null,
           createdAt: getCentralAmericaTime(),
           updatedAt: getCentralAmericaTime()
-        },
+        } as any, // Temporary cast until Prisma Client is regenerated
       });
     } catch (error: unknown) {
       throw wrapEntityCreationError('Failed to start streaming session', error);
@@ -265,7 +289,10 @@ export class StreamingSessionRepository implements IStreamingSessionRepository {
         orderBy: { startedAt: 'desc' }
       });
 
-      return session ? StreamingSessionHistory.fromPrisma(session) : null;
+      return session ? StreamingSessionHistory.fromPrisma({
+        ...session,
+        platform: (session as any).platform || null
+      }) : null;
     } catch (error: unknown) {
       throw wrapStreamingSessionFetchError('Failed to get last streaming session', error);
     }
@@ -307,7 +334,7 @@ export class StreamingSessionRepository implements IStreamingSessionRepository {
       const sessions = await prisma.$queryRaw`
         SELECT DISTINCT ON (u.email) 
           ssh.id, ssh."userId", ssh."startedAt", ssh."stoppedAt", 
-          ssh."createdAt", ssh."updatedAt", ssh."stopReason",
+          ssh."createdAt", ssh."updatedAt", ssh."stopReason", ssh."platform",
           u.email
         FROM "StreamingSessionHistory" ssh
         JOIN "User" u ON ssh."userId" = u.id
@@ -321,6 +348,7 @@ export class StreamingSessionRepository implements IStreamingSessionRepository {
         createdAt: Date;
         updatedAt: Date;
         stopReason: string | null;
+        platform: string | null;
         email: string;
       }>;
 
@@ -335,6 +363,7 @@ export class StreamingSessionRepository implements IStreamingSessionRepository {
           createdAt: session.createdAt,
           updatedAt: session.updatedAt,
           stopReason: session.stopReason,
+          platform: session.platform,
           user: { email: session.email, id: session.userId }
         }));
       });

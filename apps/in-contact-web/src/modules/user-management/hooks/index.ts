@@ -4,6 +4,7 @@
  */
 
 export { useUserManagementPage } from './useUserManagementPage';
+export { useSupervisorTransfer } from './useSupervisorTransfer';
 export { useUserManagementRefresh } from './useUserManagementRefresh';
 export { useApiOperation } from './useApiOperation';
 export { useModalState } from './useModalState';

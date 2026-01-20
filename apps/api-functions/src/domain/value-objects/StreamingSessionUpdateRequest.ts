@@ -6,6 +6,7 @@
 
 import { StreamingSessionUpdateParams } from "../schemas/StreamingSessionUpdateSchema";
 import { StreamingStatus } from "../enums/StreamingStatus";
+import { Platform } from "../enums/Platform";
 
 /**
  * Value object representing a streaming session update request
@@ -18,12 +19,14 @@ export class StreamingSessionUpdateRequest {
    * @param status - The streaming status to set
    * @param isCommand - Optional flag indicating if this was triggered by a command
    * @param reason - Optional reason for the command (mainly for STOP commands)
+   * @param platform - Optional platform identifier (electron or browser)
    */
   constructor(
     public readonly callerId: string,
     public readonly status: StreamingStatus,
     public readonly isCommand?: boolean,
-    public readonly reason?: string
+    public readonly reason?: string,
+    public readonly platform?: Platform
   ) {
     Object.freeze(this);
   }
@@ -39,7 +42,8 @@ export class StreamingSessionUpdateRequest {
       callerId,
       params.status as StreamingStatus,
       params.isCommand,
-      params.reason
+      params.reason,
+      params.platform
     );
   }
 
@@ -47,12 +51,13 @@ export class StreamingSessionUpdateRequest {
    * Converts the request to a plain object for serialization
    * @returns Plain object representation of the request
    */
-  toPayload(): { callerId: string; status: StreamingStatus; isCommand?: boolean; reason?: string } {
+  toPayload(): { callerId: string; status: StreamingStatus; isCommand?: boolean; reason?: string; platform?: string } {
     return {
       callerId: this.callerId,
       status: this.status,
       isCommand: this.isCommand,
       reason: this.reason,
+      platform: this.platform,
     };
   }
 }

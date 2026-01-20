@@ -10,80 +10,9 @@ import { HealthCheckDomainService } from '../../domain/services/HealthCheckDomai
 import { StorageDetailsService } from '../../infrastructure/services/StorageDetailsService';
 import { DatabaseHealthCheckService } from '../../infrastructure/services/DatabaseHealthCheckService';
 import { HealthStatus } from '../../domain/enums/HealthStatus';
-import { HealthCheckResponse, type HealthCheckUser, type EnvironmentVariableDetails } from '../../domain/types/HealthCheckTypes';
+import { HealthCheckResponse, type HealthCheckUser } from '../../domain/types/HealthCheckTypes';
 import { config } from '../../config';
 import { unknownToString } from '../../utils/stringHelpers';
-import { tryExtractCallerId } from '../../utils/authHelpers';
-import { AuthorizationService } from '../../domain/services/AuthorizationService';
-import { UserRepository } from '../../infrastructure/repositories/UserRepository';
-
-/**
- * Primeras 13 variables de ambiente que pueden mostrarse completas si es super admin
- * Estas corresponden a las primeras 13 en local.settings.json
- */
-const ALLOWED_FULL_VALUE_VARS = new Set([
-  'AZURE_CLIENT_ID',
-  'AZURE_CLIENT_SECRET',
-  'AZURE_TENANT_ID',
-  'AzureWebJobsDashboard',
-  'AzureWebJobsStorage',
-  'AZURE_STORAGE_ACCOUNT',
-  'AZURE_STORAGE_KEY',
-  'AZURE_STORAGE_CONNECTION_STRING',
-  'DATABASE_URL',
-  'FUNCTIONS_EXTENSION_VERSION',
-  'FUNCTIONS_WORKER_RUNTIME',
-  'LIVEKIT_API_KEY',
-  'LIVEKIT_API_SECRET'
-]);
-
-/**
- * Creates a partial value for sensitive data (shows first half)
- * @param value - Full value to mask
- * @returns Partial value showing first half
- */
-function createPartialValue(value: string): string {
-  if (!value) return '';
-  if (value.length <= 8) return '****';
-  
-  const halfLength = Math.floor(value.length / 2);
-  const firstHalf = value.substring(0, halfLength);
-  return `${firstHalf}...`;
-}
-
-/**
- * Gets all environment variables from process.env
- * @param requestedVar - Optional variable name requested via query param
- * @param isSuperAdmin - Whether the user is a super admin
- * @returns Record of all environment variables with their details
- */
-function getAllEnvironmentVariables(
-  requestedVar?: string,
-  isSuperAdmin: boolean = false
-): Record<string, EnvironmentVariableDetails> {
-  const allVars: Record<string, EnvironmentVariableDetails> = {};
-  
-  // Iterate over all environment variables
-  for (const [key, value] of Object.entries(process.env)) {
-    const exists = value !== undefined && value !== null;
-    const isAllowedVar = ALLOWED_FULL_VALUE_VARS.has(key);
-    const isRequested = requestedVar && key === requestedVar;
-    
-    // Determine if we should show full value
-    const showFullValue = isSuperAdmin && isRequested && isAllowedVar;
-    
-    allVars[key] = {
-      name: key,
-      exists,
-      length: value?.length,
-      isRequestedVar: isRequested || false,
-      ...(showFullValue ? { value } : {}),
-      ...(exists && !showFullValue ? { partialValue: createPartialValue(value || '') } : {})
-    };
-  }
-  
-  return allVars;
-}
 
 /**
  * Parses query parameters from HTTP request
@@ -94,18 +23,15 @@ function parseQueryParams(query: Record<string, unknown>): {
   verbose: boolean;
   dbEnabled: boolean;
   includeUsers: boolean;
-  envVar?: string;
 } {
   const verboseStr = unknownToString(query.verbose, '');
   const dbStr = unknownToString(query.db, 'true');
   const usersStr = unknownToString(query.users, '');
-  const envVarStr = unknownToString(query.envVar, '');
   
   return {
     verbose: verboseStr.toLowerCase() === "true",
     dbEnabled: dbStr.toLowerCase() !== "false",
     includeUsers: usersStr.toLowerCase() === "true",
-    envVar: envVarStr || undefined,
   };
 }
 
@@ -210,7 +136,6 @@ function createErrorResponse(error: unknown): {
  *   - Shows partial Azure Storage variable details (preview, length, base64 validation)
  * - db=false: skips database connectivity test
  * - users=true: includes all users from the database in the response
- * - envVar=VAR_NAME: if user is super admin, returns full value for requested variable (must be one of first 13 env vars)
  * 
  * Responses:
  * - 200: all checks passed
@@ -229,21 +154,7 @@ export default async function HealthFunction(ctx: Context): Promise<void> {
 
     const req = (ctx.req ?? {}) as HttpRequest;
     const query = (req.query ?? {}) as Record<string, unknown>;
-    const { verbose, dbEnabled, includeUsers, envVar } = parseQueryParams(query);
-
-    // Check if user is super admin (safely, may fail if not authenticated)
-    let isSuperAdmin = false;
-    try {
-      const callerId = tryExtractCallerId(ctx);
-      if (callerId) {
-        const authorizationService = new AuthorizationService(new UserRepository());
-        isSuperAdmin = await authorizationService.isSuperAdmin(callerId);
-        log(`[Health] User authentication check: isSuperAdmin=${isSuperAdmin}`);
-      }
-    } catch (err) {
-      log('[Health] Could not verify super admin status (may not be authenticated)', err);
-      isSuperAdmin = false;
-    }
+    const { verbose, dbEnabled, includeUsers } = parseQueryParams(query);
 
     log('[Health] Initializing services');
     const healthCheckDomainService = new HealthCheckDomainService();
@@ -255,14 +166,6 @@ export default async function HealthFunction(ctx: Context): Promise<void> {
 
     log('[Health] Validating environment variables');
     const envCheck = healthCheckDomainService.validateEnvironmentVariables(storageDetails);
-    
-    // Get all environment variables (including Azure auto-created ones)
-    log('[Health] Collecting all environment variables');
-    const allEnvVars = getAllEnvironmentVariables(envVar, isSuperAdmin);
-    envCheck.allEnvironmentVariables = allEnvVars;
-    envCheck.requestedVariable = envVar;
-    envCheck.isSuperAdmin = isSuperAdmin;
-    
     log('[Health] Environment validation complete');
 
     const payload: HealthCheckResponse = {

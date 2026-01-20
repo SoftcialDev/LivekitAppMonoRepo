@@ -23,6 +23,8 @@ import { useSnapshotReasonsStore } from '../stores/snapshot-reasons-store';
 import { loadLayout, loadFixed, getStatusMessage, lsKey } from '../utils';
 import { LAYOUT_OPTIONS, DEFAULT_LAYOUT } from '../constants';
 import { StreamingStopReason } from '../enums';
+import { fetchStreamingSessions } from '../api/streamingStatusClient';
+import { Platform } from '@/shared/enums/Platform';
 import monitorIcon from '@/shared/assets/monitor-icon.png';
 import type { LayoutOption } from '../types';
 
@@ -122,25 +124,71 @@ const PSOsStreamingPage: React.FC = () => {
   // Get streaming credentials for all PSOs
   const credsMap = useIsolatedStreams(viewerEmail, targetEmails);
 
+  // Map of email to platform for active sessions
+  const [platformMap, setPlatformMap] = useState<Record<string, Platform | null>>({});
+
+  // Fetch platform information from active sessions
+  useEffect(() => {
+    const updatePlatformMap = async (): Promise<void> => {
+      try {
+        const sessions = await fetchStreamingSessions();
+        const map: Record<string, Platform | null> = {};
+        sessions.forEach(session => {
+          const email = session.email.toLowerCase();
+          map[email] = session.platform || null;
+        });
+        setPlatformMap(map);
+      } catch (error) {
+        logError('[PSOsStreamingPage] Error fetching platform info', { error });
+      }
+    };
+
+    updatePlatformMap();
+    // Refresh platform map periodically (every 30 seconds)
+    const interval = setInterval(updatePlatformMap, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
   // Video actions (currently unused but may be needed in future)
   useVideoActions();
 
+  // Create stable streaming status map to prevent unnecessary re-sorting
+  // Only recalculate when credsMap actually changes (not when layout changes)
+  const streamingStatusMap = useMemo(() => {
+    const statusMap = new Map<string, boolean>();
+    allPsos.forEach(p => {
+      const key = p.email.toLowerCase();
+      const creds = credsMap[key];
+      const isLive = Boolean(
+        creds?.accessToken && 
+        !creds?.statusInfo?.lastSession?.stopReason
+      );
+      statusMap.set(key, isLive);
+    });
+    return statusMap;
+  }, [allPsos, credsMap]);
+
   // Calculate display list based on fixed emails and layout
+  // Use stable streaming status map to prevent unnecessary re-sorting when layout changes
+  // This keeps the order consistent and prevents video refs from being lost
   const displayList = useMemo(() => {
     const base = fixedEmails.length > 0 
       ? allPsos.filter(p => fixedEmails.includes(p.email.toLowerCase()))
       : allPsos;
 
-    // Sort by streaming status (live first)
+    // Sort using pre-calculated streaming status map
     const sortedByStreaming = [...base].sort((a, b) => {
-      const aLive = Boolean(credsMap[a.email.toLowerCase()]?.accessToken);
-      const bLive = Boolean(credsMap[b.email.toLowerCase()]?.accessToken);
+      const aKey = a.email.toLowerCase();
+      const bKey = b.email.toLowerCase();
+      const aLive = streamingStatusMap.get(aKey) ?? false;
+      const bLive = streamingStatusMap.get(bKey) ?? false;
+      
       if (aLive !== bLive) return aLive ? -1 : 1;
-      return a.email.localeCompare(b.email);
+      return aKey.localeCompare(bKey);
     });
 
     return sortedByStreaming.slice(0, layout);
-  }, [allPsos, fixedEmails, layout, credsMap]);
+  }, [allPsos, fixedEmails, layout, streamingStatusMap]);
 
   // Handle layout change
   const handleLayoutChange = useCallback((value: string | number) => {
@@ -215,6 +263,7 @@ const PSOsStreamingPage: React.FC = () => {
             const supervisorUpdate = supervisorUpdates[p.email.toLowerCase()];
             const currentSupervisorEmail = supervisorUpdate?.email || p.supervisorEmail;
             const currentSupervisorName = supervisorUpdate?.name || p.supervisorName;
+            const psoPlatform = platformMap[key] || null;
 
             return (
               <VideoGridItem
@@ -242,6 +291,7 @@ const PSOsStreamingPage: React.FC = () => {
                   portalMinWidthPx={portalMinWidthPx}
                   stopReason={statusInfo?.lastSession?.stopReason || null}
                   stoppedAt={statusInfo?.lastSession?.stoppedAt || null}
+                  psoPlatform={psoPlatform}
                 />
               </VideoGridItem>
             );

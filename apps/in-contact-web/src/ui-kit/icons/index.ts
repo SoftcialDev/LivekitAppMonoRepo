@@ -11,4 +11,7 @@ export { RefreshIcon } from './RefreshIcon';
 export { SignInIcon } from './SignInIcon';
 export { SignOutIcon } from './SignOutIcon';
 export { TrashIcon } from './TrashIcon';
+export { TransferIcon } from './TransferIcon';
+export { DesktopIcon } from './DesktopIcon';
+export { BrowserIcon } from './BrowserIcon';
 export type { IIconProps } from './types/iconTypes';

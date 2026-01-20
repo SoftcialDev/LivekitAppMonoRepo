@@ -43,7 +43,7 @@ export class StreamingSessionUpdateDomainService {
     // 2. Start or stop streaming session based on status
     if (request.status === StreamingStatus.Started) {
       try {
-        await this.streamingSessionDomainService.startStreamingSession(user.id);
+        await this.streamingSessionDomainService.startStreamingSession(user.id, request.platform);
         await this.broadcastStreamEvent(user.email, 'started');
         return new StreamingSessionUpdateResponse(
           "Streaming session started",

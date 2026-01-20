@@ -5,6 +5,7 @@
  */
 
 import { z } from "zod";
+import { Platform } from "../enums/Platform";
 
 /**
  * Schema for validating streaming session update request body
@@ -15,7 +16,8 @@ export const streamingSessionUpdateSchema = z.object({
     errorMap: () => ({ message: "Status must be either 'started' or 'stopped'" })
   }),
   isCommand: z.boolean().optional(),
-  reason: z.string().optional()
+  reason: z.string().optional(),
+  platform: z.nativeEnum(Platform).optional()
 });
 
 /**

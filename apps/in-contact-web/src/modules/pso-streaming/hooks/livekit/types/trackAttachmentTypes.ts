@@ -12,7 +12,7 @@ import type { IUseAudioAttachmentReturn } from '../../audio/types/audioAttachmen
  */
 export interface IUseTrackAttachmentOptions {
   videoRef: React.RefObject<HTMLVideoElement>;
-  audioRef: React.RefObject<HTMLAudioElement>;
+  audioRef: React.RefObject<HTMLAudioElement | null>;
   audioAttachment: IUseAudioAttachmentReturn;
 }
 

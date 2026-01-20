@@ -7,6 +7,8 @@
 
 import React from 'react';
 import SupervisorSelector from '../../SupervisorSelector';
+import { DesktopIcon, BrowserIcon } from '@/ui-kit/icons';
+import { Platform } from '@/shared/enums/Platform';
 import type { IVideoCardHeaderProps } from '../types/videoCardComponentTypes';
 
 /**
@@ -29,13 +31,14 @@ export const VideoCardHeader: React.FC<IVideoCardHeaderProps> = ({
   email,
   disableControls,
   portalMinWidthPx,
+  psoPlatform,
 }) => {
   if (!showHeader) {
     return null;
   }
 
   return (
-    <div className="flex items-center px-2 py-1 relative z-50">
+    <div className="flex items-center px-2 py-1 relative z-50 gap-2">
       {psoName && onSupervisorChange ? (
         <SupervisorSelector
           psoName={psoName}
@@ -48,7 +51,19 @@ export const VideoCardHeader: React.FC<IVideoCardHeaderProps> = ({
           portalMinWidthPx={portalMinWidthPx}
         />
       ) : (
-        <div className="text-white truncate">{name}</div>
+        <div className="text-white truncate flex-1">{name}</div>
+      )}
+      {psoPlatform && (
+        <div 
+          className="shrink-0" 
+          title={psoPlatform === Platform.Electron ? 'Electron App' : 'Browser'}
+        >
+          {psoPlatform === Platform.Electron ? (
+            <DesktopIcon className="w-4 h-4 text-(--color-secondary)" />
+          ) : (
+            <BrowserIcon className="w-4 h-4 text-(--color-secondary)" />
+          )}
+        </div>
       )}
     </div>
   );

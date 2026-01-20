@@ -34,7 +34,8 @@ const SimpleVideoCard: React.FC<ISimpleVideoCardProps> = memo(({
   onSupervisorChange,
   portalMinWidthPx,
   stopReason,
-  stoppedAt
+  stoppedAt,
+  psoPlatform
 }) => {
   const { handlePlay, handleStop, handleChat } = useVideoActions();
 
@@ -80,6 +81,7 @@ const SimpleVideoCard: React.FC<ISimpleVideoCardProps> = memo(({
       supervisorName={supervisorName}
       onSupervisorChange={onSupervisorChange}
       portalMinWidthPx={portalMinWidthPx}
+      psoPlatform={psoPlatform}
     />
   );
 }, (prevProps, nextProps) => {
@@ -87,7 +89,7 @@ const SimpleVideoCard: React.FC<ISimpleVideoCardProps> = memo(({
   const criticalProps: Array<keyof ISimpleVideoCardProps> = [
     'email', 'name', 'accessToken', 'roomName', 'livekitUrl', 
     'shouldStream', 'connecting', 'disableControls', 'statusMessage',
-    'psoName', 'supervisorEmail', 'supervisorName', 'stopReason', 'stoppedAt'
+    'psoName', 'supervisorEmail', 'supervisorName', 'stopReason', 'stoppedAt', 'psoPlatform'
   ];
   
   for (const prop of criticalProps) {

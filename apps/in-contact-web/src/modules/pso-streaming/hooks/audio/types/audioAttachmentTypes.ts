@@ -13,7 +13,7 @@ export interface IUseAudioAttachmentOptions {
   /**
    * Reference to the HTML audio element
    */
-  audioRef: React.RefObject<HTMLAudioElement>;
+  audioRef: React.RefObject<HTMLAudioElement | null>;
   /**
    * Whether the admin has started a talk session
    */

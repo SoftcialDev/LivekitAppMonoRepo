@@ -6,6 +6,8 @@
 
 import apiClient from '@/shared/api/apiClient';
 import { handleApiError } from '@/shared/utils/errorUtils';
+import { isElectron } from '@/shared/utils/platformUtils';
+import { Platform } from '@/shared/enums/Platform';
 import type { StreamingSessionUpdateResponse } from './types/streamingClientTypes';
 
 /**
@@ -22,7 +24,11 @@ export class StreamingClient {
    */
   public async setActive(): Promise<void> {
     try {
-      await apiClient.post<unknown>(this.updateEndpoint, { status: 'started' });
+      const platform = isElectron() ? Platform.Electron : Platform.Browser;
+      await apiClient.post<unknown>(this.updateEndpoint, { 
+        status: 'started',
+        platform 
+      });
     } catch (error) {
       throw handleApiError(
         'set streaming active',

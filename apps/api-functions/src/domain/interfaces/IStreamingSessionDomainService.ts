@@ -6,6 +6,7 @@
 
 import { FetchStreamingSessionHistoryResponse } from '../value-objects/FetchStreamingSessionHistoryResponse';
 import { FetchStreamingSessionsResponse } from '../value-objects/FetchStreamingSessionsResponse';
+import { Platform } from '../enums/Platform';
 
 /**
  * Interface for streaming session domain service
@@ -28,4 +29,13 @@ export interface IStreamingSessionDomainService {
    * @throws StreamingSessionFetchError when fetch operation fails
    */
   getAllActiveSessions(callerId: string): Promise<FetchStreamingSessionsResponse>;
+
+  /**
+   * Starts a new streaming session for a user
+   * @param userId - The ID of the user (can be email or UUID)
+   * @param platform - Optional platform identifier (electron or browser)
+   * @returns Promise that resolves when the session is started
+   * @throws Error if the operation fails
+   */
+  startStreamingSession(userId: string, platform?: Platform): Promise<void>;
 }

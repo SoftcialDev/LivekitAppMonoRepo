@@ -7,6 +7,7 @@
 import type { TimerInfo } from '../../../types';
 import type { SnapshotReason } from '@/modules/snapshots/types/snapshotTypes';
 import type { StreamingStopReason } from '../../../enums/streamingStopReason';
+import { Platform } from '@/shared/enums/Platform';
 
 /**
  * Props for VideoCardHeader component
@@ -21,6 +22,7 @@ export interface IVideoCardHeaderProps {
   email: string;
   disableControls: boolean;
   portalMinWidthPx?: number;
+  psoPlatform?: Platform | null;
 }
 
 /**
@@ -33,7 +35,7 @@ export interface IVideoCardDisplayProps {
   statusMessage?: string;
   timerInfo: TimerInfo | null;
   email: string;
-  audioRef: React.RefObject<HTMLAudioElement>;
+  audioRef: React.RefObject<HTMLAudioElement | null>;
 }
 
 /**

@@ -5,6 +5,7 @@
  */
 
 import { StreamingSessionHistory } from '../entities/StreamingSessionHistory';
+import { Platform } from '../enums/Platform';
 
 /**
  * Interface for streaming sessions response payload
@@ -14,6 +15,7 @@ export interface FetchStreamingSessionsResponsePayload {
     email: string;
     startedAt: string;
     userId: string;
+    platform: Platform | null;
   }>;
 }
 
@@ -50,6 +52,7 @@ export class FetchStreamingSessionsResponse {
         email: session.user?.email || '',
         startedAt: session.startedAt.toISOString(),
         userId: session.userId,
+        platform: session.platform || null,
       })),
     };
   }

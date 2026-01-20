@@ -5,7 +5,7 @@
  * or a placeholder with status message and timer when not streaming.
  */
 
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import { CompactTimer } from '../../TimerDisplay';
 import { RefreshButton } from '../../RefreshButton';
 import type { IVideoCardDisplayProps } from '../types/videoCardComponentTypes';
@@ -13,14 +13,9 @@ import type { IVideoCardDisplayProps } from '../types/videoCardComponentTypes';
 /**
  * VideoCardDisplay component
  * 
- * Renders the video display area with:
- * - Video element when streaming is active
- * - Placeholder with status message and timer when not streaming
- * - Refresh button overlay
- * - Hidden audio element for remote microphone
- * 
- * @param props - Component props
- * @returns React element rendering the video display area
+ * Renders video element when streaming is active, or placeholder with status
+ * message and timer when not streaming. Container adapts to video aspect ratio
+ * to prevent cropping.
  */
 export const VideoCardDisplay: React.FC<IVideoCardDisplayProps> = ({
   shouldStream,
@@ -35,8 +30,26 @@ export const VideoCardDisplay: React.FC<IVideoCardDisplayProps> = ({
   // This ensures timer is shown when shouldStream is false, even if accessToken exists
   const showVideo = shouldStream;
 
+  const [aspectRatio, setAspectRatio] = useState<number | null>(null);
+
+  const handleLoadedMetadata = useCallback((e: React.SyntheticEvent<HTMLVideoElement>) => {
+    const video = e.currentTarget;
+    if (video.videoWidth && video.videoHeight) {
+      const ratio = video.videoHeight / video.videoWidth;
+      setAspectRatio(ratio);
+    }
+  }, []);
+
+  const containerPaddingBottom = aspectRatio ? `${aspectRatio * 100}%` : '56.25%';
+
   return (
-    <div className="relative w-full pb-[56.25%] bg-black! rounded-xl" style={{ backgroundColor: '#000000' }}>
+    <div 
+      className="relative w-full bg-black! rounded-xl" 
+      style={{ 
+        backgroundColor: '#000000',
+        paddingBottom: containerPaddingBottom,
+      }}
+    >
       {showVideo ? (
         <>
           <video
@@ -45,7 +58,8 @@ export const VideoCardDisplay: React.FC<IVideoCardDisplayProps> = ({
             playsInline
             muted
             controls={false}
-            className="absolute inset-0 w-full h-full object-cover rounded-xl"
+            className="absolute inset-0 w-full h-full object-contain rounded-xl"
+            onLoadedMetadata={handleLoadedMetadata}
             onError={(e) => {
               const error = e.currentTarget.error;
               if (error) {

@@ -3,6 +3,8 @@
  * @description Encapsulates streaming session business logic and state management
  */
 
+import { Platform } from "../enums/Platform";
+
 /**
  * Domain entity representing a StreamingSessionHistory with business logic
  */
@@ -12,6 +14,7 @@ export class StreamingSessionHistory {
   public readonly startedAt: Date;
   public readonly stoppedAt: Date | null;
   public readonly stopReason: string | null;
+  public readonly platform: Platform | null;
   public readonly createdAt: Date;
   public readonly updatedAt: Date;
   public readonly user?: {
@@ -29,6 +32,7 @@ export class StreamingSessionHistory {
     startedAt: Date;
     stoppedAt?: Date | null;
     stopReason?: string | null;
+    platform?: Platform | null;
     createdAt: Date;
     updatedAt: Date;
     user?: {
@@ -41,6 +45,7 @@ export class StreamingSessionHistory {
     this.startedAt = props.startedAt;
     this.stoppedAt = props.stoppedAt || null;
     this.stopReason = props.stopReason || null;
+    this.platform = props.platform || null;
     this.createdAt = props.createdAt;
     this.updatedAt = props.updatedAt;
     this.user = props.user;
@@ -57,6 +62,7 @@ export class StreamingSessionHistory {
     startedAt: Date;
     stoppedAt: Date | null;
     stopReason: string | null;
+    platform: string | null;
     createdAt: Date;
     updatedAt: Date;
     user?: { email: string; id: string } | null;
@@ -67,6 +73,7 @@ export class StreamingSessionHistory {
       startedAt: prismaSession.startedAt,
       stoppedAt: prismaSession.stoppedAt,
       stopReason: prismaSession.stopReason,
+      platform: prismaSession.platform as Platform | null,
       createdAt: prismaSession.createdAt,
       updatedAt: prismaSession.updatedAt,
       user: prismaSession.user ? {

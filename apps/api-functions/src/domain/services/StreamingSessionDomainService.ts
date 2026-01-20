@@ -7,6 +7,7 @@
 import { IStreamingSessionRepository } from '../interfaces/IStreamingSessionRepository';
 import { IUserRepository } from '../interfaces/IUserRepository';
 import { IStreamingSessionDomainService } from '../interfaces/IStreamingSessionDomainService';
+import { Platform } from '../enums/Platform';
 import { FetchStreamingSessionHistoryResponse } from '../value-objects/FetchStreamingSessionHistoryResponse';
 import { FetchStreamingSessionsResponse } from '../value-objects/FetchStreamingSessionsResponse';
 import { StreamingSessionHistory } from '../entities/StreamingSessionHistory';
@@ -29,12 +30,13 @@ export class StreamingSessionDomainService implements IStreamingSessionDomainSer
   /**
    * Starts a new streaming session for a user
    * @param userId - The ID of the user (can be email or UUID)
+   * @param platform - Optional platform identifier (electron or browser)
    * @returns Promise that resolves when the session is started
    * @throws Error if the operation fails
    */
-  async startStreamingSession(userId: string): Promise<void> {
+  async startStreamingSession(userId: string, platform?: Platform): Promise<void> {
     const databaseUserId = await this.convertUserIdToDatabaseId(userId);
-    await this.streamingSessionRepository.startStreamingSession(databaseUserId);
+    await this.streamingSessionRepository.startStreamingSession(databaseUserId, platform);
   }
 
   /**

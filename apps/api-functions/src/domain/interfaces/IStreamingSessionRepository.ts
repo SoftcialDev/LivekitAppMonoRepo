@@ -6,6 +6,7 @@
 
 import { StreamingSessionHistory } from '../entities/StreamingSessionHistory';
 import { FunctionContext } from '../types/MessageTypes';
+import { Platform } from '../enums/Platform';
 
 /**
  * Interface for streaming session repository
@@ -75,10 +76,11 @@ export interface IStreamingSessionRepository {
   /**
    * Starts a new streaming session for a user
    * @param userId - The user's database ID
+   * @param platform - Optional platform identifier (electron or browser)
    * @returns Promise that resolves when the session is started
    * @throws Error if database operation fails
    */
-  startStreamingSession(userId: string): Promise<void>;
+  startStreamingSession(userId: string, platform?: Platform): Promise<void>;
 
   /**
    * Stops a streaming session for a user

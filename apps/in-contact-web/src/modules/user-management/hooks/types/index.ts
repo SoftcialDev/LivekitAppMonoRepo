@@ -6,6 +6,7 @@
 export type { UseApiOperationReturn } from './useApiOperationTypes';
 export type { UseModalStateReturn } from './useModalStateTypes';
 export type { UsePsoTransferReturn, PendingTransfer } from './usePsoTransferTypes';
+export type { UseSupervisorTransferReturn, PendingSupervisorTransfer } from './useSupervisorTransferTypes';
 export type { UseCandidateSelectionReturn } from './useCandidateSelectionTypes';
 export type { UseCandidateDataReturn } from './useCandidateDataTypes';
 export type { UseUserManagementOperationsReturn } from './useUserManagementOperationsTypes';

@@ -14,6 +14,7 @@ export * from './FormType';
 export * from './HealthStatus';
 export * from './MessagingChannel';
 export * from './Permission';
+export * from './Platform';
 export * from './RecordingStartStatus';
 export * from './RecordingStopStatus';
 export * from './SnapshotReason';

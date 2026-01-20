@@ -5,4 +5,5 @@
  */
 
 export { LogLevel, LOG_LEVEL_VALUES } from './LogLevel';
+export { Platform } from './Platform';
 
