@@ -32,6 +32,10 @@ export const FailureDetailsContent: React.FC<IFailureDetailsContentProps> = ({ f
           value={failure.userEmail || 'N/A'}
         />
         <DetailField
+          label="Command Initiator"
+          value={failure.callerEmail || 'N/A'}
+        />
+        <DetailField
           label="User AD ID"
           value={failure.userAdId}
           monospace={true}

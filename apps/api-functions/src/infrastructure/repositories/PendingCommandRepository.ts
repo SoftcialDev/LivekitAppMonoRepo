@@ -115,10 +115,11 @@ export class PendingCommandRepository implements IPendingCommandRepository {
    * @param command - The command type
    * @param timestamp - When the command was issued
    * @param reason - Optional reason for the command
+   * @param initiatedById - Optional ID of the user who initiated the command
    * @returns Promise that resolves to the created pending command
    * @throws Error if database operation fails
    */
-  async createPendingCommand(psoId: string, command: any, timestamp: Date, reason?: string): Promise<{ id: string; employeeId: string; command: string; timestamp: Date; reason?: string }> {
+  async createPendingCommand(psoId: string, command: any, timestamp: Date, reason?: string, initiatedById?: string): Promise<{ id: string; employeeId: string; command: string; timestamp: Date; reason?: string }> {
     try {
       const pendingCommand = await prisma.pendingCommand.create({
         data: {
@@ -126,6 +127,7 @@ export class PendingCommandRepository implements IPendingCommandRepository {
           command,
           timestamp,
           reason,
+          initiatedById: initiatedById || null,
           createdAt: getCentralAmericaTime(),
           updatedAt: getCentralAmericaTime()
         }
@@ -140,6 +142,41 @@ export class PendingCommandRepository implements IPendingCommandRepository {
       };
     } catch (error: unknown) {
       throw wrapEntityCreationError('Failed to create pending command', error);
+    }
+  }
+
+  /**
+   * Finds the most recent START command for a PSO within a specified time window
+   * @param psoId - The ID of the PSO
+   * @param withinMinutes - Time window in minutes to search for recent commands (default: 5 minutes)
+   * @returns Promise that resolves to the command with initiatedById, or null if not found
+   * @throws Error if database operation fails
+   */
+  async findRecentStartCommandForPso(psoId: string, withinMinutes: number = 5): Promise<{ id: string; initiatedById: string | null } | null> {
+    try {
+      const cutoffTime = new Date();
+      cutoffTime.setMinutes(cutoffTime.getMinutes() - withinMinutes);
+
+      const command = await prisma.pendingCommand.findFirst({
+        where: {
+          employeeId: psoId,
+          command: 'START',
+          timestamp: {
+            gte: cutoffTime
+          }
+        },
+        orderBy: {
+          timestamp: 'desc'
+        },
+        select: {
+          id: true,
+          initiatedById: true
+        }
+      });
+
+      return command || null;
+    } catch (error: unknown) {
+      throw wrapDatabaseQueryError('Failed to find recent START command for PSO', error);
     }
   }
 

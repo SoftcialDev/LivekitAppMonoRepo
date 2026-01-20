@@ -74,8 +74,8 @@ export function TableComponent<T extends { id?: string }>(
         />
       )}
 
-      <div className={`flex-1 overflow-y-auto overflow-x-hidden min-h-0 ${isModalMode ? 'custom-scrollbar' : ''} ${isModalMode ? 'px-6' : ''}`}>
-        <table className="w-full rounded-t-lg overflow-hidden border-b border-white">
+      <div className={`flex-1 overflow-y-auto overflow-x-auto min-h-0 ${isModalMode ? 'custom-scrollbar' : ''} ${isModalMode ? 'px-6' : ''}`}>
+        <table className="w-full rounded-t-lg overflow-hidden border-b border-white min-w-max">
           <TableHeader
             columns={columns}
             selection={selection}

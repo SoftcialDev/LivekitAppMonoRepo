@@ -50,5 +50,5 @@ export type CredsMap = Record<string, StreamCreds>;
 /**
  * Available grid layout options
  */
-export type LayoutOption = 1 | 2 | 3 | 4 | 5 | 6 | 9 | 12 | 20 | 200;
+export type LayoutOption = 1 | 2 | 3 | 4 | 5 | 6 | 9 | 12 | 15 | 20 | 200;
 

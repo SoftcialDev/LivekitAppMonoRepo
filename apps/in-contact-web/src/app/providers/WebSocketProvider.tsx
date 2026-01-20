@@ -11,6 +11,7 @@ import {
   SupervisorChangeNotificationHandler,
   SupervisorListChangedHandler,
 } from '@/modules/supervisor/services';
+import { CameraFailureMessageHandler } from '@/shared/services/webSocket/handlers/cameraFailure/CameraFailureMessageHandler';
 import { logDebug } from '@/shared/utils/logger';
 
 /**
@@ -41,6 +42,9 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     // Register supervisor handlers
     webSocketService.registerHandler(new SupervisorChangeNotificationHandler());
     webSocketService.registerHandler(new SupervisorListChangedHandler());
+
+    // Register camera failure handler
+    webSocketService.registerHandler(new CameraFailureMessageHandler());
 
     logDebug('WebSocket handlers registered successfully');
   }, []);

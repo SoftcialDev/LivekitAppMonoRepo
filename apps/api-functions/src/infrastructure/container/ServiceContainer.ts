@@ -253,7 +253,10 @@ export class ServiceContainer {
 
     this.register<ICameraFailureService>('CameraFailureService', () => {
       const repo = this.resolve<ICameraStartFailureRepository>('CameraStartFailureRepository');
-      return new CameraFailureApplicationService(repo);
+      const pendingCommandRepository = this.resolve<IPendingCommandRepository>('PendingCommandRepository');
+      const webPubSubService = this.resolve<IWebPubSubService>('WebPubSubService');
+      const userRepository = this.resolve<IUserRepository>('UserRepository');
+      return new CameraFailureApplicationService(repo, pendingCommandRepository, webPubSubService, userRepository);
     });
 
     this.register<ISupervisorManagementService>('SupervisorManagementService', () => {

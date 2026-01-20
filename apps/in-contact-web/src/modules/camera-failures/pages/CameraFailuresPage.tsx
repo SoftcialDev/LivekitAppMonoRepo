@@ -90,8 +90,9 @@ export const CameraFailuresPage: React.FC = () => {
   return (
     <>
       <div className="flex flex-col flex-1 min-h-0 bg-(--color-primary-dark) p-4">
-        <div className="flex justify-center max-w-[90%] w-full mx-auto">
-          <DataTable<CameraFailureReport>
+        <div className="flex justify-center w-full mx-auto overflow-x-auto">
+          <div className="min-w-full max-w-full">
+            <DataTable<CameraFailureReport>
             columns={columns}
             dataLoader={{
               totalCount: failures.length,
@@ -111,7 +112,8 @@ export const CameraFailuresPage: React.FC = () => {
             externalLoading={loading}
             externalLoadingAction="Loading camera failure logs..."
             search={{ enabled: true, placeholder: 'Search camera failures...' }}
-          />
+            />
+          </div>
         </div>
       </div>
 

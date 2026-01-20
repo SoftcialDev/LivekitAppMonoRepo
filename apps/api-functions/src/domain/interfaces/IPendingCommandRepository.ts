@@ -51,10 +51,20 @@ export interface IPendingCommandRepository {
    * @param command - The command type
    * @param timestamp - When the command was issued
    * @param reason - Optional reason for the command
+   * @param initiatedById - Optional ID of the user who initiated the command
    * @returns Promise that resolves to the created pending command
    * @throws Error if database operation fails
    */
-  createPendingCommand(psoId: string, command: any, timestamp: Date, reason?: string): Promise<{ id: string; employeeId: string; command: string; timestamp: Date; reason?: string }>;
+  createPendingCommand(psoId: string, command: any, timestamp: Date, reason?: string, initiatedById?: string): Promise<{ id: string; employeeId: string; command: string; timestamp: Date; reason?: string }>;
+
+  /**
+   * Finds the most recent START command for a PSO within a specified time window
+   * @param psoId - The ID of the PSO
+   * @param withinMinutes - Time window in minutes to search for recent commands (default: 5 minutes)
+   * @returns Promise that resolves to the command with initiatedById, or null if not found
+   * @throws Error if database operation fails
+   */
+  findRecentStartCommandForPso(psoId: string, withinMinutes?: number): Promise<{ id: string; initiatedById: string | null } | null>;
 
   /**
    * Marks a pending command as published

@@ -55,9 +55,54 @@ export class CameraStartFailureRepository implements ICameraStartFailureReposito
       orderBy: { createdAt: 'desc' },
       take: params?.limit,
       skip: params?.offset,
+      include: {
+        user: {
+          select: { id: true }
+        }
+      }
     });
 
-    return failures.map(this.mapToCameraStartFailure);
+    // Enrich each failure with callerId (initiator email) from recent START command
+    const enrichedFailures = await Promise.all(
+      failures.map(async (failure) => {
+        let callerEmail: string | null = null;
+        
+        if (failure.user?.id) {
+          // Find recent START command for this PSO (within 5 minutes before failure)
+          const fiveMinutesAgo = new Date(failure.createdAt);
+          fiveMinutesAgo.setMinutes(fiveMinutesAgo.getMinutes() - 5);
+          
+          const recentCommand = await prisma.pendingCommand.findFirst({
+            where: {
+              employeeId: failure.user.id,
+              command: 'START',
+              timestamp: {
+                gte: fiveMinutesAgo,
+                lte: failure.createdAt
+              },
+              initiatedById: { not: null }
+            },
+            orderBy: { timestamp: 'desc' },
+            include: {
+              initiatedBy: {
+                select: { email: true }
+              }
+            }
+          });
+          
+          if (recentCommand?.initiatedBy?.email) {
+            callerEmail = recentCommand.initiatedBy.email;
+          }
+        }
+        
+        return {
+          ...this.mapToCameraStartFailure(failure),
+          callerEmail
+        };
+      })
+    );
+
+    return enrichedFailures;
   }
 
   /**
@@ -68,9 +113,51 @@ export class CameraStartFailureRepository implements ICameraStartFailureReposito
   async findById(id: string): Promise<CameraStartFailure | null> {
     const failure = await prisma.cameraStartFailure.findUnique({
       where: { id },
+      include: {
+        user: {
+          select: { id: true }
+        }
+      }
     });
 
-    return failure ? this.mapToCameraStartFailure(failure) : null;
+    if (!failure) {
+      return null;
+    }
+
+    // Enrich with callerId (initiator email) from recent START command
+    let callerEmail: string | null = null;
+    
+    if (failure.user?.id) {
+      const fiveMinutesAgo = new Date(failure.createdAt);
+      fiveMinutesAgo.setMinutes(fiveMinutesAgo.getMinutes() - 5);
+      
+      const recentCommand = await prisma.pendingCommand.findFirst({
+        where: {
+          employeeId: failure.user.id,
+          command: 'START',
+          timestamp: {
+            gte: fiveMinutesAgo,
+            lte: failure.createdAt
+          },
+          initiatedById: { not: null }
+        },
+        orderBy: { timestamp: 'desc' },
+        include: {
+          initiatedBy: {
+            select: { email: true }
+          }
+        }
+      });
+      
+      if (recentCommand?.initiatedBy?.email) {
+        callerEmail = recentCommand.initiatedBy.email;
+      }
+    }
+
+    return {
+      ...this.mapToCameraStartFailure(failure),
+      callerEmail
+    };
   }
 
   /**

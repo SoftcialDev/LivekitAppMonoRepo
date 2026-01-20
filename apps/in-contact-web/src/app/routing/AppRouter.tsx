@@ -20,6 +20,7 @@ import { createBrowserRouter, RouterProvider, Outlet, Navigate } from 'react-rou
 import { AuthProvider, useAuth } from '@/modules/auth';
 import { ToastProvider } from '@/ui-kit/feedback';
 import { WebSocketProvider } from '@/app/providers/WebSocketProvider';
+import { useCameraFailureNotifications } from '@/modules/camera-failures/hooks/useCameraFailureNotifications';
 import { setTokenGetter } from '@/shared/api/apiClient';
 import { logDebug } from '@/shared/utils/logger';
 import { DashboardLayout } from '../layouts';
@@ -33,6 +34,7 @@ import { cameraFailuresRoutes } from '@/modules/camera-failures/routes';
 import { psoStreamingRoutes } from '@/modules/pso-streaming/routes';
 import { contactManagerDashboardRoutes } from '@/modules/contact-manager-dashboard/routes';
 import { psoDashboardRoutes } from '@/modules/pso-dashboard/routes';
+import { JSX } from 'react/jsx-runtime';
 
 /**
  * Injects a fresh API token into the Axios client once the user is authenticated.
@@ -54,6 +56,17 @@ function TokenInjector(): null {
 }
 
 /**
+ * Internal component that sets up camera failure notifications
+ * Must be inside ToastProvider to use useToast hook
+ * 
+ * @returns null (no-op component)
+ */
+function CameraFailureNotifications(): null {
+  useCameraFailureNotifications();
+  return null;
+}
+
+/**
  * Layout wrapper that includes providers and token injection
  * 
  * @returns JSX element with providers and outlet for routes
@@ -62,6 +75,7 @@ function AppProviders(): JSX.Element {
   return (
     <AuthProvider>
       <ToastProvider>
+        <CameraFailureNotifications />
         <WebSocketProvider>
           <TokenInjector />
           <Outlet />

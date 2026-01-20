@@ -20,6 +20,7 @@ import { IUserRepository } from '../../domain/interfaces/IUserRepository';
 import { IAuthorizationService } from '../../domain/interfaces/IAuthorizationService';
 import { ICommandMessagingService } from '../../domain/interfaces/ICommandMessagingService';
 import { IWebPubSubService } from '../../domain/interfaces/IWebPubSubService';
+import { IPendingCommandDomainService } from '../../domain/interfaces/IPendingCommandDomainService';
 import { handleAnyError } from '../../utils/errorHandler';
 
 /**
@@ -59,11 +60,13 @@ export default withErrorHandler(async (ctx: Context) => {
       const authorizationService = serviceContainer.resolve<IAuthorizationService>('AuthorizationService');
       const commandMessagingService = serviceContainer.resolve<ICommandMessagingService>('CommandMessagingService');
       const webPubSubService = serviceContainer.resolve<IWebPubSubService>('WebPubSubService');
+      const pendingCommandDomainService = serviceContainer.resolve<IPendingCommandDomainService>('PendingCommandDomainService');
       const commandApplicationService = new CommandApplicationService(
         userRepository,
         authorizationService,
         commandMessagingService,
-        webPubSubService
+        webPubSubService,
+        pendingCommandDomainService
       );
 
       // Validate request body
@@ -77,7 +80,7 @@ export default withErrorHandler(async (ctx: Context) => {
 
           // Create and send command
           const command = Command.fromRequest({ command: commandType, employeeEmail, reason });
-          const result = await commandApplicationService.sendCameraCommand(command);
+          const result = await commandApplicationService.sendCameraCommand(command, callerId);
 
           const channelName = result.sentVia === MessagingChannel.WebSocket ? "WebSocket" : "Service Bus";
           return ok(ctx, {

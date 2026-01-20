@@ -10,6 +10,7 @@ import { IUserRepository } from '../../domain/interfaces/IUserRepository';
 import { IAuthorizationService } from '../../domain/interfaces/IAuthorizationService';
 import { ICommandMessagingService } from '../../domain/interfaces/ICommandMessagingService';
 import { IWebPubSubService } from '../../domain/interfaces/IWebPubSubService';
+import { IPendingCommandDomainService } from '../../domain/interfaces/IPendingCommandDomainService';
 import { MessagingError } from '../../domain/errors/DomainError';
 import { MessagingErrorCode } from '../../domain/errors/ErrorCodes';
 import { ValidationUtils } from '../../domain/utils/ValidationUtils';
@@ -23,6 +24,7 @@ export class CommandApplicationService {
   private readonly userRepository: IUserRepository;
   private readonly authorizationService: IAuthorizationService;
   private readonly webPubSubService: IWebPubSubService;
+  private readonly pendingCommandDomainService: IPendingCommandDomainService;
 
   /**
    * Creates a new CommandApplicationService instance
@@ -30,17 +32,20 @@ export class CommandApplicationService {
    * @param authorizationService - Authorization service for permission checks
    * @param commandMessagingService - Messaging service for command delivery
    * @param webPubSubService - WebSocket service for broadcasting events
+   * @param pendingCommandDomainService - Domain service for pending command operations
    */
   constructor(
     userRepository: IUserRepository,
     authorizationService: IAuthorizationService,
     commandMessagingService: ICommandMessagingService,
-    webPubSubService: IWebPubSubService
+    webPubSubService: IWebPubSubService,
+    pendingCommandDomainService: IPendingCommandDomainService
   ) {
     this.userRepository = userRepository;
     this.authorizationService = authorizationService;
     this.commandMessagingService = commandMessagingService;
     this.webPubSubService = webPubSubService;
+    this.pendingCommandDomainService = pendingCommandDomainService;
   }
 
   /**
@@ -56,11 +61,40 @@ export class CommandApplicationService {
   /**
    * Sends a camera command to a PSO
    * @param command - The command to send
+   * @param callerId - Optional Azure AD Object ID of the user who initiated the command
    * @returns Promise that resolves to messaging result
    * @throws MessagingError if command delivery fails
    */
-  async sendCameraCommand(command: Command): Promise<MessagingResult> {
+  async sendCameraCommand(command: Command, callerId?: string): Promise<MessagingResult> {
     try {
+      // Find PSO user to get database ID
+      const psoUser = await this.userRepository.findByEmail(command.employeeEmail);
+      if (!psoUser) {
+        throw new MessagingError(
+          `PSO user not found: ${command.employeeEmail}`,
+          MessagingErrorCode.COMMAND_DELIVERY_FAILED
+        );
+      }
+
+      // Find caller user to get database ID if callerId provided
+      let callerDatabaseId: string | undefined;
+      if (callerId) {
+        const callerUser = await this.userRepository.findByAzureAdObjectId(callerId);
+        if (callerUser) {
+          callerDatabaseId = callerUser.id;
+        }
+      }
+
+      // Always create PendingCommand for tracking, even if WebSocket succeeds
+      // This ensures we can track who sent the command and notify them if errors occur
+      await this.pendingCommandDomainService.createPendingCommand(
+        psoUser.id,
+        command.type,
+        command.timestamp,
+        command.reason,
+        callerDatabaseId
+      );
+
       // Use the existing CommandMessagingService to send the command
       const groupName = `commands:${command.employeeEmail}`;
       await this.commandMessagingService.sendToGroup(groupName, command.toPayload() as Record<string, unknown>);

@@ -67,13 +67,16 @@ export class WebPubSubTokenDomainService {
     const normalizedEmail = email.trim().toLowerCase();
     const groups: string[] = [WebPubSubGroups.PRESENCE]; // All users get presence group
 
+    // All users get their personal group (email) for receiving targeted messages
+    // This allows Admins/Supervisors to receive camera failure notifications
+    // and PSOs to receive command messages
+    groups.unshift(normalizedEmail);
+
     // PSOs get additional groups for commands and status updates
     if (role === UserRole.PSO) {
-      groups.unshift(normalizedEmail); // Personal group for commands
       groups.push(WebPubSubGroups.CM_STATUS_UPDATES); // Contact Manager status updates
     }
 
-    // Admins, Supervisors, ContactManagers, SuperAdmins remain on presence group only
     return groups;
   }
 }

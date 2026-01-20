@@ -96,6 +96,7 @@ model User {
   presenceHistory              PresenceHistory[]
   recordingSessions            RecordingSession[]
   commands                     PendingCommand[]            @relation("EmployeeCommands")
+  initiatedCommands            PendingCommand[]            @relation("InitiatedCommands")
 
   streamingSessions            StreamingSessionHistory[]
   auditLogs                    AuditLog[]                  @relation("UserAuditLogs")
@@ -165,9 +166,13 @@ model PendingCommand {
   expiresAt       DateTime?
   createdAt       DateTime
   updatedAt       DateTime
+  
+  initiatedById   String?     @db.Uuid
+  initiatedBy     User?       @relation("InitiatedCommands", fields: [initiatedById], references: [id], onDelete: SetNull)
 
   @@index([employeeId, acknowledged])
   @@index([expiresAt])
+  @@index([employeeId, command, timestamp])
 }
 
 // Streaming session history per user
