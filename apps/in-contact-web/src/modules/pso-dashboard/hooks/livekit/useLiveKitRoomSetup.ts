@@ -245,7 +245,7 @@ export function useLiveKitRoomSetup(options?: IUseLiveKitRoomSetupOptions) {
   const setupRoom = useCallback(async (
     room: Room, 
     videoTrack: LocalVideoTrack,
-    audioRef?: React.RefObject<HTMLAudioElement>
+    audioRef?: React.RefObject<HTMLAudioElement | null>
   ): Promise<void> => {
     logDebug('[LiveKit] Setting up room');
     

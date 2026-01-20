@@ -10,6 +10,7 @@ import { RoomEvent } from 'livekit-client';
 import { logError, logWarn, logDebug } from '@/shared/utils/logger';
 import { LiveKitConnectionError } from '../errors/livekitErrors';
 import { validateConnectionParams, createOptimizedRoom } from '../utils/roomConnectionUtils';
+import { reportLiveKitConnectionFailure } from '@/modules/camera-failures/utils/cameraFailureReporting';
 import type {
   IUseRoomConnectionOptions,
   IUseRoomConnectionReturn,
@@ -31,6 +32,8 @@ export function useRoomConnection(
     onConnected,
     onDisconnected,
     onReconnecting,
+    userAdId,
+    userEmail,
   } = options;
 
   const isConnectingRef = useRef(false);
@@ -86,6 +89,20 @@ export function useRoomConnection(
       );
       errorRef.current = connectionError;
       logError('[useRoomConnection] Connection failed', { error: connectionError, roomName });
+
+      // Report failure to backend if user info is available
+      if (userAdId && userEmail) {
+        reportLiveKitConnectionFailure({
+          userAdId,
+          userEmail,
+          error,
+          roomName: roomName || undefined,
+          livekitUrl: livekitUrl || undefined,
+        }).catch((reportError) => {
+          logDebug('[useRoomConnection] Failed to report camera failure', { error: reportError });
+        });
+      }
+
       throw connectionError;
     }
   }, [shouldStream, accessToken, roomName, livekitUrl, onConnected, onDisconnected, onReconnecting]);

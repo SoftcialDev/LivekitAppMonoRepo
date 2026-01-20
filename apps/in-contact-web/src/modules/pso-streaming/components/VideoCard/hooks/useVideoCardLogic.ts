@@ -127,6 +127,8 @@ export function useVideoCardLogic(
     onRoomDisconnected: () => {
       logDebug('[VideoCard] Room disconnected', { roomName, email });
     },
+    userAdId: userInfo?.azureAdObjectId,
+    userEmail: userInfo?.email || account?.username,
   });
 
   /**

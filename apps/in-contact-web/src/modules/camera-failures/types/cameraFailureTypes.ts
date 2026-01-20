@@ -142,9 +142,169 @@ export interface GetCameraFailuresResponse {
    */
   offset?: number;
 
+/**
+ * Whether there are more results
+ */
+hasMore: boolean;
+}
+
+/**
+ * Request payload for reporting a camera failure
+ */
+export interface ReportCameraFailureRequest {
   /**
-   * Whether there are more results
+   * Stage where the failure occurred
    */
-  hasMore: boolean;
+  stage: CameraFailureStage;
+
+  /**
+   * Error name/type (max 100 characters)
+   */
+  errorName?: string;
+
+  /**
+   * Error message (max 1000 characters)
+   */
+  errorMessage?: string;
+
+  /**
+   * Number of devices detected
+   */
+  deviceCount?: number;
+
+  /**
+   * Snapshot of devices at failure time
+   */
+  devicesSnapshot?: Array<{
+    /**
+     * Device label
+     */
+    label: string | null;
+
+    /**
+     * Device ID hash
+     */
+    deviceId: string | null;
+
+    /**
+     * Device group ID
+     */
+    groupId?: string | null;
+
+    /**
+     * Vendor ID
+     */
+    vendorId?: string;
+
+    /**
+     * Product ID
+     */
+    productId?: string;
+  }>;
+
+  /**
+   * Attempts made to start devices
+   */
+  attempts?: Array<{
+    /**
+     * Device label
+     */
+    label?: string | null;
+
+    /**
+     * Device ID
+     */
+    deviceId?: string | null;
+
+    /**
+     * Result of the attempt
+     */
+    result: 'ok' | 'failed' | 'other';
+
+    /**
+     * Error name if failed
+     */
+    errorName?: string;
+
+    /**
+     * Error message if failed
+     */
+    errorMessage?: string;
+  }>;
+
+  /**
+   * Additional metadata
+   */
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * Options for reporting a LiveKit connection failure
+ */
+export interface ReportLiveKitConnectionFailureOptions {
+  /**
+   * User Azure AD Object ID
+   */
+  userAdId: string;
+
+  /**
+   * User email address
+   */
+  userEmail: string;
+
+  /**
+   * Error that occurred
+   */
+  error: Error | unknown;
+
+  /**
+   * Room name (optional)
+   */
+  roomName?: string;
+
+  /**
+   * LiveKit server URL (optional)
+   */
+  livekitUrl?: string;
+}
+
+/**
+ * Options for reporting a media permission failure
+ */
+export interface ReportMediaPermissionFailureOptions {
+  /**
+   * User Azure AD Object ID
+   */
+  userAdId: string;
+
+  /**
+   * User email address
+   */
+  userEmail: string;
+
+  /**
+   * Error that occurred
+   */
+  error: Error | unknown;
+
+  /**
+   * Available camera devices (from MediaPermissionError)
+   */
+  cameras?: globalThis.MediaDeviceInfo[];
+
+  /**
+   * Available microphone devices (from MediaPermissionError)
+   */
+  microphones?: globalThis.MediaDeviceInfo[];
+
+  /**
+   * Whether camera permission is blocked
+   */
+  cameraBlocked?: boolean;
+
+  /**
+   * Whether microphone permission is blocked
+   */
+  microphoneBlocked?: boolean;
 }
 

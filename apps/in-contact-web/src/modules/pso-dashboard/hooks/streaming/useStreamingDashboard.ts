@@ -9,11 +9,15 @@
 import { useRef, useState, useCallback, useEffect } from 'react';
 import { Room, LocalVideoTrack } from 'livekit-client';
 import { logError, logDebug, logInfo } from '@/shared/utils/logger';
-import { useAuth } from '@/modules/auth';
+import { useAuth, useUserInfo } from '@/modules/auth';
 import { getLiveKitToken } from '@/modules/pso-streaming/api';
 import { useLiveKitRoomSetup } from '../livekit';
 import { useMediaDevices } from '../media/useMediaDevices';
 import { StreamingClient } from '../../api';
+import {
+  handlePermissionError,
+  handleConnectionError,
+} from './utils/errorHandling';
 import type { IUseStreamingDashboardReturn } from './types/useStreamingDashboardTypes';
 
 /**
@@ -32,7 +36,9 @@ import type { IUseStreamingDashboardReturn } from './types/useStreamingDashboard
  */
 export function useStreamingDashboard(): IUseStreamingDashboardReturn {
   const { account } = useAuth();
+  const { userInfo } = useUserInfo();
   const userEmail = account?.username?.toLowerCase() ?? '';
+  const userAdId = userInfo?.azureAdObjectId;
 
   // Refs for DOM elements
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -178,12 +184,26 @@ export function useStreamingDashboard(): IUseStreamingDashboardReturn {
       }
 
       const track = await getOrCreateVideoTrack();
-      const room = await connectToRoomWithTimeout(livekitUrl, token, currentRoomName, attempt);
-      roomRef.current = room;
+      let room: Room;
+      try {
+        room = await connectToRoomWithTimeout(livekitUrl, token, currentRoomName, attempt);
+        roomRef.current = room;
+      } catch (connectError) {
+        // Report connection failure (does not throw)
+        await handleConnectionError({
+          userAdId,
+          userEmail,
+          error: connectError,
+          roomName: currentRoomName || undefined,
+          livekitUrl: livekitUrl || undefined,
+        });
+        throw connectError;
+      }
 
       // Set up room and publish video track using roomSetupRef (with audioRef for remote participant audio)
       const currentRoomSetup = roomSetupRef.current;
       if (!currentRoomSetup) {
+        logError('[useStreamingDashboard] Room setup not available for reconnection');
         throw new Error('Room setup not available for reconnection');
       }
       await currentRoomSetup.setupRoom(room, track, audioRef);
@@ -210,7 +230,7 @@ export function useStreamingDashboard(): IUseStreamingDashboardReturn {
       });
       return false; // Failed
     }
-  }, [userEmail, cleanupOldRoom, getOrCreateVideoTrack, connectToRoomWithTimeout]);
+  }, [userEmail, userAdId, cleanupOldRoom, getOrCreateVideoTrack, connectToRoomWithTimeout]);
 
   /**
    * Handles automatic reconnection when room disconnects or track ends
@@ -276,7 +296,17 @@ export function useStreamingDashboard(): IUseStreamingDashboardReturn {
       logDebug('[useStreamingDashboard] Starting stream', { userEmail });
 
       // Request camera permission
-      await mediaDevices.requestCameraPermission();
+      try {
+        await mediaDevices.requestCameraPermission();
+      } catch (permissionError) {
+        // Report permission failure (does not throw)
+        await handlePermissionError({
+          userAdId,
+          userEmail,
+          error: permissionError,
+        });
+        throw permissionError;
+      }
 
       // Create video track (240p at 15 fps)
       const track = await mediaDevices.createVideoTrackFromDevices();
@@ -321,8 +351,20 @@ export function useStreamingDashboard(): IUseStreamingDashboardReturn {
         roomRef.current = null;
       });
 
-      await room.connect(livekitUrl, token);
-      roomRef.current = room;
+      try {
+        await room.connect(livekitUrl, token);
+        roomRef.current = room;
+      } catch (connectError) {
+        // Report connection failure (does not throw)
+        await handleConnectionError({
+          userAdId,
+          userEmail,
+          error: connectError,
+          roomName: currentRoomName || undefined,
+          livekitUrl: livekitUrl || undefined,
+        });
+        throw connectError;
+      }
 
       // Set up room and publish video track (with audioRef for remote participant audio)
       await roomSetup.setupRoom(room, track, audioRef);

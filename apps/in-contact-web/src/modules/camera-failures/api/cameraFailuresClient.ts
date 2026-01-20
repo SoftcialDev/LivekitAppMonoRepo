@@ -1,15 +1,17 @@
 /**
  * @fileoverview Camera Failures API client
  * @summary API functions for camera failure reports
- * @description Provides API functions for fetching camera failure reports
+ * @description Provides API functions for fetching and reporting camera failure reports
  */
 
 import apiClient from '@/shared/api/apiClient';
 import { extractErrorMessage } from '@/shared/utils/errorUtils';
+import { logError } from '@/shared/utils/logger';
 import type {
   CameraFailureReport,
   CameraFailureQueryParams,
   GetCameraFailuresResponse,
+  ReportCameraFailureRequest,
 } from '../types/cameraFailureTypes';
 import {
   CameraFailuresFetchError,
@@ -77,6 +79,26 @@ export async function getCameraFailureById(id: string): Promise<CameraFailureRep
   } catch (error) {
     const errorMessage = extractErrorMessage(error, 'Failed to fetch camera failure log');
     throw new CameraFailureByIdFetchError(errorMessage, error instanceof Error ? error : new Error(errorMessage));
+  }
+}
+
+/**
+ * Reports a camera failure to the backend
+ * 
+ * @param failure - Camera failure data to report
+ * @returns Promise that resolves when the report is sent successfully
+ * @remarks This function fails silently to avoid disrupting user experience
+ */
+export async function reportCameraFailure(failure: ReportCameraFailureRequest): Promise<void> {
+  try {
+    await apiClient.post<{ stored: boolean }>('/api/CameraStartFailures', failure);
+  } catch (error) {
+    // Fail silently - we don't want error reporting failures to disrupt user experience
+    logError('[reportCameraFailure] Failed to report camera failure', {
+      error,
+      stage: failure.stage,
+      errorName: failure.errorName,
+    });
   }
 }
 

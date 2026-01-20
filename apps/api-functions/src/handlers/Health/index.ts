@@ -15,6 +15,16 @@ import { config } from '../../config';
 import { unknownToString } from '../../utils/stringHelpers';
 
 /**
+ * List of allowed environment variables that can be retrieved via query parameter
+ */
+const ALLOWED_ENV_VARS = [
+  'AZURE_TENANT_ID',
+  'AZURE_CLIENT_ID',
+  'AZURE_AD_API_IDENTIFIER_URI',
+  'SERVICE_PRINCIPAL_OBJECT_ID'
+] as const;
+
+/**
  * Parses query parameters from HTTP request
  * @param query - Query parameters object
  * @returns Parsed query parameters
@@ -23,15 +33,24 @@ function parseQueryParams(query: Record<string, unknown>): {
   verbose: boolean;
   dbEnabled: boolean;
   includeUsers: boolean;
+  envVars: string[];
 } {
   const verboseStr = unknownToString(query.verbose, '');
   const dbStr = unknownToString(query.db, 'true');
   const usersStr = unknownToString(query.users, '');
+  const envVarsStr = unknownToString(query.envVars, '');
+  
+  // Parse envVars as comma-separated list, filter to only allowed vars
+  const envVars = envVarsStr
+    .split(',')
+    .map(v => v.trim().toUpperCase())
+    .filter(v => v && ALLOWED_ENV_VARS.includes(v as typeof ALLOWED_ENV_VARS[number]));
   
   return {
     verbose: verboseStr.toLowerCase() === "true",
     dbEnabled: dbStr.toLowerCase() !== "false",
     includeUsers: usersStr.toLowerCase() === "true",
+    envVars,
   };
 }
 
@@ -127,6 +146,28 @@ function createErrorResponse(error: unknown): {
 }
 
 /**
+ * Gets environment variable values for requested variables
+ * @param envVars - Array of environment variable names to retrieve
+ * @returns Object mapping variable names to their values
+ */
+function getEnvironmentVariables(envVars: string[]): Record<string, string | undefined> {
+  const result: Record<string, string | undefined> = {};
+  
+  const configMap: Record<string, string | undefined> = {
+    'AZURE_TENANT_ID': config.azureTenantId,
+    'AZURE_CLIENT_ID': config.azureClientId,
+    'AZURE_AD_API_IDENTIFIER_URI': config.azureAdApiIdentifierUri,
+    'SERVICE_PRINCIPAL_OBJECT_ID': config.servicePrincipalObjectId,
+  };
+  
+  envVars.forEach(varName => {
+    result[varName] = configMap[varName];
+  });
+  
+  return result;
+}
+
+/**
  * Health check endpoint
  * 
  * GET /api/health
@@ -136,6 +177,8 @@ function createErrorResponse(error: unknown): {
  *   - Shows partial Azure Storage variable details (preview, length, base64 validation)
  * - db=false: skips database connectivity test
  * - users=true: includes all users from the database in the response
+ * - envVars=AZURE_TENANT_ID,AZURE_CLIENT_ID,...: returns full values for specified environment variables
+ *   Allowed variables: AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_AD_API_IDENTIFIER_URI, SERVICE_PRINCIPAL_OBJECT_ID
  * 
  * Responses:
  * - 200: all checks passed
@@ -154,7 +197,7 @@ export default async function HealthFunction(ctx: Context): Promise<void> {
 
     const req = (ctx.req ?? {}) as HttpRequest;
     const query = (req.query ?? {}) as Record<string, unknown>;
-    const { verbose, dbEnabled, includeUsers } = parseQueryParams(query);
+    const { verbose, dbEnabled, includeUsers, envVars } = parseQueryParams(query);
 
     log('[Health] Initializing services');
     const healthCheckDomainService = new HealthCheckDomainService();
@@ -175,6 +218,12 @@ export default async function HealthFunction(ctx: Context): Promise<void> {
         env: envCheck
       }
     };
+
+    // Add environment variables if requested
+    if (envVars.length > 0) {
+      log('[Health] Getting requested environment variables');
+      payload.environmentVariables = getEnvironmentVariables(envVars);
+    }
 
     log('[Health] Checking database connectivity');
     if (dbEnabled) {

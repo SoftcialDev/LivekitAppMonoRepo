@@ -11,6 +11,7 @@ import { logError, logWarn, logDebug } from '@/shared/utils/logger';
 import { useRoomConnection } from './hooks/useRoomConnection';
 import { useRoomReconnection } from './hooks/useRoomReconnection';
 import { cleanupRoom } from './utils/roomConnectionUtils';
+import { reportLiveKitConnectionFailure } from '@/modules/camera-failures/utils/cameraFailureReporting';
 import type {
   IUseLiveKitRoomConnectionOptions,
   IUseLiveKitRoomConnectionReturn,
@@ -33,6 +34,8 @@ export function useLiveKitRoomConnection(
     roomRef,
     onRoomConnected,
     onRoomDisconnected,
+    userAdId,
+    userEmail,
   } = options;
 
   const [isConnected, setIsConnected] = useState(false);
@@ -186,6 +189,8 @@ export function useLiveKitRoomConnection(
     onConnected: handleRoomConnected,
     onDisconnected: enhancedHandleDisconnected,
     onReconnecting: handleReconnecting,
+    userAdId,
+    userEmail,
   });
 
   // Connect function
@@ -224,6 +229,19 @@ export function useLiveKitRoomConnection(
       errorRef.current = connectionError;
       setError(connectionError);
       logError('[useLiveKitRoomConnection] Connection failed', { error: connectionError });
+
+      // Report failure to backend if user info is available
+      if (userAdId && userEmail) {
+        reportLiveKitConnectionFailure({
+          userAdId,
+          userEmail,
+          error: err,
+          roomName: roomNameRef.current || undefined,
+          livekitUrl: livekitUrlRef.current || undefined,
+        }).catch((reportError) => {
+          logDebug('[useLiveKitRoomConnection] Failed to report camera failure', { error: reportError });
+        });
+      }
     }
   }, [roomConnection, roomReconnection, handleRoomConnected, roomRef]);
 

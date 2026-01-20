@@ -5,4 +5,8 @@
 
 export type { IUseStreamingDashboardReturn } from './useStreamingDashboardTypes';
 export type { IUseStreamCommandHandlingOptions } from './useStreamCommandHandlingTypes';
+export type {
+  HandlePermissionErrorOptions,
+  HandleConnectionErrorOptions,
+} from './errorHandlingTypes';
 

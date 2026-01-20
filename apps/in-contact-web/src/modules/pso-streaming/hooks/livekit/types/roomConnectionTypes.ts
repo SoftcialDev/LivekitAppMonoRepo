@@ -38,6 +38,14 @@ export interface IUseLiveKitRoomConnectionOptions {
    * Callback when room is disconnected
    */
   onRoomDisconnected?: () => void;
+  /**
+   * User Azure AD Object ID for error reporting
+   */
+  userAdId?: string;
+  /**
+   * User email for error reporting
+   */
+  userEmail?: string;
 }
 
 /**
@@ -77,6 +85,14 @@ export interface IUseRoomConnectionOptions {
   onConnected: (room: Room) => void;
   onDisconnected: (reason?: DisconnectReason) => void;
   onReconnecting: () => void;
+  /**
+   * User Azure AD Object ID for error reporting
+   */
+  userAdId?: string;
+  /**
+   * User email for error reporting
+   */
+  userEmail?: string;
 }
 
 /**

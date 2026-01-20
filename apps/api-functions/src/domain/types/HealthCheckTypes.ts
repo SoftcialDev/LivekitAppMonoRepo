@@ -94,5 +94,6 @@ export interface HealthCheckResponse {
     database?: DatabaseCheck;
   };
   users?: HealthCheckUser[] | { error: string };
+  environmentVariables?: Record<string, string | undefined>;
 }
 

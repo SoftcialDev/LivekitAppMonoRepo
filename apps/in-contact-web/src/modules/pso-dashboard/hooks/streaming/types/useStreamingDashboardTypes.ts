@@ -12,12 +12,12 @@ export interface IUseStreamingDashboardReturn {
   /**
    * Reference to video element
    */
-  videoRef: React.RefObject<HTMLVideoElement>;
+  videoRef: React.RefObject<HTMLVideoElement | null>;
 
   /**
    * Reference to audio element
    */
-  audioRef: React.RefObject<HTMLAudioElement>;
+  audioRef: React.RefObject<HTMLAudioElement | null>;
 
   /**
    * Whether streaming is currently active
