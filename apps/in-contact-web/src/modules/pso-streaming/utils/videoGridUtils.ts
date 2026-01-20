@@ -8,13 +8,20 @@ import type React from 'react';
 
 /**
  * Calculates the number of columns for the grid based on item count
+ * 
+ * Responsive column layout:
+ * - 1 camera: 1 column (full width)
+ * - 2-4 cameras: 2 columns
+ * - 5-9 cameras: 3 columns
+ * - 10-15 cameras: 4 columns
+ * - 16+ cameras: 5 columns
  */
 export function calculateGridColumns(itemCount: number): number {
   if (itemCount === 1) return 1;
-  if (itemCount === 2) return 2;
-  if (itemCount === 3) return 2;
-  if (itemCount === 4) return 2;
-  return 3;
+  if (itemCount >= 2 && itemCount <= 4) return 2;
+  if (itemCount >= 5 && itemCount <= 9) return 3;
+  if (itemCount >= 10 && itemCount <= 15) return 4;
+  return 5; // 16+ cameras
 }
 
 /**
@@ -50,14 +57,16 @@ export function calculateItemStyle(itemIndex: number, totalCount: number): React
 
 /**
  * Calculates alignment class for grid items
+ * 
+ * Centers items in the last row when they don't fill all columns
  */
 export function calculateAlignClass(itemIndex: number, totalCount: number): string {
   const cols = calculateGridColumns(totalCount);
-  const rows = Math.ceil(totalCount / 3);
-  const rowIndex = Math.floor(itemIndex / 3);
+  const rows = Math.ceil(totalCount / cols);
+  const rowIndex = Math.floor(itemIndex / cols);
   const inLastRow = rowIndex === rows - 1;
-  const itemsLast = totalCount - 3 * (rows - 1);
-  const shouldCenter = cols === 3 && inLastRow && itemsLast > 0 && itemsLast < 3;
+  const itemsInLastRow = totalCount % cols || cols;
+  const shouldCenter = inLastRow && itemsInLastRow > 0 && itemsInLastRow < cols;
   
   return shouldCenter ? 'justify-self-center' : 'justify-self-stretch';
 }

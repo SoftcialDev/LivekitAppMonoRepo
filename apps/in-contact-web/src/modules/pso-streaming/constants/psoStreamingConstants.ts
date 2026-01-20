@@ -9,7 +9,7 @@ import type { LayoutOption } from '../types';
 /**
  * Available grid layout options for PSO video cards
  */
-export const LAYOUT_OPTIONS: readonly LayoutOption[] = [1, 2, 3, 4, 5, 6, 9, 12, 20, 200] as const;
+export const LAYOUT_OPTIONS: readonly LayoutOption[] = [1, 2, 3, 4, 5, 6, 9, 12, 15, 20, 200] as const;
 
 /**
  * Prefix for localStorage keys scoped by viewer email

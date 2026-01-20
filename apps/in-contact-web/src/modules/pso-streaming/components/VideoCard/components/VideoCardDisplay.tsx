@@ -5,7 +5,7 @@
  * or a placeholder with status message and timer when not streaming.
  */
 
-import React, { useState, useCallback } from 'react';
+import React from 'react';
 import { CompactTimer } from '../../TimerDisplay';
 import { RefreshButton } from '../../RefreshButton';
 import type { IVideoCardDisplayProps } from '../types/videoCardComponentTypes';
@@ -14,8 +14,9 @@ import type { IVideoCardDisplayProps } from '../types/videoCardComponentTypes';
  * VideoCardDisplay component
  * 
  * Renders video element when streaming is active, or placeholder with status
- * message and timer when not streaming. Container adapts to video aspect ratio
- * to prevent cropping.
+ * message and timer when not streaming. Container uses fixed 16:9 aspect ratio
+ * for uniform sizing across grid. Video uses object-contain to prevent cropping,
+ * which may result in black bars if video aspect ratio differs from 16:9.
  */
 export const VideoCardDisplay: React.FC<IVideoCardDisplayProps> = ({
   shouldStream,
@@ -30,21 +31,13 @@ export const VideoCardDisplay: React.FC<IVideoCardDisplayProps> = ({
   // This ensures timer is shown when shouldStream is false, even if accessToken exists
   const showVideo = shouldStream;
 
-  const [aspectRatio, setAspectRatio] = useState<number | null>(null);
-
-  const handleLoadedMetadata = useCallback((e: React.SyntheticEvent<HTMLVideoElement>) => {
-    const video = e.currentTarget;
-    if (video.videoWidth && video.videoHeight) {
-      const ratio = video.videoHeight / video.videoWidth;
-      setAspectRatio(ratio);
-    }
-  }, []);
-
-  const containerPaddingBottom = aspectRatio ? `${aspectRatio * 100}%` : '56.25%';
+  // Use fixed 16:9 aspect ratio for consistent card sizes across the grid
+  // This ensures all video cards have uniform dimensions regardless of video source aspect ratio
+  const containerPaddingBottom = '56.25%'; // 16:9 aspect ratio (9/16 * 100)
 
   return (
     <div 
-      className="relative w-full bg-black! rounded-xl" 
+      className="relative w-full rounded-xl overflow-hidden" 
       style={{ 
         backgroundColor: '#000000',
         paddingBottom: containerPaddingBottom,
@@ -59,7 +52,6 @@ export const VideoCardDisplay: React.FC<IVideoCardDisplayProps> = ({
             muted
             controls={false}
             className="absolute inset-0 w-full h-full object-contain rounded-xl"
-            onLoadedMetadata={handleLoadedMetadata}
             onError={(e) => {
               const error = e.currentTarget.error;
               if (error) {

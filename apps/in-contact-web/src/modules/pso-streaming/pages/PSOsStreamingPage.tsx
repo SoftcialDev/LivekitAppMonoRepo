@@ -205,7 +205,7 @@ const PSOsStreamingPage: React.FC = () => {
   }
 
   return (
-    <div className="relative flex flex-col flex-1 h-full bg-(--color-primary-dark) p-10 overflow-x-hidden">
+    <div className="relative flex flex-col flex-1 h-full bg-(--color-primary-dark) p-10 overflow-hidden">
       <div className="flex items-center mb-6 space-x-4">
         <SearchableDropdown<string>
           options={allPsos.map(p => ({

@@ -26,7 +26,7 @@ export const VideoGridContainer: React.FC<IVideoGridContainerProps> = ({
 
   return (
     <div
-      className={`video-grid-container grid gap-4 grow transition-all duration-300 ease-in-out ${className}`}
+      className={`video-grid-container grid gap-4 grow transition-all duration-300 ease-in-out overflow-y-auto ${className}`}
       style={{
         gridTemplateColumns,
         paddingBottom: '260px',
