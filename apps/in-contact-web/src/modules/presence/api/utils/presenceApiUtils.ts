@@ -4,6 +4,7 @@
 
 import { PresenceStatus } from '../../enums';
 import { PRESENCE_PAGE_SIZE } from '../../constants/presenceConstants';
+import { Platform } from '@/shared/enums/Platform';
 import type { PresenceItem, PagedPresenceResponse, UserStatus } from '../../types/presenceTypes';
 import apiClient from '@/shared/api/apiClient';
 
@@ -58,6 +59,11 @@ export function filterOnlineItems(items: PresenceItem[]): PresenceItem[] {
 export function transformToUserStatus(item: PresenceItem): UserStatus {
   const status = item.status as string;
   const isOnline = status === PresenceStatus.Online || status === 'online';
+  
+  // Convert platform string to Platform enum if present
+  const platform = item.platform 
+    ? (item.platform === 'electron' ? Platform.Electron : Platform.Browser)
+    : null;
 
   return {
     email: item.email,
@@ -69,6 +75,7 @@ export function transformToUserStatus(item: PresenceItem): UserStatus {
     azureAdObjectId: null,
     supervisorId: item.supervisorId ?? null,
     supervisorEmail: item.supervisorEmail ?? null,
+    platform: platform ?? undefined,
   };
 }
 

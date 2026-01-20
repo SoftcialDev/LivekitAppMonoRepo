@@ -6,6 +6,7 @@
 
 import { PresenceStatus, ManagerStatus } from '../enums';
 import { UserRole } from '@/modules/auth/enums';
+import { Platform } from '@/shared/enums/Platform';
 import { WEBSOCKET_MESSAGE_TYPES } from '@/shared/services/webSocket/constants/webSocketConstants';
 
 /**
@@ -68,6 +69,11 @@ export interface UserStatus {
    * Supervisor name (for PSOs)
    */
   supervisorName?: string | null;
+
+  /**
+   * Platform identifier (electron or browser)
+   */
+  platform?: Platform | null;
 }
 
 /**
@@ -164,6 +170,11 @@ export interface PresenceItem {
    * Supervisor email
    */
   supervisorEmail?: string | null;
+
+  /**
+   * Platform identifier (electron or browser)
+   */
+  platform?: string | null;
 }
 
 /**

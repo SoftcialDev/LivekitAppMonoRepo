@@ -73,6 +73,7 @@ export function useStablePSOs(
         isOnline: u.status === PresenceStatus.Online,
         supervisorName,
         supervisorEmail: u.supervisorEmail ?? undefined,
+        platform: u.platform ?? undefined,
       };
     };
 

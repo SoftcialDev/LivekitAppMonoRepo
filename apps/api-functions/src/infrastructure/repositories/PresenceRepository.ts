@@ -4,10 +4,11 @@
  * @description Infrastructure repository that implements presence data operations using Prisma ORM
  */
 
-import { PrismaClient, Status as PrismaStatus } from "@prisma/client";
+import { PrismaClient, Status as PrismaStatus, Platform as PrismaPlatform } from "@prisma/client";
 import { IPresenceRepository } from '../../domain/interfaces/IPresenceRepository';
 import { Presence } from '../../domain/entities/Presence';
 import { Status } from '../../domain/enums/Status';
+import { Platform } from '../../domain/enums/Platform';
 import { getCentralAmericaTime } from '../../utils/dateUtils';
 
 /**
@@ -26,14 +27,26 @@ export class PresenceRepository implements IPresenceRepository {
    * @param userId - The unique identifier of the user
    * @param status - The presence status to set
    * @param lastSeenAt - When the user was last seen
+   * @param platform - Optional platform identifier (electron or browser)
    * @returns Promise that resolves when the operation completes
    * @throws Error if the operation fails
    */
-  async upsertPresence(userId: string, status: Status, lastSeenAt: Date): Promise<void> {
+  async upsertPresence(userId: string, status: Status, lastSeenAt: Date, platform?: Platform): Promise<void> {
     await this.prisma.presence.upsert({
       where: { userId },
-      create: { userId, status: status as PrismaStatus, lastSeenAt, updatedAt: getCentralAmericaTime() },
-      update: { status: status as PrismaStatus, lastSeenAt, updatedAt: getCentralAmericaTime() },
+      create: { 
+        userId, 
+        status: status as PrismaStatus, 
+        platform: platform ? (platform as PrismaPlatform) : null,
+        lastSeenAt, 
+        updatedAt: getCentralAmericaTime() 
+      },
+      update: { 
+        status: status as PrismaStatus, 
+        platform: platform ? (platform as PrismaPlatform) : null,
+        lastSeenAt, 
+        updatedAt: getCentralAmericaTime() 
+      },
     });
   }
 
@@ -44,9 +57,8 @@ export class PresenceRepository implements IPresenceRepository {
    * @throws Error if the operation fails
    */
   async findPresenceByUserId(userId: string): Promise<Presence | null> {
-    const presence = await this.prisma.presence.findFirst({
+    const presence = await this.prisma.presence.findUnique({
       where: { userId },
-      orderBy: { lastSeenAt: "desc" },
     });
 
     if (!presence) {

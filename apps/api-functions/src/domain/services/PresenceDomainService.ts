@@ -8,6 +8,7 @@ import { IPresenceRepository } from "../interfaces/IPresenceRepository";
 import { IUserRepository } from "../interfaces/IUserRepository";
 import { IWebPubSubService } from "../interfaces/IWebPubSubService";
 import { Status } from "../enums/Status";
+import { Platform } from "../enums/Platform";
 import { UserNotFoundError } from "../errors/UserErrors";
 import { User } from "../entities/User";
 import { getCentralAmericaTime } from '../../utils/dateUtils';
@@ -32,24 +33,25 @@ export class PresenceDomainService {
   /**
    * Sets a user's presence to online
    * @param userId - The ID of the user to set online
+   * @param platform - Optional platform identifier (electron or browser)
    * @returns Promise that resolves when the operation completes
    * @throws UserNotFoundError when the user is not found
    * @example
-   * await presenceDomainService.setUserOnline(userId);
+   * await presenceDomainService.setUserOnline(userId, Platform.Browser);
    */
-  async setUserOnline(userId: string): Promise<void> {
+  async setUserOnline(userId: string, platform?: Platform): Promise<void> {
     // 1. Find user
     const user = await this.findActiveUser(userId);
     const now = getCentralAmericaTime();
 
     // 2. Update presence to online
-    await this.presenceRepository.upsertPresence(user.id, Status.Online, now);
+    await this.presenceRepository.upsertPresence(user.id, Status.Online, now, platform);
 
     // 3. Create presence history entry
     await this.presenceRepository.createPresenceHistory(user.id, now);
 
     // 4. Broadcast change
-    await this.broadcastPresenceChange(user, Status.Online, now);
+    await this.broadcastPresenceChange(user, Status.Online, now, platform);
   }
 
   /**
@@ -74,7 +76,7 @@ export class PresenceDomainService {
       await this.presenceRepository.closeOpenPresenceHistory(user.id, now);
 
       // 4. Broadcast change
-      await this.broadcastPresenceChange(user, Status.Offline, now, context);
+      await this.broadcastPresenceChange(user, Status.Offline, now, undefined, context);
     } catch (error: unknown) {
       throw error;
     }
@@ -155,6 +157,7 @@ export class PresenceDomainService {
    * @param user - The user information
    * @param status - The new presence status
    * @param lastSeenAt - When the user was last seen
+   * @param platform - Optional platform identifier (electron or browser)
    * @param context - Optional Azure Functions context for logging
    * @private
    */
@@ -162,6 +165,7 @@ export class PresenceDomainService {
     user: { email: string; fullName: string; role: string; supervisorId: string | null; supervisorEmail: string | null },
     status: Status,
     lastSeenAt: Date,
+    platform?: Platform,
     context?: Record<string, unknown>
   ): Promise<void> {
     const broadcast = {
@@ -172,6 +176,7 @@ export class PresenceDomainService {
       role: user.role,
       supervisorId: user.supervisorId,
       supervisorEmail: user.supervisorEmail,
+      platform: platform ? (platform as string) : undefined,
     };
     
     try {

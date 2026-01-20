@@ -82,7 +82,7 @@ const getWebsocketPresenceStatuses: AzureFunction = withErrorHandler(
           azureAdObjectId: true,
           role: true,
           presence: {
-            select: { status: true, lastSeenAt: true },
+            select: { status: true, lastSeenAt: true, platform: true },
           },
           supervisor: {
             select: { id: true, email: true, fullName: true },
@@ -100,6 +100,7 @@ const getWebsocketPresenceStatuses: AzureFunction = withErrorHandler(
         supervisorEmail: u.supervisor?.email ?? null,
         supervisorName: u.supervisor?.fullName ?? null,
         supervisorId: u.supervisor?.id ?? null,
+        platform: u.presence?.platform ?? null,
       }));
 
       const response: PaginatedPresence = {

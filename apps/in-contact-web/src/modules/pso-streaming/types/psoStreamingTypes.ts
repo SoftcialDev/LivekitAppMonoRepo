@@ -5,6 +5,7 @@
  */
 
 import { StreamingStopReason, StreamingStatus } from '../enums';
+import { Platform } from '@/shared/enums/Platform';
 
 /**
  * PSO with status information
@@ -17,6 +18,7 @@ export interface PSOWithStatus {
   isOnline: boolean;
   supervisorName: string;
   supervisorEmail?: string;
+  platform?: Platform;
 }
 
 /**

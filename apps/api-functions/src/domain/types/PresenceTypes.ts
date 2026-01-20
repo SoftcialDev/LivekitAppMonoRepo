@@ -27,6 +27,8 @@ export interface PresenceItem {
   supervisorName: string | null;
   /** Supervisor's ID, or null if none assigned */
   supervisorId: string | null;
+  /** Platform identifier, e.g. "electron" or "browser", or null if not specified */
+  platform: string | null;
 }
 
 /**

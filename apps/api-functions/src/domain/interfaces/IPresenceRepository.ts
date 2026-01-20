@@ -6,6 +6,7 @@
 
 import { Presence } from "../entities/Presence";
 import { Status } from "../enums/Status";
+import { Platform } from "../enums/Platform";
 
 /**
  * Interface for presence repository operations
@@ -17,10 +18,11 @@ export interface IPresenceRepository {
    * @param userId - The unique identifier of the user
    * @param status - The presence status to set
    * @param lastSeenAt - When the user was last seen
+   * @param platform - Optional platform identifier (electron or browser)
    * @returns Promise that resolves when the operation completes
    * @throws Error if the operation fails
    */
-  upsertPresence(userId: string, status: Status, lastSeenAt: Date): Promise<void>;
+  upsertPresence(userId: string, status: Status, lastSeenAt: Date, platform?: Platform): Promise<void>;
 
   /**
    * Finds presence by user ID

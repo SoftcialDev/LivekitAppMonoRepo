@@ -40,7 +40,7 @@ export class PresenceUpdateApplicationService {
 
     // Delegate to domain service for business logic
     if (request.status === Status.Online) {
-      await this.presenceDomainService.setUserOnline(callerId);
+      await this.presenceDomainService.setUserOnline(callerId, request.platform);
       return new PresenceUpdateResponse("Presence set to online");
     } else {
       await this.presenceDomainService.setUserOffline(callerId);

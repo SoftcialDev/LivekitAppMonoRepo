@@ -45,6 +45,12 @@ enum CommandType {
   REFRESH
 }
 
+// Platform types (Electron app or browser)
+enum Platform {
+  electron
+  browser
+}
+
 // Contact manager profiles with status tracking
 model ContactManagerProfile {
   id         String                           @id @default(uuid()) @db.Uuid
@@ -128,9 +134,10 @@ model User {
 
 // Real-time user presence tracking
 model Presence {
-  userId     String   @id @db.Uuid
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId     String    @id @db.Uuid
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   status     Status
+  platform   Platform?
   lastSeenAt DateTime
   updatedAt  DateTime
 

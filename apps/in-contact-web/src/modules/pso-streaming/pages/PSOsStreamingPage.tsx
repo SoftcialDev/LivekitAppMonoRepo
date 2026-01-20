@@ -23,7 +23,6 @@ import { useSnapshotReasonsStore } from '../stores/snapshot-reasons-store';
 import { loadLayout, loadFixed, getStatusMessage, lsKey } from '../utils';
 import { LAYOUT_OPTIONS, DEFAULT_LAYOUT } from '../constants';
 import { StreamingStopReason } from '../enums';
-import { fetchStreamingSessions } from '../api/streamingStatusClient';
 import { Platform } from '@/shared/enums/Platform';
 import monitorIcon from '@/shared/assets/monitor-icon.png';
 import type { LayoutOption } from '../types';
@@ -123,31 +122,6 @@ const PSOsStreamingPage: React.FC = () => {
 
   // Get streaming credentials for all PSOs
   const credsMap = useIsolatedStreams(viewerEmail, targetEmails);
-
-  // Map of email to platform for active sessions
-  const [platformMap, setPlatformMap] = useState<Record<string, Platform | null>>({});
-
-  // Fetch platform information from active sessions
-  useEffect(() => {
-    const updatePlatformMap = async (): Promise<void> => {
-      try {
-        const sessions = await fetchStreamingSessions();
-        const map: Record<string, Platform | null> = {};
-        sessions.forEach(session => {
-          const email = session.email.toLowerCase();
-          map[email] = session.platform || null;
-        });
-        setPlatformMap(map);
-      } catch (error) {
-        logError('[PSOsStreamingPage] Error fetching platform info', { error });
-      }
-    };
-
-    updatePlatformMap();
-    // Refresh platform map periodically (every 30 seconds)
-    const interval = setInterval(updatePlatformMap, 30000);
-    return () => clearInterval(interval);
-  }, []);
 
   // Video actions (currently unused but may be needed in future)
   useVideoActions();
@@ -263,7 +237,7 @@ const PSOsStreamingPage: React.FC = () => {
             const supervisorUpdate = supervisorUpdates[p.email.toLowerCase()];
             const currentSupervisorEmail = supervisorUpdate?.email || p.supervisorEmail;
             const currentSupervisorName = supervisorUpdate?.name || p.supervisorName;
-            const psoPlatform = platformMap[key] || null;
+            const psoPlatform = p.platform || null;
 
             return (
               <VideoGridItem

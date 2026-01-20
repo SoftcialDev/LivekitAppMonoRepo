@@ -8,12 +8,13 @@ import { z } from "zod";
 
 /**
  * Schema for validating presence update request body
- * @description Validates the status field for presence updates
+ * @description Validates the status field and optional platform for presence updates
  */
 export const presenceUpdateSchema = z.object({
   status: z.enum(["online", "offline"], {
     errorMap: () => ({ message: "Status must be either 'online' or 'offline'" })
-  })
+  }),
+  platform: z.enum(["electron", "browser"]).optional()
 });
 
 /**

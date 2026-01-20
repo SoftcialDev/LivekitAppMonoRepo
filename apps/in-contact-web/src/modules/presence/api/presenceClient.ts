@@ -8,6 +8,8 @@ import apiClient from '@/shared/api/apiClient';
 import { logError } from '@/shared/utils/logger';
 import { PresenceUpdateError } from '../errors';
 import { PresenceStatus } from '../enums/presenceEnums';
+import { isElectron } from '@/shared/utils/platformUtils';
+import { Platform } from '@/shared/enums/Platform';
 
 /**
  * Client for updating the employee's presence status on the server
@@ -19,6 +21,8 @@ import { PresenceStatus } from '../enums/presenceEnums';
 export class PresenceClient {
   /**
    * Marks the authenticated user as online
+   * 
+   * Automatically detects and sends the platform (electron or browser).
    * 
    * @returns Promise that resolves when the update is complete
    * @throws {PresenceUpdateError} if the request fails
@@ -37,7 +41,11 @@ export class PresenceClient {
    */
   async setOnline(): Promise<void> {
     try {
-      await apiClient.post('/api/PresenceUpdate', { status: PresenceStatus.Online });
+      const platform = isElectron() ? Platform.Electron : Platform.Browser;
+      await apiClient.post('/api/PresenceUpdate', { 
+        status: PresenceStatus.Online,
+        platform 
+      });
     } catch (error: unknown) {
       logError('Failed to set user online', { error });
 

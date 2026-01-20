@@ -5,10 +5,11 @@
  */
 
 import { Status } from "../enums/Status";
+import { Platform } from "../enums/Platform";
 
 /**
  * Domain entity representing user presence
- * @description Encapsulates a user's presence status and related timestamps
+ * @description Encapsulates a user's presence status, platform, and related timestamps
  */
 export class Presence {
   /**
@@ -17,12 +18,14 @@ export class Presence {
    * @param status - The current presence status
    * @param lastSeenAt - When the user was last seen
    * @param updatedAt - When the presence was last updated
+   * @param platform - Optional platform identifier (electron or browser)
    */
   constructor(
     public readonly userId: string,
     public readonly status: Status,
     public readonly lastSeenAt: Date,
-    public readonly updatedAt: Date
+    public readonly updatedAt: Date,
+    public readonly platform?: Platform
   ) {}
 
   /**
@@ -35,12 +38,14 @@ export class Presence {
     status: string;
     lastSeenAt: Date;
     updatedAt: Date;
+    platform?: string | null;
   }): Presence {
     return new Presence(
       data.userId,
       data.status as Status,
       data.lastSeenAt,
-      data.updatedAt
+      data.updatedAt,
+      data.platform as Platform | undefined
     );
   }
 
@@ -53,12 +58,14 @@ export class Presence {
     status: Status;
     lastSeenAt: Date;
     updatedAt: Date;
+    platform?: Platform;
   } {
     return {
       userId: this.userId,
       status: this.status,
       lastSeenAt: this.lastSeenAt,
       updatedAt: this.updatedAt,
+      platform: this.platform,
     };
   }
 }

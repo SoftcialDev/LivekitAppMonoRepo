@@ -82,6 +82,7 @@ export class WebPubSubService implements IWebPubSubService {
     role?: string;
     supervisorId?: string | null;
     supervisorEmail?: string | null;
+    platform?: string;
   }): Promise<void> {
     try {
       const event = { type: "presence", user: payload };
