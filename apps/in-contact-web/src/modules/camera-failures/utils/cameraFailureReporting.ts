@@ -47,6 +47,19 @@ function normalizeDevice(device: globalThis.MediaDeviceInfo): {
 }
 
 /**
+ * Gets the email of the user who initiated the last START command from localStorage
+ * @returns Email of the command initiator or undefined if not found
+ */
+function getStoredInitiatorEmail(): string | undefined {
+  try {
+    const stored = localStorage.getItem('lastCommandInitiatorEmail');
+    return stored || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
  * Reports a LiveKit connection failure to the backend
  * 
  * @param options - Reporting options
@@ -59,12 +72,14 @@ export async function reportLiveKitConnectionFailure(
 
   const errorMessage = error instanceof Error ? error.message : 'Unknown error';
   const errorName = error instanceof Error ? error.name : 'Error';
+  const initiatedByEmail = getStoredInitiatorEmail();
 
   try {
     await apiReportCameraFailure({
       stage: CameraFailureStage.LiveKitConnect,
       errorName: truncateString(errorName, 100),
       errorMessage: truncateString(errorMessage, 1000),
+      initiatedByEmail,
       metadata: {
         userAdId,
         userEmail,
@@ -102,6 +117,7 @@ export async function reportMediaPermissionFailure(
 
   const errorMessage = error instanceof Error ? error.message : 'Unknown error';
   const errorName = error instanceof Error ? error.name : 'Error';
+  const initiatedByEmail = getStoredInitiatorEmail();
 
   const devicesSnapshot = cameras.map(normalizeDevice);
 
@@ -112,6 +128,7 @@ export async function reportMediaPermissionFailure(
       errorMessage: truncateString(errorMessage, 1000),
       deviceCount: devicesSnapshot.length,
       devicesSnapshot,
+      initiatedByEmail,
       metadata: {
         userAdId,
         userEmail,

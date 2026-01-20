@@ -36,6 +36,7 @@ export const cameraStartFailureSchema = z.object({
     .max(20)
     .optional(),
   metadata: z.record(z.any()).optional(),
+  initiatedByEmail: z.string().email().max(255).optional(),
 });
 
 export type CameraStartFailureRequest = z.infer<typeof cameraStartFailureSchema>;

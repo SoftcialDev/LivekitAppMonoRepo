@@ -77,7 +77,7 @@ export function createCameraFailureColumns(
     {
       key: 'createdAt',
       header: 'Created',
-      render: (row) => formatCameraFailureDate(row.createdAt),
+      render: (row) => formatCameraFailureDate(row.createdAtCentralAmerica || row.createdAt),
       cellClassName: CAMERA_FAILURE_CELL_CLASSES.CREATED_AT,
     },
     {

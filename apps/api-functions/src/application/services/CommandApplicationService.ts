@@ -76,14 +76,25 @@ export class CommandApplicationService {
         );
       }
 
-      // Find caller user to get database ID if callerId provided
+      // Find caller user to get database ID and email if callerId provided
       let callerDatabaseId: string | undefined;
+      let callerEmail: string | undefined;
       if (callerId) {
         const callerUser = await this.userRepository.findByAzureAdObjectId(callerId);
         if (callerUser) {
           callerDatabaseId = callerUser.id;
+          callerEmail = callerUser.email;
         }
       }
+
+      // Create command with caller email for WebSocket payload
+      const commandWithInitiator = new Command(
+        command.type,
+        command.employeeEmail,
+        command.timestamp,
+        command.reason,
+        callerEmail
+      );
 
       // Always create PendingCommand for tracking, even if WebSocket succeeds
       // This ensures we can track who sent the command and notify them if errors occur
@@ -95,9 +106,9 @@ export class CommandApplicationService {
         callerDatabaseId
       );
 
-      // Use the existing CommandMessagingService to send the command
+      // Use the existing CommandMessagingService to send the command with initiator email
       const groupName = `commands:${command.employeeEmail}`;
-      await this.commandMessagingService.sendToGroup(groupName, command.toPayload() as Record<string, unknown>);
+      await this.commandMessagingService.sendToGroup(groupName, commandWithInitiator.toPayload() as Record<string, unknown>);
       
       // Broadcast stream event to supervisors
       await this.broadcastStreamEvent(command.employeeEmail, command.type, command.reason);

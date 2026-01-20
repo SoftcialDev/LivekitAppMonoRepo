@@ -16,12 +16,14 @@ export class Command {
    * @param employeeEmail - Email of the target employee
    * @param timestamp - When the command was created
    * @param reason - Optional reason for the command (for STOP commands)
+   * @param initiatedByEmail - Optional email of the user who initiated the command
    */
   constructor(
     public readonly type: CommandType,
     public readonly employeeEmail: string,
     public readonly timestamp: Date,
-    public readonly reason?: string
+    public readonly reason?: string,
+    public readonly initiatedByEmail?: string
   ) {
     // Freeze the object to prevent runtime modifications
     Object.freeze(this);
@@ -30,14 +32,16 @@ export class Command {
   /**
    * Creates a Command from request data
    * @param commandData - Raw command data from request
+   * @param initiatedByEmail - Optional email of the user who initiated the command
    * @returns New Command instance
    */
-  static fromRequest(commandData: { command: string; employeeEmail: string; reason?: string }): Command {
+  static fromRequest(commandData: { command: string; employeeEmail: string; reason?: string }, initiatedByEmail?: string): Command {
     return new Command(
       commandData.command as CommandType,
       commandData.employeeEmail.toLowerCase().trim(),
       getCentralAmericaTime(),
-      commandData.reason
+      commandData.reason,
+      initiatedByEmail
     );
   }
 
@@ -54,6 +58,10 @@ export class Command {
     
     if (this.reason) {
       payload.reason = this.reason;
+    }
+    
+    if (this.initiatedByEmail) {
+      payload.initiatedByEmail = this.initiatedByEmail;
     }
     
     return payload;

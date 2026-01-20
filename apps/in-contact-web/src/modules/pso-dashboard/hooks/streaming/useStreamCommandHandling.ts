@@ -76,6 +76,18 @@ export function useStreamCommandHandling({
 
         if (command === 'START') {
           logDebug('[useStreamCommandHandling] Received START command', { userEmail });
+          
+          // Store the email of the user who initiated the command in localStorage
+          const initiatedByEmail = typeof msg.initiatedByEmail === 'string' ? msg.initiatedByEmail : null;
+          if (initiatedByEmail) {
+            try {
+              localStorage.setItem('lastCommandInitiatorEmail', initiatedByEmail);
+              logDebug('[useStreamCommandHandling] Stored command initiator email', { initiatedByEmail });
+            } catch (storageError) {
+              logError('[useStreamCommandHandling] Failed to store initiator email', { error: storageError });
+            }
+          }
+          
           processingRef.current = true;
           onStartCommandRef.current()
             .then(() => {

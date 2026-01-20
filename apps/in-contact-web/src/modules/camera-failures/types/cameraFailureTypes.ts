@@ -241,6 +241,11 @@ export interface ReportCameraFailureRequest {
    * Additional metadata
    */
   metadata?: Record<string, unknown>;
+
+  /**
+   * Email of the user who initiated the START command that led to this failure
+   */
+  initiatedByEmail?: string;
 }
 
 /**

@@ -29,13 +29,20 @@ export class CameraFailureApplicationService implements ICameraFailureService {
     // Save the failure to database
     await this.repo.create(persistenceData);
 
-    // Try to find recent START command and notify the initiator
-    await this.notifyCommandInitiatorIfExists(input.userAdId, report.stage, report.errorMessage || null, report.errorName || null);
+    // Notify the initiator using the email from the report
+    await this.notifyCommandInitiatorIfExists(
+      input.userAdId,
+      report.initiatedByEmail,
+      report.stage,
+      report.errorMessage || null,
+      report.errorName || null
+    );
   }
 
   /**
-   * Notifies the user who initiated a START command if the command exists and has an initiator
+   * Notifies the user who initiated a START command if the email is available
    * @param psoAdId - Azure AD Object ID of the PSO who reported the failure
+   * @param initiatedByEmail - Email of the user who initiated the START command
    * @param stage - The failure stage
    * @param errorMessage - Technical error message
    * @param errorName - Technical error name
@@ -43,27 +50,21 @@ export class CameraFailureApplicationService implements ICameraFailureService {
    */
   private async notifyCommandInitiatorIfExists(
     psoAdId: string,
+    initiatedByEmail: string | undefined,
     stage: string,
     errorMessage: string | null,
     errorName: string | null
   ): Promise<void> {
     try {
-      // Find PSO user to get database ID
+      // Skip notification if no initiator email provided
+      if (!initiatedByEmail) {
+        return;
+      }
+
+      // Find PSO user to get their email and name
       const psoUser = await this.userRepository.findByAzureAdObjectId(psoAdId);
       if (!psoUser) {
         return; // PSO not found, skip notification
-      }
-
-      // Find recent START command for this PSO (within last 5 minutes)
-      const recentCommand = await this.pendingCommandRepository.findRecentStartCommandForPso(psoUser.id, 5);
-      if (!recentCommand || !recentCommand.initiatedById) {
-        return; // No recent command or no initiator, skip notification
-      }
-
-      // Find the initiator user to get their email
-      const initiatorUser = await this.userRepository.findById(recentCommand.initiatedById);
-      if (!initiatorUser || !initiatorUser.email) {
-        return; // Initiator not found or no email, skip notification
       }
 
       // Get friendly error message
@@ -73,8 +74,8 @@ export class CameraFailureApplicationService implements ICameraFailureService {
         errorName
       );
 
-      // Send WebSocket notification to the command initiator
-      await this.webPubSubService.broadcastMessage(initiatorUser.email, {
+      // Send WebSocket notification to the command initiator using their email
+      await this.webPubSubService.broadcastMessage(initiatedByEmail, {
         type: 'cameraFailure',
         psoEmail: psoUser.email,
         psoName: psoUser.fullName,
@@ -87,7 +88,8 @@ export class CameraFailureApplicationService implements ICameraFailureService {
       // Log for debugging but don't throw
       console.error('[CameraFailureApplicationService] Failed to notify command initiator', {
         error,
-        psoAdId
+        psoAdId,
+        initiatedByEmail
       });
     }
   }

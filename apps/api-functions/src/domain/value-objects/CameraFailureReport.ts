@@ -15,6 +15,7 @@ export class CameraFailureReport {
   readonly attempts?: NormalizedAttempt[];
   readonly metadata?: Record<string, unknown>;
   readonly createdAtCentralAmerica!: string;
+  readonly initiatedByEmail?: string;
 
   private constructor(init: CameraFailureReport) {
     Object.assign(this, init);
@@ -52,6 +53,7 @@ export class CameraFailureReport {
       attempts,
       metadata: req.metadata as Record<string, unknown> | undefined,
       createdAtCentralAmerica,
+      initiatedByEmail: req.initiatedByEmail?.slice(0, 255),
     } as unknown as CameraFailureReport);
   }
 
@@ -67,6 +69,7 @@ export class CameraFailureReport {
       attempts: this.attempts,
       metadata: this.metadata,
       createdAtCentralAmerica: this.createdAtCentralAmerica,
+      initiatedByEmail: this.initiatedByEmail,
     };
   }
 }

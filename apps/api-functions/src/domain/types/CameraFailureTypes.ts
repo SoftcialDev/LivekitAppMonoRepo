@@ -195,6 +195,11 @@ export interface CreateCameraStartFailureData {
    * Creation timestamp in Central America timezone
    */
   createdAtCentralAmerica: string;
+
+  /**
+   * Email of the user who initiated the START command that led to this failure
+   */
+  initiatedByEmail?: string;
 }
 
 /**

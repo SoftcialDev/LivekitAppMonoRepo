@@ -25,8 +25,14 @@ export class CameraStartFailureRepository implements ICameraStartFailureReposito
       select: { id: true },
     });
 
-    // Find the email of the user who initiated the START command that led to this failure
-    const initiatedByEmail = await this.findInitiatorEmailForFailure(data.userAdId, user?.id);
+    // Use the email provided in the request, or fallback to finding it from recent command
+    let initiatedByEmail: string | null = null;
+    if (data.initiatedByEmail) {
+      initiatedByEmail = data.initiatedByEmail;
+    } else {
+      // Fallback: try to find from recent command if not provided
+      initiatedByEmail = await this.findInitiatorEmailForFailure(data.userAdId, user?.id);
+    }
 
     await prisma.cameraStartFailure.create({
       data: {
