@@ -258,6 +258,7 @@ export function useVideoCardLogic(
       timerInfo,
       email,
       audioRef,
+      connecting: actualConnecting || isDisconnecting,
     },
     controlsProps: {
       shouldStream,

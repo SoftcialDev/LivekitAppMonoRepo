@@ -1,21 +1,23 @@
 /**
  * @fileoverview useCameraFailureNotifications hook
  * @summary Hook for listening to camera failure WebSocket notifications
- * @description Listens to camera failure events and displays toast notifications
+ * @description Listens to camera failure events and stores them for display in video cards
  */
 
 import { useEffect } from 'react';
-import { useToast } from '@/ui-kit/feedback';
 import { logDebug } from '@/shared/utils/logger';
+import { useCameraFailureStore } from '@/modules/pso-streaming/stores/camera-failure-store';
 
 /**
- * Hook that listens to camera failure WebSocket notifications and displays toast messages
+ * Hook that listens to camera failure WebSocket notifications and stores them
  * 
  * This hook sets up a listener for custom 'cameraFailure' events dispatched by
  * the CameraFailureMessageHandler when it processes WebSocket messages.
  * 
+ * Errors are stored in the camera failure store so they can be displayed
+ * in the video card while connecting.
+ * 
  * Should be used at the app level (e.g., in AppProviders or main App component)
- * to ensure toast notifications are shown for all camera failures.
  * 
  * @example
  * ```tsx
@@ -26,7 +28,7 @@ import { logDebug } from '@/shared/utils/logger';
  * ```
  */
 export function useCameraFailureNotifications(): void {
-  const { showToast } = useToast();
+  const setError = useCameraFailureStore((state) => state.setError);
 
   useEffect(() => {
     const handleCameraFailure = (event: Event): void => {
@@ -36,19 +38,15 @@ export function useCameraFailureNotifications(): void {
         errorMessage: string;
       }>;
 
-      const { psoEmail, psoName, errorMessage } = customEvent.detail;
+      const { psoEmail, errorMessage } = customEvent.detail;
 
       logDebug('[useCameraFailureNotifications] Camera failure received', {
         psoEmail,
-        psoName,
         errorMessage,
       });
 
-      // Display toast notification with user-friendly error message
-      showToast(
-        `Error al iniciar cámara para ${psoName}: ${errorMessage}`,
-        'error'
-      );
+      // Store error message for display in video card
+      setError(psoEmail, errorMessage);
     };
 
     // Listen for custom camera failure events
@@ -58,6 +56,6 @@ export function useCameraFailureNotifications(): void {
     return () => {
       window.removeEventListener('cameraFailure', handleCameraFailure);
     };
-  }, [showToast]);
+  }, [setError]);
 }
 

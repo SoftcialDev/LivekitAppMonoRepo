@@ -111,6 +111,75 @@ function getPublishingErrorMessage(errorMessage?: string | null): string {
 }
 
 /**
+ * Maps camera failure errors to user-friendly messages for admin/supervisor context
+ * 
+ * Formats messages to indicate that the PSO cannot start the camera with the reason.
+ * 
+ * @param stage - The failure stage where the error occurred
+ * @param errorMessage - The technical error message
+ * @param errorName - The technical error name/type
+ * @param psoName - Optional name of the PSO for personalized messages
+ * @returns User-friendly error message string formatted for admin/supervisor
+ */
+export function getAdminFriendlyErrorMessage(
+  stage: CameraFailureStage,
+  errorMessage?: string | null,
+  errorName?: string | null,
+  psoName?: string | null
+): string {
+  const psoPrefix = psoName ? `${psoName} cannot start camera: ` : 'PSO cannot start camera: ';
+  
+  switch (stage) {
+    case CameraFailureStage.Permission:
+      if (errorName === 'MediaPermissionError' || ERROR_PATTERNS.permission.test(errorMessage || '')) {
+        if (ERROR_PATTERNS.microphone.test(errorMessage || '')) {
+          return `${psoPrefix}Microphone access is blocked`;
+        }
+        return `${psoPrefix}Camera access is blocked`;
+      }
+      return `${psoPrefix}Device permissions are blocked`;
+    
+    case CameraFailureStage.LiveKitConnect:
+      if (ERROR_PATTERNS.timeout.test(errorMessage || '')) {
+        return `${psoPrefix}Connection timeout`;
+      }
+      if (ERROR_PATTERNS.network.test(errorMessage || '')) {
+        return `${psoPrefix}Network error`;
+      }
+      if (ERROR_PATTERNS.connectionInProgress.test(errorMessage || '')) {
+        return `${psoPrefix}Connection already in progress`;
+      }
+      return `${psoPrefix}Failed to connect to video server`;
+    
+    case CameraFailureStage.Enumerate:
+      if (ERROR_PATTERNS.notFound.test(errorMessage || '')) {
+        return `${psoPrefix}No video devices found`;
+      }
+      return `${psoPrefix}Error accessing video devices`;
+    
+    case CameraFailureStage.TrackCreate:
+      const appName = extractAppName(errorMessage);
+      if (ERROR_PATTERNS.deviceInUse.test(errorMessage || '')) {
+        if (appName) {
+          return `${psoPrefix}Camera is in use by ${appName}`;
+        }
+        return `${psoPrefix}Camera is in use by another application`;
+      }
+      if (ERROR_PATTERNS.notReadable.test(errorMessage || '')) {
+        return `${psoPrefix}Camera cannot be accessed`;
+      }
+      return `${psoPrefix}Failed to start video stream`;
+    
+    case CameraFailureStage.Publish:
+      return `${psoPrefix}Failed to publish video stream`;
+    
+    case CameraFailureStage.Unknown:
+    default:
+      return `${psoPrefix}${errorMessage || 'Unknown error occurred'}`;
+  }
+}
+
+/**
  * Maps camera failure errors to user-friendly messages
  * 
  * @param stage - The failure stage where the error occurred

@@ -36,6 +36,7 @@ export interface IVideoCardDisplayProps {
   timerInfo: TimerInfo | null;
   email: string;
   audioRef: React.RefObject<HTMLAudioElement | null>;
+  connecting?: boolean;
 }
 
 /**

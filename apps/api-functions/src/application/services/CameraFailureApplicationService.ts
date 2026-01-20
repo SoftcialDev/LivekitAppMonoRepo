@@ -6,7 +6,7 @@ import { IWebPubSubService } from '../../domain/interfaces/IWebPubSubService';
 import { IUserRepository } from '../../domain/interfaces/IUserRepository';
 import { CameraFailureReport } from '../../domain/value-objects/CameraFailureReport';
 import { CreateCameraStartFailureData } from '../../domain/types/CameraFailureTypes';
-import { getFriendlyErrorMessage } from '../../domain/utils/ErrorMessageMapper';
+import { getAdminFriendlyErrorMessage } from '../../domain/utils/ErrorMessageMapper';
 
 /**
  * Application service implementing camera start failure logging.
@@ -67,11 +67,12 @@ export class CameraFailureApplicationService implements ICameraFailureService {
         return; // PSO not found, skip notification
       }
 
-      // Get friendly error message
-      const friendlyMessage = getFriendlyErrorMessage(
+      // Get admin-friendly error message (formatted for admin/supervisor viewing the video card)
+      const friendlyMessage = getAdminFriendlyErrorMessage(
         stage as any,
         errorMessage,
-        errorName
+        errorName,
+        psoUser.fullName
       );
 
       // Send WebSocket notification to the command initiator using their email
