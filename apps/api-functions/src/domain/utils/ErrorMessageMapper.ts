@@ -10,7 +10,7 @@ import { CameraFailureStage } from '@prisma/client';
  * Error pattern matchers for specific error scenarios
  */
 const ERROR_PATTERNS = {
-  deviceInUse: /already in use|device.*busy|device.*occupied|in use by another/i,
+  deviceInUse: /already in use|device.*busy|device.*occupied|in use by another|all cameras.*busy/i,
   timeout: /timeout|timed out/i,
   network: /failed to fetch|network|connection.*refused/i,
   connectionInProgress: /already in progress|connection already/i,
@@ -86,10 +86,19 @@ function getDeviceEnumerationErrorMessage(errorMessage?: string | null): string 
 /**
  * Maps track creation errors to user-friendly messages
  */
-function getTrackCreationErrorMessage(errorMessage?: string | null): string {
+function getTrackCreationErrorMessage(
+  errorMessage?: string | null,
+  errorName?: string | null
+): string {
   const appName = extractAppName(errorMessage);
   
-  if (ERROR_PATTERNS.deviceInUse.test(errorMessage || '')) {
+  // DeviceInUseError is explicitly set by frontend when all cameras are busy
+  // Also check for explicit "all cameras" or "device in use" patterns
+  const isDeviceInUse = errorName === 'DeviceInUseError' ||
+                        /all cameras.*busy|device.*in use by another application/i.test(errorMessage || '') ||
+                        ERROR_PATTERNS.deviceInUse.test(errorMessage || '');
+  
+  if (isDeviceInUse) {
     if (appName) {
       return `Camera is already in use by ${appName}. Please close that application and try again.`;
     }
@@ -159,7 +168,13 @@ export function getAdminFriendlyErrorMessage(
     
     case CameraFailureStage.TrackCreate:
       const appName = extractAppName(errorMessage);
-      if (ERROR_PATTERNS.deviceInUse.test(errorMessage || '')) {
+      // DeviceInUseError is explicitly set by frontend when all cameras are busy
+      // Also check for explicit "all cameras" or "device in use" patterns
+      const isDeviceInUse = errorName === 'DeviceInUseError' ||
+                            /all cameras.*busy|device.*in use by another application/i.test(errorMessage || '') ||
+                            ERROR_PATTERNS.deviceInUse.test(errorMessage || '');
+      
+      if (isDeviceInUse) {
         if (appName) {
           return `${psoPrefix}Camera is in use by ${appName}`;
         }
@@ -203,7 +218,7 @@ export function getFriendlyErrorMessage(
       return getDeviceEnumerationErrorMessage(errorMessage);
     
     case CameraFailureStage.TrackCreate:
-      return getTrackCreationErrorMessage(errorMessage);
+      return getTrackCreationErrorMessage(errorMessage, errorName);
     
     case CameraFailureStage.Publish:
       return getPublishingErrorMessage(errorMessage);
