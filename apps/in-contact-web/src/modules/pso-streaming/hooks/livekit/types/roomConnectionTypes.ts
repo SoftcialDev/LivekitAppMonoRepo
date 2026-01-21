@@ -46,6 +46,10 @@ export interface IUseLiveKitRoomConnectionOptions {
    * User email for error reporting
    */
   userEmail?: string;
+  /**
+   * User role - only PSOs should report LiveKit connection failures
+   */
+  userRole?: string;
 }
 
 /**
@@ -93,6 +97,10 @@ export interface IUseRoomConnectionOptions {
    * User email for error reporting
    */
   userEmail?: string;
+  /**
+   * User role - only PSOs should report LiveKit connection failures
+   */
+  userRole?: string;
 }
 
 /**

@@ -39,6 +39,11 @@ export interface HandleConnectionErrorOptions {
   userEmail?: string;
 
   /**
+   * User role - only PSOs should report LiveKit connection failures
+   */
+  userRole?: string;
+
+  /**
    * Error that occurred
    */
   error: unknown;

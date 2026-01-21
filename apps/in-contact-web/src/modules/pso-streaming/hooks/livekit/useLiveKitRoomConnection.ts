@@ -36,6 +36,7 @@ export function useLiveKitRoomConnection(
     onRoomDisconnected,
     userAdId,
     userEmail,
+    userRole,
   } = options;
 
   const [isConnected, setIsConnected] = useState(false);
@@ -191,6 +192,7 @@ export function useLiveKitRoomConnection(
     onReconnecting: handleReconnecting,
     userAdId,
     userEmail,
+    userRole,
   });
 
   // Connect function
@@ -230,8 +232,9 @@ export function useLiveKitRoomConnection(
       setError(connectionError);
       logError('[useLiveKitRoomConnection] Connection failed', { error: connectionError });
 
-      // Report failure to backend if user info is available
-      if (userAdId && userEmail) {
+      // Report failure to backend only if user is a PSO (not admin/supervisor)
+      // Admins viewing PSO streams should not report connection failures
+      if (userAdId && userEmail && userRole === 'PSO') {
         reportLiveKitConnectionFailure({
           userAdId,
           userEmail,

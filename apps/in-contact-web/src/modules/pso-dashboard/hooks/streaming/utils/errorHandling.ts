@@ -78,12 +78,22 @@ export async function handlePermissionError(
 export async function handleConnectionError(
   options: HandleConnectionErrorOptions
 ): Promise<boolean> {
-  const { userAdId, userEmail, error, roomName, livekitUrl } = options;
+  const { userAdId, userEmail, userRole, error, roomName, livekitUrl } = options;
 
   if (!userAdId || !userEmail) {
     logDebug('[handleConnectionError] Skipping report - missing user info', {
       hasUserAdId: !!userAdId,
       hasUserEmail: !!userEmail,
+    });
+    return false;
+  }
+
+  // Only PSOs should report LiveKit connection failures
+  // Admins viewing PSO streams should not report connection failures
+  if (userRole !== 'PSO') {
+    logDebug('[handleConnectionError] Skipping report - user is not a PSO', {
+      userRole,
+      userEmail,
     });
     return false;
   }

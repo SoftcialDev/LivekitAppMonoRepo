@@ -129,6 +129,7 @@ export function useVideoCardLogic(
     },
     userAdId: userInfo?.azureAdObjectId,
     userEmail: userInfo?.email || account?.username,
+    userRole: userInfo?.role || undefined, // Pass role to prevent admins from reporting errors
   });
 
   /**

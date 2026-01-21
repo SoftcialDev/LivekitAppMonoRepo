@@ -190,10 +190,11 @@ export function useStreamingDashboard(): IUseStreamingDashboardReturn {
         room = await connectToRoomWithTimeout(livekitUrl, token, currentRoomName, attempt);
         roomRef.current = room;
       } catch (connectError) {
-        // Report connection failure (does not throw)
+        // Report connection failure (does not throw) - only PSOs report
         await handleConnectionError({
           userAdId,
           userEmail,
+          userRole: userInfo?.role ? String(userInfo.role) : undefined, // Only PSOs should report
           error: connectError,
           roomName: currentRoomName || undefined,
           livekitUrl: livekitUrl || undefined,
@@ -367,10 +368,11 @@ export function useStreamingDashboard(): IUseStreamingDashboardReturn {
         await room.connect(livekitUrl, token);
         roomRef.current = room;
       } catch (connectError) {
-        // Report connection failure (does not throw)
+        // Report connection failure (does not throw) - only PSOs report
         await handleConnectionError({
           userAdId,
           userEmail,
+          userRole: userInfo?.role ? String(userInfo.role) : undefined, // Only PSOs should report
           error: connectError,
           roomName: currentRoomName || undefined,
           livekitUrl: livekitUrl || undefined,
