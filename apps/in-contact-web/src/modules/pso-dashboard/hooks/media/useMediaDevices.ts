@@ -118,8 +118,9 @@ async function createVideoTrackWithFallback(cameras: MediaDeviceInfo[]): Promise
     });
     return track;
   } catch (err: unknown) {
-    const error = err as Error;
+    const error = err as DOMException | Error;
     logError('[MediaDevices] Failed to create video track from default device', { error });
+    // Preserve DOMException name (e.g., NotReadableError) for proper error detection
     throw error;
   }
 }

@@ -79,9 +79,14 @@ function setupVideoTrackMonitoring(
   onTrackEnded?: () => void
 ): void {
   // Monitor track ended event
+  // IMPORTANT: When tab is in background (user switched to another app or minimized browser),
+  // Chrome may stop the MediaStreamTrack. We should reconnect IMMEDIATELY without waiting
+  // for the tab to become visible again, so the admin doesn't lose view of the PSO.
   videoTrack.on('ended', () => {
     if (streamingRef.current && !manualStopRef.current) {
-      logInfo('[LiveKit] Video track ended during streaming, triggering reconnection');
+      logInfo('[LiveKit] Video track ended during streaming, triggering immediate reconnection');
+      // Reconnect immediately - don't wait for tab to become visible
+      // This ensures admin continues to see the PSO even when PSO switches to another app
       if (onTrackEnded) {
         onTrackEnded();
       }
@@ -97,8 +102,9 @@ function setupVideoTrackMonitoring(
 
     const mediaStreamTrack = videoTrack.mediaStreamTrack;
     if (mediaStreamTrack?.readyState === 'ended') {
-      logInfo('[LiveKit] Video track mediaStreamTrack ended, triggering reconnection');
+      logInfo('[LiveKit] Video track mediaStreamTrack ended, triggering immediate reconnection');
       clearInterval(checkInterval);
+      // Reconnect immediately - don't wait for tab to become visible
       if (onTrackEnded) {
         onTrackEnded();
       }
