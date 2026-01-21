@@ -91,12 +91,17 @@ function getTrackCreationErrorMessage(
   errorName?: string | null
 ): string {
   const appName = extractAppName(errorMessage);
+  const normalizedErrorName = errorName?.trim();
+  const normalizedErrorMessage = errorMessage?.trim() || '';
   
   // DeviceInUseError is explicitly set by frontend when all cameras are busy
-  // Also check for explicit "all cameras" or "device in use" patterns
-  const isDeviceInUse = errorName === 'DeviceInUseError' ||
-                        /all cameras.*busy|device.*in use by another application/i.test(errorMessage || '') ||
-                        ERROR_PATTERNS.deviceInUse.test(errorMessage || '');
+  // NotReadableError with "Could not start video source" typically indicates device is in use
+  // Only consider NotReadableError as "device in use" if the message contains specific patterns
+  const isDeviceInUse = normalizedErrorName === 'DeviceInUseError' ||
+                        (normalizedErrorName === 'NotReadableError' && 
+                         (/could not start video source|could not start.*source|all cameras.*busy|device.*in use by another application/i.test(normalizedErrorMessage))) ||
+                        /all cameras.*busy|device.*in use by another application|could not start video source|could not start.*source/i.test(normalizedErrorMessage) ||
+                        ERROR_PATTERNS.deviceInUse.test(normalizedErrorMessage);
   
   if (isDeviceInUse) {
     if (appName) {
@@ -168,15 +173,16 @@ export function getAdminFriendlyErrorMessage(
     
     case CameraFailureStage.TrackCreate:
       const appName = extractAppName(errorMessage);
-      // Normalize errorName and errorMessage for comparison (trim and lowercase)
+      // Normalize errorName and errorMessage for comparison (trim)
       const normalizedErrorName = errorName?.trim();
       const normalizedErrorMessage = errorMessage?.trim() || '';
       
       // DeviceInUseError is explicitly set by frontend when all cameras are busy
       // NotReadableError with "Could not start video source" typically indicates device is in use
-      // Also check for explicit "all cameras" or "device in use" patterns
+      // Only consider NotReadableError as "device in use" if the message contains specific patterns
       const isDeviceInUse = normalizedErrorName === 'DeviceInUseError' ||
-                            normalizedErrorName === 'NotReadableError' ||
+                            (normalizedErrorName === 'NotReadableError' && 
+                             (/could not start video source|could not start.*source|all cameras.*busy|device.*in use by another application/i.test(normalizedErrorMessage))) ||
                             /all cameras.*busy|device.*in use by another application|could not start video source|could not start.*source/i.test(normalizedErrorMessage) ||
                             ERROR_PATTERNS.deviceInUse.test(normalizedErrorMessage);
       
