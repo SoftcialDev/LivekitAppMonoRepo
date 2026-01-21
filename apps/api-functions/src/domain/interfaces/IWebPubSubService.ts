@@ -136,4 +136,12 @@ export interface IWebPubSubService {
     psoNames: string[];
     newSupervisorName: string;
   }): Promise<void>;
+
+  /**
+   * Lists connections in a specific group
+   * @param groupName - Name of the group to list connections for
+   * @returns Promise that resolves to array of connections with connectionId and userId
+   * @throws Error if listing connections fails
+   */
+  listConnectionsInGroup(groupName: string): Promise<Array<{connectionId: string, userId?: string}>>;
 }

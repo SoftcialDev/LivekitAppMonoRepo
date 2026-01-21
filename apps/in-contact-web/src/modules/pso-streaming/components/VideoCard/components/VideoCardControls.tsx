@@ -6,6 +6,16 @@
  */
 
 import React from 'react';
+import { 
+  MessageCircle, 
+  Mic, 
+  MicOff, 
+  Camera, 
+  Play, 
+  Square, 
+  Circle,
+  Loader2
+} from 'lucide-react';
 import StopReasonButton from '@/ui-kit/buttons/StopReasonButton';
 import type { IVideoCardControlsProps } from '../types/videoCardComponentTypes';
 
@@ -50,46 +60,64 @@ export const VideoCardControls: React.FC<IVideoCardControlsProps> = ({
 }) => {
   const isPlayDisabled = disableControls || connecting;
   const playButtonDisabled = isPlayDisabled || recordingLoading || talkLoading;
-  const playButtonContent = recordingLoading || talkLoading ? '...' : playLabel;
+  const isPlayLoading = recordingLoading || talkLoading || connecting;
 
   return (
-    <div className="flex flex-wrap gap-2 mt-2">
+    <div className="flex gap-2 mt-2">
       <div className="flex-1 relative">
         {shouldStream ? (
           <StopReasonButton
             onSelect={onStopReasonSelect}
             disabled={playButtonDisabled}
             className="w-full"
+            hideDropdownIcon={true}
           >
-            {playButtonContent}
+            <div className="flex items-center justify-center">
+              {isPlayLoading ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                <Square className="w-5 h-5" />
+              )}
+            </div>
           </StopReasonButton>
         ) : (
           <button
             onClick={() => onToggle?.(email)}
             disabled={playButtonDisabled}
-            className="w-full py-2 bg-white text-(--color-primary-dark) rounded-xl disabled:opacity-50"
+            className="w-full py-2 px-3 bg-white text-(--color-primary-dark) rounded-xl disabled:opacity-50 flex items-center justify-center"
             title="Start stream"
           >
-            {playButtonContent}
+            {isPlayLoading ? (
+              <Loader2 className="w-5 h-5 animate-spin" />
+            ) : (
+              <Play className="w-5 h-5" />
+            )}
           </button>
         )}
       </div>
 
       <button
         onClick={() => onChat(email)}
-        className="flex-1 py-2 bg-(--color-secondary) text-(--color-primary-dark) rounded-xl"
+        className="flex-1 py-2 px-3 bg-(--color-secondary) text-(--color-primary-dark) rounded-xl flex items-center justify-center"
+        title="Open chat"
       >
-        Chat
+        <MessageCircle className="w-5 h-5" />
       </button>
 
       {canTalkControl && (
         <button
           onClick={onTalkClick}
           disabled={talkDisabled && !isCountdownActive}
-          className="flex-1 py-2 rounded-xl bg-indigo-600 text-white disabled:opacity-50"
-          title={isCountdownActive ? 'Cancel talk session' : 'Publish your microphone to this user'}
+          className="flex-1 py-2 px-3 rounded-xl bg-indigo-600 text-white disabled:opacity-50 flex items-center justify-center"
+          title={isCountdownActive ? 'Cancel talk session' : isTalking ? 'Stop microphone' : 'Start microphone'}
         >
-          {talkLoading ? '...' : talkLabel}
+          {talkLoading ? (
+            <Loader2 className="w-5 h-5 animate-spin" />
+          ) : isTalking ? (
+            <Mic className="w-5 h-5" />
+          ) : (
+            <MicOff className="w-5 h-5" />
+          )}
         </button>
       )}
 
@@ -97,10 +125,10 @@ export const VideoCardControls: React.FC<IVideoCardControlsProps> = ({
         <button
           onClick={onSnapshotClick}
           disabled={snapshotDisabled}
-          className="flex-1 py-2 bg-yellow-400 rounded-xl disabled:opacity-50"
-          title={snapshotDisabled ? 'Snapshot is available only while streaming' : undefined}
+          className="flex-1 py-2 px-3 bg-yellow-400 rounded-xl disabled:opacity-50 flex items-center justify-center"
+          title={snapshotDisabled ? 'Snapshot is available only while streaming' : 'Take snapshot'}
         >
-          Snapshot
+          <Camera className="w-5 h-5 text-black" />
         </button>
       )}
 
@@ -108,13 +136,16 @@ export const VideoCardControls: React.FC<IVideoCardControlsProps> = ({
         <button
           onClick={onRecordClick}
           disabled={recordDisabled}
-          className={`flex-1 py-2 rounded-xl ${isRecording ? 'bg-red-500 text-white' : 'bg-[#BBA6CF] text-white'} disabled:opacity-50`}
-          title={recordDisabled ? 'Recording is available only while streaming' : undefined}
+          className={`flex-1 py-2 px-3 rounded-xl ${isRecording ? 'bg-red-500 text-white' : 'bg-[#BBA6CF] text-white'} disabled:opacity-50 flex items-center justify-center`}
+          title={recordDisabled ? 'Recording is available only while streaming' : isRecording ? 'Stop recording' : 'Start recording'}
         >
-          {(() => {
-            if (recordingLoading) return '...';
-            return isRecording ? 'Stop Rec' : 'Start Rec';
-          })()}
+          {recordingLoading ? (
+            <Loader2 className="w-5 h-5 animate-spin" />
+          ) : isRecording ? (
+            <Square className="w-5 h-5" />
+          ) : (
+            <Circle className="w-5 h-5 fill-current" />
+          )}
         </button>
       )}
     </div>

@@ -154,8 +154,67 @@ export class ProcessCommandDomainService {
         return false; // User offline, command will be delivered later
       }
 
-      // 2. Send via Web PubSub
+      // 2. Verify there are connections in the commands group
       const groupName = `commands:${userEmail.trim().toLowerCase()}`;
+      let connectionsInGroup: number = 0;
+      
+      try {
+        // Check if user is actually subscribed to the commands group
+        const connections = await this.webPubSubService.listConnectionsInGroup(groupName);
+        connectionsInGroup = connections.length;
+        
+        if (connectionsInGroup === 0) {
+          // User is online but not subscribed to commands group
+          try {
+            await this.errorLogService.logError({
+              source: ErrorSource.WebPubSub,
+              endpoint: 'ProcessCommand',
+              functionName: 'ProcessCommand',
+              error: new Error(`Command ${command} cannot be delivered: user is online but not subscribed to commands group`),
+              userId,
+              userEmail,
+              context: {
+                commandId,
+                command,
+                presenceStatus,
+                groupName,
+                connectionsInGroup: 0,
+                reason,
+                timestamp: timestamp.toISOString()
+              }
+            });
+          } catch {
+            // Fail silently if logging fails
+          }
+          return false; // User not subscribed to group
+        }
+      } catch (groupCheckError) {
+        // If checking connections fails, log but still try to send
+        try {
+          await this.errorLogService.logError({
+            source: ErrorSource.WebPubSub,
+            endpoint: 'ProcessCommand',
+            functionName: 'ProcessCommand',
+            error: groupCheckError instanceof Error ? groupCheckError : new Error(String(groupCheckError)),
+            userId,
+            userEmail,
+            context: {
+              commandId,
+              command,
+              presenceStatus,
+              groupName,
+              checkFailed: true,
+              reason,
+              timestamp: timestamp.toISOString()
+            }
+          });
+        } catch {
+          // Fail silently if logging fails
+        }
+        // Continue with sending even if check failed
+      }
+
+      // 3. Send via Web PubSub
       const message: any = {
         id: commandId,
         command: command,
@@ -169,7 +228,7 @@ export class ProcessCommandDomainService {
 
       await this.commandMessagingService.sendToGroup(groupName, message);
 
-      // 3. Mark as published in database
+      // 4. Mark as published in database
       await this.pendingCommandDomainService.markAsPublished(commandId);
       
       return true;

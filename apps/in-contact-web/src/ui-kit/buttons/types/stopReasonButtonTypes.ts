@@ -35,5 +35,10 @@ export interface IStopReasonButtonProps {
    * Button content/children
    */
   children: React.ReactNode;
+  /**
+   * Whether to hide the dropdown icon (arrow)
+   * @default false
+   */
+  hideDropdownIcon?: boolean;
 }
 

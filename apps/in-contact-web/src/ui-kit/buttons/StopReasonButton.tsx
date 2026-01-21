@@ -26,6 +26,7 @@ const StopReasonButton: React.FC<IStopReasonButtonProps> = ({
   disabled = false,
   className = '',
   children,
+  hideDropdownIcon = false,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [position, setPosition] = useState({ top: 0, left: 0 });
@@ -128,24 +129,26 @@ const StopReasonButton: React.FC<IStopReasonButtonProps> = ({
         ref={buttonRef}
         onClick={handleButtonClick}
         disabled={disabled}
-        className={`w-full py-2 bg-(--color-tertiary) text-(--color-primary-dark) rounded-xl disabled:opacity-50 flex items-center justify-between px-4 ${className}`}
+        className={`w-full py-2 bg-(--color-tertiary) text-(--color-primary-dark) rounded-xl disabled:opacity-50 flex items-center ${hideDropdownIcon ? 'justify-center' : 'justify-between'} px-4 ${className}`}
       >
         <span>{children}</span>
-        <svg
-          className="w-4 h-4"
-          aria-hidden="true"
-          xmlns="http://www.w3.org/2000/svg"
-          fill="none"
-          viewBox="0 0 10 6"
-        >
-          <path
-            stroke="currentColor"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="m1 1 4 4 4-4"
-          />
-        </svg>
+        {!hideDropdownIcon && (
+          <svg
+            className="w-4 h-4"
+            aria-hidden="true"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 10 6"
+          >
+            <path
+              stroke="currentColor"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="m1 1 4 4 4-4"
+            />
+          </svg>
+        )}
       </button>
 
       {renderDropdown()}
