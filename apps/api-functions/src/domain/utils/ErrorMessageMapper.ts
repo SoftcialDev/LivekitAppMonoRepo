@@ -168,13 +168,17 @@ export function getAdminFriendlyErrorMessage(
     
     case CameraFailureStage.TrackCreate:
       const appName = extractAppName(errorMessage);
+      // Normalize errorName and errorMessage for comparison (trim and lowercase)
+      const normalizedErrorName = errorName?.trim();
+      const normalizedErrorMessage = errorMessage?.trim() || '';
+      
       // DeviceInUseError is explicitly set by frontend when all cameras are busy
       // NotReadableError with "Could not start video source" typically indicates device is in use
       // Also check for explicit "all cameras" or "device in use" patterns
-      const isDeviceInUse = errorName === 'DeviceInUseError' ||
-                            errorName === 'NotReadableError' ||
-                            /all cameras.*busy|device.*in use by another application|could not start video source|could not start.*source/i.test(errorMessage || '') ||
-                            ERROR_PATTERNS.deviceInUse.test(errorMessage || '');
+      const isDeviceInUse = normalizedErrorName === 'DeviceInUseError' ||
+                            normalizedErrorName === 'NotReadableError' ||
+                            /all cameras.*busy|device.*in use by another application|could not start video source|could not start.*source/i.test(normalizedErrorMessage) ||
+                            ERROR_PATTERNS.deviceInUse.test(normalizedErrorMessage);
       
       if (isDeviceInUse) {
         if (appName) {
@@ -182,7 +186,7 @@ export function getAdminFriendlyErrorMessage(
         }
         return `${psoPrefix}Camera is in use by another application`;
       }
-      if (ERROR_PATTERNS.notReadable.test(errorMessage || '')) {
+      if (ERROR_PATTERNS.notReadable.test(normalizedErrorMessage)) {
         return `${psoPrefix}Camera cannot be accessed`;
       }
       return `${psoPrefix}Failed to start video stream`;
