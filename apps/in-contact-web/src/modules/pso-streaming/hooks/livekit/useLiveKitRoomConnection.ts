@@ -6,7 +6,8 @@
  */
 
 import { useRef, useEffect, useCallback, useState } from 'react';
-import type { Room, DisconnectReason } from 'livekit-client';
+import type { Room } from 'livekit-client';
+import { DisconnectReason } from 'livekit-client';
 import { logError, logWarn, logDebug } from '@/shared/utils/logger';
 import { useRoomConnection } from './hooks/useRoomConnection';
 import { useRoomReconnection } from './hooks/useRoomReconnection';
@@ -70,6 +71,9 @@ export function useLiveKitRoomConnection(
     livekitUrlRef.current = livekitUrl;
   }, [shouldStream, accessToken, roomName, livekitUrl]);
 
+  // Ref to store roomReconnection for use in handleRoomConnected
+  const roomReconnectionRef = useRef<ReturnType<typeof useRoomReconnection> | null>(null);
+
   // Handle room connected
   const handleRoomConnected = useCallback(
     (room: Room): void => {
@@ -79,6 +83,13 @@ export function useLiveKitRoomConnection(
           logError('[useLiveKitRoomConnection] Error cleaning up canceled room', { error: err });
         });
         return;
+      }
+
+      // Cancel any pending reconnection attempts when connection succeeds
+      // This prevents scheduled reconnections from executing after a successful connection
+      if (roomReconnectionRef.current) {
+        roomReconnectionRef.current.cancel();
+        roomReconnectionRef.current.reset();
       }
 
       isConnectedRef.current = true;
@@ -125,6 +136,13 @@ export function useLiveKitRoomConnection(
       isConnectingRef.current = false;
       setIsConnecting(false);
 
+      // Clear global connection attempt on disconnect to allow reconnection
+      const currentRoomName = roomNameRef.current;
+      if (currentRoomName) {
+        globalConnectionAttempts.current.delete(currentRoomName);
+        logDebug('[useLiveKitRoomConnection] Cleared global connection attempt (disconnect)', { roomName: currentRoomName });
+      }
+
       const roomToCleanup = lkRoomRef.current;
       lkRoomRef.current = null;
 
@@ -151,6 +169,9 @@ export function useLiveKitRoomConnection(
   }, []);
 
   // Room reconnection hook (defined first to be used in enhanced handler)
+  // Note: We need to define this after connectAndWatchReconnect, but we'll use a ref pattern
+  const connectAndWatchReconnectRef = useRef<(() => Promise<void>) | null>(null);
+  
   const roomReconnection = useRoomReconnection({
     shouldStream,
     onReconnect: () => {
@@ -158,24 +179,86 @@ export function useLiveKitRoomConnection(
         return;
       }
 
-      roomConnection.connect()
-        .then((room) => {
-          if (room) {
-            handleRoomConnected(room);
-          }
-        })
-        .catch((err) => {
+      // Check if another component is already connecting to this room
+      const currentRoomName = roomNameRef.current;
+      if (currentRoomName && globalConnectionAttempts.current.get(currentRoomName)) {
+        logDebug('[useLiveKitRoomConnection] Skipping reconnection - another component is connecting', { roomName: currentRoomName });
+        return;
+      }
+
+      // Check if we're already connecting or connected
+      if (isConnectingRef.current || isConnectedRef.current) {
+        logDebug('[useLiveKitRoomConnection] Skipping reconnection - already connecting or connected');
+        return;
+      }
+
+      // Use the reconnect wrapper if available, otherwise fall back to direct connection
+      if (connectAndWatchReconnectRef.current) {
+        connectAndWatchReconnectRef.current().catch((err) => {
           logError('[useLiveKitRoomConnection] Reconnection failed', { error: err });
         });
+      } else {
+        // Fallback: direct connection (shouldn't happen in normal flow)
+        roomConnection.connect()
+          .then((room) => {
+            if (room) {
+              handleRoomConnected(room);
+            }
+          })
+          .catch((err) => {
+            logError('[useLiveKitRoomConnection] Reconnection failed', { error: err });
+          });
+      }
     },
   });
+
+  // Update ref for handleRoomConnected
+  useEffect(() => {
+    roomReconnectionRef.current = roomReconnection;
+  }, [roomReconnection]);
 
   // Enhanced disconnected handler that includes reconnection logic
   const enhancedHandleDisconnected = useCallback(
     (reason?: DisconnectReason): void => {
       handleRoomDisconnected(reason);
-      if (!canceledRef.current && shouldStreamRef.current) {
+      
+      const reasonCode = reason ? String(reason) : 'unknown';
+      const isDuplicateIdentity = reason === DisconnectReason.DUPLICATE_IDENTITY;
+      
+      // For DUPLICATE_IDENTITY, be more conservative - only reconnect if:
+      // 1. Not canceled
+      // 2. Should stream
+      // 3. Not already connecting (to avoid competing with initial connections)
+      // 4. Not already connected (shouldn't happen, but safety check)
+      // 5. No other component is connecting to this room
+      if (!canceledRef.current && shouldStreamRef.current && !isConnectingRef.current && !isConnectedRef.current) {
+        // Check if another component is already connecting to this room
+        const currentRoomName = roomNameRef.current;
+        if (currentRoomName && globalConnectionAttempts.current.get(currentRoomName)) {
+          logDebug('[useLiveKitRoomConnection] Skipping reconnection - another component is connecting', { 
+            roomName: currentRoomName,
+            reason: reasonCode,
+          });
+          return;
+        }
+        
+        // For DUPLICATE_IDENTITY, wait a bit longer before attempting reconnection
+        // This gives time for the winning connection to stabilize
+        if (isDuplicateIdentity) {
+          logDebug('[useLiveKitRoomConnection] DUPLICATE_IDENTITY detected, will reconnect after delay', {
+            roomName: currentRoomName,
+          });
+        }
+        
         roomReconnection.handleDisconnection(reason);
+      } else {
+        logDebug('[useLiveKitRoomConnection] Skipping reconnection', {
+          canceled: canceledRef.current,
+          shouldStream: shouldStreamRef.current,
+          isConnecting: isConnectingRef.current,
+          isConnected: isConnectedRef.current,
+          reason: reasonCode,
+        });
       }
     },
     [handleRoomDisconnected, roomReconnection]
@@ -195,9 +278,41 @@ export function useLiveKitRoomConnection(
     userRole,
   });
 
+  /**
+   * Global map to track ongoing connection attempts per room
+   * This prevents multiple components from connecting to the same room simultaneously
+   */
+  const globalConnectionAttempts = useRef<Map<string, boolean>>(new Map());
+
+  /**
+   * Calculates a deterministic delay based on roomName to stagger initial connections
+   * This prevents multiple simultaneous connection attempts that cause DUPLICATE_IDENTITY
+   * Only used for initial connections, not reconnections
+   */
+  const calculateStaggeredDelay = useCallback((roomName: string | null): number => {
+    if (!roomName) return 0;
+    // Use a simple hash of the roomName to generate a consistent delay (0-800ms)
+    // Increased delay to better distribute connection attempts
+    let hash = 0;
+    for (let i = 0; i < roomName.length; i++) {
+      hash = ((hash << 5) - hash) + roomName.charCodeAt(i);
+      hash = hash & hash; // Convert to 32-bit integer
+    }
+    return Math.abs(hash) % 800; // Delay between 0-800ms (increased from 300ms)
+  }, []);
+
   // Connect function
-  const connectAndWatch = useCallback(async (): Promise<void> => {
+  const connectAndWatch = useCallback(async (isInitialConnection: boolean = false): Promise<void> => {
+    const currentRoomName = roomNameRef.current;
+    
     if (isConnectingRef.current || isConnectedRef.current) {
+      logDebug('[useLiveKitRoomConnection] Already connecting or connected, skipping', { roomName: currentRoomName });
+      return;
+    }
+
+    // Check global connection attempts to prevent multiple components connecting to same room
+    if (currentRoomName && globalConnectionAttempts.current.get(currentRoomName)) {
+      logDebug('[useLiveKitRoomConnection] Another component is already connecting to this room, skipping', { roomName: currentRoomName });
       return;
     }
 
@@ -213,20 +328,70 @@ export function useLiveKitRoomConnection(
       setIsConnected(false);
     }
 
+    // Mark global connection attempt BEFORE delay to prevent other components from starting
+    // This must happen before the delay so other components can see it
+    if (currentRoomName) {
+      globalConnectionAttempts.current.set(currentRoomName, true);
+      logDebug('[useLiveKitRoomConnection] Marked global connection attempt (before delay)', { roomName: currentRoomName });
+    }
+
+    // Add staggered delay ONLY for initial connections to prevent DUPLICATE_IDENTITY
+    // Reconnections should happen immediately to restore connection quickly
+    if (isInitialConnection) {
+      const delay = calculateStaggeredDelay(currentRoomName);
+      if (delay > 0) {
+        logDebug('[useLiveKitRoomConnection] Staggering initial connection', { delay, roomName: currentRoomName });
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+
+      // Double-check after delay (another component might have connected in the meantime)
+      if (isConnectingRef.current || isConnectedRef.current) {
+        logDebug('[useLiveKitRoomConnection] Connection already in progress after delay, skipping');
+        // Clear global attempt if we're skipping
+        if (currentRoomName) {
+          globalConnectionAttempts.current.delete(currentRoomName);
+        }
+        return;
+      }
+      
+      // Verify we still have the global lock (should always be true, but check anyway)
+      if (currentRoomName && !globalConnectionAttempts.current.get(currentRoomName)) {
+        logDebug('[useLiveKitRoomConnection] Lost global connection lock during delay, skipping');
+        return;
+      }
+    }
+
+    // Mark as connecting BEFORE the actual connection attempt
+    // This prevents other components from starting a connection
     isConnectingRef.current = true;
     setIsConnecting(true);
     errorRef.current = null;
     setError(null);
+    
+    logDebug('[useLiveKitRoomConnection] Starting connection attempt', { 
+      roomName: currentRoomName,
+      isInitialConnection,
+    });
 
     try {
       const room = await roomConnection.connect();
       if (room) {
         handleRoomConnected(room);
         roomReconnection.reset();
+        // Clear global connection attempt on success
+        if (currentRoomName) {
+          globalConnectionAttempts.current.delete(currentRoomName);
+          logDebug('[useLiveKitRoomConnection] Cleared global connection attempt (success)', { roomName: currentRoomName });
+        }
       }
     } catch (err) {
       isConnectingRef.current = false;
       setIsConnecting(false);
+      // Clear global connection attempt on failure
+      if (currentRoomName) {
+        globalConnectionAttempts.current.delete(currentRoomName);
+        logDebug('[useLiveKitRoomConnection] Cleared global connection attempt (failure)', { roomName: currentRoomName });
+      }
       const connectionError = err instanceof Error ? err : new Error('Connection failed');
       errorRef.current = connectionError;
       setError(connectionError);
@@ -246,7 +411,22 @@ export function useLiveKitRoomConnection(
         });
       }
     }
-  }, [roomConnection, roomReconnection, handleRoomConnected, roomRef]);
+  }, [roomConnection, roomReconnection, handleRoomConnected, roomRef, calculateStaggeredDelay, userAdId, userEmail, userRole]);
+
+  // Wrapper for initial connections (with delay)
+  const connectAndWatchInitial = useCallback(async (): Promise<void> => {
+    return connectAndWatch(true);
+  }, [connectAndWatch]);
+
+  // Wrapper for reconnections (without delay)
+  const connectAndWatchReconnect = useCallback(async (): Promise<void> => {
+    return connectAndWatch(false);
+  }, [connectAndWatch]);
+
+  // Update ref for roomReconnection hook
+  useEffect(() => {
+    connectAndWatchReconnectRef.current = connectAndWatchReconnect;
+  }, [connectAndWatchReconnect]);
 
   // Disconnect function
   const disconnect = useCallback(async (): Promise<void> => {
@@ -365,7 +545,7 @@ export function useLiveKitRoomConnection(
         await cleanupRoom(roomToCleanup);
         if (shouldStreamRef.current && !canceledRef.current && !isConnectingRef.current) {
           logDebug('[useLiveKitRoomConnection] Attempting reconnection after parameter change');
-          connectAndWatch().catch((err) => {
+          connectAndWatchReconnect().catch((err) => {
             logError('[useLiveKitRoomConnection] Error in connectAndWatch after parameter change', { error: err });
           });
         }
@@ -375,25 +555,31 @@ export function useLiveKitRoomConnection(
       return;
     }
     
-    // No room to cleanup, reconnect immediately
+    // No room to cleanup, reconnect immediately (no delay for reconnections)
     if (shouldStreamRef.current && !canceledRef.current && !isConnectingRef.current) {
       logDebug('[useLiveKitRoomConnection] Attempting reconnection after parameter change');
-      connectAndWatch().catch((err) => {
+      connectAndWatchReconnect().catch((err) => {
         logError('[useLiveKitRoomConnection] Error in connectAndWatch after parameter change', { error: err });
       });
     }
-  }, [shouldStream, accessToken, roomName, livekitUrl, roomRef, roomReconnection, connectAndWatch]);
+  }, [shouldStream, accessToken, roomName, livekitUrl, roomRef, roomReconnection, connectAndWatchReconnect]);
 
   /**
    * Handles initial connection when no room exists
    */
   const handleInitialConnection = useCallback((): void => {
+    // Double-check that we still need to connect (another component might have connected)
+    if (isConnectingRef.current || isConnectedRef.current || lkRoomRef.current) {
+      logDebug('[useLiveKitRoomConnection] Connection already in progress or connected, skipping initial connection');
+      return;
+    }
+    
     logDebug('[useLiveKitRoomConnection] No room connected, connecting...');
     canceledRef.current = false;
-    connectAndWatch().catch((err) => {
+    connectAndWatchInitial().catch((err) => {
       logError('[useLiveKitRoomConnection] Error in initial connectAndWatch', { error: err });
     });
-  }, [connectAndWatch]);
+  }, [connectAndWatchInitial]);
 
   // Main effect: handle parameter changes and connection lifecycle
   useEffect(() => {
@@ -430,23 +616,44 @@ export function useLiveKitRoomConnection(
       needsReconnect,
       hasRoom: !!lkRoomRef.current,
       isConnected: isConnectedRef.current,
+      isConnecting: isConnectingRef.current,
     });
 
+    // If already connected and parameters haven't changed, do nothing
+    if (isConnectedRef.current && lkRoomRef.current && !needsReconnect) {
+      logDebug('[useLiveKitRoomConnection] Already connected with same parameters, skipping');
+      updatePreviousRefs();
+      return;
+    }
+
+    // If parameters changed and we have a room, reconnect
     if (needsReconnect && (lkRoomRef.current || isConnectingRef.current)) {
       handleParameterChangeReconnection().catch((err) => {
         logError('[useLiveKitRoomConnection] Error in handleParameterChangeReconnection', { error: err });
       });
     } else if (!lkRoomRef.current && !isConnectingRef.current && !isConnectedRef.current) {
+      // Only attempt initial connection if we're not already connecting or connected
       handleInitialConnection();
     }
 
     updatePreviousRefs();
 
     return () => {
-      if (!shouldStream) {
-        logDebug('[useLiveKitRoomConnection] Cleanup: shouldStream is false, disconnecting');
+      // Only disconnect in cleanup if shouldStream is false AND we have a room
+      // This prevents disconnecting when component unmounts due to layout change
+      // but shouldStream is still true (PSO is still streaming)
+      if (!shouldStream && lkRoomRef.current) {
+        logDebug('[useLiveKitRoomConnection] Cleanup: shouldStream is false, disconnecting', {
+          roomName: roomNameRef.current,
+        });
         disconnect().catch((err) => {
           logError('[useLiveKitRoomConnection] Error in cleanup disconnect', { error: err });
+        });
+      } else {
+        logDebug('[useLiveKitRoomConnection] Cleanup: skipping disconnect', {
+          shouldStream,
+          hasRoom: !!lkRoomRef.current,
+          roomName: roomNameRef.current,
         });
       }
     };
