@@ -39,7 +39,7 @@ export const DashboardLayout: React.FC = () => {
         <Header />
         <Outlet />
       </main>
-      <div className={`absolute top-1/2 transform -translate-y-1/2 z-50 ${isCollapsed ? 'left-0' : 'left-[350px]'} transition-all duration-300`}>
+      <div className={`fixed top-1/2 transform -translate-y-1/2 z-50 ${isCollapsed ? 'left-0' : 'left-[350px]'} transition-all duration-300`}>
         <SidebarToggle isCollapsed={isCollapsed} onToggle={toggleCollapse} />
       </div>
     </div>
