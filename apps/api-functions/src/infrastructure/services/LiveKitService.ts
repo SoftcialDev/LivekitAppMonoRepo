@@ -102,18 +102,25 @@ export class LiveKitService implements ILiveKitService {
    * @returns Promise that resolves to the signed JWT access token
    * @throws LiveKitServiceError when token generation fails
    * @remarks
-   * The identity is made unique per room by combining caller ID with room name.
+   * For viewers (admins/supervisors), the identity is made unique per room to allow
+   * the same viewer to connect to multiple rooms simultaneously.
+   * For publishers (PSOs), the identity remains as their ID to match frontend expectations.
+   * 
    * This allows:
    * - Same admin to connect to multiple rooms simultaneously (identity: "admin-123-pso-1", "admin-123-pso-2")
    * - Multiple admins to connect to the same room (identity: "admin-123-pso-1", "admin-456-pso-1")
-   * Format: {callerId}-{roomName}
+   * - PSO to maintain their original identity (identity: "pso-1") so frontend can find them by roomName
+   * 
+   * Format for viewers: {callerId}-{roomName}
+   * Format for publishers: {callerId} (when callerId === roomName)
    */
   async generateToken(identity: string, isAdmin: boolean, room: string): Promise<string> {
     try {
-      // Make identity unique per room to allow same user to connect to multiple rooms simultaneously
-      // Format: {callerId}-{roomName}
-      // Example: "admin-123-pso-1" for admin-123 connecting to room pso-1
-      const uniqueIdentity = `${identity}-${room}`;
+      // For viewers (admins/sups), make identity unique per room to allow multiple simultaneous connections
+      // For publishers (PSOs), keep original identity (their ID) so frontend can find them by roomName
+      // Check if this is a publisher connecting to their own room (identity === room)
+      const isPublisher = identity === room;
+      const uniqueIdentity = isPublisher ? identity : `${identity}-${room}`;
       
       const at = new AccessToken(
         config.livekitApiKey,
