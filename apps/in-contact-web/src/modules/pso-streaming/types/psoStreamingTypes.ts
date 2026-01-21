@@ -51,6 +51,7 @@ export type CredsMap = Record<string, StreamCreds>;
 
 /**
  * Available grid layout options
+ * Special value -1 represents "All" (show all PSOs)
  */
-export type LayoutOption = 1 | 2 | 3 | 4 | 5 | 6 | 9 | 12 | 15 | 20 | 200;
+export type LayoutOption = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 12 | 15 | 20 | -1;
 

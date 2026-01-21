@@ -161,6 +161,10 @@ const PSOsStreamingPage: React.FC = () => {
       return aKey.localeCompare(bKey);
     });
 
+    // If layout is -1 (All), show all PSOs without limit
+    if (layout === -1) {
+      return sortedByStreaming;
+    }
     return sortedByStreaming.slice(0, layout);
   }, [allPsos, fixedEmails, layout, streamingStatusMap]);
 
@@ -192,7 +196,10 @@ const PSOsStreamingPage: React.FC = () => {
           showSelectAll={true}
         />
         <Dropdown
-          options={LAYOUT_OPTIONS.map(n => ({ label: `Layout ${n} - cams`, value: n }))}
+          options={LAYOUT_OPTIONS.map(n => ({ 
+            label: n === -1 ? 'All' : `Layout ${n} - cams`, 
+            value: n 
+          }))}
           value={layout}
           onSelect={handleLayoutChange}
           menuClassName="bg-[var(--color-tertiary)] w-64"

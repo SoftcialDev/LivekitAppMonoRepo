@@ -11,17 +11,19 @@ import type React from 'react';
  * 
  * Responsive column layout:
  * - 1 camera: 1 column (full width)
- * - 2-4 cameras: 2 columns
- * - 5-9 cameras: 3 columns
- * - 10-15 cameras: 4 columns
- * - 16+ cameras: 5 columns
+ * - 2 cameras: 2 columns
+ * - 3 cameras: 3 columns (one row)
+ * - 4 cameras: 4 columns (one row, same as 3)
+ * - 5-8 cameras: 4 columns
+ * - 9+ cameras: 5 columns
  */
 export function calculateGridColumns(itemCount: number): number {
   if (itemCount === 1) return 1;
-  if (itemCount >= 2 && itemCount <= 4) return 2;
-  if (itemCount >= 5 && itemCount <= 9) return 3;
-  if (itemCount >= 10 && itemCount <= 15) return 4;
-  return 5; // 16+ cameras
+  if (itemCount === 2) return 2;
+  if (itemCount === 3) return 3; // 3 columns, one row
+  if (itemCount === 4) return 4; // 4 columns, one row (same as 3)
+  if (itemCount >= 5 && itemCount <= 8) return 4;
+  return 5; // 9+ cameras
 }
 
 /**
@@ -38,19 +40,14 @@ export function calculateGridTemplateColumns(itemCount: number): string {
 export function calculateItemStyle(itemIndex: number, totalCount: number): React.CSSProperties {
   const style: React.CSSProperties = {};
 
-  if (totalCount === 3 && itemIndex === 2) {
-    style.gridColumn = '1 / -1';
-    style.justifySelf = 'center';
-    style.maxWidth = '66%';
-    style.width = '100%';
-  }
-
   if (totalCount === 1) {
     style.gridColumn = '1 / -1';
     style.justifySelf = 'center';
     style.maxWidth = '80%';
     style.width = '100%';
   }
+
+  // For 3 and 4 items, they'll be in one row with equal columns, no special styling needed
 
   return style;
 }
