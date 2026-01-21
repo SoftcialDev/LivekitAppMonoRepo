@@ -96,18 +96,29 @@ export class LiveKitService implements ILiveKitService {
 
   /**
    * Generates a JWT access token for a participant to join a LiveKit room
-   * @param identity - A unique identifier for the user
+   * @param identity - A unique identifier for the user (caller ID)
    * @param isAdmin - Whether to grant admin-level permissions (audio only publishing)
    * @param room - The name or ID of the room the token applies to
    * @returns Promise that resolves to the signed JWT access token
    * @throws LiveKitServiceError when token generation fails
+   * @remarks
+   * The identity is made unique per room by combining caller ID with room name.
+   * This allows:
+   * - Same admin to connect to multiple rooms simultaneously (identity: "admin-123-pso-1", "admin-123-pso-2")
+   * - Multiple admins to connect to the same room (identity: "admin-123-pso-1", "admin-456-pso-1")
+   * Format: {callerId}-{roomName}
    */
   async generateToken(identity: string, isAdmin: boolean, room: string): Promise<string> {
     try {
+      // Make identity unique per room to allow same user to connect to multiple rooms simultaneously
+      // Format: {callerId}-{roomName}
+      // Example: "admin-123-pso-1" for admin-123 connecting to room pso-1
+      const uniqueIdentity = `${identity}-${room}`;
+      
       const at = new AccessToken(
         config.livekitApiKey,
         config.livekitApiSecret,
-        { identity },
+        { identity: uniqueIdentity },
       );
 
       const grant: any = {
