@@ -532,7 +532,8 @@ export class ServiceContainer {
             const userRepository = this.resolve<IUserRepository>('UserRepository');
             const commandMessagingService = this.resolve<ICommandMessagingService>('ICommandMessagingService');
             const webPubSubService = this.resolve<IWebPubSubService>('WebPubSubService');
-            return new ProcessCommandDomainService(pendingCommandDomainService, streamingSessionDomainService, presenceDomainService, userRepository, commandMessagingService, webPubSubService);
+            const errorLogService = this.resolve<IErrorLogService>('ErrorLogService');
+            return new ProcessCommandDomainService(pendingCommandDomainService, streamingSessionDomainService, presenceDomainService, userRepository, commandMessagingService, webPubSubService, errorLogService);
           });
 
           this.register<ProcessCommandApplicationService>('ProcessCommandApplicationService', () => {

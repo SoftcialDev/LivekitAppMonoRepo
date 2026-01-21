@@ -12,8 +12,10 @@ import { PresenceDomainService } from "./PresenceDomainService";
 import { IUserRepository } from "../interfaces/IUserRepository";
 import { ICommandMessagingService } from "../interfaces/ICommandMessagingService";
 import { IWebPubSubService } from "../interfaces/IWebPubSubService";
+import { IErrorLogService } from "../interfaces/IErrorLogService";
 import { CommandType } from "../enums/CommandType";
 import { Status } from "../enums/Status";
+import { ErrorSource } from "../enums/ErrorSource";
 import { UserNotFoundError } from "../errors/UserErrors";
 
 /**
@@ -29,6 +31,7 @@ export class ProcessCommandDomainService {
    * @param userRepository - Repository for user data access
    * @param commandMessagingService - Service for command messaging
    * @param webPubSubService - Service for WebSocket broadcasting
+   * @param errorLogService - Service for error logging
    */
   constructor(
     private readonly pendingCommandDomainService: PendingCommandDomainService,
@@ -36,7 +39,8 @@ export class ProcessCommandDomainService {
     private readonly presenceDomainService: PresenceDomainService,
     private readonly userRepository: IUserRepository,
     private readonly commandMessagingService: ICommandMessagingService,
-    private readonly webPubSubService: IWebPubSubService
+    private readonly webPubSubService: IWebPubSubService,
+    private readonly errorLogService: IErrorLogService
   ) {}
 
   /**
@@ -127,6 +131,26 @@ export class ProcessCommandDomainService {
       // 1. Check if user is online
       const presenceStatus = await this.presenceDomainService.getPresenceStatus(userId);
       if (presenceStatus !== Status.Online) {
+        // Log that user is offline and command cannot be delivered
+        try {
+          await this.errorLogService.logError({
+            source: ErrorSource.WebPubSub,
+            endpoint: 'ProcessCommand',
+            functionName: 'ProcessCommand',
+            error: new Error(`Command ${command} cannot be delivered: user is offline`),
+            userId,
+            userEmail,
+            context: {
+              commandId,
+              command,
+              presenceStatus,
+              reason,
+              timestamp: timestamp.toISOString()
+            }
+          });
+        } catch {
+          // Fail silently if logging fails
+        }
         return false; // User offline, command will be delivered later
       }
 
@@ -149,7 +173,26 @@ export class ProcessCommandDomainService {
       await this.pendingCommandDomainService.markAsPublished(commandId);
       
       return true;
-    } catch {
+    } catch (error) {
+      // Log error when command delivery fails
+      try {
+        await this.errorLogService.logError({
+          source: ErrorSource.WebPubSub,
+          endpoint: 'ProcessCommand',
+          functionName: 'ProcessCommand',
+          error: error instanceof Error ? error : new Error(String(error)),
+          userId,
+          userEmail,
+          context: {
+            commandId,
+            command,
+            reason,
+            timestamp: timestamp.toISOString()
+          }
+        });
+      } catch {
+        // Fail silently if logging fails
+      }
       // Command is still persisted
       return false;
     }
