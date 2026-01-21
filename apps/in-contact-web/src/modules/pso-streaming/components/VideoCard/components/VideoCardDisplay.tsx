@@ -5,7 +5,7 @@
  * or a placeholder with status message and timer when not streaming.
  */
 
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { CompactTimer } from '../../TimerDisplay';
 import { RefreshButton } from '../../RefreshButton';
 import { useCameraFailureStore } from '../../../stores/camera-failure-store';
@@ -30,10 +30,31 @@ export const VideoCardDisplay: React.FC<IVideoCardDisplayProps> = ({
   connecting = false,
 }) => {
   const cameraFailureError = useCameraFailureStore((state) => state.getError(email));
+  const clearError = useCameraFailureStore((state) => state.clearError);
+  const previousConnectingRef = useRef(connecting);
 
-  // Only show video if shouldStream is true and not connecting (and no error to show)
-  // If there's a camera failure error, always show the placeholder with error message
-  const showVideo = shouldStream && !connecting && !cameraFailureError;
+  // Clear error when a new connection attempt starts (connecting changes from false to true)
+  useEffect(() => {
+    const wasConnecting = previousConnectingRef.current;
+    const isConnecting = connecting;
+
+    // If we're starting a new connection attempt (was not connecting, now is connecting)
+    if (!wasConnecting && isConnecting) {
+      // Clear any previous error to avoid showing stale error messages
+      if (cameraFailureError) {
+        clearError(email);
+      }
+    }
+
+    previousConnectingRef.current = connecting;
+  }, [connecting, cameraFailureError, email, clearError]);
+
+  // Only show video if shouldStream is true and not connecting
+  const showVideo = shouldStream && !connecting;
+
+  // Only show error message during connecting state (synchronized with connecting duration)
+  // When video is playing (shouldStream && !connecting), error should NOT be shown
+  const showError = connecting && cameraFailureError;
 
   // Use fixed 16:9 aspect ratio for consistent card sizes across the grid
   // This ensures all video cards have uniform dimensions regardless of video source aspect ratio
@@ -76,7 +97,8 @@ export const VideoCardDisplay: React.FC<IVideoCardDisplayProps> = ({
         </>
       ) : (
         <div className="absolute inset-0 flex flex-col items-center justify-center rounded-xl video-card-placeholder" style={{ backgroundColor: '#000000' }}>
-          {cameraFailureError && (
+          {/* Show error only during connecting state (synchronized with connecting) */}
+          {showError && (
             <span className="text-xl font-medium mb-2 px-4 text-center text-red-400">
               {cameraFailureError}
             </span>

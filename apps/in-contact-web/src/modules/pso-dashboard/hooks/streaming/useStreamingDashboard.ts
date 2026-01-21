@@ -17,6 +17,7 @@ import { StreamingClient } from '../../api';
 import {
   handlePermissionError,
   handleConnectionError,
+  handleTrackCreationError,
 } from './utils/errorHandling';
 import type { IUseStreamingDashboardReturn } from './types/useStreamingDashboardTypes';
 
@@ -309,7 +310,18 @@ export function useStreamingDashboard(): IUseStreamingDashboardReturn {
       }
 
       // Create video track (240p at 15 fps)
-      const track = await mediaDevices.createVideoTrackFromDevices();
+      let track: LocalVideoTrack;
+      try {
+        track = await mediaDevices.createVideoTrackFromDevices();
+      } catch (trackError) {
+        // Report track creation failure (does not throw)
+        await handleTrackCreationError({
+          userAdId,
+          userEmail,
+          error: trackError,
+        });
+        throw trackError;
+      }
       videoTrackRef.current = track;
       setVideoTrack(track);
 

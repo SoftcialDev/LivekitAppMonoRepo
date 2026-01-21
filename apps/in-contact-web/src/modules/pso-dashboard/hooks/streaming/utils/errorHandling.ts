@@ -10,11 +10,13 @@ import { logDebug, logError } from '@/shared/utils/logger';
 import {
   reportLiveKitConnectionFailure,
   reportMediaPermissionFailure,
+  reportTrackCreationFailure,
 } from '@/modules/camera-failures/utils/cameraFailureReporting';
 import { MediaPermissionError } from '@/shared/errors';
 import type {
   HandlePermissionErrorOptions,
   HandleConnectionErrorOptions,
+  HandleTrackCreationErrorOptions,
 } from '../types/errorHandlingTypes';
 
 /**
@@ -97,6 +99,43 @@ export async function handleConnectionError(
     return true;
   } catch (reportError) {
     logDebug('[handleConnectionError] Failed to report connection error', {
+      error: reportError,
+      userEmail,
+    });
+    return false;
+  }
+}
+
+/**
+ * Handles a track creation error by reporting it to the backend
+ * 
+ * Does not throw errors - only reports and logs them.
+ * 
+ * @param options - Error handling options
+ * @returns True if error was reported, false otherwise
+ */
+export async function handleTrackCreationError(
+  options: HandleTrackCreationErrorOptions
+): Promise<boolean> {
+  const { userAdId, userEmail, error } = options;
+
+  if (!userAdId || !userEmail) {
+    logDebug('[handleTrackCreationError] Skipping report - missing user info', {
+      hasUserAdId: !!userAdId,
+      hasUserEmail: !!userEmail,
+    });
+    return false;
+  }
+
+  try {
+    await reportTrackCreationFailure({
+      userAdId,
+      userEmail,
+      error,
+    });
+    return true;
+  } catch (reportError) {
+    logDebug('[handleTrackCreationError] Failed to report track creation error', {
       error: reportError,
       userEmail,
     });

@@ -318,3 +318,23 @@ export interface ReportMediaPermissionFailureOptions {
   microphoneBlocked?: boolean;
 }
 
+/**
+ * Options for reporting a track creation failure
+ */
+export interface ReportTrackCreationFailureOptions {
+  /**
+   * User Azure AD Object ID
+   */
+  userAdId: string;
+
+  /**
+   * User email address
+   */
+  userEmail: string;
+
+  /**
+   * Error that occurred
+   */
+  error: Error | unknown;
+}
+

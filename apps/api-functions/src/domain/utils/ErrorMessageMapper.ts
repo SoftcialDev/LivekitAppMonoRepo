@@ -10,7 +10,7 @@ import { CameraFailureStage } from '@prisma/client';
  * Error pattern matchers for specific error scenarios
  */
 const ERROR_PATTERNS = {
-  deviceInUse: /already in use|device.*busy|device.*occupied|in use by another|all cameras.*busy/i,
+  deviceInUse: /already in use|device.*busy|device.*occupied|in use by another|all cameras.*busy|could not start video source|could not start.*source/i,
   timeout: /timeout|timed out/i,
   network: /failed to fetch|network|connection.*refused/i,
   connectionInProgress: /already in progress|connection already/i,
@@ -169,9 +169,11 @@ export function getAdminFriendlyErrorMessage(
     case CameraFailureStage.TrackCreate:
       const appName = extractAppName(errorMessage);
       // DeviceInUseError is explicitly set by frontend when all cameras are busy
+      // NotReadableError with "Could not start video source" typically indicates device is in use
       // Also check for explicit "all cameras" or "device in use" patterns
       const isDeviceInUse = errorName === 'DeviceInUseError' ||
-                            /all cameras.*busy|device.*in use by another application/i.test(errorMessage || '') ||
+                            errorName === 'NotReadableError' ||
+                            /all cameras.*busy|device.*in use by another application|could not start video source|could not start.*source/i.test(errorMessage || '') ||
                             ERROR_PATTERNS.deviceInUse.test(errorMessage || '');
       
       if (isDeviceInUse) {

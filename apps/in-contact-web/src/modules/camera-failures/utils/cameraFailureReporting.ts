@@ -12,6 +12,7 @@ import { CameraFailureStage } from '../enums/cameraFailureStage';
 import type {
   ReportLiveKitConnectionFailureOptions,
   ReportMediaPermissionFailureOptions,
+  ReportTrackCreationFailureOptions,
 } from '../types/cameraFailureTypes';
 
 /**
@@ -141,6 +142,41 @@ export async function reportMediaPermissionFailure(
   } catch (reportError) {
     // Fail silently - logging already done in reportCameraFailure
     logDebug('[reportMediaPermissionFailure] Failed to report camera failure', {
+      error: reportError,
+      userEmail,
+    });
+  }
+}
+
+/**
+ * Reports a track creation failure to the backend
+ * 
+ * @param options - Reporting options
+ * @remarks Fails silently to avoid disrupting user experience
+ */
+export async function reportTrackCreationFailure(
+  options: ReportTrackCreationFailureOptions
+): Promise<void> {
+  const { userAdId, userEmail, error } = options;
+
+  const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+  const errorName = error instanceof Error ? error.name : 'Error';
+  const initiatedByEmail = getStoredInitiatorEmail();
+
+  try {
+    await apiReportCameraFailure({
+      stage: CameraFailureStage.TrackCreate,
+      errorName: truncateString(errorName, 100),
+      errorMessage: truncateString(errorMessage, 1000),
+      initiatedByEmail,
+      metadata: {
+        userAdId,
+        userEmail,
+      },
+    });
+  } catch (reportError) {
+    // Fail silently - logging already done in reportCameraFailure
+    logDebug('[reportTrackCreationFailure] Failed to report camera failure', {
       error: reportError,
       userEmail,
     });

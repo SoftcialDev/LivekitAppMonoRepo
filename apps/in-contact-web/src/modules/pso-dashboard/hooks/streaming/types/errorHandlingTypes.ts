@@ -54,3 +54,23 @@ export interface HandleConnectionErrorOptions {
   livekitUrl?: string;
 }
 
+/**
+ * Options for handling track creation errors
+ */
+export interface HandleTrackCreationErrorOptions {
+  /**
+   * User Azure AD Object ID
+   */
+  userAdId?: string;
+
+  /**
+   * User email address
+   */
+  userEmail?: string;
+
+  /**
+   * Error that occurred
+   */
+  error: unknown;
+}
+
