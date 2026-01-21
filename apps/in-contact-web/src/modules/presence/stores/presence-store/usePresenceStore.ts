@@ -299,22 +299,41 @@ export const usePresenceStore = create<IPresenceState>((set, get) => {
       set((state) => {
         const wasOnline = state.onlineUsers.some((x) => x.email === user.email);
         const wasOffline = state.offlineUsers.some((x) => x.email === user.email);
+        
+        // Find existing user to preserve platform if not in new message
+        const existingUser = wasOnline 
+          ? state.onlineUsers.find((x) => x.email === user.email)
+          : state.offlineUsers.find((x) => x.email === user.email);
+
+        // Preserve existing platform if new message doesn't include it
+        // This ensures platform doesn't get lost when API sends updates without it
+        const preservedPlatform = user.platform !== undefined && user.platform !== null
+          ? user.platform  // Use platform from WebSocket message if present
+          : existingUser?.platform; // Otherwise preserve existing platform
 
         // Update user status in the user object
+        // Always include platform (either from message or preserved from existing user)
         const updatedUser: UserStatus = {
           ...user,
           status: isOnline ? PresenceStatus.Online : PresenceStatus.Offline,
+          platform: preservedPlatform,
         };
 
-        // No change → skip set()
-        if ((isOnline && wasOnline) || (!isOnline && wasOffline)) {
+        // Check if there are actual changes (not just status change, but also platform changes)
+        const hasChanges = wasOnline !== isOnline || 
+          existingUser?.platform !== preservedPlatform ||
+          existingUser?.fullName !== user.fullName ||
+          existingUser?.lastSeenAt !== user.lastSeenAt;
+
+        // If no actual changes and user is already in correct list, skip update
+        if (!hasChanges && ((isOnline && wasOnline) || (!isOnline && wasOffline))) {
           return state;
         }
 
         let onlineUsers: UserStatus[];
         if (isOnline) {
           if (wasOnline) {
-            // Update existing online user
+            // Update existing online user (preserves platform if message doesn't include it)
             onlineUsers = state.onlineUsers.map((u) => (u.email === user.email ? updatedUser : u));
           } else {
             // Add new online user
@@ -330,7 +349,7 @@ export const usePresenceStore = create<IPresenceState>((set, get) => {
           // Remove from offline users
           offlineUsers = state.offlineUsers.filter((x) => x.email !== user.email);
         } else if (wasOffline) {
-          // Update existing offline user
+          // Update existing offline user (preserves platform if message doesn't include it)
           offlineUsers = state.offlineUsers.map((u) => (u.email === user.email ? updatedUser : u));
         } else {
           // Add new offline user

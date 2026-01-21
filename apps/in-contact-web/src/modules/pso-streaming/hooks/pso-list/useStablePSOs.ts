@@ -40,7 +40,8 @@ export function useStablePSOs(
         return !lastUser || 
                user.email !== lastUser.email || 
                user.status !== lastUser.status ||
-               user.supervisorEmail !== lastUser.supervisorEmail;
+               user.supervisorEmail !== lastUser.supervisorEmail ||
+               user.platform !== lastUser.platform;
       });
       
       if (!hasChanges) {

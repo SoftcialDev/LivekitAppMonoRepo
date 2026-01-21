@@ -59,9 +59,21 @@ export function useStreamSessionEvents(options: IUseStreamSessionEventsOptions):
         
         clearStopStatusTimer(emailKey);
       } else {
+        // Session is active (stoppedAt is null)
+        // Only remove statusInfo if stream actually started successfully (has accessToken)
+        // If no accessToken, preserve statusInfo because stream may have failed to start
         setCredsMap((prev: CredsMap) => {
           const current = prev[emailKey];
           if (!current) return prev;
+          
+          // If there's no accessToken, the stream hasn't started successfully yet
+          // Preserve statusInfo to keep timer visible in case stream fails
+          if (!current.accessToken) {
+            logDebug('[useStreamSessionEvents] Session active but no accessToken yet, preserving statusInfo', { email: emailKey });
+            return prev; // Don't remove statusInfo yet
+          }
+          
+          // Stream started successfully (has accessToken), safe to remove statusInfo
           const { statusInfo, ...rest } = current;
           return {
             ...prev,
