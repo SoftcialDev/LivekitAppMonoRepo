@@ -1,0 +1,24 @@
+/**
+ * @fileoverview Snapshot Report Page Styles
+ * @summary Custom styles for snapshot report table
+ * @description Styles for hiding scrollbar and optimizing table cell padding
+ */
+
+.snapshot-report-table [class*="overflow"]::-webkit-scrollbar {
+  display: none;
+}
+
+.snapshot-report-table [class*="overflow"] {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.snapshot-report-table td {
+  padding: 0.5rem 0.75rem !important;
+}
+
+.snapshot-report-table th {
+  padding: 0.5rem 0.75rem !important;
+  font-size: 0.75rem !important;
+}
+

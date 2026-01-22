@@ -18,6 +18,7 @@ import { useTableSelection } from '@/shared/hooks/useTableSelection';
 import { useLocalDataLoader } from '@/shared/hooks/useLocalDataLoader';
 import { createSnapshotReportColumns } from './config/snapshotReportPageConfig';
 import type { SnapshotReport } from '../types/snapshotTypes';
+import './styles/snapshotReportPageStyles.css';
 
 /**
  * SnapshotReportPage component
@@ -145,7 +146,7 @@ export const SnapshotReportPage: React.FC = () => {
   return (
     <>
       <div className="flex flex-col flex-1 min-h-0 bg-(--color-primary-dark) p-4">
-        <div className="flex justify-center max-w-[90%] w-full mx-auto">
+        <div className="flex justify-center max-w-[90%] w-full mx-auto snapshot-report-table">
           <DataTable<SnapshotReport>
             key={refreshKey}
             columns={columns}
@@ -164,14 +165,24 @@ export const SnapshotReportPage: React.FC = () => {
         open={previewOpen}
         title="Snapshot Preview"
         onClose={() => setPreviewOpen(false)}
+        maxWidth="w-[80vw] max-w-5xl"
       >
-        {preview && (
-          <img
-            src={preview.imageUrl}
-            alt="Full snapshot"
-            className="max-w-full w-fit h-auto object-contain rounded"
-          />
-        )}
+        <div className="flex items-center justify-center w-full h-full min-h-[75vh] p-2">
+          {preview && (
+            <img
+              src={preview.imageUrl}
+              alt="Full snapshot"
+              className="object-contain rounded"
+              style={{ 
+                maxWidth: '100%', 
+                maxHeight: '85vh',
+                width: 'auto',
+                height: 'auto',
+                minWidth: '600px'
+              }}
+            />
+          )}
+        </div>
       </PreviewModal>
 
       {/* Delete confirmation modal */}

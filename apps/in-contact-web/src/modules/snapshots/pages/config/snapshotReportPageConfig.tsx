@@ -27,14 +27,17 @@ export function createSnapshotReportColumns(
     { 
       key: 'supervisorName', 
       header: 'Taken By',
+      cellClassName: 'text-xs',
     },
     { 
       key: 'psoFullName', 
       header: 'PSO',
+      cellClassName: 'text-xs',
     },
     {
       key: 'reason',
       header: 'Reason',
+      cellClassName: 'whitespace-normal text-xs',
       render: (row) => {
         const reasonText = row.reason?.label || '—';
         return (
@@ -44,8 +47,12 @@ export function createSnapshotReportColumns(
             style={{ 
               wordBreak: 'break-word',
               overflowWrap: 'break-word',
-              lineHeight: '1.4',
-              minWidth: '150px'
+              whiteSpace: 'normal',
+              lineHeight: '1.3',
+              fontSize: '0.75rem',
+              minWidth: '120px',
+              maxWidth: '200px',
+              overflow: 'visible'
             }}
           >
             {reasonText}
@@ -56,6 +63,7 @@ export function createSnapshotReportColumns(
     {
       key: 'description',
       header: 'Description',
+      cellClassName: 'whitespace-normal text-xs',
       render: (row) => {
         const description = row.description || '—';
         return (
@@ -67,10 +75,10 @@ export function createSnapshotReportColumns(
               overflowWrap: 'break-word',
               whiteSpace: 'normal',
               lineHeight: '1.4',
-              minWidth: '200px',
-              maxWidth: '400px',
-              overflowY: 'auto',
-              maxHeight: '120px'
+              fontSize: '0.75rem',
+              minWidth: '180px',
+              maxWidth: '300px',
+              overflow: 'visible'
             }}
           >
             {description}
@@ -85,7 +93,7 @@ export function createSnapshotReportColumns(
         <button
           type="button"
           onClick={() => handleView(row)}
-          className={SNAPSHOT_REPORT_CELL_CLASSES.IMAGE}
+          className="w-12 h-12 object-cover rounded cursor-pointer shrink-0"
           aria-label={`View snapshot for ${row.psoFullName}`}
         >
           <img
@@ -100,13 +108,14 @@ export function createSnapshotReportColumns(
       key: 'takenAt',       
       header: 'Date & Time',
       render: row => formatUtcTimestamp(row.takenAt),
-      cellClassName: SNAPSHOT_REPORT_CELL_CLASSES.DATE_TIME,
+      cellClassName: `${SNAPSHOT_REPORT_CELL_CLASSES.DATE_TIME} text-xs`,
     },
     {
       key: 'actions',
       header: 'Actions',
+      cellClassName: 'shrink-0',
       render: row => (
-        <div className="flex space-x-2">
+        <div className="flex space-x-1 shrink-0" style={{ width: '90px', justifyContent: 'flex-start' }}>
           <TrashButton
             onClick={() => openDeleteModal(row)}
             title="Delete snapshot"
