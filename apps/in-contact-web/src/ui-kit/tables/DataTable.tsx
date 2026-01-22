@@ -77,7 +77,7 @@ export function DataTable<T extends { id?: string }>(
     externalLoadingAction = 'Loading data',
     customFilter,
   }: Readonly<IDataTableProps<T>>
-): JSX.Element {
+): React.JSX.Element {
   const {
     initialFetchSize = 80,
     fetchSize = 80,

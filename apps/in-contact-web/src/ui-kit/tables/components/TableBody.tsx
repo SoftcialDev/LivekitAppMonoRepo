@@ -7,6 +7,7 @@
 import type { ITableBodyProps } from '../types';
 import { Loading } from '@/ui-kit/feedback/Loading';
 import { TableRow } from './TableRow';
+import '../styles/tableStyles.css';
 
 /**
  * Table body component
@@ -27,14 +28,14 @@ export function TableBody<T>({
   loadingAction,
   showSelection,
   isModalMode,
-}: Readonly<ITableBodyProps<T>>): JSX.Element {
+}: Readonly<ITableBodyProps<T>>): React.JSX.Element {
   if (loading) {
     return (
       <tbody>
         <tr>
           <td 
             colSpan={(showSelection ? 1 : 0) + columns.length} 
-            className="relative px-6 py-16 text-center min-h-[200px]"
+            className="table-loading-cell"
           >
             <Loading action={loadingAction} bgClassName="bg-transparent" />
           </td>

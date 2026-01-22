@@ -17,6 +17,13 @@
   padding: 0.5rem 0.75rem !important;
 }
 
+/* Exception for loading state - needs more space */
+.snapshot-report-table td.table-loading-cell {
+  padding: 4rem 2rem !important;
+  min-height: 400px !important;
+  height: 400px !important;
+}
+
 .snapshot-report-table th {
   padding: 0.5rem 0.75rem !important;
   font-size: 0.75rem !important;
