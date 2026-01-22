@@ -128,35 +128,44 @@ export const SupervisorSelector: React.FC<ISupervisorSelectorProps> = ({
     );
   }
 
+  // Format display text: show PSO name and supervisor in a compact way
+  const displayText = selectedName || currentSupervisorName || 'Sin supervisor';
+  const isSupervisorSelected = Boolean(selectedName || currentSupervisorName);
+
   return (
-    <div className={`flex items-center text-white truncate ${className}`}>
-      <span className="inline-block w-3 h-3 rounded-full bg-(--color-secondary) mr-2"></span>
-      <span className="text-white truncate text-base leading-6">
-        {psoName} — Supervisor: 
+    <div className={`flex items-center text-white min-w-0 ${className}`}>
+      <span className="inline-block w-2 h-2 rounded-full bg-(--color-secondary) mr-1.5 shrink-0"></span>
+      <span className="text-white text-xs leading-4 shrink-0 truncate max-w-[35%] font-medium">
+        {psoName}
       </span>
-      <div className={`ml-2 flex-1 min-w-0 relative ${disabled || isChanging ? 'opacity-50 pointer-events-none' : ''}`}>
+      <span className="text-white/70 text-xs leading-4 shrink-0 mx-1">—</span>
+      <div className={`flex-1 min-w-[100px] relative z-10 ${disabled || isChanging ? 'opacity-50 pointer-events-none' : ''}`}>
         <SearchableDropdown
           options={supervisorOptions}
           selectedValues={selectedValues}
           onSelectionChange={handleSupervisorChange}
-          placeholder={isChanging ? 'Updating...' : (selectedName || currentSupervisorName || 'Select supervisor')}
+          placeholder={isChanging ? 'Actualizando...' : displayText}
           className="w-full"
-          inputClassName="
+          inputClassName={`
             w-full px-2 py-1
             bg-transparent border-0 rounded
-            text-white font-normal text-base
+            text-white font-normal text-xs
             placeholder-gray-300 placeholder-opacity-75
             focus:outline-none focus:bg-[var(--color-primary-dark)]
             disabled:opacity-50 disabled:cursor-not-allowed
-          "
+            cursor-pointer
+            min-w-[100px]
+            ${isSupervisorSelected ? 'text-white' : 'text-gray-300'}
+          `}
           menuClassName="
             absolute left-0 top-full mt-1 w-full
             bg-[var(--color-primary-dark)] border border-[var(--color-secondary)] rounded shadow-lg
-            text-white font-normal text-base
+            text-white font-normal text-sm
+            z-50
           "
           itemClassName="
             w-full flex items-center px-3 py-2
-            text-white font-normal text-base
+            text-white font-normal text-sm
             hover:bg-[var(--color-primary)] cursor-pointer
             border-b border-[var(--color-primary)] last:border-b-0
           "

@@ -210,8 +210,14 @@ export function SearchableDropdown<Value>({
     </div>
   );
 
+  // Use block display when w-full is in className, otherwise use inline-block with default width
+  const hasFullWidth = className.includes('w-full');
+  const containerClasses = hasFullWidth 
+    ? `relative block ${className}`
+    : `relative inline-block w-1/3 ${className}`;
+
   return (
-    <div className={`relative inline-block w-1/3 ${className}`} ref={containerRef}>
+    <div className={containerClasses} ref={containerRef}>
       {/* Search input with clear button */}
       <div className="relative">
         <input

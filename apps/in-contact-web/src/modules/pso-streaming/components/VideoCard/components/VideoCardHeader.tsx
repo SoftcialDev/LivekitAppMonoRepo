@@ -38,7 +38,7 @@ export const VideoCardHeader: React.FC<IVideoCardHeaderProps> = ({
   }
 
   return (
-    <div className="flex items-center px-2 py-1 relative z-50 gap-2">
+    <div className="flex items-center px-2 py-1 relative z-50 gap-2 min-w-0">
       {psoName && onSupervisorChange ? (
         <SupervisorSelector
           psoName={psoName}
@@ -47,11 +47,11 @@ export const VideoCardHeader: React.FC<IVideoCardHeaderProps> = ({
           psoEmail={email}
           onSupervisorChange={onSupervisorChange}
           disabled={disableControls}
-          className="w-full"
+          className="w-full min-w-0"
           portalMinWidthPx={portalMinWidthPx}
         />
       ) : (
-        <div className="text-white truncate flex-1">{name}</div>
+        <div className="text-white truncate flex-1 min-w-0">{name}</div>
       )}
       {psoPlatform && (
         <div 
