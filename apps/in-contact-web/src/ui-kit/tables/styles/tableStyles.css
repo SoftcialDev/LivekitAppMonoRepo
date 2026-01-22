@@ -1,0 +1,17 @@
+/**
+ * @fileoverview Table Styles
+ * @summary Global styles for table components
+ * @description Styles for table loading states and general table styling
+ */
+
+/* Loading state cell - needs more space for spinner */
+table tbody tr td.table-loading-cell {
+  position: relative !important;
+  width: 100% !important;
+  padding: 4rem 2rem !important;
+  min-height: 400px !important;
+  height: 400px !important;
+  vertical-align: middle !important;
+  text-align: center !important;
+}
+
