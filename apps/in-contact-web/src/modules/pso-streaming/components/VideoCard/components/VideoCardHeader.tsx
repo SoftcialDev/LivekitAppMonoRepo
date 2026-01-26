@@ -32,10 +32,15 @@ export const VideoCardHeader: React.FC<IVideoCardHeaderProps> = ({
   disableControls,
   portalMinWidthPx,
   psoPlatform,
+  totalItemCount,
 }) => {
   if (!showHeader) {
     return null;
   }
+
+  const isSmallGrid = totalItemCount !== undefined && totalItemCount <= 3;
+  const textSizeClass = isSmallGrid ? 'text-lg font-semibold' : 'text-sm';
+  const supervisorTextSizeClass = isSmallGrid ? 'text-base' : 'text-xs';
 
   return (
     <div className="flex items-center px-2 py-1 relative z-50 gap-2 min-w-0">
@@ -47,11 +52,12 @@ export const VideoCardHeader: React.FC<IVideoCardHeaderProps> = ({
           psoEmail={email}
           onSupervisorChange={onSupervisorChange}
           disabled={disableControls}
-          className="w-full min-w-0"
+          className={`w-full min-w-0 ${textSizeClass}`}
           portalMinWidthPx={portalMinWidthPx}
+          textSizeClass={supervisorTextSizeClass}
         />
       ) : (
-        <div className="text-white truncate flex-1 min-w-0">{name}</div>
+        <div className={`text-white truncate flex-1 min-w-0 ${textSizeClass}`}>{name}</div>
       )}
       {psoPlatform && (
         <div 

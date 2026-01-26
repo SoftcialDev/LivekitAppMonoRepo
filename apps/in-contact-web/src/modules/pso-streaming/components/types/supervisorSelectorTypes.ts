@@ -16,5 +16,6 @@ export interface ISupervisorSelectorProps {
   disabled?: boolean;
   className?: string;
   portalMinWidthPx?: number;
+  textSizeClass?: string;
 }
 

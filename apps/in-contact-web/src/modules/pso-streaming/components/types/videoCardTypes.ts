@@ -31,6 +31,7 @@ export interface ISimpleVideoCardProps {
   stoppedAt?: string | null;
   timerInfo?: TimerInfo | null;
   psoPlatform?: Platform | null;
+  totalItemCount?: number;
 }
 
 /**
@@ -59,4 +60,5 @@ export interface IVideoCardProps {
   stopReason?: StreamingStopReason | string | null;
   stoppedAt?: string | null;
   psoPlatform?: Platform | null;
+  totalItemCount?: number;
 }

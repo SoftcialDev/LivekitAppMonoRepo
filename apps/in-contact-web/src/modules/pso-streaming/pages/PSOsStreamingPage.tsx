@@ -273,6 +273,7 @@ const PSOsStreamingPage: React.FC = () => {
                   stopReason={statusInfo?.lastSession?.stopReason || null}
                   stoppedAt={statusInfo?.lastSession?.stoppedAt || null}
                   psoPlatform={psoPlatform}
+                  totalItemCount={displayList.length}
                 />
               </VideoGridItem>
             );

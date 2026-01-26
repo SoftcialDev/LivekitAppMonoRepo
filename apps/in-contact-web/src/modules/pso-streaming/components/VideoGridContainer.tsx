@@ -4,7 +4,7 @@
  * @description Manages grid layout styling and structure for video cards
  */
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   calculateGridTemplateColumns,
   calculateItemStyle,
@@ -14,15 +14,37 @@ import {
 import type { IVideoGridContainerProps, IVideoGridItemProps } from './types/videoGridTypes';
 
 /**
+ * Hook to get current window width
+ * @returns Current window width in pixels
+ */
+function useWindowWidth(): number {
+  const [width, setWidth] = useState<number>(
+    typeof window !== 'undefined' ? window.innerWidth : 1920
+  );
+
+  useEffect(() => {
+    const handleResize = (): void => {
+      setWidth(window.innerWidth);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  return width;
+}
+
+/**
  * Container component for video card grid
- * Handles responsive grid layout based on number of items
+ * Handles responsive grid layout based on number of items and screen size
  */
 export const VideoGridContainer: React.FC<IVideoGridContainerProps> = ({
   children,
   itemCount,
   className = '',
 }) => {
-  const gridTemplateColumns = calculateGridTemplateColumns(itemCount);
+  const screenWidth = useWindowWidth();
+  const gridTemplateColumns = calculateGridTemplateColumns(itemCount, screenWidth);
 
   return (
     <div
@@ -46,8 +68,9 @@ export const VideoGridItem: React.FC<IVideoGridItemProps> = ({
   totalCount,
   className = '',
 }) => {
+  const screenWidth = useWindowWidth();
   const itemStyle = calculateItemStyle(itemIndex, totalCount);
-  const alignClass = calculateAlignClass(itemIndex, totalCount);
+  const alignClass = calculateAlignClass(itemIndex, totalCount, screenWidth);
 
   return (
     <div

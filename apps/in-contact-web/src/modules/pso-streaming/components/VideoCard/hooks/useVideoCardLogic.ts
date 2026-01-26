@@ -49,6 +49,7 @@ export function useVideoCardLogic(
     onSupervisorChange,
     portalMinWidthPx,
     psoPlatform,
+    totalItemCount,
   } = options;
 
   const { account } = useAuth();
@@ -250,6 +251,7 @@ export function useVideoCardLogic(
       disableControls,
       portalMinWidthPx,
       psoPlatform,
+      totalItemCount,
     },
     displayProps: {
       shouldStream,

@@ -35,7 +35,8 @@ const SimpleVideoCard: React.FC<ISimpleVideoCardProps> = memo(({
   portalMinWidthPx,
   stopReason,
   stoppedAt,
-  psoPlatform
+  psoPlatform,
+  totalItemCount,
 }) => {
   const { handlePlay, handleStop, handleChat } = useVideoActions();
 
@@ -82,6 +83,7 @@ const SimpleVideoCard: React.FC<ISimpleVideoCardProps> = memo(({
       onSupervisorChange={onSupervisorChange}
       portalMinWidthPx={portalMinWidthPx}
       psoPlatform={psoPlatform}
+      totalItemCount={totalItemCount}
     />
   );
 }, (prevProps, nextProps) => {

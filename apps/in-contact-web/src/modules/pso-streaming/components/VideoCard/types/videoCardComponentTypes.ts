@@ -23,6 +23,7 @@ export interface IVideoCardHeaderProps {
   disableControls: boolean;
   portalMinWidthPx?: number;
   psoPlatform?: Platform | null;
+  totalItemCount?: number;
 }
 
 /**

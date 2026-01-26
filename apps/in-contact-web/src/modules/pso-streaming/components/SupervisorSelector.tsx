@@ -27,6 +27,7 @@ export const SupervisorSelector: React.FC<ISupervisorSelectorProps> = ({
   disabled = false,
   className = '',
   portalMinWidthPx,
+  textSizeClass = 'text-xs',
 }) => {
   const supervisors = useSupervisorsStore((state) => state.supervisors);
   const supLoading = useSupervisorsStore((state) => state.loading);
@@ -135,10 +136,10 @@ export const SupervisorSelector: React.FC<ISupervisorSelectorProps> = ({
   return (
     <div className={`flex items-center text-white min-w-0 ${className}`}>
       <span className="inline-block w-2 h-2 rounded-full bg-(--color-secondary) mr-1.5 shrink-0"></span>
-      <span className="text-white text-xs leading-4 shrink-0 truncate max-w-[35%] font-medium">
+      <span className={`text-white ${textSizeClass} leading-4 shrink-0 truncate max-w-[35%] font-medium`}>
         {psoName}
       </span>
-      <span className="text-white/70 text-xs leading-4 shrink-0 mx-1">—</span>
+      <span className={`text-white/70 ${textSizeClass} leading-4 shrink-0 mx-1`}>—</span>
       <div className={`flex-1 min-w-[100px] relative z-10 ${disabled || isChanging ? 'opacity-50 pointer-events-none' : ''}`}>
         <SearchableDropdown
           options={supervisorOptions}
@@ -149,7 +150,7 @@ export const SupervisorSelector: React.FC<ISupervisorSelectorProps> = ({
           inputClassName={`
             w-full px-2 py-1
             bg-transparent border-0 rounded
-            text-white font-normal text-xs
+            text-white font-normal ${textSizeClass}
             placeholder-gray-300 placeholder-opacity-75
             focus:outline-none focus:bg-[var(--color-primary-dark)]
             disabled:opacity-50 disabled:cursor-not-allowed
