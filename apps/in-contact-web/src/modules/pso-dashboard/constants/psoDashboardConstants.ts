@@ -32,6 +32,13 @@ export const VIDEO_ENCODING = {
 export const AUTO_RELOAD_INTERVAL_MS = 60_000; // 60 seconds
 
 /**
+ * Protection window after START command to prevent auto-reload
+ * Prevents page reload for 30 seconds after receiving START command
+ * to avoid interrupting the stream initialization process
+ */
+export const START_COMMAND_PROTECTION_WINDOW_MS = 30_000; // 30 seconds
+
+/**
  * Camera models that should be permanently blocked/filtered out
  * These cameras are known to cause issues and should not be used
  */

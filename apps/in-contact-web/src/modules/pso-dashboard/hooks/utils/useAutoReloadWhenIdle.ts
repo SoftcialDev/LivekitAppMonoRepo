@@ -1,22 +1,21 @@
 /**
  * @fileoverview useAutoReloadWhenIdle - Hook for auto-reloading page when idle
- * @summary Automatically reloads the page when idle and streaming
- * @description Reloads the page at specified intervals when streaming is active
- * to prevent connection issues and keep the page fresh.
+ * @description Automatically reloads the page at specified intervals when streaming is not active.
+ * Prevents reload during stream initialization by checking for recent START commands.
+ * Includes watchdog mechanism to ensure the reload interval continues functioning.
  */
 
 import { useEffect, useRef } from 'react';
-import { logDebug } from '@/shared/utils/logger';
+import { logDebug, logError, logWarn } from '@/shared/utils/logger';
+import { START_COMMAND_PROTECTION_WINDOW_MS } from '../../constants';
 import type { IUseAutoReloadWhenIdleOptions } from './types/useAutoReloadWhenIdleTypes';
 
 /**
- * Hook for auto-reloading the page when NOT streaming (idle)
- *
+ * Auto-reloads the page when streaming is not active
  * @param isStreaming - Whether streaming is currently active
  * @param options - Configuration options
- * @remarks
- * This hook automatically reloads the page at a fixed interval ONLY when streaming is NOT active.
- * The timer is cleaned up as soon as isStreaming becomes true.
+ * @param options.intervalMs - Interval in milliseconds between reload attempts (default: 120000)
+ * @param options.onlyWhenVisible - Whether to reload only when page is visible (default: false)
  */
 export function useAutoReloadWhenIdle(
   isStreaming: boolean,
@@ -24,37 +23,102 @@ export function useAutoReloadWhenIdle(
 ): void {
   const { intervalMs = 120_000, onlyWhenVisible = false } = options;
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const watchdogRef = useRef<NodeJS.Timeout | null>(null);
+  const lastReloadAttemptRef = useRef<number>(Date.now());
 
   useEffect(() => {
-    // If streaming is active, clear any pending timer and exit
     if (isStreaming) {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
       }
+      if (watchdogRef.current) {
+        clearTimeout(watchdogRef.current);
+        watchdogRef.current = null;
+      }
+      try {
+        localStorage.removeItem('lastStartCommandTimestamp');
+      } catch (error) {
+        logWarn('[useAutoReloadWhenIdle] Failed to clear START timestamp', { error });
+      }
       return;
     }
 
-    // Only reload when NOT streaming
-    intervalRef.current = setInterval(() => {
-      // Check visibility if onlyWhenVisible is true
-      if (onlyWhenVisible && document.visibilityState !== 'visible') {
-        logDebug('[useAutoReloadWhenIdle] Page not visible, skipping reload');
-        return;
+    const scheduleReload = (): void => {
+      try {
+        if (onlyWhenVisible && document.visibilityState !== 'visible') {
+          logDebug('[useAutoReloadWhenIdle] Page not visible, skipping reload');
+          return;
+        }
+
+        try {
+          const lastStartTimestamp = localStorage.getItem('lastStartCommandTimestamp');
+          if (lastStartTimestamp) {
+            const timestamp = parseInt(lastStartTimestamp, 10);
+            const timeSinceStart = Date.now() - timestamp;
+            
+            if (timeSinceStart < START_COMMAND_PROTECTION_WINDOW_MS) {
+              logDebug('[useAutoReloadWhenIdle] Skipping reload - START command received recently', {
+                timeSinceStart,
+                protectionWindow: START_COMMAND_PROTECTION_WINDOW_MS,
+              });
+              return;
+            } else {
+              localStorage.removeItem('lastStartCommandTimestamp');
+              logDebug('[useAutoReloadWhenIdle] Cleared expired START timestamp', {
+                timeSinceStart,
+              });
+            }
+          }
+        } catch (error) {
+          logWarn('[useAutoReloadWhenIdle] Error checking START timestamp', { error });
+        }
+
+        logDebug('[useAutoReloadWhenIdle] Reloading page due to idle timeout', {
+          intervalMs,
+          isStreaming,
+        });
+        lastReloadAttemptRef.current = Date.now();
+        globalThis.location.reload();
+      } catch (error) {
+        logError('[useAutoReloadWhenIdle] Error during reload', { error });
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current);
+        }
+        intervalRef.current = setInterval(scheduleReload, intervalMs);
       }
+    };
 
-      logDebug('[useAutoReloadWhenIdle] Reloading page due to idle timeout', {
-        intervalMs,
-        isStreaming,
-      });
-      globalThis.location.reload();
-    }, intervalMs);
+    intervalRef.current = setInterval(scheduleReload, intervalMs);
 
-    // Cleanup on unmount or when dependencies change
+    const watchdogInterval = intervalMs * 2;
+    const checkWatchdog = (): void => {
+      const timeSinceLastAttempt = Date.now() - lastReloadAttemptRef.current;
+      
+      if (timeSinceLastAttempt > watchdogInterval) {
+        logWarn('[useAutoReloadWhenIdle] Watchdog detected interval may have stopped, restarting', {
+          timeSinceLastAttempt,
+          intervalMs,
+        });
+        
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current);
+        }
+        intervalRef.current = setInterval(scheduleReload, intervalMs);
+        lastReloadAttemptRef.current = Date.now();
+      }
+    };
+
+    watchdogRef.current = setInterval(checkWatchdog, watchdogInterval) as unknown as NodeJS.Timeout;
+
     return () => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
+      }
+      if (watchdogRef.current) {
+        clearTimeout(watchdogRef.current);
+        watchdogRef.current = null;
       }
     };
   }, [isStreaming, intervalMs, onlyWhenVisible]);

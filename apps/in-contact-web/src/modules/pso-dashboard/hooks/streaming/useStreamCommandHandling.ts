@@ -1,25 +1,21 @@
 /**
- * @fileoverview useStreamCommandHandling - Handles START/STOP commands from WebSocket
- * @summary Listens to WebSocket commands and triggers stream start/stop
- * @description Listens for START/STOP commands from WebSocket and automatically
- * starts or stops the stream accordingly
+ * @fileoverview useStreamCommandHandling - Handles streaming commands from WebSocket
+ * @description Listens for START, STOP, and REFRESH commands from WebSocket and automatically
+ * triggers the corresponding stream actions. Manages WebSocket group membership for command delivery.
  */
 
 import { useEffect, useRef } from 'react';
 import { webSocketService } from '@/shared/services/webSocket';
 import { WebSocketGroupRetryManager } from '@/shared/services/webSocket/managers';
-import { logDebug, logError } from '@/shared/utils/logger';
+import { logDebug, logError, logWarn } from '@/shared/utils/logger';
 import type { IUseStreamCommandHandlingOptions } from './types/useStreamCommandHandlingTypes';
 
 /**
- * Hook for handling START/STOP streaming commands from WebSocket
- * 
- * Listens for WebSocket messages with format:
- * - { command: 'START' | 'STOP' | 'REFRESH', employeeEmail?: string, reason?: string }
- * 
- * Automatically starts/stops streaming when commands are received
- * 
+ * Handles streaming commands received via WebSocket
  * @param options - Configuration options
+ * @param options.userEmail - Email of the user to receive commands for
+ * @param options.onStartCommand - Callback function to execute when START command is received
+ * @param options.onStopCommand - Callback function to execute when STOP command is received
  */
 export function useStreamCommandHandling({
   userEmail,
@@ -28,11 +24,9 @@ export function useStreamCommandHandling({
 }: IUseStreamCommandHandlingOptions): void {
   const handlerRef = useRef<((message: unknown) => void) | null>(null);
   const processingRef = useRef<boolean>(false);
-  // Use refs to avoid recreating useEffect when callbacks change
   const onStartCommandRef = useRef(onStartCommand);
   const onStopCommandRef = useRef(onStopCommand);
 
-  // Keep refs in sync with latest callbacks
   useEffect(() => {
     onStartCommandRef.current = onStartCommand;
     onStopCommandRef.current = onStopCommand;
@@ -52,7 +46,6 @@ export function useStreamCommandHandling({
       try {
         const msg = message as Record<string, unknown>;
         
-        // Check if message has command field
         if (!('command' in msg)) {
           return;
         }
@@ -63,12 +56,10 @@ export function useStreamCommandHandling({
         const messageEmail = typeof employeeEmailValue === 'string' ? employeeEmailValue.toLowerCase() : null;
         const reason = typeof reasonValue === 'string' ? reasonValue : undefined;
 
-        // Filter by email if provided in message
         if (messageEmail && messageEmail !== userEmail.toLowerCase()) {
           return;
         }
 
-        // Prevent concurrent command processing
         if (processingRef.current) {
           logDebug('[useStreamCommandHandling] Command already processing, skipping', { command });
           return;
@@ -77,7 +68,6 @@ export function useStreamCommandHandling({
         if (command === 'START') {
           logDebug('[useStreamCommandHandling] Received START command', { userEmail });
           
-          // Store the email of the user who initiated the command in localStorage
           const initiatedByEmail = typeof msg.initiatedByEmail === 'string' ? msg.initiatedByEmail : null;
           if (initiatedByEmail) {
             try {
@@ -86,6 +76,13 @@ export function useStreamCommandHandling({
             } catch (storageError) {
               logError('[useStreamCommandHandling] Failed to store initiator email', { error: storageError });
             }
+          }
+          
+          try {
+            localStorage.setItem('lastStartCommandTimestamp', Date.now().toString());
+            logDebug('[useStreamCommandHandling] Stored START command timestamp');
+          } catch (storageError) {
+            logError('[useStreamCommandHandling] Failed to store START timestamp', { error: storageError });
           }
           
           processingRef.current = true;
@@ -125,29 +122,20 @@ export function useStreamCommandHandling({
 
     const groupRetryManager = new WebSocketGroupRetryManager();
 
-    // Join commands group and subscribe to messages
     const initialize = async (): Promise<void> => {
       try {
-        // Join commands group with retry logic
-        await groupRetryManager.joinGroupWithRetry(
-          commandsGroup,
-          () => webSocketService.joinGroup(commandsGroup),
-          () => webSocketService.isConnected()
-        );
+        await webSocketService.connect(userEmail);
+        await webSocketService.joinGroup(commandsGroup);
         logDebug('[useStreamCommandHandling] Joined commands group', { group: commandsGroup });
       } catch (error) {
-        logError('[useStreamCommandHandling] Failed to join commands group after retries', { error, group: commandsGroup });
-        // Page refresh already handled by retry manager for critical groups
+        logError('[useStreamCommandHandling] Failed to join commands group', { error, group: commandsGroup });
       }
 
-      // Subscribe to WebSocket messages
       unsubscribeMessage = webSocketService.onMessage(handleMessage);
     };
 
-    // Initialize on mount and when WebSocket reconnects
     initialize();
 
-    // Rejoin group on reconnect
     unsubscribeConnected = webSocketService.onConnected(async () => {
       try {
         await groupRetryManager.joinGroupWithRetry(
@@ -158,7 +146,6 @@ export function useStreamCommandHandling({
         logDebug('[useStreamCommandHandling] Rejoined commands group on reconnect', { group: commandsGroup });
       } catch (error) {
         logError('[useStreamCommandHandling] Failed to rejoin commands group on reconnect after retries', { error, group: commandsGroup });
-        // Page refresh already handled by retry manager for critical groups
       }
     });
 
@@ -169,11 +156,9 @@ export function useStreamCommandHandling({
       if (unsubscribeConnected) {
         unsubscribeConnected();
       }
-      // Leave group on cleanup (optional, as service manages groups)
       webSocketService.leaveGroup(commandsGroup).catch(() => {
-        // Ignore errors on cleanup
       });
     };
-  }, [userEmail]); // Only depend on userEmail - callbacks accessed via refs
+  }, [userEmail]);
 }
 

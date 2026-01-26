@@ -1,18 +1,20 @@
 /**
- * @fileoverview useStreamEmailChanges hook
- * @description Handles email list changes: fetching status for new emails and cleaning up removed emails
+ * @fileoverview useStreamEmailChanges - Hook for handling PSO email list changes
+ * @description Monitors changes in the PSO email list and handles initialization for new PSOs
+ * and cleanup for removed PSOs. Fetches streaming status and credentials for newly added PSOs.
  */
 
 import { useEffect } from 'react';
 import { fetchStreamingStatusBatch } from '../../api/streamingStatusBatchClient';
 import { INIT_FETCH_DELAY_MS } from '../../constants';
-import { logError } from '@/shared/utils/logger';
+import { logError, logDebug } from '@/shared/utils/logger';
 import { buildStatusMap, fetchAndDistributeCredentials } from './utils';
 import type { IUseStreamEmailChangesOptions } from './types/useStreamEmailChangesTypes';
 
 /**
- * Handles email list changes: fetching status for new emails and cleaning up removed emails
- * @param options - Configuration options for email changes handling
+ * Handles changes in the PSO email list by fetching status and credentials for new PSOs
+ * and cleaning up resources for removed PSOs
+ * @param options - Configuration options including email lists, refs, and callback functions
  */
 export function useStreamEmailChanges(options: IUseStreamEmailChangesOptions): void {
   const {
@@ -41,13 +43,18 @@ export function useStreamEmailChanges(options: IUseStreamEmailChangesOptions): v
     lastEmailsRef.current = curr;
     
     if (toJoin.length > 0) {
+      logDebug('[useStreamEmailChanges] New PSOs detected, fetching status and credentials', { 
+        newPSOs: toJoin,
+        totalPSOs: curr.length 
+      });
+      
       (async () => {
         try {
           const batch = await fetchStreamingStatusBatch(toJoin);
           const map = buildStatusMap(batch.statuses);
           updateCredsMapWithStatusInfo(toJoin, map);
-        } catch {
-          // Ignore
+        } catch (error) {
+          logError('[useStreamEmailChanges] Failed to fetch batch status for new PSOs', { error, emails: toJoin });
         }
       })();
     }
@@ -57,19 +64,21 @@ export function useStreamEmailChanges(options: IUseStreamEmailChangesOptions): v
         try {
           const newCreds = await fetchAndDistributeCredentials(toJoin, credsMapRef.current);
           mergeNewCredentials(newCreds, toJoin);
+          logDebug('[useStreamEmailChanges] Successfully fetched credentials for new PSOs', { emails: toJoin });
         } catch (error) {
-          logError('Error fetching new sessions', { error });
+          logError('[useStreamEmailChanges] Error fetching new sessions', { error, emails: toJoin });
         }
       };
       
       setTimeout(() => {
         fetchNewSessions().catch((err: unknown) => {
-          logError('[useStreamEmailChanges] Error in fetchNewSessions', { error: err });
+          logError('[useStreamEmailChanges] Error in fetchNewSessions', { error: err, emails: toJoin });
         });
       }, INIT_FETCH_DELAY_MS);
     }
     
     if (toLeave.length > 0) {
+      logDebug('[useStreamEmailChanges] PSOs removed, cleaning up', { removedPSOs: toLeave });
       toLeave.forEach(email => {
         clearPendingTimer(email);
         clearRetryTimer(email);
